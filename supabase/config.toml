@@ -1,0 +1,22 @@
+﻿project_id = "mealswipe-local"
+
+[functions.profile-upsert]
+verify_jwt = true
+
+[functions.deck-generate]
+verify_jwt = true
+
+[functions.swipe-record]
+verify_jwt = true
+
+[functions.alternative-suggest]
+verify_jwt = true
+
+[functions.day-result]
+verify_jwt = true
+
+[functions.shopping-list-build]
+verify_jwt = true
+
+[functions.reminder-set-time]
+verify_jwt = true

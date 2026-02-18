@@ -1,0 +1,28 @@
+﻿name: MealSwipe
+options:
+  minimumXcodeGenVersion: 2.38.0
+  deploymentTarget:
+    iOS: "17.0"
+settings:
+  base:
+    PRODUCT_BUNDLE_IDENTIFIER: com.projectx.mealswipe
+    SWIFT_VERSION: 5.10
+targets:
+  MealSwipe:
+    type: application
+    platform: iOS
+    sources:
+      - path: MealSwipe
+    settings:
+      base:
+        INFOPLIST_FILE: MealSwipe/App/Info.plist
+    info:
+      path: MealSwipe/App/Info.plist
+      properties:
+        CFBundleDisplayName: MealSwipe
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        NSUserNotificationUsageDescription: MealSwipe sends one daily reminder for your meal picks.
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
+    dependencies: []
