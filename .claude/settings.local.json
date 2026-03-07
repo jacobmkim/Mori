@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install --legacy-peer-deps)",
+      "Bash(npm show expo@\"~52.0.46\" peerDependencies)",
+      "Bash(npm show react-native@\"0.76.*\" version)",
+      "Bash(npm show react-native@0.76.9 peerDependencies)",
+      "Bash(npm show react versions --json)",
+      "Bash(node -e \"process.stdin.resume\\(\\);let d='''';process.stdin.on\\(''data'',c=>d+=c\\);process.stdin.on\\(''end'',\\(\\)=>{const v=JSON.parse\\(d\\);console.log\\(v.filter\\(x=>x.startsWith\\(''18.''\\)\\).slice\\(-5\\).join\\(''\\\\n''\\)\\)}\\)\")",
+      "Bash(npx expo config --type public)",
+      "Bash(npx tsc --noEmit)",
+      "Bash(npx expo install --fix)",
+      "Bash(node -e \"console.log\\(''nativewind:'', require\\(''./node_modules/nativewind/package.json''\\).version\\); console.log\\(''reanimated:'', require\\(''./node_modules/react-native-reanimated/package.json''\\).version\\); console.log\\(''expo-router:'', require\\(''./node_modules/expo-router/package.json''\\).version\\);\")",
+      "Bash(node -e \"const r = require\\(''/c/ProjectX/node_modules/react-native-reanimated''\\); console.log\\(''Extrapolation:'', typeof r.Extrapolation\\); console.log\\(''interpolate:'', typeof r.interpolate\\); console.log\\(''runOnJS:'', typeof r.runOnJS\\);\")",
+      "Bash(grep -l \"Extrapolation\" /c/ProjectX/node_modules/react-native-reanimated/lib/commonjs/*.js)",
+      "Bash(node -e \"const d=require\\(''fs''\\).readFileSync\\(''/dev/stdin'',''utf8''\\); const p=JSON.parse\\(d\\); console.log\\(''peerDeps:'', JSON.stringify\\(p.peerDependencies,null,2\\)\\); console.log\\(''deps:'', JSON.stringify\\(p.dependencies,null,2\\)\\);\")",
+      "Bash(npm show react-native-reanimated versions --json)",
+      "Bash(npm show react-native-reanimated@4.0.3 peerDependencies)",
+      "Bash(npm show react-native-worklets versions --json)",
+      "Bash(npm install react-native-worklets@0.5.1 react-native-reanimated@4.0.3 --legacy-peer-deps)"
+    ]
+  }
+}
