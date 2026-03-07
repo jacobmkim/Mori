@@ -189,22 +189,24 @@ function RecipeSwipeCard({
         contentFit="cover"
       />
 
-      {/* SAVE overlay */}
+      {/* SAVE overlay — centred over image */}
       <Animated.View style={{
-        position: 'absolute', top: 24, left: 20,
-        backgroundColor: colors.swipeRight, borderRadius: 8,
-        paddingHorizontal: 14, paddingVertical: 7, opacity: likeOpacity,
+        position: 'absolute', top: 0, left: 0, right: 0, height: '65%',
+        alignItems: 'center', justifyContent: 'center', opacity: likeOpacity,
       }}>
-        <Text style={{ color: 'white', fontWeight: '800', fontSize: 17, letterSpacing: 1 }}>SAVE</Text>
+        <View style={{ backgroundColor: colors.swipeRight, borderRadius: 12, paddingHorizontal: 24, paddingVertical: 12 }}>
+          <Text style={{ color: 'white', fontWeight: '800', fontSize: 22, letterSpacing: 1 }}>SAVE</Text>
+        </View>
       </Animated.View>
 
-      {/* PASS overlay */}
+      {/* PASS overlay — centred over image */}
       <Animated.View style={{
-        position: 'absolute', top: 24, right: 20,
-        backgroundColor: colors.swipeLeft, borderRadius: 8,
-        paddingHorizontal: 14, paddingVertical: 7, opacity: nopeOpacity,
+        position: 'absolute', top: 0, left: 0, right: 0, height: '65%',
+        alignItems: 'center', justifyContent: 'center', opacity: nopeOpacity,
       }}>
-        <Text style={{ color: 'white', fontWeight: '800', fontSize: 17, letterSpacing: 1 }}>PASS</Text>
+        <View style={{ backgroundColor: colors.swipeLeft, borderRadius: 12, paddingHorizontal: 24, paddingVertical: 12 }}>
+          <Text style={{ color: 'white', fontWeight: '800', fontSize: 22, letterSpacing: 1 }}>PASS</Text>
+        </View>
       </Animated.View>
 
       {/* Info */}

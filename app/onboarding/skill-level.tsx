@@ -38,17 +38,18 @@ export default function SkillLevel() {
   }
 
   return (
-    <View className="flex-1 bg-[#F9F9F9]">
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ProgressBar current={4} total={6} />
-      <View className="flex-1 px-6 pt-6">
-        <Text className="text-[28px] font-bold text-[#1A1A1A] mb-2">
+
+      <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 24 }}>
+        <Text style={{ fontSize: 28, fontWeight: '800', color: colors.text, marginBottom: 8 }}>
           What's your cooking skill level?
         </Text>
-        <Text className="text-base text-[#666666] mb-10">
+        <Text style={{ fontSize: 15, color: colors.textMuted, marginBottom: 32 }}>
           Honest answers get better recipe matches.
         </Text>
 
-        <View className="gap-4">
+        <View style={{ gap: 12 }}>
           {OPTIONS.map((opt) => {
             const isSelected = selected === opt.id;
             return (
@@ -59,7 +60,7 @@ export default function SkillLevel() {
                   backgroundColor: isSelected ? colors.primaryLight : colors.white,
                   borderColor: isSelected ? colors.primary : colors.border,
                   borderWidth: 1.5,
-                  borderRadius: 12,
+                  borderRadius: 14,
                   padding: 20,
                   flexDirection: 'row',
                   alignItems: 'center',
@@ -80,24 +81,28 @@ export default function SkillLevel() {
                   </Text>
                   <Text style={{ color: colors.textMuted, fontSize: 14 }}>{opt.description}</Text>
                 </View>
+                {isSelected && (
+                  <Text style={{ color: colors.primary, fontSize: 20 }}>✓</Text>
+                )}
               </Pressable>
             );
           })}
         </View>
       </View>
 
-      <View className="px-6 pb-10">
+      <View style={{ paddingHorizontal: 24, paddingBottom: 40 }}>
         <Pressable
           onPress={handleNext}
           disabled={!selected}
           style={{
-            backgroundColor: selected ? colors.primary : colors.border,
-            borderRadius: 12,
-            paddingVertical: 16,
+            backgroundColor: colors.primary,
+            opacity: selected ? 1 : 0.4,
+            borderRadius: 14,
+            paddingVertical: 18,
+            alignItems: 'center',
           }}
-          className="items-center"
         >
-          <Text className="text-white text-base font-semibold">Continue</Text>
+          <Text style={{ color: 'white', fontSize: 17, fontWeight: '700' }}>Continue</Text>
         </Pressable>
       </View>
     </View>

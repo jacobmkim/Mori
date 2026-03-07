@@ -138,9 +138,11 @@ alter table grocery_lists enable row level security;
 alter table meal_plans enable row level security;
 alter table collections enable row level security;
 
--- Profiles: users can only read/update their own
+-- Profiles: users can read/insert/update their own
 create policy "Users can view own profile" on profiles
   for select using (auth.uid() = id);
+create policy "Users can insert own profile" on profiles
+  for insert with check (auth.uid() = id);
 create policy "Users can update own profile" on profiles
   for update using (auth.uid() = id);
 

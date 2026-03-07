@@ -23,33 +23,37 @@ const SKILL_LABELS: Record<string, string> = {
   beginner: 'Beginner', home_cook: 'Home Cook', confident_chef: 'Confident Chef',
 };
 
+const FREQ_LABELS: Record<string, string> = {
+  just_starting: 'Just starting out', few_times_week: 'A few times a week', most_days: 'Most days',
+};
+
 export default function Payoff() {
   const { onboarding } = useUserStore();
 
-  async function handleStart() {
+  function handleStart() {
     router.replace('/(tabs)/discover');
   }
 
   return (
-    <View className="flex-1 bg-[#F9F9F9]">
-      <ScrollView contentContainerStyle={{ padding: 24, paddingTop: 60 }}>
-        <Text className="text-[28px] font-bold text-[#1A1A1A] mb-2">
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 60, paddingBottom: 120 }}>
+        <Text style={{ fontSize: 28, fontWeight: '800', color: colors.text, marginBottom: 8 }}>
           You're all set! 🎉
         </Text>
-        <Text className="text-base text-[#666666] mb-8">
+        <Text style={{ fontSize: 15, color: colors.textMuted, marginBottom: 32 }}>
           Here's your personalised PrepSwipe profile.
         </Text>
 
         {onboarding.dietary_goals.length > 0 && (
-          <View className="mb-6">
-            <Text style={{ color: colors.textMuted, fontSize: 13, fontWeight: '600', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+          <View style={{ marginBottom: 24 }}>
+            <Text style={{ color: colors.textMuted, fontSize: 12, fontWeight: '600', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.8 }}>
               Dietary Goals
             </Text>
-            <View className="flex-row flex-wrap gap-2">
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
               {onboarding.dietary_goals.map((g) => (
                 <View
                   key={g}
-                  style={{ backgroundColor: colors.primaryLight, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 6 }}
+                  style={{ backgroundColor: colors.primaryLight, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 7 }}
                 >
                   <Text style={{ color: colors.primary, fontSize: 14, fontWeight: '500' }}>
                     {GOAL_LABELS[g] ?? g}
@@ -61,15 +65,15 @@ export default function Payoff() {
         )}
 
         {onboarding.cuisine_preferences.length > 0 && (
-          <View className="mb-6">
-            <Text style={{ color: colors.textMuted, fontSize: 13, fontWeight: '600', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+          <View style={{ marginBottom: 24 }}>
+            <Text style={{ color: colors.textMuted, fontSize: 12, fontWeight: '600', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.8 }}>
               Favourite Cuisines
             </Text>
-            <View className="flex-row flex-wrap gap-2">
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
               {onboarding.cuisine_preferences.map((c) => (
                 <View
                   key={c}
-                  style={{ backgroundColor: colors.primaryLight, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 6 }}
+                  style={{ backgroundColor: colors.primaryLight, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 7 }}
                 >
                   <Text style={{ color: colors.primary, fontSize: 14, fontWeight: '500' }}>
                     {CUISINE_LABELS[c] ?? c}
@@ -80,19 +84,33 @@ export default function Payoff() {
           </View>
         )}
 
-        <View className="mb-6 gap-3">
+        <View style={{ gap: 10 }}>
+          {onboarding.cooking_frequency && (
+            <View style={{ backgroundColor: colors.white, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: colors.border }}>
+              <Text style={{ color: colors.textMuted, fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 4 }}>
+                Cooking Frequency
+              </Text>
+              <Text style={{ color: colors.text, fontSize: 16, fontWeight: '600' }}>
+                {FREQ_LABELS[onboarding.cooking_frequency]}
+              </Text>
+            </View>
+          )}
           {onboarding.skill_level && (
-            <View style={{ backgroundColor: colors.white, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: colors.border }}>
-              <Text style={{ color: colors.textMuted, fontSize: 13 }}>Skill Level</Text>
-              <Text style={{ color: colors.text, fontSize: 16, fontWeight: '600', marginTop: 2 }}>
+            <View style={{ backgroundColor: colors.white, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: colors.border }}>
+              <Text style={{ color: colors.textMuted, fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 4 }}>
+                Skill Level
+              </Text>
+              <Text style={{ color: colors.text, fontSize: 16, fontWeight: '600' }}>
                 {SKILL_LABELS[onboarding.skill_level]}
               </Text>
             </View>
           )}
           {onboarding.weekly_budget && (
-            <View style={{ backgroundColor: colors.white, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: colors.border }}>
-              <Text style={{ color: colors.textMuted, fontSize: 13 }}>Budget</Text>
-              <Text style={{ color: colors.text, fontSize: 16, fontWeight: '600', marginTop: 2 }}>
+            <View style={{ backgroundColor: colors.white, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: colors.border }}>
+              <Text style={{ color: colors.textMuted, fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 4 }}>
+                Budget
+              </Text>
+              <Text style={{ color: colors.text, fontSize: 16, fontWeight: '600' }}>
                 {BUDGET_LABELS[onboarding.weekly_budget]}
               </Text>
             </View>
@@ -100,13 +118,12 @@ export default function Payoff() {
         </View>
       </ScrollView>
 
-      <View className="px-6 pb-10">
+      <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, paddingHorizontal: 24, paddingBottom: 40, backgroundColor: colors.background }}>
         <Pressable
           onPress={handleStart}
-          style={{ backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 16 }}
-          className="items-center"
+          style={{ backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 18, alignItems: 'center' }}
         >
-          <Text className="text-white text-base font-semibold">Start Swiping</Text>
+          <Text style={{ color: 'white', fontSize: 17, fontWeight: '700' }}>Start Swiping</Text>
         </Pressable>
       </View>
     </View>

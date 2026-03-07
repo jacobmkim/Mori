@@ -38,6 +38,7 @@ export default function DietaryGoals() {
       <ProgressBar current={1} total={6} />
 
       <ScrollView
+        style={{ flex: 1 }}
         contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 24, paddingBottom: 24 }}
         showsVerticalScrollIndicator={false}
       >
@@ -89,15 +90,15 @@ export default function DietaryGoals() {
         </View>
       </ScrollView>
 
-      <View style={{ paddingHorizontal: 20, paddingBottom: 36, paddingTop: 12 }}>
+      <View style={{ paddingHorizontal: 20, paddingBottom: 36, paddingTop: 12, backgroundColor: colors.background }}>
         <Pressable
           onPress={handleNext}
-          style={({ pressed }) => ({
-            backgroundColor: pressed ? colors.primaryDark : colors.primary,
+          style={{
+            backgroundColor: colors.primary,
             borderRadius: 14,
             paddingVertical: 18,
             alignItems: 'center',
-          })}
+          }}
         >
           <Text style={{ color: '#fff', fontSize: 17, fontWeight: '700' }}>
             {selected.length === 0 ? 'Skip for now' : `Continue (${selected.length} selected)`}

@@ -16,31 +16,40 @@ interface FormData {
 export default function Account() {
   const { onboarding } = useUserStore();
   const [loading, setLoading] = useState(false);
+  const [mode, setMode] = useState<'signup' | 'signin'>('signup');
 
   const { control, handleSubmit, formState: { errors } } = useForm<FormData>();
 
   async function onSubmit(data: FormData) {
     setLoading(true);
     try {
-      const { data: authData, error } = await supabase.auth.signUp({
-        email: data.email,
-        password: data.password,
-      });
-      if (error) throw error;
-
-      if (authData.user) {
-        await upsertProfile({
-          id: authData.user.id,
-          dietary_goals: onboarding.dietary_goals,
-          cuisine_preferences: onboarding.cuisine_preferences,
-          cooking_frequency: onboarding.cooking_frequency,
-          skill_level: onboarding.skill_level,
-          weekly_budget: onboarding.weekly_budget,
-          onboarding_complete: false,
+      if (mode === 'signup') {
+        const { data: authData, error } = await supabase.auth.signUp({
+          email: data.email,
+          password: data.password,
         });
-      }
+        if (error) throw error;
 
-      router.push('/onboarding/payoff');
+        if (authData.user) {
+          await upsertProfile({
+            id: authData.user.id,
+            dietary_goals: onboarding.dietary_goals,
+            cuisine_preferences: onboarding.cuisine_preferences,
+            cooking_frequency: onboarding.cooking_frequency,
+            skill_level: onboarding.skill_level,
+            weekly_budget: onboarding.weekly_budget,
+            onboarding_complete: false,
+          });
+        }
+        router.push('/onboarding/payoff');
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({
+          email: data.email,
+          password: data.password,
+        });
+        if (error) throw error;
+        router.replace('/(tabs)/discover');
+      }
     } catch (err: any) {
       Alert.alert('Error', err.message ?? 'Something went wrong. Please try again.');
     } finally {
@@ -49,17 +58,17 @@ export default function Account() {
   }
 
   return (
-    <View className="flex-1 bg-[#F9F9F9]">
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ProgressBar current={6} total={6} />
-      <View className="flex-1 px-6 pt-6">
-        <Text className="text-[28px] font-bold text-[#1A1A1A] mb-2">
-          Create your account
+      <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 24 }}>
+        <Text style={{ fontSize: 28, fontWeight: '800', color: colors.text, marginBottom: 8 }}>
+          {mode === 'signup' ? 'Create your account' : 'Welcome back'}
         </Text>
-        <Text className="text-base text-[#666666] mb-10">
-          Your preferences are saved. Let's make it official.
+        <Text style={{ fontSize: 15, color: colors.textMuted, marginBottom: 32 }}>
+          {mode === 'signup' ? "Your preferences are saved. Let's make it official." : 'Sign in to continue to PrepSwipe.'}
         </Text>
 
-        <View className="gap-4">
+        <View style={{ gap: 16 }}>
           <View>
             <Text style={{ color: colors.text, fontSize: 14, fontWeight: '500', marginBottom: 8 }}>
               Email
@@ -83,7 +92,7 @@ export default function Account() {
                     backgroundColor: colors.white,
                     borderColor: errors.email ? colors.error : colors.border,
                     borderWidth: 1.5,
-                    borderRadius: 12,
+                    borderRadius: 14,
                     padding: 16,
                     fontSize: 16,
                     color: colors.text,
@@ -115,12 +124,12 @@ export default function Account() {
                   onChangeText={onChange}
                   placeholder="Minimum 8 characters"
                   secureTextEntry
-                  autoComplete="new-password"
+                  autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
                   style={{
                     backgroundColor: colors.white,
                     borderColor: errors.password ? colors.error : colors.border,
                     borderWidth: 1.5,
-                    borderRadius: 12,
+                    borderRadius: 14,
                     padding: 16,
                     fontSize: 16,
                     color: colors.text,
@@ -137,22 +146,36 @@ export default function Account() {
         </View>
       </View>
 
-      <View className="px-6 pb-10 gap-3">
+      <View style={{ paddingHorizontal: 24, paddingBottom: 40, gap: 12 }}>
         <Pressable
           onPress={handleSubmit(onSubmit)}
           disabled={loading}
           style={{
             backgroundColor: colors.primary,
-            borderRadius: 12,
-            paddingVertical: 16,
+            borderRadius: 14,
+            paddingVertical: 18,
             alignItems: 'center',
           }}
         >
           {loading ? (
             <ActivityIndicator color={colors.white} />
           ) : (
-            <Text className="text-white text-base font-semibold">Create Account</Text>
+            <Text style={{ color: 'white', fontSize: 17, fontWeight: '700' }}>
+              {mode === 'signup' ? 'Create Account' : 'Sign In'}
+            </Text>
           )}
+        </Pressable>
+
+        <Pressable
+          onPress={() => setMode(mode === 'signup' ? 'signin' : 'signup')}
+          style={{ alignItems: 'center', paddingVertical: 8 }}
+        >
+          <Text style={{ color: colors.textMuted, fontSize: 14 }}>
+            {mode === 'signup' ? 'Already have an account? ' : "Don't have an account? "}
+            <Text style={{ color: colors.primary, fontWeight: '600' }}>
+              {mode === 'signup' ? 'Sign in' : 'Sign up'}
+            </Text>
+          </Text>
         </Pressable>
       </View>
     </View>
