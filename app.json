@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "PrepSwipe",
-    "slug": "prepswipe",
+    "name": "Mise",
+    "slug": "mise",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "scheme": "prepswipe",
+    "scheme": "mise",
     "userInterfaceStyle": "light",
     "splash": {
       "image": "./assets/splash.png",

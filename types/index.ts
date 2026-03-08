@@ -2,28 +2,47 @@
 
 export type SkillLevel = 'beginner' | 'home_cook' | 'confident_chef';
 export type CookingFrequency = 'few_times_week' | 'most_days' | 'just_starting';
+export type EatingStyle = 'quick_simple' | 'variety' | 'favourites_rotation';
 export type AppMode = 'meal_prep' | 'spontaneous';
 export type SwipeDirection = 'right' | 'left';
 export type RecipeBadge = 'none' | 'staff_pick' | 'community_verified' | 'community_favorite';
 export type RecipeSourceType = 'curated' | 'community' | 'imported';
 export type GroceryListType = 'weekly' | 'spontaneous';
-export type GroceryListStatus = 'active' | 'ordered' | 'complete';
-export type PantryAddedVia = 'delivery' | 'receipt' | 'manual';
+export type GroceryListStatus = 'active' | 'exported' | 'complete';
+export type PantryAddedVia = 'onboarding' | 'grocery_list' | 'manual';
 export type MealType = 'breakfast' | 'lunch' | 'dinner';
+export type TimeOfDay = 'morning' | 'afternoon' | 'evening' | 'night';
 
 export interface Profile {
   id: string;
   name: string | null;
   avatar_url: string | null;
   dietary_goals: string[];
+  dietary_extra_preferences: string | null;
+  ingredient_dislikes: string[];
   cuisine_preferences: string[];
+  eating_style: EatingStyle | null;
   skill_level: SkillLevel | null;
   cooking_frequency: CookingFrequency | null;
   weekly_budget: string | null;
   meals_cooked_count: number;
   recipes_submitted_count: number;
+  total_sessions: number;
+  taste_profile: Record<string, unknown> | null;
   onboarding_complete: boolean;
   created_at: string;
+}
+
+// ─── Macros ───────────────────────────────────────────────────────────────────
+
+export interface Macros {
+  calories: number;
+  protein: number;        // grams
+  carbohydrates: number;  // grams
+  fat: number;            // grams
+  fibre: number;          // grams
+  netCarbs?: number;      // carbohydrates - fibre, for keto users
+  isEstimated: boolean;   // true = Claude estimate, false = Spoonacular data
 }
 
 // ─── Recipes ─────────────────────────────────────────────────────────────────
@@ -52,13 +71,17 @@ export interface Recipe {
   servings: number | null;
   cost_per_serving: number | null;
   dietary_tags: string[];
+  meal_prep_friendly?: boolean;
+  macros?: Macros | null;
   badge: RecipeBadge;
-  submitted_by: string | null;
+  submitted_by?: string | null;
   avg_rating: number;
-  rating_count: number;
+  rating_count?: number;
   save_count: number;
   image_url: string | null;
-  created_at: string;
+  spoonacular_id?: string | null;
+  external_id?: string | null;
+  created_at?: string;
 }
 
 // ─── Swipe ───────────────────────────────────────────────────────────────────
@@ -69,6 +92,9 @@ export interface SwipeEvent {
   recipe_id: string;
   direction: SwipeDirection;
   mode: AppMode;
+  time_of_day: TimeOfDay | null;
+  day_of_week: number | null;
+  session_number: number | null;
   swiped_at: string;
 }
 
@@ -93,7 +119,6 @@ export interface PantryItem {
   unit: string | null;
   added_via: PantryAddedVia;
   added_at: string;
-  expires_at: string | null;
 }
 
 // ─── Grocery ─────────────────────────────────────────────────────────────────
@@ -112,8 +137,10 @@ export interface GroceryList {
   list_type: GroceryListType;
   status: GroceryListStatus;
   items: GroceryItem[];
+  recipe_ids: string[];
   estimated_total_cost: number | null;
-  delivery_partner: string | null;
+  combined_macros: Macros | null;
+  instacart_cart_url: string | null;
   created_at: string;
 }
 
@@ -145,11 +172,29 @@ export interface Collection {
   created_at: string;
 }
 
+// ─── Cohorts ─────────────────────────────────────────────────────────────────
+
+export interface UserCohort {
+  id: string;
+  user_id: string;
+  cohort_key: string;
+  assigned_at: string;
+}
+
+export interface RecipeCohortAffinity {
+  recipe_id: string;
+  cohort_key: string;
+  affinity_score: number;
+}
+
 // ─── Onboarding ──────────────────────────────────────────────────────────────
 
 export interface OnboardingState {
   dietary_goals: string[];
+  dietary_extra_preferences: string | null;
+  ingredient_dislikes: string[];
   cuisine_preferences: string[];
+  eating_style: EatingStyle | null;
   cooking_frequency: CookingFrequency | null;
   skill_level: SkillLevel | null;
   weekly_budget: string | null;

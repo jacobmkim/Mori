@@ -41,7 +41,7 @@ export default function Payoff() {
           You're all set! 🎉
         </Text>
         <Text style={{ fontSize: 15, color: colors.textMuted, marginBottom: 32 }}>
-          Here's your personalised PrepSwipe profile.
+          Here's your personalised Mise profile.
         </Text>
 
         {onboarding.dietary_goals.length > 0 && (

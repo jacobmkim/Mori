@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Profile, OnboardingState, SkillLevel, CookingFrequency } from '@/types';
+import type { Profile, OnboardingState, EatingStyle, SkillLevel, CookingFrequency } from '@/types';
 
 interface UserStore {
   profile: Profile | null;
@@ -16,7 +16,10 @@ interface UserStore {
 
 const defaultOnboarding: OnboardingState = {
   dietary_goals: [],
+  dietary_extra_preferences: null,
+  ingredient_dislikes: [],
   cuisine_preferences: [],
+  eating_style: null,
   cooking_frequency: null,
   skill_level: null,
   weekly_budget: null,

@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import { useForm, Controller } from 'react-hook-form';
 import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { upsertProfile } from '@/lib/api';
+import { upsertProfile, getProfile } from '@/lib/api';
 import { useUserStore } from '@/stores/userStore';
 import { colors } from '@/constants/theme';
 import ProgressBar from '@/components/onboarding/ProgressBar';
@@ -14,11 +14,15 @@ interface FormData {
 }
 
 export default function Account() {
-  const { onboarding } = useUserStore();
+  const { onboarding, setProfile } = useUserStore();
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<'signup' | 'signin'>('signup');
 
-  const { control, handleSubmit, formState: { errors } } = useForm<FormData>();
+  const { control, handleSubmit, formState: { errors } } = useForm<FormData>({
+    defaultValues: __DEV__
+      ? { email: 'dev@mise.app', password: 'devpassword123' }
+      : { email: '', password: '' },
+  });
 
   async function onSubmit(data: FormData) {
     setLoading(true);
@@ -31,23 +35,36 @@ export default function Account() {
         if (error) throw error;
 
         if (authData.user) {
-          await upsertProfile({
+          const profile = await upsertProfile({
             id: authData.user.id,
             dietary_goals: onboarding.dietary_goals,
+            dietary_extra_preferences: onboarding.dietary_extra_preferences,
+            ingredient_dislikes: onboarding.ingredient_dislikes,
             cuisine_preferences: onboarding.cuisine_preferences,
+            eating_style: onboarding.eating_style,
             cooking_frequency: onboarding.cooking_frequency,
             skill_level: onboarding.skill_level,
             weekly_budget: onboarding.weekly_budget,
             onboarding_complete: false,
           });
+          setProfile(profile);
         }
         router.push('/onboarding/payoff');
       } else {
-        const { error } = await supabase.auth.signInWithPassword({
+        const { data: authData, error } = await supabase.auth.signInWithPassword({
           email: data.email,
           password: data.password,
         });
         if (error) throw error;
+
+        if (authData.user) {
+          try {
+            const profile = await getProfile(authData.user.id);
+            setProfile(profile);
+          } catch {
+            // Profile fetch failure is non-fatal — continue to app
+          }
+        }
         router.replace('/(tabs)/discover');
       }
     } catch (err: any) {
@@ -65,7 +82,7 @@ export default function Account() {
           {mode === 'signup' ? 'Create your account' : 'Welcome back'}
         </Text>
         <Text style={{ fontSize: 15, color: colors.textMuted, marginBottom: 32 }}>
-          {mode === 'signup' ? "Your preferences are saved. Let's make it official." : 'Sign in to continue to PrepSwipe.'}
+          {mode === 'signup' ? "Your preferences are saved. Let's make it official." : 'Sign in to continue to Mise.'}
         </Text>
 
         <View style={{ gap: 16 }}>

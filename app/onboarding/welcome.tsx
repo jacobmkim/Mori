@@ -16,26 +16,53 @@ export default function Welcome() {
         transition={400}
       />
 
-      {/* Dark gradient — heavier at bottom */}
+      {/* Dark overlay — heavy enough to let text breathe */}
+      <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.55)' }} />
       <LinearGradient
-        colors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.55)', 'rgba(0,0,0,0.92)']}
-        locations={[0, 0.5, 1]}
+        colors={['rgba(0,0,0,0.2)', 'rgba(0,0,0,0.5)', 'rgba(0,0,0,0.97)']}
+        locations={[0, 0.45, 1]}
         style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
       />
 
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
+        {/* Logo */}
+        <View style={{ paddingHorizontal: 28, paddingTop: 36 }}>
+          {/* "mise" with spatula replacing the "i" */}
+          <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
+            <Text style={{ color: '#FFFFFF', fontSize: 76, fontWeight: '900', letterSpacing: -2, lineHeight: 72 }}>
+              m
+            </Text>
+            {/* Spatula — tall slotted blade, tapered neck, long handle */}
+            <View style={{ alignItems: 'center', marginBottom: 10, marginHorizontal: 3 }}>
+              {/* Tall blade with long vertical slots */}
+              <View style={{ width: 26, height: 30, borderRadius: 4, backgroundColor: colors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-evenly', paddingHorizontal: 3 }}>
+                <View style={{ width: 2, height: 21, borderRadius: 1, backgroundColor: 'rgba(0,0,0,0.3)' }} />
+                <View style={{ width: 2, height: 21, borderRadius: 1, backgroundColor: 'rgba(0,0,0,0.3)' }} />
+                <View style={{ width: 2, height: 21, borderRadius: 1, backgroundColor: 'rgba(0,0,0,0.3)' }} />
+              </View>
+              {/* Tapered neck */}
+              <View style={{ width: 11, height: 5, borderRadius: 1, backgroundColor: colors.primary }} />
+              {/* Handle */}
+              <View style={{ width: 5, height: 37, borderRadius: 3, backgroundColor: colors.primary }} />
+            </View>
+            <Text style={{ color: '#FFFFFF', fontSize: 76, fontWeight: '900', letterSpacing: -2, lineHeight: 72 }}>
+              se
+            </Text>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 }}>
+            <View style={{ width: 20, height: 2, backgroundColor: colors.primary, borderRadius: 1 }} />
+            <Text style={{ color: colors.primary, fontSize: 12, fontWeight: '700', letterSpacing: 5, textTransform: 'uppercase' }}>
+              en place
+            </Text>
+          </View>
+        </View>
+
         {/* Text block — vertically centred */}
         <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: 28 }}>
-          <Text style={{
-            color: colors.primary, fontSize: 13, fontWeight: '700',
-            letterSpacing: 2.5, textTransform: 'uppercase', marginBottom: 16,
-          }}>
-            PrepSwipe
-          </Text>
-          <Text style={{ color: '#FFFFFF', fontSize: 38, fontWeight: '800', lineHeight: 46, marginBottom: 16 }}>
+          <Text style={{ color: '#FFFFFF', fontSize: 32, fontWeight: '800', lineHeight: 40, marginBottom: 12 }}>
             Cook smarter.{'\n'}Waste less.{'\n'}Eat better.
           </Text>
-          <Text style={{ color: 'rgba(255,255,255,0.72)', fontSize: 16, lineHeight: 25, maxWidth: 300 }}>
+          <Text style={{ color: 'rgba(255,255,255,0.72)', fontSize: 15, lineHeight: 23, maxWidth: 300 }}>
             Swipe recipes you love. Get ingredients delivered in one tap.
           </Text>
         </View>
@@ -65,6 +92,18 @@ export default function Welcome() {
           <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, textAlign: 'center', marginTop: 14 }}>
             Free to use · No credit card required
           </Text>
+
+          {/* DEV ONLY — skip straight to app */}
+          {__DEV__ && (
+            <Pressable
+              onPress={() => router.replace('/(tabs)/discover')}
+              style={{ alignItems: 'center', marginTop: 20, paddingVertical: 8 }}
+            >
+              <Text style={{ color: 'rgba(255,255,100,0.7)', fontSize: 12, fontWeight: '600' }}>
+                ⚡ DEV: Skip to App
+              </Text>
+            </Pressable>
+          )}
         </View>
       </SafeAreaView>
     </View>

@@ -69,6 +69,93 @@ export async function saveRecipe(userId: string, recipeId: string): Promise<void
   if (error) throw error;
 }
 
+export async function unsaveRecipe(userId: string, recipeExternalId: string): Promise<void> {
+  const { data: recipeData } = await supabase
+    .from('recipes')
+    .select('id')
+    .eq('external_id', recipeExternalId)
+    .single();
+  if (!recipeData) return;
+  const { error } = await supabase
+    .from('saved_recipes')
+    .delete()
+    .eq('user_id', userId)
+    .eq('recipe_id', recipeData.id);
+  if (error) throw error;
+}
+
+// Upserts a TheMealDB recipe into the recipes table by external_id.
+// Returns the Supabase UUID for that recipe row.
+export async function upsertRecipeByExternalId(recipe: Recipe): Promise<string> {
+  const { data, error } = await supabase
+    .from('recipes')
+    .upsert(
+      {
+        external_id: recipe.id,
+        title: recipe.title,
+        description: recipe.description ?? null,
+        cuisine: recipe.cuisine ?? null,
+        source_type: 'imported',
+        ingredients: recipe.ingredients ?? [],
+        steps: recipe.steps ?? [],
+        prep_time_mins: recipe.prep_time_mins ?? null,
+        cook_time_mins: recipe.cook_time_mins ?? null,
+        servings: recipe.servings ?? null,
+        cost_per_serving: recipe.cost_per_serving ?? null,
+        dietary_tags: recipe.dietary_tags ?? [],
+        image_url: recipe.image_url ?? null,
+      },
+      { onConflict: 'external_id' }
+    )
+    .select('id')
+    .single();
+  if (error) throw error;
+  return data.id;
+}
+
+// Fetches saved recipes for a user with full recipe details.
+// Uses the external_id as the Recipe.id so TheMealDB-sourced IDs match in-memory state.
+export async function getSavedRecipesWithDetails(userId: string): Promise<Recipe[]> {
+  const { data, error } = await supabase
+    .from('saved_recipes')
+    .select(`
+      recipe_id,
+      recipes (
+        id, title, description, cuisine, source_type,
+        ingredients, steps, prep_time_mins, cook_time_mins,
+        servings, cost_per_serving, dietary_tags, image_url,
+        external_id, badge, avg_rating, save_count
+      )
+    `)
+    .eq('user_id', userId);
+  if (error) throw error;
+
+  return (data ?? [])
+    .map((row: any) => {
+      const r = row.recipes;
+      if (!r) return null;
+      return {
+        id: r.external_id ?? r.id,
+        title: r.title,
+        description: r.description,
+        cuisine: r.cuisine,
+        source_type: r.source_type,
+        ingredients: r.ingredients ?? [],
+        steps: r.steps ?? [],
+        prep_time_mins: r.prep_time_mins,
+        cook_time_mins: r.cook_time_mins,
+        servings: r.servings,
+        cost_per_serving: r.cost_per_serving,
+        dietary_tags: r.dietary_tags ?? [],
+        image_url: r.image_url,
+        badge: r.badge,
+        avg_rating: r.avg_rating,
+        save_count: r.save_count,
+      } as Recipe;
+    })
+    .filter(Boolean) as Recipe[];
+}
+
 // ─── Pantry ──────────────────────────────────────────────────────────────────
 
 export async function getPantryItems(userId: string): Promise<PantryItem[]> {

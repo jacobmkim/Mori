@@ -3,6 +3,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useUserStore } from '@/stores/userStore';
+import { useSavedStore } from '@/stores/savedStore';
 import { supabase } from '@/lib/supabase';
 import { colors } from '@/constants/theme';
 
@@ -16,6 +17,7 @@ const BUDGET_LABELS: Record<string, string> = {
 
 export default function Profile() {
   const { profile, setProfile } = useUserStore();
+  const savedCount = useSavedStore((s) => s.savedRecipes.length);
 
   async function handleSignOut() {
     Alert.alert('Sign out', 'Are you sure you want to sign out?', [
@@ -34,7 +36,7 @@ export default function Profile() {
 
   const stats = [
     { label: 'Meals Cooked', value: profile?.meals_cooked_count ?? 0, icon: 'restaurant' },
-    { label: 'Recipes Saved', value: 0, icon: 'heart' },
+    { label: 'Recipes Saved', value: savedCount, icon: 'heart' },
     { label: 'Submitted', value: profile?.recipes_submitted_count ?? 0, icon: 'create' },
   ];
 
@@ -57,7 +59,7 @@ export default function Profile() {
             <Ionicons name="person" size={40} color={colors.primary} />
           </View>
           <Text style={{ fontSize: 20, fontWeight: '700', color: colors.text }}>
-            {profile?.name ?? 'PrepSwipe User'}
+            {profile?.name ?? 'Mise User'}
           </Text>
           <Text style={{ fontSize: 14, color: colors.textMuted, marginTop: 4 }}>
             {profile ? 'Member since ' + new Date(profile.created_at).getFullYear() : 'Welcome!'}

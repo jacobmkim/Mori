@@ -54,8 +54,10 @@ export const useGroceryStore = create<GroceryStore>((set) => ({
               list_type: 'spontaneous',
               status: 'active',
               items: newItems,
+              recipe_ids: [],
               estimated_total_cost: null,
-              delivery_partner: null,
+              combined_macros: null,
+              instacart_cart_url: null,
               created_at: new Date().toISOString(),
             },
       };
