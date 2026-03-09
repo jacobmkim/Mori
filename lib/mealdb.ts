@@ -83,9 +83,24 @@ export async function fetchMealDetail(id: string): Promise<MealDetail | null> {
 
     const area: string = meal.strArea ?? '';
     const category: string = meal.strCategory ?? '';
-    const blurb = area && category
-      ? `A classic ${area} ${category.toLowerCase()} dish`
-      : area || category || '';
+
+    // Try the first sentence of the instructions — much more descriptive than
+    // a generated string. Skip it if it looks like a step (starts with a digit,
+    // bullet, or is too long/short), and fall back to category + area.
+    let blurb = '';
+    if (meal.strInstructions) {
+      const first = meal.strInstructions
+        .replace(/\r\n|\r|\n/g, ' ')
+        .split(/(?<=[.!?])\s+/)[0]
+        .trim();
+      const isStep = /^[\d\-\*•]/.test(first);
+      if (!isStep && first.length >= 20 && first.length <= 120) {
+        blurb = first;
+      }
+    }
+    if (!blurb) {
+      blurb = area && category ? `${category} · ${area}` : area || category || '';
+    }
 
     return { blurb, ingredients: ingredients.slice(0, 10) };
   } catch {
