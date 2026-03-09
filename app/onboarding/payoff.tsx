@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { useUserStore } from '@/stores/userStore';
 import { colors } from '@/constants/theme';
-import { addPantryItems } from '@/lib/api';
+import { addPantryItems, upsertProfile } from '@/lib/api';
 
 const GOAL_LABELS: Record<string, string> = {
   balanced: 'Balanced', high_protein: 'High Protein', low_carb: 'Low Carb',
@@ -58,12 +58,17 @@ export default function Payoff() {
   async function handleStart() {
     setIsSaving(true);
     try {
-      // Save selected pantry staples to Supabase — powers the "make it tonight" magic moment
-      if (selectedPantry.length > 0 && profile?.id) {
-        await addPantryItems(profile.id, selectedPantry, 'onboarding');
+      if (profile?.id) {
+        // Run in parallel — neither blocks navigation if it fails
+        await Promise.allSettled([
+          // Save pantry staples — powers "you can make this tonight" on session one
+          selectedPantry.length > 0
+            ? addPantryItems(profile.id, selectedPantry, 'onboarding')
+            : Promise.resolve(),
+          // Mark onboarding complete so the app knows not to re-run the flow
+          upsertProfile({ id: profile.id, onboarding_complete: true }),
+        ]);
       }
-    } catch {
-      // Non-blocking — pantry can be edited later in Profile → Pantry
     } finally {
       setIsSaving(false);
       router.replace('/(tabs)/discover');

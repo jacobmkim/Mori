@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { upsertProfile, getProfile } from '@/lib/api';
 import { useUserStore } from '@/stores/userStore';
+import { useSavedStore } from '@/stores/savedStore';
 import { colors } from '@/constants/theme';
 import ProgressBar from '@/components/onboarding/ProgressBar';
 
@@ -15,6 +16,7 @@ interface FormData {
 
 export default function Account() {
   const { onboarding, setProfile } = useUserStore();
+  const loadSavedRecipes = useSavedStore((s) => s.loadSavedRecipes);
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<'signup' | 'signin'>('signup');
 
@@ -64,6 +66,8 @@ export default function Account() {
           } catch {
             // Profile fetch failure is non-fatal — continue to app
           }
+          // Restore saved recipes on sign-in
+          loadSavedRecipes(authData.user.id);
         }
         router.replace('/(tabs)/discover');
       }
@@ -76,7 +80,7 @@ export default function Account() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <ProgressBar current={6} total={6} />
+      <ProgressBar current={8} total={8} />
       <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 24 }}>
         <Text style={{ fontSize: 28, fontWeight: '800', color: colors.text, marginBottom: 8 }}>
           {mode === 'signup' ? 'Create your account' : 'Welcome back'}
