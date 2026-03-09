@@ -25,39 +25,36 @@ Mise is the first recipe app that feels genuinely personal from day one, gets sm
 - Expo SDK 54 project with React Native 0.81.5
 - Expo Router file-based navigation
 - Root layout with Supabase session check
-- Onboarding flow — 8 screens (welcome → dietary-goals → cuisine-prefs → cook-frequency → skill-level → budget → account → payoff)
+- Onboarding flow — 10 screens (welcome → dietary-goals → ingredient-dislikes → cuisine-prefs → eating-style → cook-frequency → skill-level → budget → account → payoff)
 - Supabase auth — email sign in/sign up working
+- Supabase schema applied — all tables, RLS, indexes, auto-profile trigger live
 - Bottom tab navigation — Discover, Recipes, Grocery (placeholder), Profile
 - Discover screen — full swipe mechanic with React Native Animated API, TheMealDB data, parallel detail fetching, Fisher-Yates shuffle, undo support, button tap swipe, stale closure prevention
 - Recipes screen — Pinterest grid, All/Saved toggle, cuisine filter bar, search bar, 8 static seed recipes
-- Saved recipes — Zustand savedStore working in memory
-- Profile screen — avatar, name from Supabase, stats row, preferences display, sign out
+- Saved recipes — savedStore wired to Supabase, persists across sessions, loaded on app open and sign-in
+- Profile screen — avatar, name from Supabase, Recipes Saved stat wired to savedStore, preferences display, sign out
+- All onboarding fields persisted to Supabase on account creation (dietary_goals, dietary_extra_preferences, ingredient_dislikes, cuisine_preferences, eating_style, cooking_frequency, skill_level, weekly_budget)
+- onboarding_complete set true on payoff completion; pantry staples written to pantry_items
 - constants/theme.ts — all colors used consistently
 - types/index.ts — TypeScript types defined
 - lib/supabase.ts, lib/api.ts, lib/utils.ts — scaffolded
-- Zustand stores — userStore, savedStore, groceryStore (placeholder), mealPlanStore (placeholder)
-- supabase/schema.sql — schema written but NOT YET APPLIED to Supabase
+- Zustand stores — userStore, savedStore (Supabase-backed), groceryStore (placeholder), mealPlanStore (placeholder)
 
-### ❌ Broken / Incomplete — Fix These First
-1. **Supabase schema not applied** — schema.sql exists but has not been run against the Supabase project. RLS policies unverified. Nothing persists reliably until this is done. **Priority 1.**
-2. **Saved recipes not persisted** — savedStore is in-memory only. User loses all saved recipes on app close. **Priority 2.**
-3. **Profile "Recipes Saved" stat hardcoded to 0** — not wired to savedStore count.
-4. **Grocery list screen is a placeholder** — needs a full build. **Priority 3.**
-5. **Recipes screen uses 8 static seed recipes** — should pull from TheMealDB (same as Discover) or Supabase once schema is applied.
+### ❌ Broken / Incomplete
+1. **Grocery list screen is a placeholder** — needs a full build. **Next priority.**
+2. **Recipes screen uses 8 static seed recipes** — should pull from TheMealDB or Supabase.
+3. **Swipe events not logged** — discover.tsx fires swipes but doesn't write to swipe_events table.
 
 ### 🔲 Not Yet Built — In Scope
-- Ingredient dislikes onboarding screen (insert between dietary-goals and cuisine-prefs)
-- Eating style onboarding screen (insert after cuisine-prefs)
-- Pantry staple seed on payoff screen
-- Free text field on dietary-goals screen
-- Expanded cuisine options (20-25 granular)
+- Grocery list screen — full build with copy/paste export
+- groceryStore — add from recipe, consolidate, deduplicate, calculate cost
 - Macro display on recipe cards and detail screens
 - Spoonacular API integration for nutrition data
-- Grocery list screen — full build with copy/paste export
 - Instacart Developer Platform integration (Phase 3)
 - Weekly meal planner
-- Pantry tracking (low stakes, opt-in, not a main tab)
+- Pantry tracking screen (opt-in, in Profile — not a main tab)
 - AI recommendation layer (Phase 2)
+- Adventure cards — skill-aware cuisine expansion (Phase 2, see Section 6.10)
 - Cohort affinity tagging on recipe seed data
 - Swipe event logging to Supabase
 - Taste profile display in profile tab
@@ -726,20 +723,21 @@ INSTACART_API_KEY=
 
 Work through these in order. Do not build new features while Priority 1 and 2 items are outstanding.
 
-### 🔥 Priority 1 — Fix the Foundation
-- [ ] Apply supabase/schema.sql to the Supabase project
-- [ ] Verify all RLS policies are correct and active
-- [ ] Wire savedStore to Supabase saved_recipes table — saves must persist across sessions
-- [ ] Wire Profile "Recipes Saved" stat to savedStore count
+### ✅ Priority 1 — Fix the Foundation
+- [x] Apply supabase/schema.sql to the Supabase project
+- [x] Verify all RLS policies are correct and active
+- [x] Wire savedStore to Supabase saved_recipes table — persists across sessions
+- [x] Wire Profile "Recipes Saved" stat to savedStore count
 
-### 🔥 Priority 2 — Complete Onboarding
-- [ ] Build ingredient-dislikes.tsx (Screen 3)
-- [ ] Build eating-style.tsx (Screen 5)
-- [ ] Update onboarding _layout.tsx to 10-screen navigation order
-- [ ] Add optional free text field to dietary-goals.tsx
-- [ ] Expand cuisine-prefs.tsx to 20-25 granular options
-- [ ] Add pantry staple seed tap grid to payoff.tsx
-- [ ] Save all new fields (ingredient_dislikes, eating_style, dietary_extra_preferences, pantry staples) to Supabase on onboarding completion
+### ✅ Priority 2 — Complete Onboarding
+- [x] Build ingredient-dislikes.tsx (Screen 3)
+- [x] Build eating-style.tsx (Screen 5)
+- [x] Update onboarding navigation to 10-screen order
+- [x] Add optional free text field to dietary-goals.tsx
+- [x] Simplify cuisine-prefs.tsx to 12 universal cuisines (niche cuisines → adventure cards)
+- [x] Add pantry staple seed tap grid to payoff.tsx
+- [x] Save all new fields to Supabase on onboarding completion
+- [x] Mark onboarding_complete: true on payoff completion
 
 ### 🔥 Priority 3 — Build Grocery List Screen
 - [ ] Build grocery-list.tsx — ingredients grouped by category, checkboxes, pantry items crossed out
