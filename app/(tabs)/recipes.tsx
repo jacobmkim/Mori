@@ -1,97 +1,16 @@
-import { View, Text, FlatList, Pressable, TextInput } from 'react-native';
-import { useState } from 'react';
+import { View, Text, FlatList, Pressable, TextInput, ActivityIndicator } from 'react-native';
+import { useState, useEffect } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/theme';
 import { formatTime } from '@/lib/utils';
+import { fetchMealDBRecipes, MEAL_AREAS } from '@/lib/mealdb';
 import { useSavedStore } from '@/stores/savedStore';
 import type { Recipe } from '@/types';
 
-const SEED_RECIPES: Recipe[] = [
-  {
-    id: '1', title: 'Spaghetti Carbonara', description: 'Classic Roman pasta dish',
-    cuisine: 'Italian', source_type: 'curated',
-    ingredients: [], steps: [],
-    prep_time_mins: 10, cook_time_mins: 20, servings: 4, cost_per_serving: 4.50,
-    dietary_tags: [], badge: 'staff_pick', submitted_by: null,
-    avg_rating: 4.8, rating_count: 234, save_count: 1200,
-    image_url: 'https://images.unsplash.com/photo-1612874742237-6526221588e3?w=400',
-    created_at: '',
-  },
-  {
-    id: '2', title: 'Chicken Tikka Masala', description: 'Creamy spiced chicken curry',
-    cuisine: 'Indian', source_type: 'curated',
-    ingredients: [], steps: [],
-    prep_time_mins: 20, cook_time_mins: 30, servings: 4, cost_per_serving: 6.00,
-    dietary_tags: ['gluten_free'], badge: 'community_favorite', submitted_by: null,
-    avg_rating: 4.7, rating_count: 189, save_count: 980,
-    image_url: 'https://images.unsplash.com/photo-1565557623262-b51c2513a641?w=400',
-    created_at: '',
-  },
-  {
-    id: '3', title: 'Avocado Toast', description: 'Quick healthy breakfast',
-    cuisine: 'American', source_type: 'curated',
-    ingredients: [], steps: [],
-    prep_time_mins: 5, cook_time_mins: 5, servings: 1, cost_per_serving: 3.50,
-    dietary_tags: ['vegan', 'dairy_free'], badge: 'none', submitted_by: null,
-    avg_rating: 4.2, rating_count: 56, save_count: 320,
-    image_url: 'https://images.unsplash.com/photo-1541519227354-08fa5d50c820?w=400',
-    created_at: '',
-  },
-  {
-    id: '4', title: 'Beef Tacos', description: 'Street-style tacos with fresh salsa',
-    cuisine: 'Mexican', source_type: 'curated',
-    ingredients: [], steps: [],
-    prep_time_mins: 10, cook_time_mins: 15, servings: 4, cost_per_serving: 5.50,
-    dietary_tags: [], badge: 'none', submitted_by: null,
-    avg_rating: 4.5, rating_count: 102, save_count: 560,
-    image_url: 'https://images.unsplash.com/photo-1565299585323-38d6b0865b47?w=400',
-    created_at: '',
-  },
-  {
-    id: '5', title: 'Greek Salad', description: 'Fresh Mediterranean summer salad',
-    cuisine: 'Mediterranean', source_type: 'curated',
-    ingredients: [], steps: [],
-    prep_time_mins: 10, cook_time_mins: 0, servings: 2, cost_per_serving: 4.00,
-    dietary_tags: ['vegetarian', 'gluten_free'], badge: 'staff_pick', submitted_by: null,
-    avg_rating: 4.4, rating_count: 78, save_count: 410,
-    image_url: 'https://images.unsplash.com/photo-1551248429-40975aa4de74?w=400',
-    created_at: '',
-  },
-  {
-    id: '6', title: 'Butter Chicken', description: 'Rich and creamy tomato-based curry',
-    cuisine: 'Indian', source_type: 'curated',
-    ingredients: [], steps: [],
-    prep_time_mins: 15, cook_time_mins: 35, servings: 4, cost_per_serving: 5.80,
-    dietary_tags: ['gluten_free'], badge: 'community_favorite', submitted_by: null,
-    avg_rating: 4.9, rating_count: 312, save_count: 1540,
-    image_url: 'https://images.unsplash.com/photo-1603894584373-5ac82b2ae398?w=400',
-    created_at: '',
-  },
-  {
-    id: '7', title: 'Caesar Salad', description: 'Classic salad with homemade dressing',
-    cuisine: 'American', source_type: 'curated',
-    ingredients: [], steps: [],
-    prep_time_mins: 15, cook_time_mins: 0, servings: 2, cost_per_serving: 3.20,
-    dietary_tags: ['vegetarian'], badge: 'none', submitted_by: null,
-    avg_rating: 4.3, rating_count: 67, save_count: 290,
-    image_url: 'https://images.unsplash.com/photo-1546793665-c74683f339c1?w=400',
-    created_at: '',
-  },
-  {
-    id: '8', title: 'Pad Thai', description: 'Stir-fried rice noodles with tamarind',
-    cuisine: 'Thai', source_type: 'curated',
-    ingredients: [], steps: [],
-    prep_time_mins: 15, cook_time_mins: 15, servings: 2, cost_per_serving: 5.00,
-    dietary_tags: [], badge: 'staff_pick', submitted_by: null,
-    avg_rating: 4.6, rating_count: 145, save_count: 720,
-    image_url: 'https://images.unsplash.com/photo-1559314809-0d155014e29e?w=400',
-    created_at: '',
-  },
-];
-
-const CUISINE_FILTERS = ['All', 'Italian', 'Indian', 'Mexican', 'Mediterranean', 'American', 'Thai'];
+// Cuisine filter pills — derived from the shared MEAL_AREAS list
+const CUISINE_FILTERS = ['All', ...MEAL_AREAS];
 
 function RecipeGridCard({ recipe, onUnsave }: { recipe: Recipe; onUnsave?: () => void }) {
   return (
@@ -141,25 +60,31 @@ function RecipeGridCard({ recipe, onUnsave }: { recipe: Recipe; onUnsave?: () =>
             {formatTime(recipe.prep_time_mins, recipe.cook_time_mins)}
           </Text>
         </View>
-        {recipe.badge !== 'none' && (
-          <View style={{ backgroundColor: colors.primaryLight, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3, alignSelf: 'flex-start', marginTop: 6 }}>
-            <Text style={{ color: colors.primary, fontSize: 10, fontWeight: '600' }}>
-              {recipe.badge === 'staff_pick' ? 'Staff Pick' : 'Fan Fave'}
-            </Text>
-          </View>
-        )}
+        {recipe.cuisine ? (
+          <Text style={{ fontSize: 11, color: colors.textMuted, marginTop: 3 }}>{recipe.cuisine}</Text>
+        ) : null}
       </View>
     </Pressable>
   );
 }
 
 export default function Recipes() {
+  const [allRecipes, setAllRecipes] = useState<Recipe[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [activeFilter, setActiveFilter] = useState('All');
   const [showSaved, setShowSaved] = useState(false);
   const { savedRecipes, removeRecipe } = useSavedStore();
 
-  const displayData = showSaved ? savedRecipes : SEED_RECIPES;
+  useEffect(() => {
+    // Fetch more recipes per area than Discover (5 vs 3) to give the grid
+    // a fuller feel without blowing the TheMealDB rate limit
+    fetchMealDBRecipes(5)
+      .then(setAllRecipes)
+      .finally(() => setIsLoading(false));
+  }, []);
+
+  const displayData = showSaved ? savedRecipes : allRecipes;
 
   const filtered = displayData.filter((r) => {
     const matchesSearch = r.title.toLowerCase().includes(search.toLowerCase());
@@ -170,7 +95,7 @@ export default function Recipes() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8 }}>
-        {/* Header with toggle */}
+        {/* Header with All / Saved toggle */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
           <Text style={{ fontSize: 24, fontWeight: '700', color: colors.text }}>Recipes</Text>
           <View style={{ flexDirection: 'row', backgroundColor: colors.border, borderRadius: 20, padding: 3 }}>
@@ -225,9 +150,7 @@ export default function Recipes() {
               <Pressable
                 onPress={() => setActiveFilter(item)}
                 style={{
-                  paddingHorizontal: 16,
-                  paddingVertical: 8,
-                  borderRadius: 999,
+                  paddingHorizontal: 16, paddingVertical: 8, borderRadius: 999,
                   backgroundColor: activeFilter === item ? colors.primary : colors.white,
                   borderWidth: 1,
                   borderColor: activeFilter === item ? colors.primary : colors.border,
@@ -244,34 +167,41 @@ export default function Recipes() {
         )}
       </View>
 
-      {/* Grid */}
-      <FlatList
-        data={filtered}
-        numColumns={2}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: 24 }}
-        renderItem={({ item }) => (
-          <RecipeGridCard
-            recipe={item}
-            onUnsave={showSaved ? () => removeRecipe(item.id) : undefined}
-          />
-        )}
-        ListEmptyComponent={
-          <View style={{ alignItems: 'center', paddingTop: 60, gap: 8 }}>
-            {showSaved ? (
-              <>
-                <Ionicons name="heart-outline" size={48} color={colors.border} />
-                <Text style={{ fontSize: 17, fontWeight: '600', color: colors.text }}>No saved recipes yet</Text>
-                <Text style={{ fontSize: 14, color: colors.textMuted, textAlign: 'center', paddingHorizontal: 32 }}>
-                  Swipe right on recipes in Discover to save them here.
-                </Text>
-              </>
-            ) : (
-              <Text style={{ fontSize: 16, color: colors.textMuted }}>No recipes found.</Text>
-            )}
-          </View>
-        }
-      />
+      {/* Loading state */}
+      {isLoading && !showSaved ? (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 }}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={{ color: colors.textMuted, fontSize: 15 }}>Loading recipes...</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={filtered}
+          numColumns={2}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: 24 }}
+          renderItem={({ item }) => (
+            <RecipeGridCard
+              recipe={item}
+              onUnsave={showSaved ? () => removeRecipe(item.id) : undefined}
+            />
+          )}
+          ListEmptyComponent={
+            <View style={{ alignItems: 'center', paddingTop: 60, gap: 8 }}>
+              {showSaved ? (
+                <>
+                  <Ionicons name="heart-outline" size={48} color={colors.border} />
+                  <Text style={{ fontSize: 17, fontWeight: '600', color: colors.text }}>No saved recipes yet</Text>
+                  <Text style={{ fontSize: 14, color: colors.textMuted, textAlign: 'center', paddingHorizontal: 32 }}>
+                    Swipe right on recipes in Discover to save them here.
+                  </Text>
+                </>
+              ) : (
+                <Text style={{ fontSize: 16, color: colors.textMuted }}>No recipes found.</Text>
+              )}
+            </View>
+          }
+        />
+      )}
     </SafeAreaView>
   );
 }
