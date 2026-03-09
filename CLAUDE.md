@@ -207,15 +207,15 @@ Both modes share the same swipe mechanic, pantry, dietary goals, and AI engine.
 | # | Screen | File | Status |
 |---|---|---|---|
 | 1 | Welcome | welcome.tsx | ✅ |
-| 2 | Dietary Goals | dietary-goals.tsx | ✅ needs free text field |
-| 3 | Ingredient Dislikes | ingredient-dislikes.tsx | 🔲 NEW |
-| 4 | Cuisine Preferences | cuisine-prefs.tsx | ✅ needs expansion |
-| 5 | Eating Style | eating-style.tsx | 🔲 NEW |
+| 2 | Dietary Goals | dietary-goals.tsx | ✅ free text field added |
+| 3 | Ingredient Dislikes | ingredient-dislikes.tsx | ✅ built |
+| 4 | Cuisine Preferences | cuisine-prefs.tsx | ✅ 12 universal cuisines |
+| 5 | Eating Style | eating-style.tsx | ✅ built |
 | 6 | Cooking Frequency | cook-frequency.tsx | ✅ |
 | 7 | Skill Level | skill-level.tsx | ✅ |
 | 8 | Budget | budget.tsx | ✅ |
 | 9 | Account Creation | account.tsx | ✅ |
-| 10 | Payoff + Pantry Seed | payoff.tsx | ✅ needs pantry seed step |
+| 10 | Payoff + Pantry Seed | payoff.tsx | ✅ pantry seed added |
 
 Progress bar shown on screens 2–9.
 
@@ -239,8 +239,10 @@ User can also type any ingredient not shown. No limit on how many they add. Save
 **Critical rule:** These are hard filters. Any recipe containing a disliked ingredient is removed from the swipe stack entirely — never soft-deprioritised. Enforce this at the data layer, not just the UI layer. Editable at any time in Profile → Settings.
 
 #### Screen 4 — Cuisine Preferences
-Expand from current cards to 20-25 granular options:
-Italian, Japanese Ramen, Korean BBQ, Vietnamese, Mexican, Indian Curry, Mediterranean, American BBQ, Thai, Chinese Dim Sum, Middle Eastern, Greek, French, Spanish Tapas, Moroccan, Japanese Sushi, Indian Street Food, Tex-Mex, Lebanese, Peruvian, Turkish, Ethiopian, Caribbean, Szechuan
+**12 universal cuisines only** — every user knows all of these, no explanation needed:
+Italian, Mexican, Chinese, Japanese, Indian, American, Mediterranean, Thai, French, Greek, Korean, Middle Eastern
+
+**Do NOT add niche cuisines to this screen.** Moroccan, Ethiopian, Peruvian, Szechuan, Lebanese, Turkish, Caribbean, Vietnamese, Tex-Mex, Spanish etc. are surfaced by the AI as "adventure cards" in the Discover feed — a reward for engaged users, not a form field. See Section 6.10.
 
 #### Screen 5 — Eating Style (NEW — build this)
 *"What does a good week of eating look like for you?"*
@@ -443,6 +445,24 @@ Tight 5-8 card stack. Highly contextual: time of day, pantry state, recent swipe
 
 ---
 
+### 6.10 Adventure Cards — Skill-Aware Cuisine Expansion
+
+Niche cuisines (Moroccan, Ethiopian, Peruvian, Szechuan, Lebanese, Vietnamese, Turkish, Caribbean, Tex-Mex, Spanish, etc.) are **never** shown during onboarding. Instead they are introduced by Claude as "adventure cards" in the Discover feed — an earned reward, not a form.
+
+**Rules:**
+- Only shown to `home_cook` and `confident_chef` users — never `beginner`
+- First adventure card appears after ~20 swipes (baseline taste signal established)
+- Cuisine selected by Claude based on adjacency to the user's liked cuisines:
+  - Italian lover → Greek, Moroccan, Spanish
+  - Korean lover → Vietnamese, Japanese, Thai
+  - Mexican lover → Peruvian, Caribbean, Tex-Mex
+- Card carries a subtle `✦ New for you` badge so users know it's intentional, not a bug
+- If the user swipes right: that cuisine enters their rotation. If left: Claude waits longer before trying another adventure card
+- Can be disabled in Profile → Settings ("Keep it familiar")
+- `confident_chef` users receive adventure cards more frequently and from more distant cuisines
+
+---
+
 ## 7. AI Personalisation Strategy
 
 ### Why Previous Apps Failed
@@ -473,6 +493,13 @@ Auto-generated taste profile in the profile tab:
 > *"You tend to love Italian and Mexican, quick weeknight meals, bold flavours, and anything you can make with what's already in your kitchen."*
 
 Progress narrative: "Mise is learning your taste" → "Mise knows your taste" as swipe history grows.
+
+**Layer 7 — Adventure cards (skill-aware cuisine expansion):**
+Users who selected `home_cook` or `confident_chef` during onboarding receive occasional "adventure cards" in their Discover feed — recipes from cuisines they did not select (Moroccan, Ethiopian, Peruvian, Szechuan, Lebanese, Vietnamese, Caribbean, Turkish etc.). These are introduced gradually after ~20 swipes, once the AI has a baseline taste signal.
+
+Card treatment: a subtle "✦ New for you" badge distinguishes adventure cards from the main stack. Claude selects the adventure cuisine based on adjacency to the user's liked cuisines (e.g. a Korean lover gets introduced to Japanese street food; an Italian lover gets introduced to Greek or Moroccan).
+
+`beginner` users never receive adventure cards — their stack stays familiar and confidence-building. Adventure cards can be disabled in Profile → Settings.
 
 ### Non-Negotiable Technical Requirements
 1. Every swipe logged to Supabase immediately — no batching, no skipping

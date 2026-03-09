@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, Pressable } from 'react-native';
+import { View, Text, ScrollView, Pressable, TextInput } from 'react-native';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { useUserStore } from '@/stores/userStore';
@@ -21,6 +21,7 @@ const GOALS = [
 export default function DietaryGoals() {
   const { onboarding, setOnboardingField } = useUserStore();
   const [selected, setSelected] = useState<string[]>(onboarding.dietary_goals);
+  const [extraText, setExtraText] = useState<string>(onboarding.dietary_extra_preferences ?? '');
 
   function toggle(id: string) {
     setSelected((prev) =>
@@ -30,12 +31,14 @@ export default function DietaryGoals() {
 
   function handleNext() {
     setOnboardingField('dietary_goals', selected);
-    router.push('/onboarding/cuisine-prefs');
+    // Free text is passed verbatim to Claude at recommendation time — no preprocessing
+    setOnboardingField('dietary_extra_preferences', extraText.trim() || null);
+    router.push('/onboarding/ingredient-dislikes');
   }
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <ProgressBar current={1} total={6} />
+      <ProgressBar current={1} total={8} />
 
       <ScrollView
         style={{ flex: 1 }}
@@ -87,6 +90,33 @@ export default function DietaryGoals() {
               </Pressable>
             );
           })}
+        </View>
+
+        {/* Optional free text — niche needs Claude reads at recommendation time */}
+        <View style={{ marginTop: 24 }}>
+          <Text style={{ fontSize: 14, fontWeight: '600', color: colors.text, marginBottom: 8 }}>
+            Anything else? <Text style={{ color: colors.textMuted, fontWeight: '400' }}>(optional)</Text>
+          </Text>
+          <TextInput
+            value={extraText}
+            onChangeText={setExtraText}
+            placeholder="e.g. low sodium, diabetic friendly, low FODMAP..."
+            placeholderTextColor={colors.textMuted}
+            multiline
+            numberOfLines={3}
+            style={{
+              backgroundColor: colors.white,
+              borderWidth: 1.5,
+              borderColor: colors.border,
+              borderRadius: 12,
+              paddingHorizontal: 14,
+              paddingVertical: 12,
+              fontSize: 15,
+              color: colors.text,
+              lineHeight: 22,
+              textAlignVertical: 'top',
+            }}
+          />
         </View>
       </ScrollView>
 

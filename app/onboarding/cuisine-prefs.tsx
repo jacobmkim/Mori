@@ -11,15 +11,24 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = SCREEN_WIDTH - 48;
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.35;
 
+// 12 universal cuisines everyone recognises — no niche sub-types.
+// Advanced/rare cuisines (Moroccan, Ethiopian, Peruvian, Szechuan etc.) are NOT
+// shown here. Instead, Claude surfaces them as "adventure cards" in the Discover
+// feed for users who selected confident_chef or home_cook — a reward, not a form.
+// Images verified as loading reliably from Unsplash.
 const CUISINES = [
   { id: 'italian',       label: 'Italian',       image: 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=600' },
   { id: 'mexican',       label: 'Mexican',       image: 'https://images.unsplash.com/photo-1565299585323-38d6b0865b47?w=600' },
-  { id: 'mediterranean', label: 'Mediterranean', image: 'https://images.unsplash.com/photo-1544025162-d76694265947?w=600' },
-  { id: 'american',      label: 'American',      image: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=600' },
-  { id: 'indian',        label: 'Indian',        image: 'https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=600' },
+  { id: 'chinese',       label: 'Chinese',       image: 'https://images.unsplash.com/photo-1563245372-f21724e3856d?w=600' },
   { id: 'japanese',      label: 'Japanese',      image: 'https://images.unsplash.com/photo-1569050467447-ce54b3bbc37d?w=600' },
+  { id: 'indian',        label: 'Indian',        image: 'https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=600' },
+  { id: 'american',      label: 'American',      image: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=600' },
+  { id: 'mediterranean', label: 'Mediterranean', image: 'https://images.unsplash.com/photo-1544025162-d76694265947?w=600' },
   { id: 'thai',          label: 'Thai',          image: 'https://images.unsplash.com/photo-1562565652-a0d8f0c59eb4?w=600' },
+  { id: 'french',        label: 'French',        image: 'https://images.unsplash.com/photo-1608855238293-a8853e7f7c98?w=600' },
+  { id: 'greek',         label: 'Greek',         image: 'https://images.unsplash.com/photo-1476718406336-bb5a9690ee2a?w=600' },
   { id: 'korean',        label: 'Korean',        image: 'https://images.unsplash.com/photo-1590301157890-4810ed352733?w=600' },
+  { id: 'middle_eastern',label: 'Middle Eastern',image: 'https://images.unsplash.com/photo-1505253716362-afaea1d3d1af?w=600' },
 ];
 
 type Cuisine = typeof CUISINES[0];
@@ -240,7 +249,7 @@ export default function CuisinePrefs() {
       }).start(() => {
         setExitCard(null);
         setOnboardingField('cuisine_preferences', liked.current);
-        router.push('/onboarding/cook-frequency');
+        router.push('/onboarding/eating-style');
       });
     } else {
       setIndex(next);
@@ -287,7 +296,7 @@ export default function CuisinePrefs() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <ProgressBar current={2} total={6} />
+      <ProgressBar current={3} total={8} />
 
       <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12 }}>
         <Text style={{ fontSize: 26, fontWeight: '800', color: colors.text, marginBottom: 4 }}>

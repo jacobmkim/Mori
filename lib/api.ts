@@ -172,6 +172,22 @@ export async function addPantryItem(item: Omit<PantryItem, 'id' | 'added_at'>): 
   if (error) throw error;
 }
 
+// Bulk insert pantry staples from onboarding payoff screen
+export async function addPantryItems(
+  userId: string,
+  ingredientNames: string[],
+  addedVia: PantryItem['added_via'] = 'onboarding'
+): Promise<void> {
+  if (ingredientNames.length === 0) return;
+  const rows = ingredientNames.map((name) => ({
+    user_id: userId,
+    ingredient_name: name,
+    added_via: addedVia,
+  }));
+  const { error } = await supabase.from('pantry_items').insert(rows);
+  if (error) throw error;
+}
+
 export async function deletePantryItem(id: string): Promise<void> {
   const { error } = await supabase.from('pantry_items').delete().eq('id', id);
   if (error) throw error;
