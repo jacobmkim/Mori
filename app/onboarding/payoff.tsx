@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { useUserStore } from '@/stores/userStore';
 import { colors } from '@/constants/theme';
-import { addPantryItems, upsertProfile } from '@/lib/api';
+import { addPantryItems, upsertProfile, computeCohortKey, upsertUserCohort } from '@/lib/api';
 
 const GOAL_LABELS: Record<string, string> = {
   balanced: 'Balanced', high_protein: 'High Protein', low_carb: 'Low Carb',
@@ -59,6 +59,7 @@ export default function Payoff() {
     setIsSaving(true);
     try {
       if (profile?.id) {
+        const cohortKey = computeCohortKey(onboarding);
         // Run in parallel — neither blocks navigation if it fails
         await Promise.allSettled([
           // Save pantry staples — powers "you can make this tonight" on session one
@@ -67,6 +68,9 @@ export default function Payoff() {
             : Promise.resolve(),
           // Mark onboarding complete so the app knows not to re-run the flow
           upsertProfile({ id: profile.id, onboarding_complete: true }),
+          // Map user to cohort — Phase 2 recommendation engine uses this to
+          // serve a personalised first stack before any swipe history exists
+          upsertUserCohort(profile.id, cohortKey),
         ]);
       }
     } finally {

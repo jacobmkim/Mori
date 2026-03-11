@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { MiseLogo } from '@/components/ui/MiseLogo';
 import { colors } from '@/constants/theme';
 
 export default function Welcome() {
@@ -27,34 +28,7 @@ export default function Welcome() {
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
         {/* Logo */}
         <View style={{ paddingHorizontal: 28, paddingTop: 36 }}>
-          {/* "mise" with spatula replacing the "i" */}
-          <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
-            <Text style={{ color: '#FFFFFF', fontSize: 76, fontWeight: '900', letterSpacing: -2, lineHeight: 72 }}>
-              m
-            </Text>
-            {/* Spatula — tall slotted blade, tapered neck, long handle */}
-            <View style={{ alignItems: 'center', marginBottom: 10, marginHorizontal: 3 }}>
-              {/* Tall blade with long vertical slots */}
-              <View style={{ width: 26, height: 30, borderRadius: 4, backgroundColor: colors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-evenly', paddingHorizontal: 3 }}>
-                <View style={{ width: 2, height: 21, borderRadius: 1, backgroundColor: 'rgba(0,0,0,0.3)' }} />
-                <View style={{ width: 2, height: 21, borderRadius: 1, backgroundColor: 'rgba(0,0,0,0.3)' }} />
-                <View style={{ width: 2, height: 21, borderRadius: 1, backgroundColor: 'rgba(0,0,0,0.3)' }} />
-              </View>
-              {/* Tapered neck */}
-              <View style={{ width: 11, height: 5, borderRadius: 1, backgroundColor: colors.primary }} />
-              {/* Handle */}
-              <View style={{ width: 5, height: 37, borderRadius: 3, backgroundColor: colors.primary }} />
-            </View>
-            <Text style={{ color: '#FFFFFF', fontSize: 76, fontWeight: '900', letterSpacing: -2, lineHeight: 72 }}>
-              se
-            </Text>
-          </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 }}>
-            <View style={{ width: 20, height: 2, backgroundColor: colors.primary, borderRadius: 1 }} />
-            <Text style={{ color: colors.primary, fontSize: 12, fontWeight: '700', letterSpacing: 5, textTransform: 'uppercase' }}>
-              en place
-            </Text>
-          </View>
+          <MiseLogo size={76} textColor="#FFFFFF" showTagline />
         </View>
 
         {/* Text block — vertically centred */}

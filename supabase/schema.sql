@@ -201,7 +201,7 @@ CREATE POLICY "Anyone can view recipes" ON recipes
 CREATE POLICY "Users can insert own recipes" ON recipes
   FOR INSERT WITH CHECK (auth.uid() = submitted_by OR submitted_by IS NULL);
 CREATE POLICY "Users can update own recipes" ON recipes
-  FOR UPDATE USING (auth.uid() = submitted_by);
+  FOR UPDATE USING (auth.uid() = submitted_by OR submitted_by IS NULL);
 
 -- Swipe events
 CREATE POLICY "Users can insert own swipes" ON swipe_events

@@ -3,11 +3,13 @@ import type { Profile, OnboardingState, EatingStyle, SkillLevel, CookingFrequenc
 
 interface UserStore {
   profile: Profile | null;
+  sessionNumber: number;   // incremented each app open, used for swipe event logging
   onboarding: OnboardingState;
   isLoading: boolean;
   error: string | null;
 
   setProfile: (profile: Profile | null) => void;
+  setSessionNumber: (n: number) => void;
   setOnboardingField: <K extends keyof OnboardingState>(key: K, value: OnboardingState[K]) => void;
   resetOnboarding: () => void;
   setLoading: (loading: boolean) => void;
@@ -27,11 +29,13 @@ const defaultOnboarding: OnboardingState = {
 
 export const useUserStore = create<UserStore>((set) => ({
   profile: null,
+  sessionNumber: 0,
   onboarding: defaultOnboarding,
   isLoading: false,
   error: null,
 
   setProfile: (profile) => set({ profile }),
+  setSessionNumber: (sessionNumber) => set({ sessionNumber }),
 
   setOnboardingField: (key, value) =>
     set((state) => ({

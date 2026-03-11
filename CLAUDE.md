@@ -770,6 +770,11 @@ All Immediate Priority items above.
 
 ### Phase 2 — AI Layer
 - [ ] Vercel project set up, environment variables configured
+- [ ] /api/describe-recipe endpoint — Claude generates a one-sentence description
+      per recipe from { title, cuisine, category, ingredients }. Currently the
+      blurb falls back to the first sentence of TheMealDB strInstructions which
+      is often a cooking step, not a description. Claude descriptions ship with
+      Phase 2 Vercel setup. Wire into fetchMealDetail in lib/mealdb.ts.
 - [ ] /api/recommendations endpoint — Claude-powered personalised stack
 - [ ] Connect recommendations to Discover screen (replace TheMealDB direct fetch)
 - [ ] Pantry screen in Profile → Pantry (opt-in, not a main tab)

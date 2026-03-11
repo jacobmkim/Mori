@@ -6,18 +6,22 @@ import {
   Animated,
   PanResponder,
   ActivityIndicator,
-  ScrollView,
 } from 'react-native';
 import { useRef, useState, useEffect } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/theme';
-import { formatTime, formatCost } from '@/lib/utils';
+import { formatTime, formatCost, getTimeOfDay } from '@/lib/utils';
 import { fetchMealDBRecipes, fetchMealDetail, type MealDetail } from '@/lib/mealdb';
+import { logSwipe, upsertRecipeByExternalId, setRecipeLiked, fetchMacros, estimateMacrosLocally } from '@/lib/api';
+import { RecipeDetailModal } from '@/components/RecipeDetailModal';
+import { HeadlineMacroPill } from '@/components/ui/MacroRow';
+import { MiseLogo } from '@/components/ui/MiseLogo';
 import { useSavedStore } from '@/stores/savedStore';
+import { useGroceryStore } from '@/stores/groceryStore';
 import { useUserStore } from '@/stores/userStore';
-import type { Recipe, AppMode } from '@/types';
+import type { Recipe, AppMode, Macros } from '@/types';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = SCREEN_WIDTH - 32;
@@ -26,18 +30,24 @@ const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.35;
 function RecipeSwipeCard({
   recipe,
   onSwipe,
+  onTap,
   isTop,
   detail,
   topDragX,
   entryX,
+  dietaryGoals,
+  macros,
 }: {
   recipe: Recipe;
   // onSwipe fires immediately at threshold — parent receives position to own the fly-off spring
   onSwipe: (direction: 'left' | 'right', cardPosition: Animated.ValueXY) => void;
+  onTap?: () => void;
   isTop: boolean;
   detail?: MealDetail;
   topDragX?: Animated.Value;
   entryX?: number; // if set, card springs in from this x offset on mount (undo animation)
+  dietaryGoals?: string[];
+  macros?: Macros | null;
 }) {
   const position = useRef(new Animated.ValueXY()).current;
 
@@ -61,6 +71,8 @@ function RecipeSwipeCard({
   isTopRef.current = isTop;
   const onSwipeRef = useRef(onSwipe);
   onSwipeRef.current = onSwipe;
+  const onTapRef = useRef(onTap);
+  onTapRef.current = onTap;
 
   const panResponder = useRef(
     PanResponder.create({
@@ -79,6 +91,21 @@ function RecipeSwipeCard({
           // Fire immediately — parent gets position and starts the fly-off spring.
           // The new top card becomes swipeable right now, no animation delay.
           onSwipeRef.current(dir, position);
+        } else if (Math.abs(gesture.dx) < 6 && Math.abs(gesture.dy) < 6) {
+          // Tiny movement = tap — snap back and open detail
+          Animated.spring(position, {
+            toValue: { x: 0, y: 0 },
+            friction: 5,
+            useNativeDriver: true,
+          }).start();
+          if (topDragXRef.current) {
+            Animated.spring(topDragXRef.current, {
+              toValue: 0,
+              friction: 5,
+              useNativeDriver: true,
+            }).start();
+          }
+          onTapRef.current?.();
         } else {
           Animated.spring(position, {
             toValue: { x: 0, y: 0 },
@@ -196,6 +223,9 @@ function RecipeSwipeCard({
           </Text>
         )}
 
+        {/* Headline macro pill — only shown when macros + matching dietary goal exist */}
+        <HeadlineMacroPill macros={macros ?? recipe.macros} dietaryGoals={dietaryGoals ?? []} />
+
         {/* Ingredient pills — wrapped grid */}
         {detail?.ingredients && detail.ingredients.length > 0 && (
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
@@ -209,7 +239,7 @@ function RecipeSwipeCard({
                   paddingVertical: 4,
                 }}
               >
-                <Text style={{ color: colors.primary, fontSize: 12, fontWeight: '500' }}>{ing}</Text>
+                <Text style={{ color: colors.primary, fontSize: 12, fontWeight: '500' }}>{ing.name}</Text>
               </View>
             ))}
           </View>
@@ -226,21 +256,35 @@ interface ExitCard {
   position: Animated.ValueXY;
 }
 
+// Stable empty array — prevents Zustand infinite re-render when profile is null.
+// Never inline `?? []` in a Zustand selector; it creates a new reference each render.
+const EMPTY_GOALS: string[] = [];
+
 export default function Discover() {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [mode, setMode] = useState<AppMode>('spontaneous');
   const [currentIndex, setCurrentIndex] = useState(0);
   const [topDetail, setTopDetail] = useState<MealDetail | null>(null);
+  // macroCacheVersion increments whenever macroCache is updated — triggers a re-render
+  // so the pill updates with accurate data without any state-driven delay.
+  const [macroCacheVersion, setMacroCacheVersion] = useState(0);
   const [exitCard, setExitCard] = useState<ExitCard | null>(null);
   const [lastSwipe, setLastSwipe] = useState<{ recipe: Recipe; direction: 'left' | 'right' } | null>(null);
+  const [showDetail, setShowDetail] = useState(false);
+  const [cartToast, setCartToast] = useState(false);
+  const cartToastOpacity = useRef(new Animated.Value(0)).current;
   const detailCache = useRef<Map<string, MealDetail>>(new Map());
+  const macroCache = useRef<Map<string, Macros>>(new Map());
   const currentIndexRef = useRef(currentIndex);
   currentIndexRef.current = currentIndex;
   // Set before decrementing currentIndex so the new top card picks it up on mount
   const undoEntryXRef = useRef<number | null>(null);
   const { addRecipe, removeRecipe } = useSavedStore();
+  const { addFromDetail, selectedRecipes } = useGroceryStore();
   const userId = useUserStore((s) => s.profile?.id);
+  const sessionNumber = useUserStore((s) => s.sessionNumber);
+  const dietaryGoals = useUserStore((s) => s.profile?.dietary_goals ?? EMPTY_GOALS);
 
   // Single Animated.Value tracking the top card's drag X.
   // Background cards interpolate from this — fully decoupled from the top
@@ -270,22 +314,24 @@ export default function Discover() {
     })
   ).current;
 
+  // Re-fetch when dietary goals change — cache key includes goals so a new filtered
+  // deck is built automatically. setCurrentIndex(0) resets position on new deck.
   useEffect(() => {
-    fetchMealDBRecipes()
+    setIsLoading(true);
+    setCurrentIndex(0);
+    fetchMealDBRecipes(dietaryGoals)
       .then(setRecipes)
       .finally(() => setIsLoading(false));
-  }, []);
+  }, [dietaryGoals]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // When top card changes, serve from cache immediately — no API call needed
+  // When top card changes, update detail from cache (detail has no local estimator).
   useEffect(() => {
     const top = recipes[currentIndex];
     if (!top) return;
     setTopDetail(detailCache.current.get(top.id) ?? null);
   }, [currentIndex, recipes]);
 
-  // Fire ALL detail requests in parallel the moment the deck loads.
-  // All ~20 cards will be cached within one round-trip (~400ms) instead of
-  // N * 400ms sequentially. TheMealDB handles concurrent requests fine.
+  // Prefetch detail for ALL cards in parallel (TheMealDB is free — no quota concern).
   useEffect(() => {
     if (recipes.length === 0) return;
     let cancelled = false;
@@ -295,7 +341,6 @@ export default function Discover() {
       const detail = await fetchMealDetail(recipe.id);
       if (cancelled || !detail) return;
       detailCache.current.set(recipe.id, detail);
-      // Hydrate UI if this is still the top card
       if (recipe.id === recipes[currentIndexRef.current]?.id) {
         setTopDetail(detail);
       }
@@ -304,10 +349,62 @@ export default function Discover() {
     return () => { cancelled = true; };
   }, [recipes]);
 
+  // Fetch accurate macros for top card + next 2 whenever the top card changes.
+  // macroCache stores results; incrementing macroCacheVersion triggers a re-render
+  // so the pill silently updates from local estimate → accurate data.
+  useEffect(() => {
+    if (recipes.length === 0) return;
+    let cancelled = false;
+
+    async function fetchNearby() {
+      const indices = [currentIndex, currentIndex + 1, currentIndex + 2];
+      for (const idx of indices) {
+        const recipe = recipes[idx];
+        if (!recipe || macroCache.current.has(recipe.id)) continue;
+        let detail = detailCache.current.get(recipe.id);
+        if (!detail) {
+          detail = await fetchMealDetail(recipe.id).catch(() => null) ?? undefined;
+          if (detail) detailCache.current.set(recipe.id, detail);
+        }
+        if (cancelled || !detail) continue;
+        const ings = detail.ingredients.map((i) => ({ name: i.name, quantity: i.measure, unit: '' }));
+        const macros = await fetchMacros(recipe.title, ings, { externalId: recipe.id }).catch(() => null);
+        if (cancelled || !macros) continue;
+        macroCache.current.set(recipe.id, macros);
+        setMacroCacheVersion((v) => v + 1); // trigger re-render to show accurate data
+      }
+    }
+
+    fetchNearby();
+    return () => { cancelled = true; };
+  }, [currentIndex, recipes]);
+
+  // Fire-and-forget: upsert recipe to get Supabase UUID then log the swipe.
+  // Never blocks the animation or the UI — errors are silently swallowed.
+  function logSwipeBackground(recipe: Recipe, direction: 'left' | 'right', currentMode: AppMode) {
+    if (!userId) return;
+    upsertRecipeByExternalId(recipe)
+      .then((supabaseId) =>
+        logSwipe({
+          user_id: userId,
+          recipe_id: supabaseId,
+          direction,
+          mode: currentMode,
+          time_of_day: getTimeOfDay(),
+          day_of_week: new Date().getDay(),
+          session_number: sessionNumber,
+        })
+      )
+      .catch(() => {}); // swipe logging is non-critical
+  }
+
   function handleSwipe(direction: 'left' | 'right', cardPosition: Animated.ValueXY) {
     const recipe = recipes[currentIndexRef.current];
     if (direction === 'right' && recipe) addRecipe(recipe, userId);
-    if (recipe) setLastSwipe({ recipe, direction });
+    if (recipe) {
+      setLastSwipe({ recipe, direction });
+      logSwipeBackground(recipe, direction, mode);
+    }
 
     // Keep the exiting card rendered as an overlay so its fly-off animation
     // plays while the new top card is already fully interactive.
@@ -344,8 +441,50 @@ export default function Discover() {
     handleSwipe(direction, syntheticPos);
   }
 
+  // Add current top card to grocery list, mark liked for Phase 2 AI signal,
+  // flash a green toast, then auto-swipe right so the card flies off naturally.
+  function handleAddToCart() {
+    const recipe = recipes[currentIndexRef.current];
+    if (!recipe) return;
+    const detail = detailCache.current.get(recipe.id);
+    addFromDetail(recipe, detail?.ingredients ?? []);
+    // Mark liked = true — cart add is stronger positive signal than a bare save (Phase 2 weighting)
+    if (userId) {
+      upsertRecipeByExternalId(recipe)
+        .then(() => setRecipeLiked(userId, recipe.id, true))
+        .catch(() => {});
+    }
+    // Green toast feedback — fades in instantly, holds, then fades out
+    setCartToast(true);
+    cartToastOpacity.setValue(0);
+    Animated.sequence([
+      Animated.timing(cartToastOpacity, { toValue: 1, duration: 120, useNativeDriver: true }),
+      Animated.delay(900),
+      Animated.timing(cartToastOpacity, { toValue: 0, duration: 200, useNativeDriver: true }),
+    ]).start(() => setCartToast(false));
+    // Auto-swipe right — handles save + swipe logging + fly-off animation
+    handleButtonSwipe('right');
+  }
+
+  // Open detail modal for current top card
+  function handleViewDetail() {
+    const recipe = recipes[currentIndexRef.current];
+    if (recipe) setShowDetail(true);
+  }
+
+  const isSaved = useSavedStore((s) => s.isSaved);
+
   const visibleCards = recipes.slice(currentIndex, currentIndex + 3);
   const isEmpty = !isLoading && currentIndex >= recipes.length;
+
+  // Computed inline every render — no state lag. Cache hit = accurate data,
+  // cache miss = instant local estimate. macroCacheVersion causes a re-render
+  // when accurate data arrives, silently updating the pill.
+  const topRecipe = recipes[currentIndex] ?? null;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const topMacros = topRecipe
+    ? (macroCache.current.get(topRecipe.id) ?? estimateMacrosLocally(topRecipe.title))
+    : null;
   // Consume the undo entry offset exactly once — the top card reads it on mount
   const pendingEntryX = undoEntryXRef.current;
   undoEntryXRef.current = null;
@@ -354,7 +493,7 @@ export default function Discover() {
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       {/* Header */}
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 }}>
-        <Text style={{ fontSize: 24, fontWeight: '800', color: colors.text }}>Mise</Text>
+        <MiseLogo size={40} textColor={colors.text} />
         <View style={{ flexDirection: 'row', backgroundColor: colors.border, borderRadius: 20, padding: 3 }}>
           {(['spontaneous', 'meal_prep'] as AppMode[]).map((m) => (
             <Pressable
@@ -446,16 +585,20 @@ export default function Discover() {
                     <RecipeSwipeCard
                       recipe={recipe}
                       onSwipe={(dir, pos) => handleSwipe(dir, pos)}
+                      onTap={handleViewDetail}
                       isTop
                       detail={cardDetail}
                       topDragX={topDragX}
                       entryX={pendingEntryX ?? undefined}
+                      dietaryGoals={dietaryGoals}
+                      macros={topMacros}
                     />
                   </Animated.View>
                 );
               }
 
               if (stackIndex === 1) {
+                const nextMacros = macroCache.current.get(recipe.id) ?? estimateMacrosLocally(recipe.title);
                 return (
                   <Animated.View
                     key={recipe.id}
@@ -472,6 +615,8 @@ export default function Discover() {
                       onSwipe={() => {}}
                       isTop={false}
                       detail={cardDetail}
+                      dietaryGoals={dietaryGoals}
+                      macros={nextMacros}
                     />
                   </Animated.View>
                 );
@@ -502,9 +647,34 @@ export default function Discover() {
         )}
       </View>
 
+      {/* Cart toast — absolutely positioned so it never shifts layout */}
+      {cartToast && (
+        <Animated.View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            bottom: 100,
+            alignSelf: 'center',
+            opacity: cartToastOpacity,
+            backgroundColor: colors.primary,
+            borderRadius: 999,
+            paddingHorizontal: 16,
+            paddingVertical: 8,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 6,
+            zIndex: 99,
+          }}
+        >
+          <Ionicons name="cart" size={14} color="white" />
+          <Text style={{ color: 'white', fontSize: 13, fontWeight: '600' }}>Added to grocery list</Text>
+        </Animated.View>
+      )}
+
       {/* Action Buttons */}
       {!isLoading && !isEmpty && (
-        <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 20, paddingBottom: 16 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 16, paddingBottom: 16 }}>
+          {/* Pass */}
           <Pressable
             onPress={() => handleButtonSwipe('left')}
             style={{
@@ -517,11 +687,13 @@ export default function Discover() {
           >
             <Ionicons name="close" size={28} color={colors.error} />
           </Pressable>
+
+          {/* Undo */}
           <Pressable
             onPress={handleUndo}
             disabled={!lastSwipe}
             style={{
-              width: 46, height: 46, borderRadius: 23,
+              width: 44, height: 44, borderRadius: 22,
               backgroundColor: colors.white, borderWidth: 1.5,
               borderColor: lastSwipe ? colors.textMuted : colors.border,
               alignItems: 'center', justifyContent: 'center',
@@ -530,8 +702,25 @@ export default function Discover() {
               opacity: lastSwipe ? 1 : 0.4,
             }}
           >
-            <Ionicons name="arrow-undo" size={20} color={lastSwipe ? colors.textMuted : colors.border} />
+            <Ionicons name="arrow-undo" size={19} color={lastSwipe ? colors.textMuted : colors.border} />
           </Pressable>
+
+          {/* Add to Grocery List — auto-swipes card right on tap */}
+          <Pressable
+            onPress={handleAddToCart}
+            style={{
+              width: 44, height: 44, borderRadius: 22,
+              backgroundColor: colors.white,
+              borderWidth: 1.5, borderColor: colors.border,
+              alignItems: 'center', justifyContent: 'center',
+              shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
+            }}
+          >
+            <Ionicons name="cart-outline" size={19} color={colors.textMuted} />
+          </Pressable>
+
+          {/* Save */}
           <Pressable
             onPress={() => handleButtonSwipe('right')}
             style={{
@@ -546,6 +735,32 @@ export default function Discover() {
           </Pressable>
         </View>
       )}
+
+      {/* Recipe detail modal */}
+      {(() => {
+        const topRecipe = recipes[currentIndex] ?? null;
+        const topCachedDetail = topRecipe ? detailCache.current.get(topRecipe.id) : null;
+        return (
+          <RecipeDetailModal
+            visible={showDetail}
+            recipe={topRecipe}
+            detail={topCachedDetail}
+            isSaved={topRecipe ? isSaved(topRecipe.id) : false}
+            isInCart={topRecipe ? selectedRecipes.some((r) => r.id === topRecipe.id) : false}
+            onClose={() => setShowDetail(false)}
+            onSaveToggle={() => {
+              if (!topRecipe) return;
+              if (isSaved(topRecipe.id)) removeRecipe(topRecipe.id, userId);
+              else addRecipe(topRecipe, userId);
+            }}
+            onAddToCart={() => {
+              if (!topRecipe) return;
+              handleAddToCart();
+              setShowDetail(false);
+            }}
+          />
+        );
+      })()}
     </SafeAreaView>
   );
 }
