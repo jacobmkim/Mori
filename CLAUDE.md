@@ -959,4 +959,4 @@ All Priority 1–5 items complete. See Section 12.
 
 ---
 
-*Mise CLAUDE.md — v1.3 — Updated to reflect actual build state, animation stack, tech corrections, new onboarding screens, macro strategy, Spoonacular integration, and full priority build order.*
+*Mise CLAUDE.md — v2.0 — Phase 1 complete and merged to main. Phase 2 active on feat/phase-2-ai-layer. Covers full Phase 1 build state, interaction logging, signal hierarchy, and Phase 2 AI build plan.*

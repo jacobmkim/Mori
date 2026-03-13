@@ -235,12 +235,13 @@ Free tier is 150 points/day. Macro pills fall back to local keyword estimates au
 | Branch | Purpose |
 |---|---|
 | `main` | Production-ready, merged after each phase is tested |
-| `feat/phase-1-foundation` | Current development branch |
+| `feat/phase-1-foundation` | ✅ Complete — merged to main |
+| `feat/phase-2-ai-layer` | Current development branch |
 
 Merge to main only after full testing of the phase:
 
 ```bash
 git checkout main
-git merge feat/phase-1-foundation --no-ff -m "Merge Phase 1"
+git merge feat/phase-2-ai-layer --no-ff -m "Merge Phase 2"
 git push origin main
 ```
