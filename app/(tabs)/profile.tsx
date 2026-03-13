@@ -7,7 +7,7 @@ import type { ReactNode } from 'react';
 import { useUserStore } from '@/stores/userStore';
 import { useSavedStore } from '@/stores/savedStore';
 import { supabase } from '@/lib/supabase';
-import { upsertProfile, patchProfile } from '@/lib/api';
+import { upsertProfile, patchProfile, clearDiscoverCache } from '@/lib/api';
 import { clearRecipeCache } from '@/lib/mealdb';
 import { colors } from '@/constants/theme';
 import type { Profile } from '@/types';
@@ -316,6 +316,7 @@ export default function Profile() {
       setProfile(updated);
       // Clear cached recipe deck so Discover reloads with the new dietary filters applied
       clearRecipeCache().catch(() => {});
+      clearDiscoverCache();
     } catch (err) {
       Alert.alert('Could not save preferences', 'Please check your connection and try again.');
       console.error('patchProfile error:', err);
