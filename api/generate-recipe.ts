@@ -97,7 +97,8 @@ Rules:
 - 4-8 steps
 - dietary_tags from: vegan, vegetarian, pescatarian, gluten_free, dairy_free, keto, high_protein, low_carb, paleo, halal
 - macros are per serving estimates
-- make it a real, cookable recipe a home cook would actually want to make`;
+- make it a real, cookable recipe a home cook would actually want to make
+- TITLE RULE: Always use the common English name. If the dish has a well-known foreign name, put the English name first and the foreign name in parentheses. Examples: "Braised Veal Shanks (Osso Buco)", "Hunter's Chicken (Pollo alla Cacciatora)", "Creamy Rice Pudding (Arroz con Leche)". Never use a foreign-language title alone.`;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
