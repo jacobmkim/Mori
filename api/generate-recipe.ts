@@ -64,6 +64,7 @@ function buildPrompt(req: GenerateRequest): string {
   if (req.dietaryGoals?.includes('dairy_free')) constraints.push('dairy-free');
   if (req.dietaryGoals?.includes('keto')) constraints.push('keto-friendly — under 10g net carbs per serving');
   if (req.dietaryGoals?.includes('high_protein')) constraints.push('high protein — at least 30g protein per serving');
+  if (req.dietaryGoals?.includes('meal_prep')) constraints.push('meal prep friendly — simple protein + grain + vegetable structure (e.g. soy garlic chicken with rice and steamed broccoli, grilled chicken wrap with yogurt sauce, teriyaki salmon bowl), scales well for batch cooking, reheats well');
   if (req.avoidIngredients?.length) constraints.push(`must not contain: ${req.avoidIngredients.join(', ')}`);
 
   return `Generate an original ${req.cuisine} recipe. ${constraints.length ? 'Requirements: ' + constraints.join('; ') + '.' : ''}
@@ -99,7 +100,7 @@ Rules:
 - macros are per serving estimates
 - make it a real, cookable recipe a home cook would actually want to make
 - TITLE RULE: Always use the common English name. If the dish has a well-known foreign name, put the English name first and the foreign name in parentheses. Examples: "Braised Veal Shanks (Osso Buco)", "Hunter's Chicken (Pollo alla Cacciatora)", "Creamy Rice Pudding (Arroz con Leche)". Never use a foreign-language title alone.
-- CULTURE RULE: Generate dishes that are genuinely typical of that food culture — the kind of recipe that home cooks in that country actually make on a regular weeknight or weekend. Use authentic flavour profiles, spice combinations, and cooking techniques native to that culture. Do NOT generate a bland, westernised, or fusion version. Examples by cuisine: Italian → pasta, risotto, braises, frittata, soups; Mexican → tacos, enchiladas, pozole, mole, chiles rellenos; Japanese → ramen, donburi, teriyaki, miso dishes, katsu; Indian → dal, curry, biryani, sabzi, dosa-style dishes; Chinese → stir-fries, dumplings, braises, noodle soups; Thai → curries, pad dishes, larb, som tam; Korean → bibimbap, jjigae, bulgogi, banchan-style dishes; Greek → moussaka, spanakopita, souvlaki, fasolada; French → gratins, cassoulet, quiche, bisque; American → BBQ, burgers, chowder, mac and cheese, pot roast; Mediterranean → stuffed vegetables, grain salads, fish dishes, hummus-adjacent mains; Middle Eastern → shawarma, falafel, kebabs, lentil dishes, shakshuka. The recipe must feel like it belongs to that culture — not a generic dish that could come from anywhere.`;
+- CULTURE RULE: 90% of recipes should be iconic, everyday dishes — the classics that home cooks in that country make weekly and that anyone from that culture would immediately recognise. Only 10% can be slightly more ambitious dishes for confident home chefs (but still culturally authentic, not restaurant-only). All recipes must use authentic flavour profiles, spice combinations, and techniques native to that culture. Do NOT generate fusion, westernised, or obscure regional dishes. The MUST-HAVE classics per cuisine — Italian: cacio e pepe, spaghetti bolognese, chicken cacciatore, risotto, amatriciana, carbonara, minestrone, frittata, osso buco; Mexican: chicken tacos, enchiladas, chiles rellenos, arroz con pollo, frijoles de olla, pozole, tamales, quesadillas; Japanese: chicken teriyaki, gyudon, katsu curry, miso soup, ramen, yakisoba, oyakodon, onigiri fillings; Indian: dal tadka, chana masala, palak paneer, butter chicken, aloo gobi, biryani, rajma, chicken tikka masala; Chinese: kung pao chicken, mapo tofu, egg fried rice, dumplings, beef and broccoli, sweet and sour pork, char siu; Thai: pad thai, green curry, massaman curry, tom kha gai, pad see ew, laab, khao pad; Korean: kimchi jjigae (kimchi stew), bibimbap, bulgogi, doenjang jjigae, kimchi fried rice, dakgalbi, tteokbokki; Greek: moussaka, spanakopita, souvlaki, horiatiki salad, fasolada, pastitsio, dolmades; French: quiche lorraine, French onion soup, beef bourguignon, ratatouille, croque monsieur, coq au vin; American: mac and cheese, beef chilli, pot roast, BBQ pulled pork, clam chowder, meatloaf, chicken pot pie; Mediterranean: stuffed peppers, baked fish with herbs, falafel, lentil soup, tabbouleh, shakshuka; Middle Eastern: shakshuka, chicken shawarma, falafel, lentil soup, lamb kebabs, hummus bowls, kofta. Generate the iconic dish itself, not a variation or spin-off.`;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -125,33 +126,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
       recipe = JSON.parse(raw);
     } catch {
-      // Strip markdown fences if Haiku wrapped output
-      const match = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
-      recipe = JSON.parse(match?.[1] ?? raw);
+      // Strip markdown fences — handle both complete (``` ```) and incomplete (``` only) fences
+      const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)(?:```|$)/);
+      const cleaned = fenced ? fenced[1].trim() : raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/,'').trim();
+      recipe = JSON.parse(cleaned);
     }
 
     // Persist to Supabase if requested (used by seed script)
     if (body.save) {
       const sb = getSupabase();
-      if (sb) {
-        await sb.from('recipes').insert({
-          title: recipe.title,
-          description: recipe.description,
-          cuisine: body.cuisine.toLowerCase(),
-          source_type: 'curated',
-          ingredients: recipe.ingredients,
-          steps: recipe.steps,
-          prep_time_mins: recipe.prep_time_mins,
-          cook_time_mins: recipe.cook_time_mins,
-          servings: recipe.servings,
-          dietary_tags: recipe.dietary_tags,
-          macros: { ...recipe.estimated_macros, isEstimated: true },
-          badge: 'none',
-          avg_rating: 4.0 + Math.random() * 0.9,
-          cost_per_serving: parseFloat((3.5 + Math.random() * 6).toFixed(2)),
-          image_url: null, // Phase 3: generate or source images
-        });
-      }
+      if (!sb) throw new Error('Supabase not configured — missing SUPABASE_SERVICE_ROLE_KEY or EXPO_PUBLIC_SUPABASE_URL');
+      const { error: insertError } = await sb.from('recipes').insert({
+        title: recipe.title,
+        description: recipe.description,
+        cuisine: body.cuisine.toLowerCase(),
+        source_type: 'curated',
+        ingredients: recipe.ingredients,
+        steps: recipe.steps,
+        prep_time_mins: recipe.prep_time_mins,
+        cook_time_mins: recipe.cook_time_mins,
+        servings: recipe.servings,
+        dietary_tags: recipe.dietary_tags,
+        macros: { ...recipe.estimated_macros, isEstimated: true },
+        badge: 'none',
+        avg_rating: 4.0 + Math.random() * 0.9,
+        cost_per_serving: parseFloat((3.5 + Math.random() * 6).toFixed(2)),
+        image_url: null,
+      });
+      if (insertError) throw new Error(`Supabase insert failed: ${insertError.message}`);
     }
 
     return res.status(200).json({ recipe });

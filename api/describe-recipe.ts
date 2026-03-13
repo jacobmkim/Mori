@@ -60,11 +60,9 @@ One sentence only:`;
     // Persist to Supabase so this never needs to be called again for this recipe
     const sb = getSupabase();
     if (sb && externalId) {
-      sb.from('recipes')
+      void sb.from('recipes')
         .update({ description })
-        .eq('external_id', externalId)
-        .then(() => {}) // fire-and-forget
-        .catch(() => {});
+        .eq('external_id', externalId);
     }
 
     return res.status(200).json({ description });

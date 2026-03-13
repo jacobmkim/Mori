@@ -62,14 +62,16 @@ const CUISINES = [
 const DIETARY_ROTATION = [
   [],
   ['high_protein'],
-  ['low_carb'],
+  ['meal_prep'],
   ['vegetarian'],
-  ['vegan'],
+  ['meal_prep'],
   ['gluten_free'],
-  ['dairy_free'],
-  [],
   ['high_protein'],
+  [],
+  ['meal_prep'],
   ['vegetarian'],
+  ['low_carb'],
+  [],
 ];
 
 const SKILL_ROTATION = ['beginner', 'home_cook', 'home_cook', 'confident_chef'];
