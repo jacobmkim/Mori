@@ -3,26 +3,115 @@ import type { GroceryList, GroceryItem, Recipe } from '@/types';
 
 interface GroceryStore {
   list: GroceryList | null;
+  selectedRecipes: Recipe[];
   isLoading: boolean;
   error: string | null;
 
-  setList: (list: GroceryList | null) => void;
+  // Add a recipe using ingredients with measures (from TheMealDB detail)
+  addFromDetail: (recipe: Recipe, ingredients: { name: string; measure: string }[]) => void;
+  // Add a recipe with full Ingredient objects (future: Supabase recipes)
   addRecipeIngredients: (recipe: Recipe) => void;
+  // Add a single custom item typed by the user (not tied to any recipe)
+  addCustomItem: (name: string, quantity?: string) => void;
+  removeRecipeFromList: (recipeId: string) => void;
   toggleItem: (ingredientName: string) => void;
-  clearChecked: () => void;
+  deleteItem: (ingredientName: string) => GroceryItem | null; // returns deleted item for undo
+  clearChecked: () => GroceryItem[];   // returns the removed items so caller can undo
+  restoreItems: (items: GroceryItem[]) => void;
+  clearAll: () => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
 }
 
-export const useGroceryStore = create<GroceryStore>((set) => ({
+export const useGroceryStore = create<GroceryStore>((set, get) => ({
   list: null,
+  selectedRecipes: [],
   isLoading: false,
   error: null,
 
-  setList: (list) => set({ list }),
+  addFromDetail: (recipe, ingredients) =>
+    set((state) => {
+      if (state.selectedRecipes.some((r) => r.id === recipe.id)) return state;
+
+      const existingItems: GroceryItem[] = state.list?.items ?? [];
+      const newItems = [...existingItems];
+
+      for (const { name, measure } of ingredients) {
+        const trimmed = name.trim();
+        if (!trimmed) continue;
+        const existing = newItems.find(
+          (i) => i.ingredient_name.toLowerCase() === trimmed.toLowerCase()
+        );
+        if (existing) {
+          if (!existing.recipe_ids.includes(recipe.id)) {
+            existing.recipe_ids.push(recipe.id);
+          }
+        } else {
+          newItems.push({
+            ingredient_name: trimmed,
+            quantity: measure.trim(),  // e.g. "1 cup", "500g", "2 tbsp"
+            unit: '',
+            checked: false,
+            recipe_ids: [recipe.id],
+          });
+        }
+      }
+
+      const newList: GroceryList = state.list
+        ? { ...state.list, items: newItems }
+        : {
+            id: '',
+            user_id: '',
+            list_type: 'spontaneous',
+            status: 'active',
+            items: newItems,
+            recipe_ids: [recipe.id],
+            estimated_total_cost: null,
+            combined_macros: null,
+            instacart_cart_url: null,
+            created_at: new Date().toISOString(),
+          };
+
+      return { list: newList, selectedRecipes: [...state.selectedRecipes, recipe] };
+    }),
+
+  addCustomItem: (name, quantity = '') =>
+    set((state) => {
+      const trimmed = name.trim();
+      if (!trimmed) return state;
+      const existingItems: GroceryItem[] = state.list?.items ?? [];
+      // Don't duplicate
+      if (existingItems.some((i) => i.ingredient_name.toLowerCase() === trimmed.toLowerCase())) {
+        return state;
+      }
+      const newItem: GroceryItem = {
+        ingredient_name: trimmed,
+        quantity: quantity.trim(),
+        unit: '',
+        checked: false,
+        recipe_ids: [],
+      };
+      const newList: GroceryList = state.list
+        ? { ...state.list, items: [...existingItems, newItem] }
+        : {
+            id: '',
+            user_id: '',
+            list_type: 'spontaneous',
+            status: 'active',
+            items: [newItem],
+            recipe_ids: [],
+            estimated_total_cost: null,
+            combined_macros: null,
+            instacart_cart_url: null,
+            created_at: new Date().toISOString(),
+          };
+      return { list: newList };
+    }),
 
   addRecipeIngredients: (recipe) =>
     set((state) => {
+      if (state.selectedRecipes.some((r) => r.id === recipe.id)) return state;
+
       const existingItems: GroceryItem[] = state.list?.items ?? [];
       const newItems = [...existingItems];
 
@@ -54,10 +143,28 @@ export const useGroceryStore = create<GroceryStore>((set) => ({
               list_type: 'spontaneous',
               status: 'active',
               items: newItems,
+              recipe_ids: [recipe.id],
               estimated_total_cost: null,
-              delivery_partner: null,
+              combined_macros: null,
+              instacart_cart_url: null,
               created_at: new Date().toISOString(),
             },
+        selectedRecipes: [...state.selectedRecipes, recipe],
+      };
+    }),
+
+  removeRecipeFromList: (recipeId) =>
+    set((state) => {
+      const newItems = (state.list?.items ?? [])
+        .map((item) => ({
+          ...item,
+          recipe_ids: item.recipe_ids.filter((id) => id !== recipeId),
+        }))
+        .filter((item) => item.recipe_ids.length > 0);
+
+      return {
+        selectedRecipes: state.selectedRecipes.filter((r) => r.id !== recipeId),
+        list: state.list ? { ...state.list, items: newItems } : null,
       };
     }),
 
@@ -74,18 +181,43 @@ export const useGroceryStore = create<GroceryStore>((set) => ({
       };
     }),
 
-  clearChecked: () =>
+  deleteItem: (ingredientName) => {
+    const item = get().list?.items.find((i) => i.ingredient_name === ingredientName) ?? null;
     set((state) => {
       if (!state.list) return state;
       return {
         list: {
           ...state.list,
-          items: state.list.items.filter((i) => !i.checked),
+          items: state.list.items.filter((i) => i.ingredient_name !== ingredientName),
         },
+      };
+    });
+    return item;
+  },
+
+  // Returns the removed items so the caller can offer an undo
+  clearChecked: () => {
+    const state = get();
+    const removed = state.list?.items.filter((i) => i.checked) ?? [];
+    set((s) => ({
+      list: s.list ? { ...s.list, items: s.list.items.filter((i) => !i.checked) } : null,
+    }));
+    return removed;
+  },
+
+  restoreItems: (items) =>
+    set((state) => {
+      if (!state.list || items.length === 0) return state;
+      // Restore items with their original checked state (true — they were in Done)
+      const existing = state.list.items.map((i) => i.ingredient_name.toLowerCase());
+      const toAdd = items.filter((i) => !existing.includes(i.ingredient_name.toLowerCase()));
+      return {
+        list: { ...state.list, items: [...state.list.items, ...toAdd] },
       };
     }),
 
-  setLoading: (isLoading) => set({ isLoading }),
+  clearAll: () => set({ list: null, selectedRecipes: [] }),
 
+  setLoading: (isLoading) => set({ isLoading }),
   setError: (error) => set({ error }),
 }));

@@ -1,192 +1,277 @@
--- PrepSwipe Database Schema
+-- Mise Database Schema — v1.3
 -- Run this in the Supabase SQL Editor
+-- Safe to re-run on a fresh project (drops and recreates all public tables)
 
--- ─── Profiles ────────────────────────────────────────────────────────────────
+-- ─── Tear down existing objects ───────────────────────────────────────────────
 
-create table if not exists profiles (
-  id uuid references auth.users primary key,
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+DROP FUNCTION IF EXISTS handle_new_user();
+
+DROP TABLE IF EXISTS recipe_cohort_affinities CASCADE;
+DROP TABLE IF EXISTS user_cohorts CASCADE;
+DROP TABLE IF EXISTS collections CASCADE;
+DROP TABLE IF EXISTS meal_plans CASCADE;
+DROP TABLE IF EXISTS grocery_lists CASCADE;
+DROP TABLE IF EXISTS pantry_items CASCADE;
+DROP TABLE IF EXISTS saved_recipes CASCADE;
+DROP TABLE IF EXISTS swipe_events CASCADE;
+DROP TABLE IF EXISTS recipes CASCADE;
+DROP TABLE IF EXISTS profiles CASCADE;
+
+-- ─── Profiles ─────────────────────────────────────────────────────────────────
+
+CREATE TABLE profiles (
+  id uuid REFERENCES auth.users PRIMARY KEY,
   name text,
   avatar_url text,
-  dietary_goals text[] default '{}',
-  cuisine_preferences text[] default '{}',
-  skill_level text check (skill_level in ('beginner', 'home_cook', 'confident_chef')),
-  cooking_frequency text check (cooking_frequency in ('few_times_week', 'most_days', 'just_starting')),
+  dietary_goals text[] DEFAULT '{}',
+  dietary_extra_preferences text,
+  ingredient_dislikes text[] DEFAULT '{}',
+  cuisine_preferences text[] DEFAULT '{}',
+  eating_style text CHECK (eating_style IN ('quick_simple', 'variety', 'favourites_rotation')),
+  skill_level text CHECK (skill_level IN ('beginner', 'home_cook', 'confident_chef')),
+  cooking_frequency text CHECK (cooking_frequency IN ('few_times_week', 'most_days', 'just_starting')),
   weekly_budget text,
-  meals_cooked_count integer default 0,
-  recipes_submitted_count integer default 0,
-  onboarding_complete boolean default false,
-  created_at timestamp with time zone default now()
+  meals_cooked_count integer DEFAULT 0,
+  recipes_submitted_count integer DEFAULT 0,
+  total_sessions integer DEFAULT 0,
+  taste_profile jsonb,
+  onboarding_complete boolean DEFAULT false,
+  created_at timestamp with time zone DEFAULT now()
 );
 
--- Auto-create profile on sign up
-create or replace function handle_new_user()
-returns trigger as $$
-begin
-  insert into public.profiles (id)
-  values (new.id);
-  return new;
-end;
-$$ language plpgsql security definer;
+-- Auto-create profile row on sign up
+CREATE OR REPLACE FUNCTION handle_new_user()
+RETURNS trigger AS $$
+BEGIN
+  INSERT INTO public.profiles (id)
+  VALUES (new.id);
+  RETURN new;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
-drop trigger if exists on_auth_user_created on auth.users;
-create trigger on_auth_user_created
-  after insert on auth.users
-  for each row execute procedure handle_new_user();
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE PROCEDURE handle_new_user();
 
--- ─── Recipes ─────────────────────────────────────────────────────────────────
+-- ─── Recipes ──────────────────────────────────────────────────────────────────
 
-create table if not exists recipes (
-  id uuid primary key default gen_random_uuid(),
-  title text not null,
+CREATE TABLE recipes (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  title text NOT NULL,
   description text,
   cuisine text,
-  source_type text check (source_type in ('curated', 'community', 'imported')),
-  ingredients jsonb not null default '[]',
-  steps jsonb not null default '[]',
+  source_type text CHECK (source_type IN ('curated', 'community', 'imported')),
+  ingredients jsonb NOT NULL DEFAULT '[]',
+  steps jsonb NOT NULL DEFAULT '[]',
   prep_time_mins integer,
   cook_time_mins integer,
   servings integer,
   cost_per_serving numeric(6,2),
-  dietary_tags text[] default '{}',
-  badge text check (badge in ('none', 'staff_pick', 'community_verified', 'community_favorite')) default 'none',
-  submitted_by uuid references profiles(id),
-  avg_rating numeric(3,2) default 0,
-  rating_count integer default 0,
-  save_count integer default 0,
+  dietary_tags text[] DEFAULT '{}',
+  meal_prep_friendly boolean DEFAULT false,
+  macros jsonb,
+  badge text CHECK (badge IN ('none', 'staff_pick', 'community_verified', 'community_favorite')) DEFAULT 'none',
+  submitted_by uuid REFERENCES profiles(id),
+  avg_rating numeric(3,2) DEFAULT 0,
+  rating_count integer DEFAULT 0,
+  save_count integer DEFAULT 0,
   image_url text,
-  created_at timestamp with time zone default now()
+  spoonacular_id text,
+  external_id text UNIQUE,
+  created_at timestamp with time zone DEFAULT now()
 );
 
 -- ─── Swipe Events ─────────────────────────────────────────────────────────────
 
-create table if not exists swipe_events (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid references profiles(id) not null,
-  recipe_id uuid references recipes(id) not null,
-  direction text check (direction in ('right', 'left')) not null,
-  mode text check (mode in ('meal_prep', 'spontaneous')) not null,
-  swiped_at timestamp with time zone default now()
+CREATE TABLE swipe_events (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid REFERENCES profiles(id) NOT NULL,
+  recipe_id uuid REFERENCES recipes(id) NOT NULL,
+  direction text CHECK (direction IN ('right', 'left')) NOT NULL,
+  mode text CHECK (mode IN ('meal_prep', 'spontaneous')) NOT NULL,
+  time_of_day text CHECK (time_of_day IN ('morning', 'afternoon', 'evening', 'night')),
+  day_of_week integer CHECK (day_of_week BETWEEN 0 AND 6),
+  session_number integer,
+  swiped_at timestamp with time zone DEFAULT now()
 );
 
 -- ─── Saved Recipes ────────────────────────────────────────────────────────────
 
-create table if not exists saved_recipes (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid references profiles(id) not null,
-  recipe_id uuid references recipes(id) not null,
-  liked boolean default false,
-  user_rating integer check (user_rating between 1 and 5),
-  saved_at timestamp with time zone default now(),
-  unique(user_id, recipe_id)
+CREATE TABLE saved_recipes (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid REFERENCES profiles(id) NOT NULL,
+  recipe_id uuid REFERENCES recipes(id) NOT NULL,
+  liked boolean DEFAULT false,
+  user_rating integer CHECK (user_rating BETWEEN 1 AND 5),
+  saved_at timestamp with time zone DEFAULT now(),
+  UNIQUE(user_id, recipe_id)
 );
 
--- ─── Pantry ──────────────────────────────────────────────────────────────────
+-- ─── Pantry ───────────────────────────────────────────────────────────────────
 
-create table if not exists pantry_items (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid references profiles(id) not null,
-  ingredient_name text not null,
+CREATE TABLE pantry_items (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid REFERENCES profiles(id) NOT NULL,
+  ingredient_name text NOT NULL,
   quantity numeric,
   unit text,
-  added_via text check (added_via in ('delivery', 'receipt', 'manual')),
-  added_at timestamp with time zone default now(),
-  expires_at timestamp with time zone
+  added_via text CHECK (added_via IN ('onboarding', 'grocery_list', 'manual')),
+  added_at timestamp with time zone DEFAULT now()
 );
 
 -- ─── Grocery Lists ────────────────────────────────────────────────────────────
 
-create table if not exists grocery_lists (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid references profiles(id) not null,
-  list_type text check (list_type in ('weekly', 'spontaneous')) not null,
-  status text check (status in ('active', 'ordered', 'complete')) default 'active',
-  items jsonb not null default '[]',
+CREATE TABLE grocery_lists (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid REFERENCES profiles(id) NOT NULL,
+  list_type text CHECK (list_type IN ('weekly', 'spontaneous')) NOT NULL,
+  status text CHECK (status IN ('active', 'exported', 'complete')) DEFAULT 'active',
+  items jsonb NOT NULL DEFAULT '[]',
+  recipe_ids uuid[] DEFAULT '{}',
   estimated_total_cost numeric(8,2),
-  delivery_partner text,
-  created_at timestamp with time zone default now()
+  combined_macros jsonb,
+  instacart_cart_url text,
+  created_at timestamp with time zone DEFAULT now()
 );
 
 -- ─── Meal Plans ───────────────────────────────────────────────────────────────
 
-create table if not exists meal_plans (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid references profiles(id) not null,
-  week_start_date date not null,
-  is_public boolean default false,
-  slots jsonb default '[]',
-  created_at timestamp with time zone default now()
+CREATE TABLE meal_plans (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid REFERENCES profiles(id) NOT NULL,
+  week_start_date date NOT NULL,
+  is_public boolean DEFAULT false,
+  slots jsonb DEFAULT '[]',
+  created_at timestamp with time zone DEFAULT now()
 );
 
--- ─── Collections ─────────────────────────────────────────────────────────────
+-- ─── Collections ──────────────────────────────────────────────────────────────
 
-create table if not exists collections (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid references profiles(id) not null,
-  name text not null,
-  recipe_ids uuid[] default '{}',
-  created_at timestamp with time zone default now()
+CREATE TABLE collections (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid REFERENCES profiles(id) NOT NULL,
+  name text NOT NULL,
+  recipe_ids uuid[] DEFAULT '{}',
+  created_at timestamp with time zone DEFAULT now()
+);
+
+-- ─── User Cohorts ─────────────────────────────────────────────────────────────
+
+CREATE TABLE user_cohorts (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid REFERENCES profiles(id) NOT NULL,
+  cohort_key text NOT NULL,
+  assigned_at timestamp with time zone DEFAULT now()
+);
+
+-- ─── Recipe Interactions (AI signal: views, grocery adds, cooks) ──────────────
+
+CREATE TABLE recipe_interactions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid REFERENCES profiles(id) NOT NULL,
+  recipe_id uuid REFERENCES recipes(id) NOT NULL,
+  interaction_type text CHECK (interaction_type IN ('view', 'grocery_add', 'cooked')) NOT NULL,
+  session_number integer,
+  interacted_at timestamp with time zone DEFAULT now()
+);
+
+-- ─── Recipe Cohort Affinities ─────────────────────────────────────────────────
+
+CREATE TABLE recipe_cohort_affinities (
+  recipe_id uuid REFERENCES recipes(id) NOT NULL,
+  cohort_key text NOT NULL,
+  affinity_score numeric(4,3),
+  PRIMARY KEY (recipe_id, cohort_key)
 );
 
 -- ─── Row Level Security ───────────────────────────────────────────────────────
 
-alter table profiles enable row level security;
-alter table recipes enable row level security;
-alter table swipe_events enable row level security;
-alter table saved_recipes enable row level security;
-alter table pantry_items enable row level security;
-alter table grocery_lists enable row level security;
-alter table meal_plans enable row level security;
-alter table collections enable row level security;
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE recipes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE swipe_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE saved_recipes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pantry_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE grocery_lists ENABLE ROW LEVEL SECURITY;
+ALTER TABLE meal_plans ENABLE ROW LEVEL SECURITY;
+ALTER TABLE collections ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_cohorts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE recipe_interactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE recipe_cohort_affinities ENABLE ROW LEVEL SECURITY;
 
--- Profiles: users can only read/update their own
-create policy "Users can view own profile" on profiles
-  for select using (auth.uid() = id);
-create policy "Users can update own profile" on profiles
-  for update using (auth.uid() = id);
+-- Profiles
+CREATE POLICY "Users can view own profile" ON profiles
+  FOR SELECT USING (auth.uid() = id);
+CREATE POLICY "Users can insert own profile" ON profiles
+  FOR INSERT WITH CHECK (auth.uid() = id);
+CREATE POLICY "Users can update own profile" ON profiles
+  FOR UPDATE USING (auth.uid() = id);
 
--- Recipes: anyone can read curated, users can manage their own
-create policy "Anyone can view recipes" on recipes
-  for select using (true);
-create policy "Users can insert own recipes" on recipes
-  for insert with check (auth.uid() = submitted_by);
-create policy "Users can update own recipes" on recipes
-  for update using (auth.uid() = submitted_by);
+-- Recipes: public read, authenticated insert for own submissions
+CREATE POLICY "Anyone can view recipes" ON recipes
+  FOR SELECT USING (true);
+CREATE POLICY "Users can insert own recipes" ON recipes
+  FOR INSERT WITH CHECK (auth.uid() = submitted_by OR submitted_by IS NULL);
+CREATE POLICY "Users can update own recipes" ON recipes
+  FOR UPDATE USING (auth.uid() = submitted_by OR submitted_by IS NULL);
 
--- Swipe events: users manage their own
-create policy "Users can insert own swipes" on swipe_events
-  for insert with check (auth.uid() = user_id);
-create policy "Users can view own swipes" on swipe_events
-  for select using (auth.uid() = user_id);
+-- Swipe events
+CREATE POLICY "Users can insert own swipes" ON swipe_events
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can view own swipes" ON swipe_events
+  FOR SELECT USING (auth.uid() = user_id);
 
--- Saved recipes: users manage their own
-create policy "Users can manage own saved recipes" on saved_recipes
-  for all using (auth.uid() = user_id);
+-- Saved recipes
+CREATE POLICY "Users can manage own saved recipes" ON saved_recipes
+  FOR ALL USING (auth.uid() = user_id);
 
--- Pantry: users manage their own
-create policy "Users can manage own pantry" on pantry_items
-  for all using (auth.uid() = user_id);
+-- Pantry
+CREATE POLICY "Users can manage own pantry" ON pantry_items
+  FOR ALL USING (auth.uid() = user_id);
 
--- Grocery lists: users manage their own
-create policy "Users can manage own grocery lists" on grocery_lists
-  for all using (auth.uid() = user_id);
+-- Grocery lists
+CREATE POLICY "Users can manage own grocery lists" ON grocery_lists
+  FOR ALL USING (auth.uid() = user_id);
 
--- Meal plans: users manage their own, public plans are viewable by all
-create policy "Users can manage own meal plans" on meal_plans
-  for all using (auth.uid() = user_id);
-create policy "Anyone can view public meal plans" on meal_plans
-  for select using (is_public = true);
+-- Meal plans
+CREATE POLICY "Users can manage own meal plans" ON meal_plans
+  FOR ALL USING (auth.uid() = user_id);
+CREATE POLICY "Anyone can view public meal plans" ON meal_plans
+  FOR SELECT USING (is_public = true);
 
--- Collections: users manage their own
-create policy "Users can manage own collections" on collections
-  for all using (auth.uid() = user_id);
+-- Collections
+CREATE POLICY "Users can manage own collections" ON collections
+  FOR ALL USING (auth.uid() = user_id);
 
--- ─── Indexes ─────────────────────────────────────────────────────────────────
+-- Recipe interactions
+CREATE POLICY "Users can insert own interactions" ON recipe_interactions
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can view own interactions" ON recipe_interactions
+  FOR SELECT USING (auth.uid() = user_id);
 
-create index if not exists idx_swipe_events_user_id on swipe_events(user_id);
-create index if not exists idx_swipe_events_recipe_id on swipe_events(recipe_id);
-create index if not exists idx_saved_recipes_user_id on saved_recipes(user_id);
-create index if not exists idx_pantry_items_user_id on pantry_items(user_id);
-create index if not exists idx_grocery_lists_user_id on grocery_lists(user_id);
-create index if not exists idx_meal_plans_user_id on meal_plans(user_id);
-create index if not exists idx_recipes_cuisine on recipes(cuisine);
-create index if not exists idx_recipes_badge on recipes(badge);
+-- User cohorts
+CREATE POLICY "Users can view own cohorts" ON user_cohorts
+  FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own cohorts" ON user_cohorts
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+-- Recipe cohort affinities: public read (used for cold-start recommendations)
+CREATE POLICY "Anyone can view recipe cohort affinities" ON recipe_cohort_affinities
+  FOR SELECT USING (true);
+
+-- ─── Indexes ──────────────────────────────────────────────────────────────────
+
+CREATE INDEX idx_swipe_events_user_id ON swipe_events(user_id);
+CREATE INDEX idx_swipe_events_recipe_id ON swipe_events(recipe_id);
+CREATE INDEX idx_saved_recipes_user_id ON saved_recipes(user_id);
+CREATE INDEX idx_pantry_items_user_id ON pantry_items(user_id);
+CREATE INDEX idx_grocery_lists_user_id ON grocery_lists(user_id);
+CREATE INDEX idx_meal_plans_user_id ON meal_plans(user_id);
+CREATE INDEX idx_recipes_cuisine ON recipes(cuisine);
+CREATE INDEX idx_recipes_badge ON recipes(badge);
+CREATE INDEX idx_recipes_external_id ON recipes(external_id);
+CREATE INDEX idx_user_cohorts_user_id ON user_cohorts(user_id);
+CREATE INDEX idx_recipe_cohort_affinities_cohort ON recipe_cohort_affinities(cohort_key);
+CREATE INDEX idx_recipe_interactions_user_id ON recipe_interactions(user_id);
+CREATE INDEX idx_recipe_interactions_recipe_id ON recipe_interactions(recipe_id);
+CREATE INDEX idx_recipe_interactions_type ON recipe_interactions(user_id, interaction_type);

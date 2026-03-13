@@ -1,13 +1,15 @@
 import { create } from 'zustand';
-import type { Profile, OnboardingState, SkillLevel, CookingFrequency } from '@/types';
+import type { Profile, OnboardingState, EatingStyle, SkillLevel, CookingFrequency } from '@/types';
 
 interface UserStore {
   profile: Profile | null;
+  sessionNumber: number;   // incremented each app open, used for swipe event logging
   onboarding: OnboardingState;
   isLoading: boolean;
   error: string | null;
 
   setProfile: (profile: Profile | null) => void;
+  setSessionNumber: (n: number) => void;
   setOnboardingField: <K extends keyof OnboardingState>(key: K, value: OnboardingState[K]) => void;
   resetOnboarding: () => void;
   setLoading: (loading: boolean) => void;
@@ -16,7 +18,10 @@ interface UserStore {
 
 const defaultOnboarding: OnboardingState = {
   dietary_goals: [],
+  dietary_extra_preferences: null,
+  ingredient_dislikes: [],
   cuisine_preferences: [],
+  eating_style: null,
   cooking_frequency: null,
   skill_level: null,
   weekly_budget: null,
@@ -24,11 +29,13 @@ const defaultOnboarding: OnboardingState = {
 
 export const useUserStore = create<UserStore>((set) => ({
   profile: null,
+  sessionNumber: 0,
   onboarding: defaultOnboarding,
   isLoading: false,
   error: null,
 
   setProfile: (profile) => set({ profile }),
+  setSessionNumber: (sessionNumber) => set({ sessionNumber }),
 
   setOnboardingField: (key, value) =>
     set((state) => ({

@@ -23,3 +23,12 @@ export function getWeekStart(date = new Date()): string {
   d.setDate(diff);
   return d.toISOString().split('T')[0];
 }
+
+// Returns the time-of-day bucket for swipe event logging
+export function getTimeOfDay(): 'morning' | 'afternoon' | 'evening' | 'night' {
+  const h = new Date().getHours();
+  if (h >= 5 && h < 12) return 'morning';
+  if (h >= 12 && h < 18) return 'afternoon';
+  if (h >= 18 && h < 22) return 'evening';
+  return 'night';
+}

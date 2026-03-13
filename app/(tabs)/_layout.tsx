@@ -1,8 +1,21 @@
+import { useEffect } from 'react';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/theme';
+import { supabase } from '@/lib/supabase';
+import { useSavedStore } from '@/stores/savedStore';
 
 export default function TabLayout() {
+  const loadSavedRecipes = useSavedStore((s) => s.loadSavedRecipes);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session?.user.id) {
+        loadSavedRecipes(data.session.user.id);
+      }
+    });
+  }, []);
+
   return (
     <Tabs
       screenOptions={{
@@ -13,9 +26,7 @@ export default function TabLayout() {
           backgroundColor: colors.white,
           borderTopColor: colors.border,
           borderTopWidth: 1,
-          paddingBottom: 8,
           paddingTop: 8,
-          height: 64,
         },
         tabBarLabelStyle: {
           fontSize: 11,
