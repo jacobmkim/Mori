@@ -165,6 +165,17 @@ CREATE TABLE user_cohorts (
   assigned_at timestamp with time zone DEFAULT now()
 );
 
+-- ─── Recipe Interactions (AI signal: views, grocery adds, cooks) ──────────────
+
+CREATE TABLE recipe_interactions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid REFERENCES profiles(id) NOT NULL,
+  recipe_id uuid REFERENCES recipes(id) NOT NULL,
+  interaction_type text CHECK (interaction_type IN ('view', 'grocery_add', 'cooked')) NOT NULL,
+  session_number integer,
+  interacted_at timestamp with time zone DEFAULT now()
+);
+
 -- ─── Recipe Cohort Affinities ─────────────────────────────────────────────────
 
 CREATE TABLE recipe_cohort_affinities (
@@ -185,6 +196,7 @@ ALTER TABLE grocery_lists ENABLE ROW LEVEL SECURITY;
 ALTER TABLE meal_plans ENABLE ROW LEVEL SECURITY;
 ALTER TABLE collections ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_cohorts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE recipe_interactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE recipe_cohort_affinities ENABLE ROW LEVEL SECURITY;
 
 -- Profiles
@@ -231,6 +243,12 @@ CREATE POLICY "Anyone can view public meal plans" ON meal_plans
 CREATE POLICY "Users can manage own collections" ON collections
   FOR ALL USING (auth.uid() = user_id);
 
+-- Recipe interactions
+CREATE POLICY "Users can insert own interactions" ON recipe_interactions
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can view own interactions" ON recipe_interactions
+  FOR SELECT USING (auth.uid() = user_id);
+
 -- User cohorts
 CREATE POLICY "Users can view own cohorts" ON user_cohorts
   FOR SELECT USING (auth.uid() = user_id);
@@ -254,3 +272,6 @@ CREATE INDEX idx_recipes_badge ON recipes(badge);
 CREATE INDEX idx_recipes_external_id ON recipes(external_id);
 CREATE INDEX idx_user_cohorts_user_id ON user_cohorts(user_id);
 CREATE INDEX idx_recipe_cohort_affinities_cohort ON recipe_cohort_affinities(cohort_key);
+CREATE INDEX idx_recipe_interactions_user_id ON recipe_interactions(user_id);
+CREATE INDEX idx_recipe_interactions_recipe_id ON recipe_interactions(recipe_id);
+CREATE INDEX idx_recipe_interactions_type ON recipe_interactions(user_id, interaction_type);

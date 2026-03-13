@@ -63,7 +63,7 @@ export function HeadlineMacroPill({
   // vegetarian, vegan, balanced, gluten_free, dairy_free, nut_free
   let label: string | null = null;
 
-  if (goals.some((g) => g === 'high protein' || g === 'paleo')) {
+  if (goals.some((g) => g === 'high protein' || g === 'paleo' || g === 'pescatarian')) {
     label = `${macros.protein}g protein`;
   } else if (goals.some((g) => g === 'keto')) {
     const netCarbs = macros.netCarbs ?? Math.max(0, macros.carbohydrates - macros.fibre);
@@ -72,7 +72,7 @@ export function HeadlineMacroPill({
     label = `${macros.carbohydrates}g carbs`;
   } else if (goals.some((g) => g === 'low fat')) {
     label = `${macros.fat}g fat`;
-  } else if (goals.some((g) => g === 'balanced' || g === 'vegan' || g === 'vegetarian')) {
+  } else if (goals.some((g) => ['balanced', 'vegan', 'vegetarian', 'dairy free', 'gluten free'].includes(g))) {
     label = `${macros.calories} cal`;
   }
 

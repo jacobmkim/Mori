@@ -4,9 +4,10 @@ import type { Recipe } from '@/types';
 const RECIPE_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 // Cache key includes a goals fingerprint so changing dietary goals gets a fresh deck.
+// Bump version to invalidate all prior caches when filtering logic changes.
 function recipeCacheKey(dietaryGoals: string[]): string {
   const sorted = [...dietaryGoals].sort().join(',');
-  return `mise_recipe_deck_v2_${sorted || 'none'}`;
+  return `mise_recipe_deck_v3_${sorted || 'none'}`;
 }
 
 async function loadCachedRecipes(dietaryGoals: string[]): Promise<Recipe[] | null> {
@@ -46,34 +47,32 @@ export async function clearRecipeCache(dietaryGoals?: string[]): Promise<void> {
   }
 }
 
-// Title keywords that indicate non-vegan recipes. Used for hard filtering
-// when user has vegan or vegetarian goals. Conservative list — false negatives
-// (showing a non-vegan recipe) are better than false positives (hiding valid ones).
-const MEAT_KEYWORDS = [
-  'chicken', 'beef', 'pork', 'lamb', 'salmon', 'tuna', 'fish', 'prawn', 'shrimp',
-  'bacon', 'ham', 'turkey', 'duck', 'veal', 'mutton', 'crab', 'lobster', 'mussel',
-  'anchovy', 'steak', 'meatball', 'sausage', 'ribs', 'brisket', 'chorizo', 'mince',
+// Land meat keywords — used for vegan, vegetarian, and pescatarian filtering.
+const LAND_MEAT_KEYWORDS = [
+  'chicken', 'beef', 'pork', 'lamb', 'bacon', 'ham', 'turkey', 'duck',
+  'veal', 'mutton', 'meatball', 'sausage', 'ribs', 'brisket', 'chorizo', 'mince',
+  'steak', 'kebab', 'shawarma', 'keema', 'katsu', 'salami', 'pepperoni',
+  'venison', 'goat', 'rabbit', 'offal', 'liver', 'kidney', 'tripe',
 ];
 
-const FISH_KEYWORDS = [
+// Seafood keywords — excluded for vegan/vegetarian, allowed for pescatarian.
+const SEAFOOD_KEYWORDS = [
   'salmon', 'tuna', 'fish', 'prawn', 'shrimp', 'crab', 'lobster', 'mussel',
-  'anchovy', 'cod', 'haddock', 'sardine', 'mackerel', 'halibut', 'tilapia', 'bass',
-  'trout', 'catfish', 'clam', 'oyster', 'squid', 'calamari', 'seafood',
+  'anchovy', 'cod', 'haddock', 'sardine', 'mackerel', 'halibut', 'tilapia',
+  'bass', 'trout', 'catfish', 'clam', 'oyster', 'squid', 'calamari', 'seafood',
 ];
 
-function isMeat(title: string): boolean {
-  const t = title.toLowerCase();
-  return MEAT_KEYWORDS.some((w) => t.includes(w));
-}
-
-function isFishOrMeat(title: string): boolean {
-  const t = title.toLowerCase();
-  return MEAT_KEYWORDS.some((w) => t.includes(w)) || FISH_KEYWORDS.some((w) => t.includes(w));
-}
+// All meat + seafood — excluded for vegan/vegetarian.
+const ALL_MEAT_KEYWORDS = [...LAND_MEAT_KEYWORDS, ...SEAFOOD_KEYWORDS];
 
 function shouldExclude(title: string, dietaryGoals: string[]): boolean {
+  const t = title.toLowerCase();
   if (dietaryGoals.includes('vegan') || dietaryGoals.includes('vegetarian')) {
-    return isMeat(title);
+    return ALL_MEAT_KEYWORDS.some((w) => t.includes(w));
+  }
+  if (dietaryGoals.includes('pescatarian')) {
+    // Allow fish/seafood, exclude land meat only
+    return LAND_MEAT_KEYWORDS.some((w) => t.includes(w));
   }
   return false;
 }

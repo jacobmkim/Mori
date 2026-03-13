@@ -22,43 +22,92 @@ Mise is the first recipe app that feels genuinely personal from day one, gets sm
 > **Read this section first every session.** It tells you exactly what exists, what is broken, and what needs to be built next.
 
 ### ✅ Built and Working
-- Expo SDK 54 project with React Native 0.81.5
-- Expo Router file-based navigation
-- Root layout with Supabase session check
-- Onboarding flow — 10 screens (welcome → dietary-goals → ingredient-dislikes → cuisine-prefs → eating-style → cook-frequency → skill-level → budget → account → payoff)
-- Supabase auth — email sign in/sign up working
+
+**Foundation**
+- Expo SDK 54 / React Native 0.81.5 / Expo Router
+- Supabase auth — email sign in/sign up
 - Supabase schema applied — all tables, RLS, indexes, auto-profile trigger live
-- Bottom tab navigation — Discover, Recipes, Grocery (placeholder), Profile
-- Discover screen — full swipe mechanic with React Native Animated API, TheMealDB data, parallel detail fetching, Fisher-Yates shuffle, undo support, button tap swipe, stale closure prevention
-- Recipes screen — Pinterest grid, All/Saved toggle, cuisine filter bar, search bar, 8 static seed recipes
-- Saved recipes — savedStore wired to Supabase, persists across sessions, loaded on app open and sign-in
-- Profile screen — avatar, name from Supabase, Recipes Saved stat wired to savedStore, preferences display, sign out
-- All onboarding fields persisted to Supabase on account creation (dietary_goals, dietary_extra_preferences, ingredient_dislikes, cuisine_preferences, eating_style, cooking_frequency, skill_level, weekly_budget)
-- onboarding_complete set true on payoff completion; pantry staples written to pantry_items
-- constants/theme.ts — all colors used consistently
-- types/index.ts — TypeScript types defined
-- lib/supabase.ts, lib/api.ts, lib/utils.ts — scaffolded
-- Zustand stores — userStore, savedStore (Supabase-backed), groceryStore (placeholder), mealPlanStore (placeholder)
+- Bottom tab navigation — Discover, Recipes, Grocery List, Profile
+- constants/theme.ts, types/index.ts, lib/supabase.ts, lib/api.ts, lib/utils.ts, lib/mealdb.ts
 
-### ❌ Broken / Incomplete
-1. **Grocery list screen is a placeholder** — needs a full build. **Next priority.**
-2. **Recipes screen uses 8 static seed recipes** — should pull from TheMealDB or Supabase.
-3. **Swipe events not logged** — discover.tsx fires swipes but doesn't write to swipe_events table.
+**Onboarding — 10 screens complete**
+- welcome → dietary-goals (with free text field) → ingredient-dislikes → cuisine-prefs (12 universal) → eating-style → cook-frequency → skill-level → budget → account → payoff (pantry staple seed)
+- All fields persisted to Supabase on account creation
+- onboarding_complete: true set on payoff; pantry staples written to pantry_items
 
-### 🔲 Not Yet Built — In Scope
-- Grocery list screen — full build with copy/paste export
-- groceryStore — add from recipe, consolidate, deduplicate, calculate cost
-- Macro display on recipe cards and detail screens
-- Spoonacular API integration for nutrition data
-- Instacart Developer Platform integration (Phase 3)
-- Weekly meal planner
-- Pantry tracking screen (opt-in, in Profile — not a main tab)
-- AI recommendation layer (Phase 2)
-- Adventure cards — skill-aware cuisine expansion (Phase 2, see Section 6.10)
-- Cohort affinity tagging on recipe seed data
-- Swipe event logging to Supabase
-- Taste profile display in profile tab
-- Baking tab (future — noted, not yet scoped)
+**Discover Screen**
+- Full swipe mechanic — React Native Animated API, Fisher-Yates shuffle, undo, button-tap swipe, stale closure prevention
+- Deck sourced from Supabase recipes table (single query, 400 rows), not TheMealDB API — 30-min in-memory cache keyed by sorted dietary goals
+- Dietary filtering: vegan/vegetarian exclude all meat; pescatarian excludes land meat only; desserts always excluded
+- Cache key `mise_recipe_deck_v3_` — invalidates all stale AsyncStorage caches
+- HeadlineMacroPill on top card AND next card (stackIndex=1) — instant display via local estimator, updates silently when Spoonacular data arrives
+- Goal priority chain: high_protein/paleo/pescatarian → keto (net carbs) → low_carb → low_fat → balanced/vegan/vegetarian/dairy_free/gluten_free
+- Every swipe logged to `swipe_events` via fire-and-forget (upsertRecipeByExternalId → logSwipe)
+- Recipe views logged to `recipe_interactions` (interaction_type: 'view')
+- Grocery cart button: logs `recipe_interactions` (interaction_type: 'grocery_add'), sets liked=true, auto-swipes right
+- Info button opens RecipeDetailModal
+- clearDiscoverCache() called from profile.tsx on preference save
+
+**Recipes Screen**
+- Pinterest grid — Saved tab default, All tab shows TheMealDB category recipes
+- Filter dropdown (Type + Cuisine, OR/AND logic), collections bar, search bar
+- Grocery adds logged to `recipe_interactions` (interaction_type: 'grocery_add')
+- Recipe views logged to `recipe_interactions` (interaction_type: 'view')
+- Ingredients loaded from Supabase if backfilled; falls back to TheMealDB fetch + persists result
+
+**Grocery List Screen**
+- Tally header: meals, items, estimated cost, combined macros
+- Ingredients grouped by category (Produce, Meat & Seafood, Dairy, Pantry, Frozen, Other)
+- Checkboxes, edit mode, undo (batch + single item delete)
+- Copy-to-clipboard export (formatted plain text)
+
+**Recipe Detail Modal**
+- Slide-up pageSheet — ingredient list, Save + Add to Grocery wired
+- Instructions placeholder (Phase 2: Claude descriptions)
+
+**Profile Screen**
+- Avatar, name, Recipes Saved stat wired to savedStore, preferences display, sign out
+- Edit Preferences modal — state resyncs on open, errors surfaced via Alert
+- Conflict warnings for incompatible goals (vegan+paleo, keto+low_fat, etc.)
+- clearDiscoverCache() + clearRecipeCache() called on preference save
+
+**Saved Recipes**
+- savedStore wired to Supabase — persists across sessions
+- Loaded on app open (index.tsx) and sign-in (account.tsx)
+
+**Stores**
+- userStore ✅, savedStore ✅ (Supabase-backed), groceryStore ✅ (full), collectionsStore ✅ (FAVORITES_ID + custom lists), mealPlanStore 🔲 placeholder
+
+**Data / Seed**
+- 419 recipes seeded in Supabase with cohort affinity scores (248,886 rows)
+- All 419 recipes backfilled with full ingredients + descriptions from TheMealDB
+- Lazy ingredient persistence: first TheMealDB fetch writes to `recipes.ingredients` — all subsequent views load from DB
+- Lazy macro persistence: after fetchMacros returns, writes to `recipes.macros` — shared across all users
+- MacroRow component (full + compact), HeadlineMacroPill, estimateMacrosLocally — all in components/ui/MacroRow.tsx
+- MiseLogo component — components/ui/MiseLogo.tsx
+- api/macros.ts Vercel function (Spoonacular → Claude estimate → local fallback) — written, not yet deployed
+
+**Tracking / AI Signal Collection**
+- `swipe_events` — every swipe logged (direction, mode, time_of_day, day_of_week, session_number)
+- `recipe_interactions` — views and grocery_adds logged from both Discover and Recipes screens
+  - `view`: logged when RecipeDetailModal opens
+  - `grocery_add`: logged when recipe added to grocery list (strongest positive signal — repeat adds = "regularly cooks this")
+  - `cooked`: type defined, UI not yet wired (needs "mark as cooked" feature)
+
+### ❌ Not Yet Built — Priority Order
+1. **Macro display on recipe detail screen** — MacroRow component exists, not yet wired to detail modal
+2. **Spoonacular backfill** — defer until plan upgraded before beta (free tier: 150 points/day)
+3. **"Mark as cooked" UI** — logs `recipe_interactions` type: 'cooked' (strongest signal)
+4. **Taste profile display** — auto-generated from swipe history, shown in Profile tab (Phase 2)
+5. **AI recommendation layer** — /api/recommendations Vercel endpoint (Phase 2)
+6. **Adventure cards** — skill-aware cuisine expansion after ~20 swipes (Phase 2)
+7. **Instacart integration** — /api/instacart-cart Vercel endpoint (Phase 3)
+8. **Weekly meal planner** — Phase 2
+9. **Pantry tracking screen** — opt-in, in Profile (Phase 2)
+
+### ⚠️ Pre-Launch Required
+- **Run SQL in Supabase** to create `recipe_interactions` table (see Section 8 — not yet applied)
+- **Spoonacular plan upgrade** before beta — free tier exhausted in dev
 
 ---
 
@@ -68,18 +117,18 @@ Mise is the first recipe app that feels genuinely personal from day one, gets sm
 |---|---|---|
 | Mobile Framework | React Native 0.81.5 with Expo SDK 54 | ✅ Live |
 | Navigation | Expo Router (file-based routing) | ✅ Live |
-| Backend & Auth | Supabase | ✅ Auth live, schema not yet applied |
+| Backend & Auth | Supabase | ✅ Auth live, schema applied, all tables live |
 | Animations | **React Native Animated API** (not Reanimated) | ✅ Live — do not refactor |
 | Icons | **Ionicons** (via Expo Vector Icons package) | ✅ Live |
 | Image Handling | expo-image | ✅ Live |
 | Styling | **Inline styles + constants/theme.ts** (NativeWind installed but not used) | ✅ Live — do not refactor |
 | State Management | Zustand | ✅ Live |
-| Recipe Seed Data | TheMealDB open source API | ✅ Live in Discover |
-| Nutrition / Macro Data | Spoonacular API | 🔲 Not yet built |
-| Serverless Functions | Vercel | 🔲 Not yet built |
-| AI | Claude API via Anthropic SDK (Vercel functions only — never client) | 🔲 Not yet built |
+| Recipe Seed Data | TheMealDB open source API + Supabase (419 recipes seeded) | ✅ Live |
+| Nutrition / Macro Data | Spoonacular API via /api/macros | ✅ Endpoint written; local estimator active in dev |
+| Serverless Functions | Vercel | 🔲 Not yet deployed |
+| AI | Claude API via Anthropic SDK (Vercel functions only — never client) | 🔲 Phase 2 |
 | Grocery Export — Primary | Instacart Developer Platform API | 🔲 Phase 3 |
-| Grocery Export — Fallback | Copy/paste plain text | 🔲 Phase 1 priority |
+| Grocery Export — Fallback | Copy/paste plain text | ✅ Live |
 | Affiliate Tracking | Impact (Instacart affiliate program) | 🔲 Phase 3 |
 | Forms | React Hook Form | 🔲 Not yet used |
 
@@ -94,57 +143,88 @@ Mise is the first recipe app that feels genuinely personal from day one, gets sm
 ```
 mise/
 ├── app/
-│   ├── _layout.tsx                    ✅ Root layout, session check
-│   ├── index.tsx                      ✅ Redirects to onboarding or tabs
+│   ├── _layout.tsx                    ✅ Root layout, session check, total_sessions increment
+│   ├── index.tsx                      ✅ Redirects to onboarding or tabs; loads savedStore on session restore
 │   ├── onboarding/
 │   │   ├── _layout.tsx                ✅
 │   │   ├── welcome.tsx                ✅ Screen 1
-│   │   ├── dietary-goals.tsx          ✅ Screen 2 — needs free text field added
-│   │   ├── ingredient-dislikes.tsx    🔲 Screen 3 — NEW, build this
-│   │   ├── cuisine-prefs.tsx          ✅ Screen 4 (renumbered) — expand to 20-25 options
-│   │   ├── eating-style.tsx           🔲 Screen 5 — NEW, build this
-│   │   ├── cook-frequency.tsx         ✅ Screen 6 (renumbered)
-│   │   ├── skill-level.tsx            ✅ Screen 7 (renumbered)
-│   │   ├── budget.tsx                 ✅ Screen 8 (renumbered)
-│   │   ├── account.tsx                ✅ Screen 9 (renumbered)
-│   │   └── payoff.tsx                 ✅ Screen 10 — needs pantry staple seed added
+│   │   ├── dietary-goals.tsx          ✅ Screen 2 — tile grid + optional free text field
+│   │   ├── ingredient-dislikes.tsx    ✅ Screen 3 — searchable tap-to-add, pre-populated chips
+│   │   ├── cuisine-prefs.tsx          ✅ Screen 4 — 12 universal cuisines only
+│   │   ├── eating-style.tsx           ✅ Screen 5 — 3 large visual tap cards
+│   │   ├── cook-frequency.tsx         ✅ Screen 6
+│   │   ├── skill-level.tsx            ✅ Screen 7
+│   │   ├── budget.tsx                 ✅ Screen 8
+│   │   ├── account.tsx                ✅ Screen 9 — email/password, saves all onboarding fields
+│   │   └── payoff.tsx                 ✅ Screen 10 — pantry staple tap grid, writes pantry_items
 │   └── (tabs)/
 │       ├── _layout.tsx                ✅ Tab navigator
-│       ├── discover.tsx               ✅ Full swipe mechanic — add macro pill + swipe logging
-│       ├── recipes.tsx                ✅ Pinterest grid — wire to TheMealDB/Supabase
-│       ├── grocery-list.tsx           🔲 Placeholder — full build needed
-│       └── profile.tsx                ✅ Wire Recipes Saved stat to savedStore
+│       ├── discover.tsx               ✅ Full swipe mechanic, Supabase deck, dietary filtering,
+│       │                                 swipe logging, interaction logging, macro pills, RecipeDetailModal
+│       ├── recipes.tsx                ✅ Pinterest grid, Saved/All tabs, filter dropdown,
+│       │                                 collections bar, interaction logging, RecipeDetailModal
+│       ├── grocery-list.tsx           ✅ Tally header, grouped categories, checkboxes,
+│       │                                 edit mode, undo, copy-to-clipboard export
+│       └── profile.tsx                ✅ Stats, preferences, edit modal, sign out,
+│                                         clears discover + recipe cache on pref save
 ├── components/
 │   ├── cards/
-│   │   ├── RecipeCard.tsx             ✅ Swipeable card — add macro pill
+│   │   ├── RecipeCard.tsx             ✅ Swipeable card with HeadlineMacroPill
 │   │   └── RecipeGridCard.tsx         ✅ Pinterest grid card
 │   ├── onboarding/
 │   │   ├── GoalTile.tsx               ✅
 │   │   ├── CuisineCard.tsx            ✅
 │   │   └── ProgressBar.tsx            ✅
 │   ├── grocery/
-│   │   ├── GroceryItem.tsx            🔲 Build this
-│   │   └── InstacartButton.tsx        🔲 Build this (Phase 3)
+│   │   └── InstacartButton.tsx        🔲 Phase 3
+│   ├── RecipeDetailModal.tsx          ✅ Slide-up pageSheet, ingredients, Save + Add to Grocery
 │   └── ui/
-│       ├── Badge.tsx                  🔲 Build this
-│       ├── PillTag.tsx                🔲 Build this
-│       ├── MacroRow.tsx               🔲 NEW — build this
-│       └── Button.tsx                 🔲 Build this
+│       ├── MacroRow.tsx               ✅ MacroRow (full 4-col), HeadlineMacroPill (goal-aware),
+│       │                                 estimateMacrosLocally (instant local estimate)
+│       └── MiseLogo.tsx               ✅ Spatula logo, size/textColor/showTagline props
 ├── lib/
-│   ├── supabase.ts                    ✅
-│   ├── api.ts                         ✅ scaffolded — expand as features are added
-│   └── utils.ts                       ✅ formatTime, formatCost
+│   ├── supabase.ts                    ✅ Supabase client
+│   ├── api.ts                         ✅ All DB calls:
+│   │                                     fetchDiscoverRecipes(dietaryGoals) — Supabase deck, 30-min cache
+│   │                                     clearDiscoverCache() — called on pref save
+│   │                                     upsertRecipeByExternalId(recipe) — get/create Supabase UUID
+│   │                                     updateRecipeDetail(externalId, ingredients, blurb) — lazy persist
+│   │                                     updateRecipeMacros(externalId, macros) — lazy persist
+│   │                                     logSwipe(event) — writes to swipe_events
+│   │                                     logInteraction(userId, recipeId, type, session?) — writes to recipe_interactions
+│   │                                     fetchMacros(recipe) — Spoonacular → Claude → local fallback
+│   │                                     estimateMacrosLocally(title, ingredients) — instant keyword estimate
+│   │                                     saveRecipe / removeRecipe / setRecipeLiked / getSavedRecipes
+│   │                                     addPantryItems / upsertProfile / patchProfile
+│   ├── mealdb.ts                      ✅ fetchMealDBRecipes, fetchMealDetail, fetchMealDBRecipesByCategory
+│   │                                     MEAL_AREAS (28), MAIN_CUISINES (12), MEAL_CATEGORIES
+│   │                                     LAND_MEAT_KEYWORDS, SEAFOOD_KEYWORDS, ALL_MEAT_KEYWORDS
+│   │                                     shouldExclude(title, goals) — dietary filter for deck
+│   │                                     clearRecipeCache() — invalidates AsyncStorage deck cache
+│   └── utils.ts                       ✅ formatTime, formatCost, capitalize, getWeekStart, getTimeOfDay
 ├── stores/
-│   ├── userStore.ts                   ✅
-│   ├── savedStore.ts                  ✅ in-memory — wire to Supabase
-│   ├── groceryStore.ts                🔲 Placeholder — build out
+│   ├── userStore.ts                   ✅ profile, userId, sessionNumber
+│   ├── savedStore.ts                  ✅ Supabase-backed: addRecipe, removeRecipe, isSaved, loadSavedRecipes
+│   ├── groceryStore.ts                ✅ addFromDetail, removeRecipeFromList, deleteItem (with undo),
+│   │                                     selectedRecipes, items grouped by category
+│   ├── collectionsStore.ts            ✅ FAVORITES_ID, custom collections (RecipeCollection type)
 │   └── mealPlanStore.ts               🔲 Placeholder
 ├── types/
-│   └── index.ts                       ✅ add Macros type
+│   └── index.ts                       ✅ All types: Profile, Recipe, Ingredient, RecipeStep, Macros,
+│                                         SwipeEvent, SavedRecipe, PantryItem, GroceryItem, GroceryList,
+│                                         MealSlot, MealPlan, Collection, UserCohort, RecipeCohortAffinity,
+│                                         OnboardingState + all union types
 ├── constants/
-│   └── theme.ts                       ✅ all colors defined, use exclusively
-└── supabase/
-    └── schema.sql                     ✅ written — APPLY THIS FIRST
+│   └── theme.ts                       ✅ All colors — never hardcode hex values
+├── api/
+│   ├── macros.ts                      ✅ Vercel fn: Spoonacular → Claude estimate → local fallback
+│   └── seed-recipes.ts                ✅ Vercel fn: seeded 419 recipes + 248,886 cohort affinity rows
+├── scripts/
+│   ├── seed-recipes.mjs               ✅ One-time seed (already ran — do not re-run)
+│   └── backfill-recipe-details.mjs    ✅ One-time backfill (already ran — safe to re-run, skips populated)
+├── supabase/
+│   └── schema.sql                     ✅ Full schema — apply to a fresh project before anything else
+└── README.md                          ✅ Full setup guide
 ```
 
 ---
@@ -500,11 +580,12 @@ Card treatment: a subtle "✦ New for you" badge distinguishes adventure cards f
 
 ### Non-Negotiable Technical Requirements
 1. Every swipe logged to Supabase immediately — no batching, no skipping
-2. Recipe seed DB must be tagged with cohort affinity scores before launch
-3. Ingredient dislikes enforced as hard filters at the data layer
-4. Dietary free text stored verbatim, passed to Claude at recommendation time
-5. Session count incremented on every app open (profiles.total_sessions)
-6. Taste profile auto-generated from swipe history and stored on the profiles row
+2. Every recipe view and grocery_add logged to recipe_interactions — frequency is Claude's strongest signal
+3. Recipe seed DB must be tagged with cohort affinity scores before launch ✅ done
+4. Ingredient dislikes enforced as hard filters at the data layer
+5. Dietary free text stored verbatim, passed to Claude at recommendation time
+6. Session count incremented on every app open (profiles.total_sessions) — not yet done
+7. Taste profile auto-generated from swipe + interaction history, stored on profiles row (Phase 2)
 
 ---
 
@@ -635,6 +716,17 @@ create table user_cohorts (
   assigned_at timestamp with time zone default now()
 );
 
+-- Recipe Interactions (AI signal: views, grocery adds, cooks)
+-- Frequency is the signal — a recipe grocery-listed 3 times outweighs a right swipe.
+create table recipe_interactions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references profiles(id) not null,
+  recipe_id uuid references recipes(id) not null,
+  interaction_type text check (interaction_type in ('view', 'grocery_add', 'cooked')) not null,
+  session_number integer,
+  interacted_at timestamp with time zone default now()
+);
+
 -- Recipe Cohort Affinities (populated during seed data prep)
 create table recipe_cohort_affinities (
   recipe_id uuid references recipes(id) not null,
@@ -643,6 +735,14 @@ create table recipe_cohort_affinities (
   primary key (recipe_id, cohort_key)
 );
 ```
+
+### Signal Hierarchy (strongest → weakest, for Phase 2 AI weighting)
+1. `recipe_interactions.grocery_add` × N — repeated grocery-listing = "regularly cooks this"
+2. `recipe_interactions.cooked` — explicit cook confirmation (not yet wired)
+3. `swipe_events.direction = 'right'` — expressed intent
+4. `saved_recipes.liked = true` — set automatically on cart add
+5. `recipe_interactions.view` × N — repeated views = high interest or hesitation
+6. `swipe_events.direction = 'left'` — negative signal (soft; not a hard filter like ingredient_dislikes)
 
 ---
 
@@ -714,69 +814,83 @@ INSTACART_API_KEY=
 9. **All colors and spacing from constants/theme.ts** — no hardcoded hex values in components
 10. **Every screen gets a loading state and an error state** — no bare data fetching without handling both
 11. **Log every swipe to Supabase** — direction, recipe_id, mode, time_of_day, day_of_week, session_number. Non-negotiable.
-12. **Ingredient dislikes are hard filters** — exclude at the data layer, not just the UI layer
-13. **Macros from Claude are always labelled "estimated"** — never present them as precise values
+12. **Log every recipe_interaction to Supabase** — view when detail modal opens, grocery_add when recipe added to list. Both are AI training signals.
+13. **Ingredient dislikes are hard filters** — exclude at the data layer, not just the UI layer
+14. **Macros from Claude are always labelled "estimated"** — never present them as precise values
+15. **All interaction logging is fire-and-forget** — upsertRecipeByExternalId first (to get Supabase UUID), then logSwipe/logInteraction. Errors are silently swallowed — never block the UI.
 
 ---
 
-## 12. Immediate Priority Build Order
+## 12. Phase 1 — Complete ✅
 
-Work through these in order. Do not build new features while Priority 1 and 2 items are outstanding.
+All Phase 1 items are done and merged to main. Below is the full record.
 
-### ✅ Priority 1 — Fix the Foundation
-- [x] Apply supabase/schema.sql to the Supabase project
-- [x] Verify all RLS policies are correct and active
+### ✅ Priority 1 — Foundation
+- [x] Apply supabase/schema.sql to Supabase (all tables, RLS, indexes, auto-profile trigger)
 - [x] Wire savedStore to Supabase saved_recipes table — persists across sessions
 - [x] Wire Profile "Recipes Saved" stat to savedStore count
+- [x] Profile auto-created on first auth load if missing
 
-### ✅ Priority 2 — Complete Onboarding
-- [x] Build ingredient-dislikes.tsx (Screen 3)
-- [x] Build eating-style.tsx (Screen 5)
-- [x] Update onboarding navigation to 10-screen order
-- [x] Add optional free text field to dietary-goals.tsx
-- [x] Simplify cuisine-prefs.tsx to 12 universal cuisines (niche cuisines → adventure cards)
-- [x] Add pantry staple seed tap grid to payoff.tsx
-- [x] Save all new fields to Supabase on onboarding completion
-- [x] Mark onboarding_complete: true on payoff completion
+### ✅ Priority 2 — Onboarding
+- [x] ingredient-dislikes.tsx (Screen 3) — searchable tap-to-add
+- [x] eating-style.tsx (Screen 5) — 3 large visual tap cards
+- [x] Optional free text field on dietary-goals.tsx
+- [x] cuisine-prefs.tsx — 12 universal cuisines only
+- [x] payoff.tsx — pantry staple tap grid → writes pantry_items
+- [x] All onboarding fields persisted to Supabase on account creation
+- [x] onboarding_complete: true on payoff completion
 
-### 🔥 Priority 3 — Build Grocery List Screen
-- [ ] Build grocery-list.tsx — ingredients grouped by category, checkboxes, pantry items crossed out
-- [ ] Build out groceryStore.ts — add from recipe, consolidate ingredients, deduplicate, calculate cost
-- [ ] Build tally header component — meals, items, pantry matches, cost estimate, combined macros
-- [ ] Build copy-to-clipboard export with formatted plain text output
-- [ ] Wire "Add to Grocery List" action from recipe cards and recipe library
+### ✅ Priority 3 — Grocery List Screen
+- [x] grocery-list.tsx — tally header, grouped categories, checkboxes, edit mode, undo
+- [x] groceryStore.ts — addFromDetail, consolidate, deduplicate, deleteItem with undo
+- [x] Copy-to-clipboard export (formatted plain text)
+- [x] "Add to Grocery List" wired from Discover (cart button) and Recipes screen
 
-### Priority 4 — Macros
-- [ ] Integrate Spoonacular API in lib/api.ts
-- [ ] Add macros column to recipes table in schema
-- [ ] Add Macros type to types/index.ts
-- [ ] Build MacroRow component (reusable)
-- [ ] Add headline macro pill to RecipeCard
-- [ ] Add full macro row to recipe detail screen
-- [ ] Add combined macros to grocery list tally header
+### ✅ Priority 4 — Macros
+- [x] MacroRow component — full 4-col layout + compact variant
+- [x] HeadlineMacroPill — goal-aware, on top card and next card (stackIndex=1)
+- [x] estimateMacrosLocally — instant keyword-based estimate, no API delay
+- [x] api/macros.ts Vercel endpoint written (Spoonacular → Claude → local fallback)
+- [x] Lazy macro persistence — after fetchMacros, writes to recipes.macros, shared across all users
+- [ ] Wire MacroRow to recipe detail screen (next up)
+- [ ] Spoonacular backfill of all 419 recipes (after plan upgrade before beta)
 
-### Priority 5 — Swipe Data + Cohort Foundation
-- [ ] Log every swipe event to Supabase in discover.tsx
-- [ ] Increment total_sessions on every app open in root _layout.tsx
-- [ ] Tag all seed recipes with cohort affinity scores in recipe_cohort_affinities table
-- [ ] Map new users to cohort key on onboarding completion
+### ✅ Priority 5 — Swipe Data + Interaction Logging
+- [x] Every swipe logged to swipe_events (direction, mode, time_of_day, day_of_week, session_number)
+- [x] recipe_interactions table — logs views and grocery_adds from both Discover and Recipes screens
+- [x] 419 recipes seeded with cohort affinity scores (248,886 rows in recipe_cohort_affinities)
+- [x] All 419 recipes backfilled with full ingredients + descriptions from TheMealDB
+- [x] Lazy ingredient persistence — first TheMealDB fetch writes to recipes table for all future users
+- [ ] Map new users to cohort_key on onboarding completion (Phase 2)
+- [ ] Increment total_sessions on every app open (Phase 2)
+
+### ⚠️ Pre-Launch Before Beta
+- Run `recipe_interactions` table SQL in Supabase (see Section 8 — not yet applied to live DB)
+- Upgrade Spoonacular plan — free tier (150 points/day) exhausted in dev
+- Run Spoonacular macro backfill script once upgraded
 
 ---
 
 ## 13. Phased Build Plan
 
-### Phase 1 — Foundation (Current Focus)
-All Immediate Priority items above.
+### ✅ Phase 1 — Foundation (Complete — merged to main)
+All Priority 1–5 items complete. See Section 12.
 
 ### Phase 2 — AI Layer
 - [ ] Vercel project set up, environment variables configured
+- [ ] Wire MacroRow to recipe detail screen
+- [ ] Map new users to cohort_key in user_cohorts on onboarding completion
+- [ ] Increment total_sessions on every app open in _layout.tsx
 - [ ] /api/describe-recipe endpoint — Claude generates a one-sentence description
       per recipe from { title, cuisine, category, ingredients }. Currently the
       blurb falls back to the first sentence of TheMealDB strInstructions which
       is often a cooking step, not a description. Claude descriptions ship with
       Phase 2 Vercel setup. Wire into fetchMealDetail in lib/mealdb.ts.
-- [ ] /api/recommendations endpoint — Claude-powered personalised stack
-- [ ] Connect recommendations to Discover screen (replace TheMealDB direct fetch)
+- [ ] /api/recommendations endpoint — Claude ranks recipes using: profile, swipe_events,
+      recipe_interactions (weighted by type + frequency), pantry, cohort affinity scores
+- [ ] Connect recommendations to Discover screen (replace shuffle-based Supabase fetch)
+- [ ] "Mark as cooked" UI — logs recipe_interactions type: 'cooked'
+- [ ] Adventure cards — home_cook/confident_chef only, after ~20 swipes, cuisine adjacency
 - [ ] Pantry screen in Profile → Pantry (opt-in, not a main tab)
 - [ ] Post-cook check-in flow
 - [ ] /api/storage-tip endpoint + storage tip UI

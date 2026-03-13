@@ -13,8 +13,8 @@ import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/theme';
 import { formatTime, formatCost, getTimeOfDay } from '@/lib/utils';
-import { fetchMealDBRecipes, fetchMealDetail, type MealDetail } from '@/lib/mealdb';
-import { logSwipe, upsertRecipeByExternalId, setRecipeLiked, fetchMacros, estimateMacrosLocally } from '@/lib/api';
+import { fetchMealDetail, type MealDetail } from '@/lib/mealdb';
+import { logSwipe, upsertRecipeByExternalId, setRecipeLiked, fetchMacros, estimateMacrosLocally, fetchDiscoverRecipes, updateRecipeDetail, updateRecipeMacros, logInteraction } from '@/lib/api';
 import { RecipeDetailModal } from '@/components/RecipeDetailModal';
 import { HeadlineMacroPill } from '@/components/ui/MacroRow';
 import { MiseLogo } from '@/components/ui/MiseLogo';
@@ -319,8 +319,18 @@ export default function Discover() {
   useEffect(() => {
     setIsLoading(true);
     setCurrentIndex(0);
-    fetchMealDBRecipes(dietaryGoals)
-      .then(setRecipes)
+    fetchDiscoverRecipes(dietaryGoals)
+      .then((loaded) => {
+        // Pre-populate macro cache from Supabase data so pills show instantly
+        // for recipes that already have macros stored — no API call needed.
+        loaded.forEach((r) => {
+          if (r.macros && !macroCache.current.has(r.id)) {
+            macroCache.current.set(r.id, r.macros);
+          }
+        });
+        setMacroCacheVersion((v) => v + 1);
+        setRecipes(loaded);
+      })
       .finally(() => setIsLoading(false));
   }, [dietaryGoals]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -338,12 +348,24 @@ export default function Discover() {
 
     recipes.forEach(async (recipe) => {
       if (cancelled || detailCache.current.has(recipe.id)) return;
+
+      // If Supabase already has ingredients, build detail from DB data — no TheMealDB call.
+      if (recipe.ingredients && recipe.ingredients.length > 0) {
+        const detail: MealDetail = {
+          blurb: recipe.description ?? '',
+          ingredients: recipe.ingredients.map((ing) => ({ name: ing.name, measure: ing.quantity ?? '' })),
+        };
+        detailCache.current.set(recipe.id, detail);
+        if (recipe.id === recipes[currentIndexRef.current]?.id) setTopDetail(detail);
+        return;
+      }
+
       const detail = await fetchMealDetail(recipe.id);
       if (cancelled || !detail) return;
       detailCache.current.set(recipe.id, detail);
-      if (recipe.id === recipes[currentIndexRef.current]?.id) {
-        setTopDetail(detail);
-      }
+      if (recipe.id === recipes[currentIndexRef.current]?.id) setTopDetail(detail);
+      // Persist to Supabase so this recipe never needs a TheMealDB call again
+      updateRecipeDetail(recipe.id, detail.ingredients, detail.blurb).catch(() => {});
     });
 
     return () => { cancelled = true; };
@@ -363,7 +385,18 @@ export default function Discover() {
         if (!recipe || macroCache.current.has(recipe.id)) continue;
         let detail = detailCache.current.get(recipe.id);
         if (!detail) {
-          detail = await fetchMealDetail(recipe.id).catch(() => null) ?? undefined;
+          if (recipe.ingredients && recipe.ingredients.length > 0) {
+            detail = {
+              blurb: recipe.description ?? '',
+              ingredients: recipe.ingredients.map((ing) => ({ name: ing.name, measure: ing.quantity ?? '' })),
+            };
+          } else {
+            const fetched = await fetchMealDetail(recipe.id).catch(() => null);
+            if (fetched) {
+              detail = fetched;
+              updateRecipeDetail(recipe.id, fetched.ingredients, fetched.blurb).catch(() => {});
+            }
+          }
           if (detail) detailCache.current.set(recipe.id, detail);
         }
         if (cancelled || !detail) continue;
@@ -371,7 +404,9 @@ export default function Discover() {
         const macros = await fetchMacros(recipe.title, ings, { externalId: recipe.id }).catch(() => null);
         if (cancelled || !macros) continue;
         macroCache.current.set(recipe.id, macros);
-        setMacroCacheVersion((v) => v + 1); // trigger re-render to show accurate data
+        setMacroCacheVersion((v) => v + 1);
+        // Persist to Supabase — next user to see this recipe gets macros from DB instantly
+        if (!recipe.macros) updateRecipeMacros(recipe.id, macros).catch(() => {});
       }
     }
 
@@ -448,10 +483,13 @@ export default function Discover() {
     if (!recipe) return;
     const detail = detailCache.current.get(recipe.id);
     addFromDetail(recipe, detail?.ingredients ?? []);
-    // Mark liked = true — cart add is stronger positive signal than a bare save (Phase 2 weighting)
+    // Mark liked = true + log grocery_add interaction — cart add is the strongest positive signal
     if (userId) {
       upsertRecipeByExternalId(recipe)
-        .then(() => setRecipeLiked(userId, recipe.id, true))
+        .then((supabaseId) => {
+          setRecipeLiked(userId, recipe.id, true).catch(() => {});
+          logInteraction(userId, supabaseId, 'grocery_add', sessionNumber).catch(() => {});
+        })
         .catch(() => {});
     }
     // Green toast feedback — fades in instantly, holds, then fades out
@@ -469,7 +507,14 @@ export default function Discover() {
   // Open detail modal for current top card
   function handleViewDetail() {
     const recipe = recipes[currentIndexRef.current];
-    if (recipe) setShowDetail(true);
+    if (!recipe) return;
+    setShowDetail(true);
+    // Log view — repeated views of the same recipe = strong interest signal
+    if (userId) {
+      upsertRecipeByExternalId(recipe)
+        .then((supabaseId) => logInteraction(userId, supabaseId, 'view', sessionNumber))
+        .catch(() => {});
+    }
   }
 
   const isSaved = useSavedStore((s) => s.isSaved);

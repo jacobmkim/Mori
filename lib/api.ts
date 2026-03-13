@@ -83,6 +83,130 @@ export async function getRecipeById(id: string): Promise<Recipe | null> {
   return data;
 }
 
+// ─── Discover Deck ────────────────────────────────────────────────────────────
+
+const DECK_EXCLUDE = [
+  'cake', 'pudding', 'tart', 'pie', 'biscuit', 'cookie', 'brownie', 'muffin',
+  'pancake', 'waffle', 'ice cream', 'sorbet', 'custard', 'fudge', 'candy',
+  'cheesecake', 'éclair', 'eclair', 'donut', 'doughnut', 'cobbler', 'crumble',
+  'meringue', 'macaron', 'profiterole', 'tiramisu', 'panna cotta', 'creme brulee',
+  'bread pudding', 'sticky toffee', 'sourdough', 'baguette', 'focaccia',
+  'brioche', 'challah', 'pretzel', 'croissant', 'scone', 'loaf', 'flatbread',
+];
+
+const DECK_LAND_MEAT = [
+  'chicken', 'beef', 'pork', 'lamb', 'bacon', 'ham', 'turkey', 'duck',
+  'veal', 'mutton', 'meatball', 'sausage', 'ribs', 'brisket', 'chorizo', 'mince',
+  'steak', 'kebab', 'shawarma', 'keema', 'katsu', 'salami', 'pepperoni',
+  'venison', 'goat', 'rabbit', 'offal', 'liver', 'kidney', 'tripe',
+];
+
+const DECK_SEAFOOD = [
+  'salmon', 'tuna', 'fish', 'prawn', 'shrimp', 'crab', 'lobster', 'mussel',
+  'anchovy', 'cod', 'haddock', 'sardine', 'mackerel', 'halibut', 'tilapia',
+  'bass', 'trout', 'catfish', 'clam', 'oyster', 'squid', 'calamari', 'seafood',
+];
+
+const DECK_ALL_MEAT = [...DECK_LAND_MEAT, ...DECK_SEAFOOD];
+
+// In-memory cache — survives tab switches, cleared on goal change or after 30 min.
+let deckCache: { data: Recipe[]; goalsKey: string; at: number } | null = null;
+const DECK_CACHE_TTL = 30 * 60 * 1000;
+
+export function clearDiscoverCache(): void {
+  deckCache = null;
+}
+
+// Fetch the Discover deck from Supabase — one DB query instead of 28 TheMealDB
+// area calls. Recipes are returned with id = external_id (TheMealDB numeric id)
+// so fetchMealDetail and upsertRecipeByExternalId continue to work unchanged.
+export async function fetchDiscoverRecipes(dietaryGoals: string[] = []): Promise<Recipe[]> {
+  const goalsKey = [...dietaryGoals].sort().join(',');
+  if (deckCache && deckCache.goalsKey === goalsKey && Date.now() - deckCache.at < DECK_CACHE_TTL) {
+    return deckCache.data;
+  }
+
+  const { data, error } = await supabase
+    .from('recipes')
+    .select('id, title, description, cuisine, source_type, dietary_tags, badge, avg_rating, save_count, image_url, external_id, prep_time_mins, cook_time_mins, servings, cost_per_serving, macros, ingredients')
+    .not('external_id', 'is', null)
+    .limit(400);
+
+  if (error) throw error;
+
+  const rows = (data ?? []) as any[];
+  const filtered = rows
+    .filter((r) => {
+      const t = r.title.toLowerCase();
+      if (DECK_EXCLUDE.some((w) => t.includes(w))) return false;
+      if (dietaryGoals.includes('vegan') || dietaryGoals.includes('vegetarian')) {
+        return !DECK_ALL_MEAT.some((w) => t.includes(w));
+      }
+      if (dietaryGoals.includes('pescatarian')) {
+        return !DECK_LAND_MEAT.some((w) => t.includes(w));
+      }
+      return true;
+    })
+    .map(
+      (r): Recipe => ({
+        id: r.external_id,        // TheMealDB id — fetchMealDetail + logging work unchanged
+        title: r.title,
+        description: r.description,
+        cuisine: r.cuisine,
+        source_type: r.source_type ?? 'curated',
+        ingredients: r.ingredients ?? [],
+        steps: [],
+        prep_time_mins: r.prep_time_mins,
+        cook_time_mins: r.cook_time_mins,
+        servings: r.servings,
+        cost_per_serving: r.cost_per_serving,
+        dietary_tags: r.dietary_tags ?? [],
+        macros: r.macros ?? null,
+        badge: r.badge ?? 'none',
+        avg_rating: r.avg_rating ?? 0,
+        save_count: r.save_count ?? 0,
+        image_url: r.image_url,
+        external_id: r.external_id,
+      })
+    );
+
+  // Fisher-Yates shuffle
+  for (let i = filtered.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [filtered[i], filtered[j]] = [filtered[j], filtered[i]];
+  }
+
+  deckCache = { data: filtered, goalsKey, at: Date.now() };
+  return filtered;
+}
+
+// Persist computed macros to the Supabase recipes row.
+// Called fire-and-forget after fetchMacros — any user who sees this recipe
+// next gets macros from DB instead of burning a Spoonacular/Claude call.
+export async function updateRecipeMacros(externalId: string, macros: Macros): Promise<void> {
+  await supabase
+    .from('recipes')
+    .update({ macros })
+    .eq('external_id', externalId);
+}
+
+// Persist TheMealDB detail (ingredients + blurb) to the Supabase recipes row.
+// Called fire-and-forget after fetchMealDetail — subsequent views load from
+// Supabase ingredients array instead of hitting TheMealDB again.
+export async function updateRecipeDetail(
+  externalId: string,
+  ingredients: { name: string; measure: string }[],
+  blurb: string,
+): Promise<void> {
+  await supabase
+    .from('recipes')
+    .update({
+      description: blurb,
+      ingredients: ingredients.map((i) => ({ name: i.name, quantity: i.measure, unit: '' })),
+    })
+    .eq('external_id', externalId);
+}
+
 // ─── Session ─────────────────────────────────────────────────────────────────
 
 // Increments total_sessions for the user and returns the new count.
@@ -105,6 +229,26 @@ export async function incrementSessionCount(userId: string): Promise<number> {
 
 export async function logSwipe(event: Omit<SwipeEvent, 'id' | 'swiped_at'>): Promise<void> {
   const { error } = await supabase.from('swipe_events').insert(event);
+  if (error) throw error;
+}
+
+// ─── Recipe Interactions ───────────────────────────────────────────────────────
+// Logs views, grocery adds, and cooks — frequency is the AI signal.
+// A recipe grocery-listed 3 times is a stronger preference than a right swipe.
+// Fire-and-forget: call as interactionBackground(userId, supabaseId, 'grocery_add').
+
+export async function logInteraction(
+  userId: string,
+  recipeId: string,  // Supabase UUID (not external_id)
+  interactionType: 'view' | 'grocery_add' | 'cooked',
+  sessionNumber?: number,
+): Promise<void> {
+  const { error } = await supabase.from('recipe_interactions').insert({
+    user_id: userId,
+    recipe_id: recipeId,
+    interaction_type: interactionType,
+    session_number: sessionNumber ?? null,
+  });
   if (error) throw error;
 }
 

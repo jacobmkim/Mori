@@ -10,7 +10,7 @@ import { useRouter } from 'expo-router';
 import { colors } from '@/constants/theme';
 import { formatTime } from '@/lib/utils';
 import { fetchMealDBRecipesByCategory, fetchMealDetail, MEAL_CATEGORIES, MAIN_CUISINES } from '@/lib/mealdb';
-import { setRecipeLiked } from '@/lib/api';
+import { setRecipeLiked, updateRecipeDetail, upsertRecipeByExternalId, logInteraction } from '@/lib/api';
 import { useSavedStore } from '@/stores/savedStore';
 import { useGroceryStore } from '@/stores/groceryStore';
 import { useCollectionsStore, FAVORITES_ID } from '@/stores/collectionsStore';
@@ -433,13 +433,34 @@ export default function Recipes() {
     setActiveFilters(new Set());
   }, [showSaved]);
 
-  // Open detail modal — fetches MealDetail on demand, serves from state cache
+  // Open detail modal — serves from Supabase ingredients if already stored,
+  // otherwise fetches from TheMealDB and persists for future opens.
   const handleViewDetail = useCallback((recipe: Recipe) => {
     setDetailRecipe(recipe);
-    setDetailData(null);
     setDetailLoading(true);
+    // Log view — repeated views = strong interest signal for Phase 2 recommendations
+    if (profile?.id) {
+      upsertRecipeByExternalId(recipe)
+        .then((supabaseId) => logInteraction(profile.id!, supabaseId, 'view'))
+        .catch(() => {});
+    }
+
+    if (recipe.ingredients && recipe.ingredients.length > 0) {
+      // Already have ingredients from Supabase — no API call needed
+      setDetailData({
+        blurb: recipe.description ?? '',
+        ingredients: recipe.ingredients.map((ing) => ({ name: ing.name, measure: ing.quantity ?? '' })),
+      });
+      setDetailLoading(false);
+      return;
+    }
+
+    setDetailData(null);
     fetchMealDetail(recipe.id)
-      .then((d) => setDetailData(d))
+      .then((d) => {
+        setDetailData(d);
+        if (d) updateRecipeDetail(recipe.id, d.ingredients, d.blurb).catch(() => {});
+      })
       .catch(() => {})
       .finally(() => setDetailLoading(false));
   }, []);
@@ -464,8 +485,21 @@ export default function Recipes() {
     }
     setAddingToList(recipe.id);
     try {
-      const detail = await fetchMealDetail(recipe.id);
-      addFromDetail(recipe, detail?.ingredients ?? []);
+      let ingredients = recipe.ingredients ?? [];
+      if (ingredients.length === 0) {
+        const detail = await fetchMealDetail(recipe.id);
+        if (detail) {
+          ingredients = detail.ingredients.map((i) => ({ name: i.name, quantity: i.measure, unit: '' }));
+          updateRecipeDetail(recipe.id, detail.ingredients, detail.blurb).catch(() => {});
+        }
+      }
+      addFromDetail(recipe, ingredients.map((i) => ({ name: i.name, measure: i.quantity ?? '' })));
+      // Log grocery_add interaction — frequency of this = "regularly cooks this recipe"
+      if (profile?.id) {
+        upsertRecipeByExternalId(recipe)
+          .then((supabaseId) => logInteraction(profile.id!, supabaseId, 'grocery_add'))
+          .catch(() => {});
+      }
       Alert.alert('Added to list', `${recipe.title} ingredients added.`, [
         { text: 'View List', onPress: () => router.push('/(tabs)/grocery-list') },
         { text: 'OK' },
@@ -473,7 +507,7 @@ export default function Recipes() {
     } finally {
       setAddingToList(null);
     }
-  }, [selectedRecipes, addFromDetail, removeRecipeFromList, router]);
+  }, [selectedRecipes, addFromDetail, removeRecipeFromList, router, profile]);
 
   const handleSaveToggle = useCallback((recipe: Recipe) => {
     if (isSaved(recipe.id)) removeRecipe(recipe.id, profile?.id);
