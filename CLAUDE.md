@@ -876,26 +876,56 @@ All Phase 1 items are done and merged to main. Below is the full record.
 ### ✅ Phase 1 — Foundation (Complete — merged to main)
 All Priority 1–5 items complete. See Section 12.
 
-### Phase 2 — AI Layer
-- [ ] Vercel project set up, environment variables configured
-- [ ] Wire MacroRow to recipe detail screen
-- [ ] Map new users to cohort_key in user_cohorts on onboarding completion
+### Phase 2 — AI Layer (Active — feat/phase-2-ai-layer)
+
+**Recipe Generation Strategy:**
+- Use **Claude Haiku** for all generation/seed work (~$0.004 per recipe)
+- Use **Claude Sonnet** for recommendations only (~$0.02 per session)
+- Claude Pro (coding) and Claude API (app) are separate billing — no conflict
+- Generated recipes stored in Supabase once, never regenerated — one-time cost ~$4 per 1,000 recipes
+- TheMealDB recipes: legally clean (open license). Spoonacular: use for macro facts only, not recipe content.
+
+**Priority 1 — Quick wins (no Vercel needed)**
+- [ ] Wire MacroRow to recipe detail screen — component exists, just needs wiring
 - [ ] Increment total_sessions on every app open in _layout.tsx
-- [ ] /api/describe-recipe endpoint — Claude generates a one-sentence description
-      per recipe from { title, cuisine, category, ingredients }. Currently the
-      blurb falls back to the first sentence of TheMealDB strInstructions which
-      is often a cooking step, not a description. Claude descriptions ship with
-      Phase 2 Vercel setup. Wire into fetchMealDetail in lib/mealdb.ts.
-- [ ] /api/recommendations endpoint — Claude ranks recipes using: profile, swipe_events,
-      recipe_interactions (weighted by type + frequency), pantry, cohort affinity scores
-- [ ] Connect recommendations to Discover screen (replace shuffle-based Supabase fetch)
-- [ ] "Mark as cooked" UI — logs recipe_interactions type: 'cooked'
-- [ ] Adventure cards — home_cook/confident_chef only, after ~20 swipes, cuisine adjacency
+- [ ] Map new users to cohort_key in user_cohorts on onboarding completion (payoff.tsx)
+
+**Priority 2 — Vercel setup**
+- [ ] Vercel project set up, environment variables configured
+      (ANTHROPIC_API_KEY, SUPABASE_SERVICE_ROLE_KEY, EXPO_PUBLIC_SUPABASE_URL, SPOONACULAR_API_KEY)
+- [ ] Deploy and smoke-test existing api/macros.ts endpoint
+
+**Priority 3 — Claude recipe content (Haiku)**
+- [ ] /api/describe-recipe — Haiku generates a proper one-sentence description per recipe
+      Input: { title, cuisine, category, ingredients[] }
+      Replaces TheMealDB instruction-sentence blurbs. Run once per recipe, store result.
+- [ ] /api/generate-recipe — Haiku generates a complete recipe on demand
+      Input: { cuisine, dietaryGoals, skillLevel, maxMins?, ingredients[]? }
+      Output: { title, description, ingredients[], steps[], estimatedMacros, dietary_tags[] }
+      Used for bulk seed script + filling gaps in Discover deck
+- [ ] scripts/generate-recipes.mjs — bulk seed script, generates N recipes per cuisine using Haiku,
+      stores in Supabase with cohort affinities. Run once per cuisine batch. Target: 100/cuisine = 1,200 total.
+
+**Priority 4 — Personalised recommendations (Sonnet)**
+- [ ] /api/recommendations — Sonnet ranks recipes for a user
+      Input: { userId, mode, limit }
+      Reads: profile, swipe_events (last 50), recipe_interactions (grouped by count),
+             pantry_items, user_cohorts (for cold start fallback)
+      Signal weights: grocery_add×N > cooked > right_swipe > view×N > left_swipe
+      Output: { recipeIds: string[] }
+- [ ] Connect Discover screen to /api/recommendations (replace shuffle-based fetch)
+- [ ] Cold start path: <10 swipes → use cohort affinity scores instead of personal history
+
+**Priority 5 — Engagement features**
+- [ ] "Mark as cooked" button on recipe detail — logs recipe_interactions type: 'cooked'
+- [ ] Taste profile auto-generation + display in Profile tab
+      Claude reads swipe history → writes one paragraph to profiles.taste_profile
+- [ ] Adventure cards — home_cook/confident_chef, after ~20 swipes, cuisine adjacency logic
+
+**Priority 6 — Pantry + post-cook**
 - [ ] Pantry screen in Profile → Pantry (opt-in, not a main tab)
 - [ ] Post-cook check-in flow
 - [ ] /api/storage-tip endpoint + storage tip UI
-- [ ] Taste profile auto-generation + display in Profile tab
-- [ ] Food waste reduction goal + nudges
 
 ### Phase 3 — Instacart Integration
 - [ ] Apply to Instacart Developer Platform (start this during Phase 1 in parallel)
