@@ -42,6 +42,7 @@ interface GenerateRequest {
   skillLevel?: string;
   maxMins?: number;
   avoidIngredients?: string[];
+  avoidDishes?: string[];
   save?: boolean;
 }
 
@@ -66,6 +67,7 @@ function buildPrompt(req: GenerateRequest): string {
   if (req.dietaryGoals?.includes('high_protein')) constraints.push('high protein — at least 30g protein per serving');
   if (req.dietaryGoals?.includes('meal_prep')) constraints.push('meal prep friendly — simple protein + grain + vegetable structure (e.g. soy garlic chicken with rice and steamed broccoli, grilled chicken wrap with yogurt sauce, teriyaki salmon bowl), scales well for batch cooking, reheats well');
   if (req.avoidIngredients?.length) constraints.push(`must not contain: ${req.avoidIngredients.join(', ')}`);
+  if (req.avoidDishes?.length) constraints.push(`must NOT be any of these already-generated dishes (generate something different): ${req.avoidDishes.join(', ')}`);
 
   return `Generate an original ${req.cuisine} recipe. ${constraints.length ? 'Requirements: ' + constraints.join('; ') + '.' : ''}
 

@@ -98,14 +98,23 @@ async function countExisting(cuisine) {
   return count ?? 0;
 }
 
-async function generateOne(cuisine, index) {
+async function getExistingTitles(cuisine) {
+  const { data } = await sb
+    .from('recipes')
+    .select('title')
+    .eq('cuisine', cuisine.toLowerCase())
+    .eq('source_type', 'curated');
+  return (data ?? []).map(r => r.title);
+}
+
+async function generateOne(cuisine, index, existingTitles = []) {
   const dietaryGoals = DIETARY_ROTATION[index % DIETARY_ROTATION.length];
   const skillLevel = SKILL_ROTATION[index % SKILL_ROTATION.length];
 
   const response = await fetch(`${API_URL}/api/generate-recipe`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ cuisine, dietaryGoals, skillLevel, save: true }),
+    body: JSON.stringify({ cuisine, dietaryGoals, skillLevel, save: true, avoidDishes: existingTitles }),
   });
 
   if (!response.ok) {
@@ -145,11 +154,13 @@ async function main() {
 
     let generated = 0;
     let failed = 0;
+    const generatedTitles = await getExistingTitles(name);
 
     for (let i = 0; i < needed; i++) {
       try {
-        const recipe = await generateOne(name, i);
+        const recipe = await generateOne(name, i, generatedTitles);
         generated++;
+        if (recipe?.title) generatedTitles.push(recipe.title);
         process.stdout.write(`  ✓ ${recipe?.title ?? 'untitled'}\n`);
       } catch (err) {
         failed++;
