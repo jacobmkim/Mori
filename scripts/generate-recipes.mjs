@@ -107,15 +107,24 @@ async function getExistingTitles(cuisine) {
   return (data ?? []).map(r => r.title);
 }
 
-async function generateOne(cuisine, index, existingTitles = []) {
+async function generateOne(cuisine, index, existingTitles = [], retryAvoid = []) {
   const dietaryGoals = DIETARY_ROTATION[index % DIETARY_ROTATION.length];
   const skillLevel = SKILL_ROTATION[index % SKILL_ROTATION.length];
+  const avoidDishes = [...existingTitles, ...retryAvoid];
 
   const response = await fetch(`${API_URL}/api/generate-recipe`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ cuisine, dietaryGoals, skillLevel, save: true, avoidDishes: existingTitles }),
+    body: JSON.stringify({ cuisine, dietaryGoals, skillLevel, save: true, avoidDishes }),
   });
+
+  // 409 = too similar to existing — retry once with the offending title added to avoid list
+  if (response.status === 409) {
+    const body = await response.json();
+    process.stdout.write(`  ↩ Too similar (${body.title}), retrying...\n`);
+    await sleep(DELAY_MS);
+    return generateOne(cuisine, index + 7, existingTitles, [...retryAvoid, body.title]);
+  }
 
   if (!response.ok) {
     const err = await response.text();

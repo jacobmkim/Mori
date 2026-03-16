@@ -67,7 +67,14 @@ function buildPrompt(req: GenerateRequest): string {
   if (req.dietaryGoals?.includes('high_protein')) constraints.push('high protein — at least 30g protein per serving');
   if (req.dietaryGoals?.includes('meal_prep')) constraints.push('meal prep friendly — simple protein + grain + vegetable structure (e.g. soy garlic chicken with rice and steamed broccoli, grilled chicken wrap with yogurt sauce, teriyaki salmon bowl), scales well for batch cooking, reheats well');
   if (req.avoidIngredients?.length) constraints.push(`must not contain: ${req.avoidIngredients.join(', ')}`);
-  if (req.avoidDishes?.length) constraints.push(`must NOT be any of these already-generated dishes (generate something different): ${req.avoidDishes.join(', ')}`);
+  if (req.avoidDishes?.length) {
+    // Group into lines of 10 to prevent prompt truncation on very long lists
+    const chunks: string[] = [];
+    for (let i = 0; i < req.avoidDishes.length; i += 10) chunks.push(req.avoidDishes.slice(i, i + 10).join(' | '));
+    constraints.push(
+      `CRITICAL — do NOT generate any of these dishes or close variants of them. Generate a genuinely different dish:\n${chunks.join('\n')}`
+    );
+  }
 
   return `Generate an original ${req.cuisine} recipe. ${constraints.length ? 'Requirements: ' + constraints.join('; ') + '.' : ''}
 
@@ -132,6 +139,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)(?:```|$)/);
       const cleaned = fenced ? fenced[1].trim() : raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/,'').trim();
       recipe = JSON.parse(cleaned);
+    }
+
+    // Server-side similarity guard — reject if too close to an existing dish
+    if (body.avoidDishes?.length) {
+      const normalize = (s: string) => s.toLowerCase().replace(/\(.*?\)/g, '').replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim();
+      const words = (s: string) => new Set(normalize(s).split(' ').filter(Boolean));
+      const jaccard = (a: Set<string>, b: Set<string>) => {
+        const inter = [...a].filter(w => b.has(w)).length;
+        const union = new Set([...a, ...b]).size;
+        return union === 0 ? 0 : inter / union;
+      };
+      const newWords = words(recipe.title);
+      const tooSimilar = body.avoidDishes.some(existing => jaccard(newWords, words(existing)) >= 0.6);
+      if (tooSimilar) {
+        return res.status(409).json({ error: 'Generated recipe too similar to existing dish', title: recipe.title });
+      }
     }
 
     // Persist to Supabase if requested (used by seed script)
