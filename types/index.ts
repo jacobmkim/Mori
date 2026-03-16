@@ -82,6 +82,9 @@ export interface Recipe {
   spoonacular_id?: string | null;
   external_id?: string | null;
   created_at?: string;
+  // Set by fetchRecommendedDeck — the actual Supabase UUID before id is remapped to external_id.
+  // Used by discover.tsx to log interactions without calling upsertRecipeByExternalId.
+  supabase_id?: string;
 }
 
 // ─── Swipe ───────────────────────────────────────────────────────────────────

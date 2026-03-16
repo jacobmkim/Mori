@@ -14,7 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/theme';
 import { formatTime, formatCost, getTimeOfDay } from '@/lib/utils';
 import { fetchMealDetail, type MealDetail } from '@/lib/mealdb';
-import { logSwipe, upsertRecipeByExternalId, setRecipeLiked, fetchMacros, estimateMacrosLocally, fetchDiscoverRecipes, updateRecipeDetail, updateRecipeMacros, logInteraction } from '@/lib/api';
+import { logSwipe, upsertRecipeByExternalId, setRecipeLiked, fetchMacros, estimateMacrosLocally, fetchDiscoverRecipes, fetchRecommendedDeck, updateRecipeDetail, updateRecipeMacros, logInteraction } from '@/lib/api';
 import { RecipeDetailModal } from '@/components/RecipeDetailModal';
 import { HeadlineMacroPill } from '@/components/ui/MacroRow';
 import { MiseLogo } from '@/components/ui/MiseLogo';
@@ -314,12 +314,12 @@ export default function Discover() {
     })
   ).current;
 
-  // Re-fetch when dietary goals change — cache key includes goals so a new filtered
-  // deck is built automatically. setCurrentIndex(0) resets position on new deck.
+  // Re-fetch when userId, mode, or dietary goals change.
+  // Uses Claude-ranked /api/recommendations if userId is available, falls back to shuffle.
   useEffect(() => {
     setIsLoading(true);
     setCurrentIndex(0);
-    fetchDiscoverRecipes(dietaryGoals)
+    fetchRecommendedDeck(userId, mode, dietaryGoals)
       .then((loaded) => {
         // Pre-populate macro cache from Supabase data so pills show instantly
         // for recipes that already have macros stored — no API call needed.
@@ -332,7 +332,7 @@ export default function Discover() {
         setRecipes(loaded);
       })
       .finally(() => setIsLoading(false));
-  }, [dietaryGoals]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [userId, mode, dietaryGoals]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // When top card changes, update detail from cache (detail has no local estimator).
   useEffect(() => {
@@ -414,11 +414,18 @@ export default function Discover() {
     return () => { cancelled = true; };
   }, [currentIndex, recipes]);
 
-  // Fire-and-forget: upsert recipe to get Supabase UUID then log the swipe.
+  // Resolves the Supabase UUID for a recipe — uses supabase_id directly if present
+  // (AI-generated and recommended recipes already have it), otherwise upserts via external_id.
+  function resolveSupabaseId(recipe: Recipe): Promise<string> {
+    if (recipe.supabase_id) return Promise.resolve(recipe.supabase_id);
+    return upsertRecipeByExternalId(recipe);
+  }
+
+  // Fire-and-forget: resolve Supabase UUID then log the swipe.
   // Never blocks the animation or the UI — errors are silently swallowed.
   function logSwipeBackground(recipe: Recipe, direction: 'left' | 'right', currentMode: AppMode) {
     if (!userId) return;
-    upsertRecipeByExternalId(recipe)
+    resolveSupabaseId(recipe)
       .then((supabaseId) =>
         logSwipe({
           user_id: userId,
@@ -485,7 +492,7 @@ export default function Discover() {
     addFromDetail(recipe, detail?.ingredients ?? []);
     // Mark liked = true + log grocery_add interaction — cart add is the strongest positive signal
     if (userId) {
-      upsertRecipeByExternalId(recipe)
+      resolveSupabaseId(recipe)
         .then((supabaseId) => {
           setRecipeLiked(userId, recipe.id, true).catch(() => {});
           logInteraction(userId, supabaseId, 'grocery_add', sessionNumber).catch(() => {});
@@ -511,12 +518,13 @@ export default function Discover() {
     setShowDetail(true);
     // Log view — repeated views of the same recipe = strong interest signal
     if (userId) {
-      upsertRecipeByExternalId(recipe)
+      resolveSupabaseId(recipe)
         .then((supabaseId) => logInteraction(userId, supabaseId, 'view', sessionNumber))
         .catch(() => {});
     }
   }
 
+  const [cookedRecipeIds, setCookedRecipeIds] = useState<Set<string>>(new Set());
   const isSaved = useSavedStore((s) => s.isSaved);
 
   const visibleCards = recipes.slice(currentIndex, currentIndex + 3);
@@ -792,6 +800,7 @@ export default function Discover() {
             detail={topCachedDetail}
             isSaved={topRecipe ? isSaved(topRecipe.id) : false}
             isInCart={topRecipe ? selectedRecipes.some((r) => r.id === topRecipe.id) : false}
+            isCooked={topRecipe ? cookedRecipeIds.has(topRecipe.id) : false}
             onClose={() => setShowDetail(false)}
             onSaveToggle={() => {
               if (!topRecipe) return;
@@ -802,6 +811,13 @@ export default function Discover() {
               if (!topRecipe) return;
               handleAddToCart();
               setShowDetail(false);
+            }}
+            onMarkCooked={() => {
+              if (!topRecipe || !userId) return;
+              setCookedRecipeIds((prev) => new Set([...prev, topRecipe.id]));
+              resolveSupabaseId(topRecipe)
+                .then((supabaseId) => logInteraction(userId, supabaseId, 'cooked', sessionNumber))
+                .catch(() => {});
             }}
           />
         );

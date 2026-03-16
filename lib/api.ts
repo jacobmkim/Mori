@@ -180,6 +180,70 @@ export async function fetchDiscoverRecipes(dietaryGoals: string[] = []): Promise
   return filtered;
 }
 
+// Fetch a personalised, Claude-ranked deck from /api/recommendations.
+// Returns recipes with id = external_id for TheMealDB recipes (downstream compat),
+// and supabase_id = the actual Supabase UUID (for fire-and-forget logging).
+// Falls back to fetchDiscoverRecipes if the endpoint fails or userId is missing.
+export async function fetchRecommendedDeck(
+  userId: string | undefined,
+  mode: 'spontaneous' | 'meal_prep',
+  dietaryGoals: string[] = [],
+): Promise<Recipe[]> {
+  const baseUrl = process.env.EXPO_PUBLIC_API_URL;
+  if (!baseUrl || !userId) return fetchDiscoverRecipes(dietaryGoals);
+
+  try {
+    const res = await fetch(`${baseUrl}/api/recommendations`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, mode, limit: 50 }),
+    });
+
+    if (!res.ok) return fetchDiscoverRecipes(dietaryGoals);
+
+    const { recipeIds } = await res.json();
+    if (!recipeIds?.length) return fetchDiscoverRecipes(dietaryGoals);
+
+    // Fetch full recipe objects in one query
+    const { data } = await supabase
+      .from('recipes')
+      .select('id, title, description, cuisine, source_type, dietary_tags, badge, avg_rating, save_count, image_url, external_id, prep_time_mins, cook_time_mins, servings, cost_per_serving, macros, ingredients')
+      .in('id', recipeIds);
+
+    if (!data?.length) return fetchDiscoverRecipes(dietaryGoals);
+
+    // Re-sort to match Claude's ranked order
+    const idOrder = new Map<string, number>(recipeIds.map((id: string, i: number): [string, number] => [id, i]));
+    const sorted = [...data].sort((a: any, b: any) => (idOrder.get(a.id) ?? 999) - (idOrder.get(b.id) ?? 999));
+
+    return sorted.map((r: any): Recipe => ({
+      // TheMealDB recipes: remap id → external_id for fetchMealDetail compat
+      // AI-generated recipes: keep Supabase UUID as id (they have ingredients in DB)
+      id: r.external_id ?? r.id,
+      supabase_id: r.id,  // always keep the real UUID for logging (no upsert needed)
+      title: r.title,
+      description: r.description,
+      cuisine: r.cuisine,
+      source_type: r.source_type ?? 'curated',
+      ingredients: r.ingredients ?? [],
+      steps: [],
+      prep_time_mins: r.prep_time_mins,
+      cook_time_mins: r.cook_time_mins,
+      servings: r.servings,
+      cost_per_serving: r.cost_per_serving,
+      dietary_tags: r.dietary_tags ?? [],
+      macros: r.macros ?? null,
+      badge: r.badge ?? 'none',
+      avg_rating: r.avg_rating ?? 0,
+      save_count: r.save_count ?? 0,
+      image_url: r.image_url,
+      external_id: r.external_id,
+    }));
+  } catch {
+    return fetchDiscoverRecipes(dietaryGoals);
+  }
+}
+
 // Persist computed macros to the Supabase recipes row.
 // Called fire-and-forget after fetchMacros — any user who sees this recipe
 // next gets macros from DB instead of burning a Spoonacular/Claude call.

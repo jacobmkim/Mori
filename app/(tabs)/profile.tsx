@@ -1,8 +1,8 @@
-import { View, Text, Pressable, ScrollView, Alert, Modal, TextInput } from 'react-native';
+import { View, Text, Pressable, ScrollView, Alert, Modal, TextInput, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import { useUserStore } from '@/stores/userStore';
 import { useSavedStore } from '@/stores/savedStore';
@@ -293,6 +293,38 @@ export default function Profile() {
   const { profile, setProfile } = useUserStore();
   const savedCount = useSavedStore((s) => s.savedRecipes.length);
   const [editVisible, setEditVisible] = useState(false);
+  const [tasteProfile, setTasteProfile] = useState<string | null>(
+    (profile?.taste_profile as any)?.text ?? null
+  );
+  const [tasteLoading, setTasteLoading] = useState(false);
+
+  const generateTasteProfile = useCallback(async () => {
+    if (!profile?.id) return;
+    const baseUrl = process.env.EXPO_PUBLIC_API_URL;
+    if (!baseUrl) return;
+    setTasteLoading(true);
+    try {
+      const res = await fetch(`${baseUrl}/api/taste-profile`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: profile.id }),
+      });
+      if (!res.ok) return;
+      const { tasteProfile: text } = await res.json();
+      if (text) setTasteProfile(text);
+    } catch {
+      // non-critical
+    } finally {
+      setTasteLoading(false);
+    }
+  }, [profile?.id]);
+
+  // Auto-generate on first load if not already set
+  useEffect(() => {
+    if (!tasteProfile && !tasteLoading) {
+      generateTasteProfile();
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleSignOut() {
     Alert.alert('Sign out', 'Are you sure you want to sign out?', [
@@ -363,6 +395,44 @@ export default function Profile() {
             </View>
           ))}
         </View>
+
+        {/* Taste Profile */}
+        {profile && (
+          <View style={{ paddingHorizontal: 16, marginBottom: 24 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <Text style={{ fontSize: 16, fontWeight: '600', color: colors.text }}>Your Taste Profile</Text>
+              {!tasteLoading && (
+                <Pressable onPress={generateTasteProfile} hitSlop={8}>
+                  <Text style={{ color: colors.primary, fontSize: 14, fontWeight: '500' }}>
+                    {tasteProfile ? 'Refresh' : 'Generate'}
+                  </Text>
+                </Pressable>
+              )}
+            </View>
+            <View style={{
+              backgroundColor: colors.white, borderRadius: 12,
+              borderWidth: 1, borderColor: colors.border,
+              padding: 16,
+            }}>
+              {tasteLoading ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <ActivityIndicator size="small" color={colors.primary} />
+                  <Text style={{ fontSize: 14, color: colors.textMuted }}>
+                    {tasteProfile ? 'Refreshing your taste profile...' : 'Building your taste profile...'}
+                  </Text>
+                </View>
+              ) : tasteProfile ? (
+                <Text style={{ fontSize: 14, color: colors.text, lineHeight: 22, fontStyle: 'italic' }}>
+                  "{tasteProfile}"
+                </Text>
+              ) : (
+                <Text style={{ fontSize: 14, color: colors.textMuted, lineHeight: 22 }}>
+                  Swipe on a few recipes in Discover and we'll learn your taste.
+                </Text>
+              )}
+            </View>
+          </View>
+        )}
 
         {/* Preferences */}
         {profile && (

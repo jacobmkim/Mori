@@ -112,12 +112,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .select('id, title, cuisine, dietary_tags')
       .in('id', contextIds.slice(0, 20));
 
-    // Fetch candidate recipes (all, dietary filtering happens client-side)
+    // Fetch candidate recipes — include both TheMealDB and AI-generated (source_type=curated)
     const { data: candidates } = await sb
       .from('recipes')
-      .select('id, title, cuisine, dietary_tags, macros')
-      .not('external_id', 'is', null)
-      .limit(200);
+      .select('id, title, cuisine, dietary_tags, macros, external_id, source_type')
+      .limit(300);
 
     if (!candidates || candidates.length === 0) {
       return res.status(200).json({ recipeIds: [], source: 'default' });

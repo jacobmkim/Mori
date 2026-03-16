@@ -71,9 +71,11 @@ interface RecipeDetailModalProps {
   detail: MealDetail | null | undefined;
   isSaved: boolean;
   isInCart: boolean;
+  isCooked?: boolean;
   onClose: () => void;
   onSaveToggle: () => void;
   onAddToCart: () => void;
+  onMarkCooked?: () => void;
 }
 
 export function RecipeDetailModal({
@@ -82,9 +84,11 @@ export function RecipeDetailModal({
   detail,
   isSaved,
   isInCart,
+  isCooked = false,
   onClose,
   onSaveToggle,
   onAddToCart,
+  onMarkCooked,
 }: RecipeDetailModalProps) {
   const [baseMacros, setBaseMacros] = useState<Macros | null>(null);
   const [servings, setServings] = useState(1);
@@ -305,7 +309,7 @@ export function RecipeDetailModal({
           </View>
 
           {/* Action buttons */}
-          <View style={{ flexDirection: 'row', gap: 12 }}>
+          <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}>
             <Pressable
               onPress={onSaveToggle}
               style={{
@@ -336,6 +340,24 @@ export function RecipeDetailModal({
               </Text>
             </Pressable>
           </View>
+
+          {/* Mark as cooked — strongest AI signal */}
+          {onMarkCooked && (
+            <Pressable
+              onPress={onMarkCooked}
+              style={{
+                flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+                paddingVertical: 14, borderRadius: 12,
+                backgroundColor: isCooked ? '#E8F5E9' : colors.white,
+                borderWidth: 1.5, borderColor: isCooked ? colors.primary : colors.border,
+              }}
+            >
+              <Ionicons name={isCooked ? 'checkmark-circle' : 'checkmark-circle-outline'} size={18} color={isCooked ? colors.primary : colors.textMuted} />
+              <Text style={{ fontSize: 15, fontWeight: '600', color: isCooked ? colors.primary : colors.textMuted }}>
+                {isCooked ? 'Cooked this!' : 'Mark as cooked'}
+              </Text>
+            </Pressable>
+          )}
         </ScrollView>
       </View>
     </Modal>
