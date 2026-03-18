@@ -185,11 +185,12 @@ export const useGroceryStore = create<GroceryStore>((set, get) => ({
     const item = get().list?.items.find((i) => i.ingredient_name === ingredientName) ?? null;
     set((state) => {
       if (!state.list) return state;
+      const newItems = state.list.items.filter((i) => i.ingredient_name !== ingredientName);
+      // Drop any selectedRecipe whose items were all manually deleted
+      const remainingRecipeIds = new Set(newItems.flatMap((i) => i.recipe_ids));
       return {
-        list: {
-          ...state.list,
-          items: state.list.items.filter((i) => i.ingredient_name !== ingredientName),
-        },
+        list: { ...state.list, items: newItems },
+        selectedRecipes: state.selectedRecipes.filter((r) => remainingRecipeIds.has(r.id)),
       };
     });
     return item;

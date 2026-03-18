@@ -14,7 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/theme';
 import { formatTime, formatCost, getTimeOfDay } from '@/lib/utils';
 import { fetchMealDetail, type MealDetail } from '@/lib/mealdb';
-import { logSwipe, upsertRecipeByExternalId, setRecipeLiked, fetchMacros, estimateMacrosLocally, fetchDiscoverRecipes, fetchRecommendedDeck, updateRecipeDetail, updateRecipeMacros, logInteraction } from '@/lib/api';
+import { logSwipe, upsertRecipeByExternalId, setRecipeLiked, fetchMacros, estimateMacrosLocally, fetchScoredDeck, updateRecipeDetail, updateRecipeMacros, logInteraction, recordSessionSwipe } from '@/lib/api';
 import { RecipeDetailModal } from '@/components/RecipeDetailModal';
 import { HeadlineMacroPill } from '@/components/ui/MacroRow';
 import { MiseLogo } from '@/components/ui/MiseLogo';
@@ -284,7 +284,9 @@ export default function Discover() {
   const { addFromDetail, selectedRecipes } = useGroceryStore();
   const userId = useUserStore((s) => s.profile?.id);
   const sessionNumber = useUserStore((s) => s.sessionNumber);
+  const profile = useUserStore((s) => s.profile ?? null);
   const dietaryGoals = useUserStore((s) => s.profile?.dietary_goals ?? EMPTY_GOALS);
+  const savedRecipes = useSavedStore((s) => s.savedRecipes);
 
   // Single Animated.Value tracking the top card's drag X.
   // Background cards interpolate from this — fully decoupled from the top
@@ -315,11 +317,12 @@ export default function Discover() {
   ).current;
 
   // Re-fetch when userId, mode, or dietary goals change.
-  // Uses Claude-ranked /api/recommendations if userId is available, falls back to shuffle.
+  // Scores locally via weighted function — no API call, runs on-device.
   useEffect(() => {
     setIsLoading(true);
     setCurrentIndex(0);
-    fetchRecommendedDeck(userId, mode, dietaryGoals)
+    const savedExternalIds = new Set(savedRecipes.map((r) => r.id));
+    fetchScoredDeck(userId, dietaryGoals, profile, savedExternalIds)
       .then((loaded) => {
         // Pre-populate macro cache from Supabase data so pills show instantly
         // for recipes that already have macros stored — no API call needed.
@@ -425,9 +428,11 @@ export default function Discover() {
   // Never blocks the animation or the UI — errors are silently swallowed.
   function logSwipeBackground(recipe: Recipe, direction: 'left' | 'right', currentMode: AppMode) {
     if (!userId) return;
+    console.log(`[swipe] ${direction === 'right' ? '✓' : '✗'} "${recipe.title}" (${recipe.cuisine ?? 'unknown'})`);
     resolveSupabaseId(recipe)
-      .then((supabaseId) =>
-        logSwipe({
+      .then((supabaseId) => {
+        recordSessionSwipe(supabaseId, direction);
+        return logSwipe({
           user_id: userId,
           recipe_id: supabaseId,
           direction,
@@ -435,8 +440,8 @@ export default function Discover() {
           time_of_day: getTimeOfDay(),
           day_of_week: new Date().getDay(),
           session_number: sessionNumber,
-        })
-      )
+        });
+      })
       .catch(() => {}); // swipe logging is non-critical
   }
 
@@ -468,7 +473,7 @@ export default function Discover() {
 
   function handleUndo() {
     if (!lastSwipe || currentIndexRef.current === 0) return;
-    if (lastSwipe.direction === 'right') removeRecipe(lastSwipe.recipe.id, userId);
+    if (lastSwipe.direction === 'right') removeRecipe(lastSwipe.recipe, userId);
     // Card springs in from the direction it was swiped out
     undoEntryXRef.current = lastSwipe.direction === 'right' ? SCREEN_WIDTH * 1.5 : -SCREEN_WIDTH * 1.5;
     setCurrentIndex((prev) => prev - 1);
@@ -804,7 +809,7 @@ export default function Discover() {
             onClose={() => setShowDetail(false)}
             onSaveToggle={() => {
               if (!topRecipe) return;
-              if (isSaved(topRecipe.id)) removeRecipe(topRecipe.id, userId);
+              if (isSaved(topRecipe.id)) removeRecipe(topRecipe, userId);
               else addRecipe(topRecipe, userId);
             }}
             onAddToCart={() => {

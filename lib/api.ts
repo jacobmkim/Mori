@@ -92,6 +92,11 @@ const DECK_EXCLUDE = [
   'meringue', 'macaron', 'profiterole', 'tiramisu', 'panna cotta', 'creme brulee',
   'bread pudding', 'sticky toffee', 'sourdough', 'baguette', 'focaccia',
   'brioche', 'challah', 'pretzel', 'croissant', 'scone', 'loaf', 'flatbread',
+  // desserts that slip through title-only filtering
+  'mousse', 'churro', 'baklava', 'halva', 'parfait', 'gelato', 'sundae',
+  'trifle', 'syllabub', 'compote', 'praline', 'nougat', 'brittle', 'torte',
+  'gateau', 'madeleine', 'financier', 'clafoutis', 'beignet', 'churros',
+  'honeycomb', 'roly poly', 'spotted dick', 'treacle', 'jam tart',
 ];
 
 const DECK_LAND_MEAT = [
@@ -139,6 +144,7 @@ export async function fetchDiscoverRecipes(dietaryGoals: string[] = []): Promise
     .filter((r) => {
       const t = r.title.toLowerCase();
       if (DECK_EXCLUDE.some((w) => t.includes(w))) return false;
+      if ((r.dietary_tags ?? []).includes('dessert')) return false;
       if (dietaryGoals.includes('vegan') || dietaryGoals.includes('vegetarian')) {
         return !DECK_ALL_MEAT.some((w) => t.includes(w));
       }
@@ -150,6 +156,7 @@ export async function fetchDiscoverRecipes(dietaryGoals: string[] = []): Promise
     .map(
       (r): Recipe => ({
         id: r.external_id,        // TheMealDB id — fetchMealDetail + logging work unchanged
+        supabase_id: r.id,        // real UUID — used for swipe history matching in scorer
         title: r.title,
         description: r.description,
         cuisine: r.cuisine,
@@ -170,14 +177,211 @@ export async function fetchDiscoverRecipes(dietaryGoals: string[] = []): Promise
       })
     );
 
-  // Fisher-Yates shuffle
-  for (let i = filtered.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [filtered[i], filtered[j]] = [filtered[j], filtered[i]];
-  }
-
   deckCache = { data: filtered, goalsKey, at: Date.now() };
   return filtered;
+}
+
+// ─── Swipe History ────────────────────────────────────────────────────────────
+
+// Fetches the most recent swipes for a user — used by the local scorer.
+// Returns most-recent-first so the first occurrence of a recipe_id wins.
+export async function getRecentSwipes(userId: string, limit = 150): Promise<{ recipe_id: string; direction: string; swiped_at: string }[]> {
+  const { data } = await supabase
+    .from('swipe_events')
+    .select('recipe_id, direction, swiped_at')
+    .eq('user_id', userId)
+    .order('swiped_at', { ascending: false })
+    .limit(limit);
+  return data ?? [];
+}
+
+// ─── Local Weighted Scorer ─────────────────────────────────────────────────────
+
+async function getUserCohortKey(userId: string): Promise<string | null> {
+  const { data } = await supabase
+    .from('user_cohorts')
+    .select('cohort_key')
+    .eq('user_id', userId)
+    .order('assigned_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return data?.cohort_key ?? null;
+}
+
+async function getCohortAffinities(cohortKey: string): Promise<Map<string, number>> {
+  const { data } = await supabase
+    .from('recipe_cohort_affinities')
+    .select('recipe_id, affinity_score')
+    .eq('cohort_key', cohortKey);
+  const map = new Map<string, number>();
+  for (const row of data ?? []) map.set(row.recipe_id, row.affinity_score);
+  return map;
+}
+
+async function getInteractionCounts(userId: string): Promise<Map<string, { grocery_add: number; cooked: number }>> {
+  const { data } = await supabase
+    .from('recipe_interactions')
+    .select('recipe_id, interaction_type')
+    .eq('user_id', userId)
+    .in('interaction_type', ['grocery_add', 'cooked']);
+  const map = new Map<string, { grocery_add: number; cooked: number }>();
+  for (const row of data ?? []) {
+    const cur = map.get(row.recipe_id) ?? { grocery_add: 0, cooked: 0 };
+    if (row.interaction_type === 'grocery_add') cur.grocery_add++;
+    if (row.interaction_type === 'cooked') cur.cooked++;
+    map.set(row.recipe_id, cur);
+  }
+  return map;
+}
+
+// ─── Session-level swipe tracking (Bug 7) ────────────────────────────────────
+// In-memory only — resets on app close. Prevents left-swiped cards resurfacing
+// within the same session when the 30-min deck cache is still active.
+
+const sessionLeftSwipes = new Set<string>(); // supabase_ids left-swiped this session
+const sessionShownIds = new Set<string>();   // supabase_ids already seen this session
+
+export function recordSessionSwipe(supabaseId: string, direction: 'left' | 'right'): void {
+  sessionShownIds.add(supabaseId);
+  if (direction === 'left') sessionLeftSwipes.add(supabaseId);
+}
+
+function scoreRecipe(
+  recipe: Recipe,
+  profile: Profile | null,
+  swipeMap: Map<string, { direction: 'left' | 'right'; swiped_at: string }>,
+  savedExternalIds: Set<string>,
+  affinityMap: Map<string, number>,
+  interactionMap: Map<string, { grocery_add: number; cooked: number }>,
+): number {
+  // Bug 7 — session penalty: instantly exclude anything swiped this session
+  const sid = recipe.supabase_id;
+  if (sid && (sessionLeftSwipes.has(sid) || sessionShownIds.has(sid))) return -999;
+
+  let score = Math.random() * 0.5; // small jitter so ties never produce a static order
+
+  // Cohort affinity base (0.0–1.0, scaled up) — cold-start signal for new users
+  const affinity = affinityMap.get(recipe.supabase_id ?? '');
+  if (affinity != null) score += affinity * 4;
+
+  // Cuisine match
+  if (profile?.cuisine_preferences?.includes(recipe.cuisine ?? '')) score += 3;
+
+  // Dietary tag alignment
+  const goals = profile?.dietary_goals ?? [];
+  const matchingTags = (recipe.dietary_tags ?? []).filter((t) => goals.includes(t));
+  score += matchingTags.length * 2;
+
+  // Eating style
+  if (profile?.eating_style === 'quick_simple') {
+    const totalMins = (recipe.prep_time_mins ?? 0) + (recipe.cook_time_mins ?? 0);
+    if (totalMins > 0 && totalMins <= 30) score += 2;
+    if (totalMins > 45) score -= 2;
+  }
+
+  // Swipe history with temporal decay — older signals fade over ~30 days
+  if (sid) {
+    const swipe = swipeMap.get(sid);
+    if (swipe) {
+      const daysSince = (Date.now() - new Date(swipe.swiped_at).getTime()) / 86_400_000;
+      const decay = Math.exp(-daysSince / 30);
+      if (swipe.direction === 'right') score += 5 * decay;
+      if (swipe.direction === 'left') score -= 15 * decay;
+    }
+
+    // Interaction signals — capped at 2 to prevent feedback loop dominating deck
+    const ix = interactionMap.get(sid);
+    if (ix) {
+      score += Math.min(ix.grocery_add, 2) * 3;
+      score += Math.min(ix.cooked, 2) * 4;
+    }
+  }
+
+  // Already saved — soft penalty (user has it, show fresher options first)
+  if (savedExternalIds.has(recipe.external_id ?? recipe.id)) score -= 3;
+
+  return score;
+}
+
+// Fetches the discover deck and ranks it locally using a weighted scoring function.
+// No Vercel, no API calls — runs entirely on-device after one Supabase query + parallel signals.
+export async function fetchScoredDeck(
+  userId: string | undefined,
+  dietaryGoals: string[],
+  profile: Profile | null,
+  savedExternalIds: Set<string>,
+): Promise<Recipe[]> {
+  const [deck, swipes, affinityMap, interactionMap] = await Promise.all([
+    fetchDiscoverRecipes(dietaryGoals),
+    userId ? getRecentSwipes(userId) : Promise.resolve([]),
+    userId
+      ? getUserCohortKey(userId).then((key) => (key ? getCohortAffinities(key) : new Map<string, number>()))
+      : Promise.resolve(new Map<string, number>()),
+    userId ? getInteractionCounts(userId) : Promise.resolve(new Map<string, { grocery_add: number; cooked: number }>()),
+  ]);
+
+  // Bug 1 fix — ingredient dislike hard filter (never soft-deprioritise, never relaxed)
+  const dislikes = (profile?.ingredient_dislikes ?? []).map((d) => d.toLowerCase());
+  const afterDislikes = dislikes.length === 0 ? deck : deck.filter((r) => {
+    const ingredients = (r.ingredients ?? []) as { name: string }[];
+    return !ingredients.some((ing) =>
+      dislikes.some((dislike) => ing.name.toLowerCase().includes(dislike))
+    );
+  });
+
+  // Bug 8 fix — skill level hard cap (filter before scoring, not a score penalty)
+  const skillLevel = profile?.skill_level;
+  const filtered = !skillLevel ? afterDislikes : afterDislikes.filter((r) => {
+    const totalTime = (r.prep_time_mins ?? 0) + (r.cook_time_mins ?? 0);
+    if (skillLevel === 'beginner' && totalTime > 0 && totalTime > 60) return false;
+    if (skillLevel === 'home_cook' && totalTime > 0 && totalTime > 120) return false;
+    return true;
+  });
+
+  // Most-recent swipe per recipe wins (desc order from DB)
+  const swipeMap = new Map<string, { direction: 'left' | 'right'; swiped_at: string }>();
+  for (const s of swipes) {
+    if (!swipeMap.has(s.recipe_id)) {
+      swipeMap.set(s.recipe_id, { direction: s.direction as 'left' | 'right', swiped_at: s.swiped_at });
+    }
+  }
+
+  const scored = filtered.map((r) => ({
+    recipe: r,
+    score: scoreRecipe(r, profile, swipeMap, savedExternalIds, affinityMap, interactionMap),
+  }));
+  scored.sort((a, b) => b.score - a.score);
+
+  // Bug 3 fix — diversity pass (prevents monoculture for all users, stricter for variety)
+  const maxPerCuisine = profile?.eating_style === 'variety' ? 3 : 5;
+  const cuisineCounts: Record<string, number> = {};
+  const diverse: typeof scored = [];
+  for (const entry of scored) {
+    const cuisine = entry.recipe.cuisine ?? 'other';
+    const count = cuisineCounts[cuisine] ?? 0;
+    if (count < maxPerCuisine) {
+      diverse.push(entry);
+      cuisineCounts[cuisine] = count + 1;
+    }
+  }
+
+  // Bug 9 fix — zero-result fallback: relax diversity if deck is too small
+  // Hard filters (ingredient dislikes, dietary goals) are NEVER relaxed.
+  let finalDeck = diverse;
+  if (diverse.length < 10 && scored.length > diverse.length) {
+    console.warn(`[fetchScoredDeck] diversity pass left only ${diverse.length} recipes — relaxing constraint`);
+    finalDeck = scored; // use full scored list without cuisine cap
+  }
+  if (finalDeck.length < 5) {
+    console.warn(`[fetchScoredDeck] only ${finalDeck.length} recipes after all filters — very restrictive preferences`);
+  }
+
+  console.log(`[fetchScoredDeck] ${finalDeck.length} recipes | top 5: ${finalDeck.slice(0, 5).map((s) => `${s.recipe.title} (${s.score.toFixed(1)})`).join(', ')}`);
+  if (dislikes.length > 0) {
+    console.log(`[fetchScoredDeck] dislike filter: ${deck.length} → ${afterDislikes.length} | skill filter: → ${filtered.length}`);
+  }
+
+  return finalDeck.map((s) => s.recipe);
 }
 
 // Fetch a personalised, Claude-ranked deck from /api/recommendations.
@@ -199,10 +403,19 @@ export async function fetchRecommendedDeck(
       body: JSON.stringify({ userId, mode, limit: 50 }),
     });
 
-    if (!res.ok) return fetchDiscoverRecipes(dietaryGoals);
+    if (!res.ok) {
+      console.warn('[fetchRecommendedDeck] endpoint returned', res.status, '— falling back to shuffle');
+      return fetchDiscoverRecipes(dietaryGoals);
+    }
 
-    const { recipeIds } = await res.json();
-    if (!recipeIds?.length) return fetchDiscoverRecipes(dietaryGoals);
+    const json = await res.json();
+    const { recipeIds, source, reasoning } = json;
+    console.log(`[fetchRecommendedDeck] source=${source} ids=${recipeIds?.length ?? 0}`);
+    if (reasoning) console.log('[fetchRecommendedDeck] Sonnet reasoning:', reasoning);
+    if (!recipeIds?.length) {
+      console.warn('[fetchRecommendedDeck] 0 ids — debug:', JSON.stringify(json.debug ?? json).slice(0, 400));
+      return fetchDiscoverRecipes(dietaryGoals);
+    }
 
     // Fetch full recipe objects in one query
     const { data } = await supabase
@@ -210,11 +423,16 @@ export async function fetchRecommendedDeck(
       .select('id, title, description, cuisine, source_type, dietary_tags, badge, avg_rating, save_count, image_url, external_id, prep_time_mins, cook_time_mins, servings, cost_per_serving, macros, ingredients')
       .in('id', recipeIds);
 
-    if (!data?.length) return fetchDiscoverRecipes(dietaryGoals);
+    if (!data?.length) {
+      console.warn('[fetchRecommendedDeck] Supabase returned no rows for recipeIds — falling back to shuffle');
+      return fetchDiscoverRecipes(dietaryGoals);
+    }
 
     // Re-sort to match Claude's ranked order
     const idOrder = new Map<string, number>(recipeIds.map((id: string, i: number): [string, number] => [id, i]));
     const sorted = [...data].sort((a: any, b: any) => (idOrder.get(a.id) ?? 999) - (idOrder.get(b.id) ?? 999));
+
+    console.log('[fetchRecommendedDeck] top 5 titles:', sorted.slice(0, 5).map((r: any) => r.title));
 
     return sorted.map((r: any): Recipe => ({
       // TheMealDB recipes: remap id → external_id for fetchMealDetail compat
@@ -239,7 +457,8 @@ export async function fetchRecommendedDeck(
       image_url: r.image_url,
       external_id: r.external_id,
     }));
-  } catch {
+  } catch (err) {
+    console.warn('[fetchRecommendedDeck] error — falling back to shuffle:', err);
     return fetchDiscoverRecipes(dietaryGoals);
   }
 }
@@ -350,18 +569,22 @@ export async function setRecipeLiked(userId: string, externalId: string, liked: 
     .eq('recipe_id', recipeData.id);
 }
 
-export async function unsaveRecipe(userId: string, recipeExternalId: string): Promise<void> {
-  const { data: recipeData } = await supabase
-    .from('recipes')
-    .select('id')
-    .eq('external_id', recipeExternalId)
-    .single();
-  if (!recipeData) return;
+export async function unsaveRecipe(userId: string, recipeExternalId: string, supabaseId?: string): Promise<void> {
+  let recipeUuid = supabaseId;
+  if (!recipeUuid) {
+    const { data: recipeData } = await supabase
+      .from('recipes')
+      .select('id')
+      .eq('external_id', recipeExternalId)
+      .single();
+    if (!recipeData) return;
+    recipeUuid = recipeData.id;
+  }
   const { error } = await supabase
     .from('saved_recipes')
     .delete()
     .eq('user_id', userId)
-    .eq('recipe_id', recipeData.id);
+    .eq('recipe_id', recipeUuid);
   if (error) throw error;
 }
 

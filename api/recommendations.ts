@@ -112,10 +112,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .select('id, title, cuisine, dietary_tags')
       .in('id', contextIds.slice(0, 20));
 
-    // Fetch candidate recipes — include both TheMealDB and AI-generated (source_type=curated)
+    // Fetch candidate recipes — TheMealDB only (verified ingredients + real images)
     const { data: candidates } = await sb
       .from('recipes')
       .select('id, title, cuisine, dietary_tags, macros, external_id, source_type')
+      .not('external_id', 'is', null)
       .limit(300);
 
     if (!candidates || candidates.length === 0) {
@@ -127,6 +128,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const filteredCandidates = candidates.filter((r) => !leftSwipeIds.has(r.id));
 
     // ── 4. Ask Claude to rank ──────────────────────────────────────────────────
+    // Use numbered indices instead of UUIDs — Sonnet reliably outputs small
+    // integers; we map back to Supabase IDs server-side after parsing.
+
+    const pool = filteredCandidates.slice(0, 150);
 
     const client = new Anthropic({ apiKey });
 
@@ -143,12 +148,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 - Pantry items: ${pantry.slice(0, 20).map((p) => p.ingredient_name).join(', ') || 'unknown'}
 
 ## Behaviour Signals
-Right-swiped recipes (liked): ${contextRecipes?.filter((r) => rightSwipeIds.includes(r.id)).map((r) => r.title).join(', ') || 'none yet'}
+Liked recipes: ${contextRecipes?.filter((r) => rightSwipeIds.includes(r.id)).map((r) => r.title).join(', ') || 'none yet'}
 
-Grocery-listed (strongest signal — cooks these regularly):
+Grocery-listed (strongest signal):
 ${Object.entries(interactionCounts).filter(([, c]) => c.grocery_add > 1).map(([id, c]) => {
   const r = contextRecipes?.find((r) => r.id === id);
-  return r ? `  ${r.title} (grocery-listed ${c.grocery_add}×)` : null;
+  return r ? `  ${r.title} (${c.grocery_add}×)` : null;
 }).filter(Boolean).join('\n') || '  none yet'}
 
 Marked as cooked:
@@ -157,40 +162,55 @@ ${Object.entries(interactionCounts).filter(([, c]) => c.cooked > 0).map(([id]) =
   return r ? `  ${r.title}` : null;
 }).filter(Boolean).join('\n') || '  none yet'}
 
-## Candidate Recipes (id | title | cuisine)
-${filteredCandidates.slice(0, 100).map((r) => `${r.id} | ${r.title} | ${r.cuisine || 'unknown'}`).join('\n')}
+## Candidate Recipes (number | title | cuisine)
+${pool.map((r, i) => `${i + 1}. ${r.title} | ${r.cuisine || 'unknown'}`).join('\n')}
 
 ## Task
-Return the ${limit} recipe IDs that best match this user, ranked from best to worst match.
-- Prioritise cuisines they've liked and their eating style
-- Respect dietary goals strictly (e.g. vegan users must not see meat recipes)
-- Exclude any recipes with disliked ingredients if detectable from the title
-- For "${mode}" mode: ${mode === 'meal_prep' ? 'prefer variety across cuisines for a full week' : 'prefer quick meals matching the current context'}
-- Introduce 1-2 "adjacent" cuisines they haven't seen yet if they have enough signal
+Pick the ${limit} best-matching recipes for this user, ranked best to worst.
+- Prioritise cuisines and dishes they have liked
+- Respect dietary goals strictly
+- Exclude recipes with disliked ingredients (detectable from title)
+- For "${mode}" mode: ${mode === 'meal_prep' ? 'prefer variety across cuisines for a full week' : 'prefer quick familiar meals'}
+- Mix in 1-2 adjacent cuisines they haven't tried yet
 
-Respond with a JSON array of recipe IDs only — no explanation:
-["id1", "id2", "id3", ...]`;
+Respond with JSON only — no other text:
+{"indices": [3, 17, 42, ...], "reasoning": "2-3 sentence summary"}`;
 
     const message = await client.messages.create({
       model: 'claude-sonnet-4-6',
-      max_tokens: 512,
+      max_tokens: 800,
       messages: [{ role: 'user', content: prompt }],
     });
 
     const raw = (message.content[0] as { text: string }).text.trim();
-    let recipeIds: string[];
+    let indices: number[] = [];
+    let reasoning: string | null = null;
     try {
-      recipeIds = JSON.parse(raw);
+      const parsed = JSON.parse(raw);
+      indices = parsed.indices ?? [];
+      reasoning = parsed.reasoning ?? null;
     } catch {
-      const match = raw.match(/\[[\s\S]*\]/);
-      recipeIds = JSON.parse(match?.[0] ?? '[]');
+      const match = raw.match(/\[[\s\S]*?\]/);
+      try { indices = JSON.parse(match?.[0] ?? '[]'); } catch { indices = []; }
     }
 
-    // Validate — only return IDs that exist in our candidates
-    const validIds = new Set(filteredCandidates.map((r) => r.id));
-    const filtered = recipeIds.filter((id) => validIds.has(id));
+    // Map 1-based indices back to Supabase UUIDs
+    const filtered = indices
+      .filter((n) => n >= 1 && n <= pool.length)
+      .map((n) => pool[n - 1].id)
+      .filter(Boolean)
+      .slice(0, limit);
 
-    return res.status(200).json({ recipeIds: filtered, source: 'personalised' });
+    const debug = {
+      swipes: swipeCount,
+      pool: pool.length,
+      sonnet_returned: indices.length,
+      valid: filtered.length,
+    };
+
+    if (reasoning) console.log('[recommendations] reasoning:', reasoning);
+
+    return res.status(200).json({ recipeIds: filtered, source: 'personalised', reasoning, debug });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Recommendation failed';
     console.error('[recommendations]', message);

@@ -245,11 +245,12 @@ export function RecipeDetailModal({
           {scaledMacros && (
             <View style={{ marginBottom: 20 }}>
               <MacroRow macros={scaledMacros} />
-              {servings !== baseServings && (
-                <Text style={{ fontSize: 12, color: colors.textMuted, textAlign: 'center', marginTop: 4 }}>
-                  Scaled for {servings} serving{servings !== 1 ? 's' : ''} (base: {baseServings})
-                </Text>
-              )}
+              <Text style={{ fontSize: 11, color: colors.textMuted, textAlign: 'center', marginTop: 6 }}>
+                {servings !== baseServings
+                  ? `Scaled for ${servings} serving${servings !== 1 ? 's' : ''} · `
+                  : ''}
+                Values are estimates and may vary
+              </Text>
             </View>
           )}
 

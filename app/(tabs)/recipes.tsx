@@ -510,7 +510,7 @@ export default function Recipes() {
   }, [selectedRecipes, addFromDetail, removeRecipeFromList, router, profile]);
 
   const handleSaveToggle = useCallback((recipe: Recipe) => {
-    if (isSaved(recipe.id)) removeRecipe(recipe.id, profile?.id);
+    if (isSaved(recipe.id)) removeRecipe(recipe, profile?.id);
     else addRecipe(recipe, profile?.id);
   }, [isSaved, removeRecipe, addRecipe, profile]);
 
@@ -544,7 +544,10 @@ export default function Recipes() {
       {
         text: 'Remove', style: 'destructive',
         onPress: () => {
-          selectedIds.forEach((id) => removeRecipe(id, profile?.id));
+          selectedIds.forEach((id) => {
+            const recipe = savedRecipes.find((r) => r.id === id);
+            if (recipe) removeRecipe(recipe, profile?.id);
+          });
           setSelectedIds(new Set());
           setEditMode(false);
         },
@@ -1066,7 +1069,7 @@ export default function Recipes() {
         onClose={() => setDetailRecipe(null)}
         onSaveToggle={() => {
           if (!detailRecipe) return;
-          if (isSaved(detailRecipe.id)) removeRecipe(detailRecipe.id, profile?.id);
+          if (isSaved(detailRecipe.id)) removeRecipe(detailRecipe, profile?.id);
           else addRecipe(detailRecipe, profile?.id);
         }}
         onAddToCart={() => {
