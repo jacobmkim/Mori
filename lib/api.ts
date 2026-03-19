@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
-import type { Profile, Recipe, SwipeEvent, SavedRecipe, PantryItem, GroceryList, MealPlan, OnboardingState, Macros } from '@/types';
+import type { Profile, Recipe, SwipeEvent, SavedRecipe, PantryItem, GroceryList, MealPlan, MealSlot, OnboardingState, Macros } from '@/types';
 
 // ─── Macro AsyncStorage cache ─────────────────────────────────────────────────
 // Persists macro data across sessions so Spoonacular is never called twice for
@@ -373,6 +373,13 @@ export async function getCookedRecipeIds(userId: string): Promise<Set<string>> {
   return new Set((data ?? []).map((r: any) => r.recipe_id));
 }
 
+// Bug 5 — common staples are worth 0.2 instead of 1.0 in pantry match calculations
+// so matching "salt" doesn't inflate the score the same as matching "chicken thighs".
+const COMMON_STAPLES = new Set([
+  'salt', 'pepper', 'olive oil', 'oil', 'water', 'butter',
+  'garlic', 'onion', 'flour', 'sugar', 'eggs',
+]);
+
 function scoreRecipe(
   recipe: Recipe,
   profile: Profile | null,
@@ -380,6 +387,7 @@ function scoreRecipe(
   savedExternalIds: Set<string>,
   affinityMap: Map<string, number>,
   interactionMap: Map<string, { grocery_add: number; cooked: number }>,
+  pantrySet: Set<string>,
 ): number {
   // Bug 7 — session penalty: instantly exclude anything swiped this session
   const sid = recipe.supabase_id;
@@ -427,6 +435,28 @@ function scoreRecipe(
   // Already saved — soft penalty (user has it, show fresher options first)
   if (savedExternalIds.has(recipe.external_id ?? recipe.id)) score -= 3;
 
+  // Bug 5 — pantry match with specificity weighting (common staples count less)
+  if (pantrySet.size > 0) {
+    const recipeIngs = (recipe.ingredients ?? []) as { name: string }[];
+    if (recipeIngs.length > 0) {
+      let weightedMatches = 0;
+      let totalWeight = 0;
+      for (const ing of recipeIngs) {
+        const name = ing.name.toLowerCase();
+        const weight = COMMON_STAPLES.has(name) ? 0.2 : 1.0;
+        totalWeight += weight;
+        if (pantrySet.has(name)) weightedMatches += weight;
+      }
+      const pantryRatio = totalWeight > 0 ? weightedMatches / totalWeight : 0;
+      score += pantryRatio * 20;
+
+      // Bug 11 — first session pantry boost: "You can make this tonight" magic moment
+      if (profile && profile.total_sessions <= 1 && pantryRatio === 1.0) {
+        score += 50;
+      }
+    }
+  }
+
   return score;
 }
 
@@ -438,14 +468,17 @@ export async function fetchScoredDeck(
   profile: Profile | null,
   savedExternalIds: Set<string>,
 ): Promise<Recipe[]> {
-  const [deck, swipes, affinityMap, interactionMap] = await Promise.all([
+  const [deck, swipes, affinityMap, interactionMap, pantryItems] = await Promise.all([
     fetchDiscoverRecipes(dietaryGoals),
     userId ? getRecentSwipes(userId) : Promise.resolve([]),
     userId
       ? getUserCohortKey(userId).then((key) => (key ? getCohortAffinities(key) : new Map<string, number>()))
       : Promise.resolve(new Map<string, number>()),
     userId ? getInteractionCounts(userId) : Promise.resolve(new Map<string, { grocery_add: number; cooked: number }>()),
+    userId ? getPantryItems(userId) : Promise.resolve([]),
   ]);
+
+  const pantrySet = new Set(pantryItems.map((p) => p.ingredient_name.toLowerCase()));
 
   // Bug 1 fix — ingredient dislike hard filter (never soft-deprioritise, never relaxed)
   const dislikes = (profile?.ingredient_dislikes ?? []).map((d) => d.toLowerCase());
@@ -475,7 +508,7 @@ export async function fetchScoredDeck(
 
   const scored = filtered.map((r) => ({
     recipe: r,
-    score: scoreRecipe(r, profile, swipeMap, savedExternalIds, affinityMap, interactionMap),
+    score: scoreRecipe(r, profile, swipeMap, savedExternalIds, affinityMap, interactionMap, pantrySet),
   }));
   scored.sort((a, b) => b.score - a.score);
 
@@ -896,6 +929,73 @@ export async function getCurrentMealPlan(userId: string): Promise<MealPlan | nul
     .single();
   if (error && error.code !== 'PGRST116') throw error;
   return data;
+}
+
+export async function getMealPlanForWeek(userId: string, weekStart: string): Promise<MealPlan | null> {
+  const { data, error } = await supabase
+    .from('meal_plans')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('week_start_date', weekStart)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+export async function saveMealPlan(
+  userId: string,
+  weekStart: string,
+  slots: MealSlot[],
+  existingId?: string,
+): Promise<MealPlan> {
+  if (existingId) {
+    const { data, error } = await supabase
+      .from('meal_plans')
+      .update({ slots })
+      .eq('id', existingId)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+  const { data, error } = await supabase
+    .from('meal_plans')
+    .insert({ user_id: userId, week_start_date: weekStart, slots })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+// Fetch full recipe rows by supabase UUIDs — used to hydrate meal plan slots.
+export async function getRecipesBySupabaseIds(ids: string[]): Promise<Recipe[]> {
+  if (ids.length === 0) return [];
+  const { data, error } = await supabase
+    .from('recipes')
+    .select('id, title, description, cuisine, source_type, dietary_tags, badge, avg_rating, save_count, image_url, external_id, prep_time_mins, cook_time_mins, servings, cost_per_serving, macros, ingredients')
+    .in('id', ids);
+  if (error) throw error;
+  return (data ?? []).map((r: any): Recipe => ({
+    id: r.external_id ?? r.id,
+    supabase_id: r.id,
+    title: r.title,
+    description: r.description,
+    cuisine: r.cuisine,
+    source_type: r.source_type ?? 'curated',
+    ingredients: r.ingredients ?? [],
+    steps: [],
+    prep_time_mins: r.prep_time_mins,
+    cook_time_mins: r.cook_time_mins,
+    servings: r.servings,
+    cost_per_serving: r.cost_per_serving,
+    dietary_tags: r.dietary_tags ?? [],
+    macros: r.macros ?? null,
+    badge: r.badge ?? 'none',
+    avg_rating: r.avg_rating ?? 0,
+    save_count: r.save_count ?? 0,
+    image_url: r.image_url,
+    external_id: r.external_id,
+  }));
 }
 
 // ─── Macros ───────────────────────────────────────────────────────────────────

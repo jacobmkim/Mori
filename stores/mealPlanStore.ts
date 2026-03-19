@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { getMealPlanForWeek, saveMealPlan as saveMealPlanApi } from '@/lib/api';
 import type { MealPlan, MealSlot, MealType } from '@/types';
 
 interface MealPlanStore {
@@ -9,11 +10,14 @@ interface MealPlanStore {
   setPlan: (plan: MealPlan | null) => void;
   addSlot: (slot: MealSlot) => void;
   removeSlot: (day: number, mealType: MealType) => void;
+  clearSlots: () => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
+  loadPlan: (userId: string, weekStart: string) => Promise<void>;
+  savePlan: (userId: string, weekStart: string) => Promise<void>;
 }
 
-export const useMealPlanStore = create<MealPlanStore>((set) => ({
+export const useMealPlanStore = create<MealPlanStore>((set, get) => ({
   plan: null,
   isLoading: false,
   error: null,
@@ -42,7 +46,30 @@ export const useMealPlanStore = create<MealPlanStore>((set) => ({
       };
     }),
 
+  clearSlots: () =>
+    set((state) => state.plan ? { plan: { ...state.plan, slots: [] } } : state),
+
   setLoading: (isLoading) => set({ isLoading }),
 
   setError: (error) => set({ error }),
+
+  loadPlan: async (userId: string, weekStart: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      const plan = await getMealPlanForWeek(userId, weekStart);
+      set({ plan, isLoading: false });
+    } catch {
+      set({ error: 'Failed to load meal plan', isLoading: false });
+    }
+  },
+
+  savePlan: async (userId: string, weekStart: string) => {
+    const { plan } = get();
+    try {
+      const saved = await saveMealPlanApi(userId, weekStart, plan?.slots ?? [], plan?.id);
+      set({ plan: saved });
+    } catch {
+      set({ error: 'Failed to save meal plan' });
+    }
+  },
 }));
