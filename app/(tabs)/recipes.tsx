@@ -727,7 +727,7 @@ export default function Recipes() {
       })
       .catch(() => {})
       .finally(() => setDetailLoading(false));
-  }, []);
+  }, [profile]);
 
   // Toggle a single filter in/out of the active set
   const toggleFilter = useCallback((f: string) => {

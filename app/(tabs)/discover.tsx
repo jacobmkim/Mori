@@ -833,7 +833,7 @@ export default function Discover() {
             detail={topCachedDetail}
             isSaved={topRecipe ? isSaved(topRecipe.id) : false}
             isInCart={topRecipe ? selectedRecipes.some((r) => r.id === topRecipe.id) : false}
-            isCooked={topRecipe ? cookedRecipeIds.has(topRecipe.id) : false}
+            isCooked={topRecipe?.supabase_id ? (prevCookedIds.has(topRecipe.supabase_id) || cookedRecipeIds.has(topRecipe.supabase_id)) : false}
             onClose={() => setShowDetail(false)}
             onSaveToggle={() => {
               if (!topRecipe) return;
@@ -847,7 +847,7 @@ export default function Discover() {
             }}
             onMarkCooked={() => {
               if (!topRecipe || !userId) return;
-              setCookedRecipeIds((prev) => new Set([...prev, topRecipe.id]));
+              if (topRecipe.supabase_id) setCookedRecipeIds((prev) => new Set([...prev, topRecipe.supabase_id!]));
               resolveSupabaseId(topRecipe)
                 .then((supabaseId) => logInteraction(userId, supabaseId, 'cooked', sessionNumber))
                 .catch(() => {});

@@ -79,8 +79,8 @@ export async function getRecipeById(id: string): Promise<Recipe | null> {
     .select('*')
     .eq('id', id)
     .single();
-  if (error) throw error;
-  return data;
+  if (error && error.code !== 'PGRST116') throw error;
+  return data ?? null;
 }
 
 // ─── Discover Deck ────────────────────────────────────────────────────────────
@@ -442,6 +442,7 @@ function scoreRecipe(
       let weightedMatches = 0;
       let totalWeight = 0;
       for (const ing of recipeIngs) {
+        if (!ing?.name) continue;
         const name = ing.name.toLowerCase();
         const weight = COMMON_STAPLES.has(name) ? 0.2 : 1.0;
         totalWeight += weight;
@@ -485,7 +486,7 @@ export async function fetchScoredDeck(
   const afterDislikes = dislikes.length === 0 ? deck : deck.filter((r) => {
     const ingredients = (r.ingredients ?? []) as { name: string }[];
     return !ingredients.some((ing) =>
-      dislikes.some((dislike) => ing.name.toLowerCase().includes(dislike))
+      ing?.name && dislikes.some((dislike) => ing.name.toLowerCase().includes(dislike))
     );
   });
 

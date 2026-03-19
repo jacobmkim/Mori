@@ -140,7 +140,7 @@ export function RecipeDetailModal({
       .then((data) => { if (data?.tips) setStorageTips(data.tips); })
       .catch(() => {})
       .finally(() => setTipsLoading(false));
-  }, [isCooked]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isCooked, recipe?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!recipe) return null;
 
@@ -265,7 +265,7 @@ export function RecipeDetailModal({
           {/* Description */}
           {(recipe.description || detail?.blurb) ? (
             <Text style={{ fontSize: 15, color: colors.textMuted, lineHeight: 22, marginBottom: 20 }}>
-              {recipe.description || detail!.blurb}
+              {recipe.description || detail?.blurb}
             </Text>
           ) : null}
 
