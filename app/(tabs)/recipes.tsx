@@ -420,12 +420,14 @@ function MealPlanView({ savedRecipes, onAddToGrocery }: {
   const monday = getMonday(weekOffset);
   const weekStart = toDateStr(monday);
 
-  // Load plan for current week
+  // Load plan for current week — cancelled flag prevents stale responses from overwriting
   useEffect(() => {
     if (!userId) return;
+    let cancelled = false;
     setLoading(true);
     getMealPlanForWeek(userId, weekStart)
       .then(async (plan) => {
+        if (cancelled) return;
         const loadedSlots = (plan?.slots ?? []) as MealSlot[];
         setSlots(loadedSlots);
         setPlanId(plan?.id);
@@ -433,6 +435,7 @@ function MealPlanView({ savedRecipes, onAddToGrocery }: {
         const ids = [...new Set(loadedSlots.map((s) => s.recipe_id).filter(Boolean))];
         if (ids.length > 0) {
           const recipes = await getRecipesBySupabaseIds(ids);
+          if (cancelled) return;
           const map: Record<string, Recipe> = {};
           recipes.forEach((r) => { if (r.supabase_id) map[r.supabase_id] = r; });
           setSlotRecipes(map);
@@ -441,7 +444,8 @@ function MealPlanView({ savedRecipes, onAddToGrocery }: {
         }
       })
       .catch(() => {})
-      .finally(() => setLoading(false));
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, [userId, weekStart]);
 
   function getSlot(day: number, mealType: MealType): MealSlot | undefined {
@@ -474,9 +478,16 @@ function MealPlanView({ savedRecipes, onAddToGrocery }: {
   }
 
   function handleAddAllToGrocery() {
+    const seenIds = new Set<string>();
     const recipes = slots
       .map((s) => slotRecipes[s.recipe_id])
-      .filter(Boolean);
+      .filter((r): r is Recipe => {
+        if (!r) return false;
+        const id = r.supabase_id ?? r.id;
+        if (seenIds.has(id)) return false;
+        seenIds.add(id);
+        return true;
+      });
     if (recipes.length === 0) return;
     onAddToGrocery(recipes);
     Alert.alert('Added to grocery list', `${recipes.length} meal${recipes.length !== 1 ? 's' : ''} added.`);

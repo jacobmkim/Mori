@@ -14,7 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/theme';
 import { formatTime, formatCost, getTimeOfDay } from '@/lib/utils';
 import { fetchMealDetail, type MealDetail } from '@/lib/mealdb';
-import { logSwipe, upsertRecipeByExternalId, setRecipeLiked, fetchMacros, estimateMacrosLocally, fetchScoredDeck, updateRecipeDetail, updateRecipeMacros, logInteraction, recordSessionSwipe, recordAdventureCardLeftSwipe, getCookedRecipeIds, rateRecipe } from '@/lib/api';
+import { logSwipe, upsertRecipeByExternalId, setRecipeLiked, fetchMacros, estimateMacrosLocally, fetchScoredDeck, updateRecipeDetail, updateRecipeMacros, logInteraction, recordSessionSwipe, recordAdventureCardLeftSwipe, clearSessionState, getCookedRecipeIds, rateRecipe } from '@/lib/api';
 import { RecipeDetailModal } from '@/components/RecipeDetailModal';
 import { HeadlineMacroPill } from '@/components/ui/MacroRow';
 import { MiseLogo } from '@/components/ui/MiseLogo';
@@ -340,6 +340,7 @@ export default function Discover() {
   useEffect(() => {
     setIsLoading(true);
     setCurrentIndex(0);
+    clearSessionState();
     const savedExternalIds = new Set(savedRecipes.map((r) => r.id));
     fetchScoredDeck(userId, dietaryGoals, profile, savedExternalIds)
       .then((loaded) => {

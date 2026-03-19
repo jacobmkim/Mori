@@ -360,6 +360,12 @@ export function recordSessionSwipe(supabaseId: string, direction: 'left' | 'righ
   if (adventureCardCooldown > 0) adventureCardCooldown--;
 }
 
+export function clearSessionState(): void {
+  sessionLeftSwipes.clear();
+  sessionShownIds.clear();
+  adventureCardCooldown = 0;
+}
+
 // ─── Previously-cooked recipe IDs ─────────────────────────────────────────────
 // Fetched on session start to show "Made before" on cards the user has cooked
 // in prior sessions — enables the post-cook check-in flow across sessions.
@@ -526,12 +532,24 @@ export async function fetchScoredDeck(
     }
   }
 
-  // Bug 9 fix — zero-result fallback: relax diversity if deck is too small
-  // Hard filters (ingredient dislikes, dietary goals) are NEVER relaxed.
+  // Bug 9 fix — graceful relaxation cascade. Hard filters (ingredient dislikes,
+  // dietary exclusions) are NEVER relaxed. Relaxation order:
+  //   1. Drop diversity constraint
+  //   2. Drop skill level cap
+  //   3. Serve whatever passes hard filters
   let finalDeck = diverse;
   if (diverse.length < 10 && scored.length > diverse.length) {
     console.warn(`[fetchScoredDeck] diversity pass left only ${diverse.length} recipes — relaxing constraint`);
-    finalDeck = scored; // use full scored list without cuisine cap
+    finalDeck = scored;
+  }
+  if (finalDeck.length < 5 && afterDislikes.length > filtered.length) {
+    console.warn(`[fetchScoredDeck] skill filter too aggressive (${filtered.length} recipes) — relaxing to ${afterDislikes.length}`);
+    const rescored = afterDislikes.map((r) => ({
+      recipe: r,
+      score: scoreRecipe(r, profile, swipeMap, savedExternalIds, affinityMap, interactionMap, pantrySet),
+    }));
+    rescored.sort((a, b) => b.score - a.score);
+    finalDeck = rescored;
   }
   if (finalDeck.length < 5) {
     console.warn(`[fetchScoredDeck] only ${finalDeck.length} recipes after all filters — very restrictive preferences`);
