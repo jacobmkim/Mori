@@ -14,7 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/theme';
 import { formatTime, formatCost, getTimeOfDay } from '@/lib/utils';
 import { fetchMealDetail, type MealDetail } from '@/lib/mealdb';
-import { logSwipe, upsertRecipeByExternalId, setRecipeLiked, fetchMacros, estimateMacrosLocally, fetchScoredDeck, updateRecipeDetail, updateRecipeMacros, logInteraction, recordSessionSwipe } from '@/lib/api';
+import { logSwipe, upsertRecipeByExternalId, setRecipeLiked, fetchMacros, estimateMacrosLocally, fetchScoredDeck, updateRecipeDetail, updateRecipeMacros, logInteraction, recordSessionSwipe, rateRecipe } from '@/lib/api';
 import { RecipeDetailModal } from '@/components/RecipeDetailModal';
 import { HeadlineMacroPill } from '@/components/ui/MacroRow';
 import { MiseLogo } from '@/components/ui/MiseLogo';
@@ -196,13 +196,17 @@ function RecipeSwipeCard({
           <Text style={{ fontSize: 19, fontWeight: '700', color: colors.text, flex: 1, lineHeight: 24 }} numberOfLines={2}>
             {recipe.title}
           </Text>
-          {recipe.badge !== 'none' && (
+          {recipe.isAdventure ? (
+            <View style={{ backgroundColor: '#FFF8E1', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, marginLeft: 8, marginTop: 2 }}>
+              <Text style={{ color: '#F57F17', fontSize: 11, fontWeight: '600' }}>✦ New for you</Text>
+            </View>
+          ) : recipe.badge !== 'none' ? (
             <View style={{ backgroundColor: colors.primaryLight, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, marginLeft: 8, marginTop: 2 }}>
               <Text style={{ color: colors.primary, fontSize: 11, fontWeight: '600' }}>
                 {recipe.badge === 'staff_pick' ? 'Staff Pick' : 'Fan Fave'}
               </Text>
             </View>
-          )}
+          ) : null}
         </View>
 
         {/* Blurb */}
@@ -822,6 +826,12 @@ export default function Discover() {
               setCookedRecipeIds((prev) => new Set([...prev, topRecipe.id]));
               resolveSupabaseId(topRecipe)
                 .then((supabaseId) => logInteraction(userId, supabaseId, 'cooked', sessionNumber))
+                .catch(() => {});
+            }}
+            onRateRecipe={(rating) => {
+              if (!topRecipe || !userId) return;
+              resolveSupabaseId(topRecipe)
+                .then((supabaseId) => rateRecipe(userId, supabaseId, rating))
                 .catch(() => {});
             }}
           />

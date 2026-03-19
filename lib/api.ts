@@ -234,6 +234,88 @@ async function getInteractionCounts(userId: string): Promise<Map<string, { groce
   return map;
 }
 
+// ─── Adventure Cards ──────────────────────────────────────────────────────────
+// Surfaces niche cuisines adjacent to the user's preferences after ~20 swipes.
+// Never shown to beginners. Injected at deck position 6 when gating passes.
+
+const CUISINE_ADJACENCY: Record<string, string[]> = {
+  italian:         ['Spanish', 'Moroccan', 'Greek', 'Portuguese', 'French'],
+  mexican:         ['Jamaican', 'Spanish', 'American'],
+  chinese:         ['Vietnamese', 'Malaysian', 'Filipino', 'Japanese'],
+  japanese:        ['Korean', 'Vietnamese', 'Chinese', 'Filipino'],
+  indian:          ['Malaysian', 'Moroccan', 'Filipino'],
+  american:        ['Canadian', 'Irish', 'British', 'Jamaican'],
+  mediterranean:   ['Moroccan', 'Turkish', 'Spanish', 'Greek'],
+  thai:            ['Vietnamese', 'Malaysian', 'Filipino'],
+  french:          ['Spanish', 'Portuguese', 'Italian', 'Belgian'],
+  greek:           ['Turkish', 'Croatian', 'Moroccan', 'Lebanese'],
+  korean:          ['Vietnamese', 'Malaysian', 'Japanese'],
+  'middle eastern':['Moroccan', 'Egyptian', 'Turkish', 'Tunisian'],
+};
+
+function isReadyForAdventureCard(
+  profile: Profile | null,
+  swipes: { direction: string }[],
+): boolean {
+  if (!profile || profile.skill_level === 'beginner') return false;
+  const total = swipes.length;
+  const rights = swipes.filter((s) => s.direction === 'right').length;
+  return total >= 20 && rights >= 8 && total > 0 && rights / total >= 0.3;
+}
+
+function pickAdventureCuisine(
+  profile: Profile | null,
+  existingCuisines: Set<string>,
+): string | null {
+  const prefs = (profile?.cuisine_preferences ?? []).map((c) => c.toLowerCase());
+  if (prefs.length === 0) return null;
+  const candidates: string[] = [];
+  for (const pref of prefs) {
+    for (const adj of CUISINE_ADJACENCY[pref] ?? []) {
+      if (!existingCuisines.has(adj.toLowerCase())) candidates.push(adj);
+    }
+  }
+  if (candidates.length === 0) return null;
+  return candidates[Math.floor(Math.random() * candidates.length)];
+}
+
+async function fetchAdventureRecipe(
+  cuisine: string,
+  existingSupabaseIds: Set<string>,
+): Promise<Recipe | null> {
+  const { data } = await supabase
+    .from('recipes')
+    .select('id, title, description, cuisine, source_type, dietary_tags, badge, avg_rating, save_count, image_url, external_id, prep_time_mins, cook_time_mins, servings, cost_per_serving, macros, ingredients')
+    .ilike('cuisine', cuisine)
+    .not('external_id', 'is', null)
+    .limit(10);
+  const eligible = (data ?? []).filter((r: any) => !existingSupabaseIds.has(r.id));
+  if (eligible.length === 0) return null;
+  const r = eligible[Math.floor(Math.random() * eligible.length)] as any;
+  return {
+    id: r.external_id,
+    supabase_id: r.id,
+    title: r.title,
+    description: r.description,
+    cuisine: r.cuisine,
+    source_type: r.source_type ?? 'curated',
+    ingredients: r.ingredients ?? [],
+    steps: [],
+    prep_time_mins: r.prep_time_mins,
+    cook_time_mins: r.cook_time_mins,
+    servings: r.servings,
+    cost_per_serving: r.cost_per_serving,
+    dietary_tags: r.dietary_tags ?? [],
+    macros: r.macros ?? null,
+    badge: r.badge ?? 'none',
+    avg_rating: r.avg_rating ?? 0,
+    save_count: r.save_count ?? 0,
+    image_url: r.image_url,
+    external_id: r.external_id,
+    isAdventure: true,
+  };
+}
+
 // ─── Session-level swipe tracking (Bug 7) ────────────────────────────────────
 // In-memory only — resets on app close. Prevents left-swiped cards resurfacing
 // within the same session when the 30-min deck cache is still active.
@@ -381,7 +463,23 @@ export async function fetchScoredDeck(
     console.log(`[fetchScoredDeck] dislike filter: ${deck.length} → ${afterDislikes.length} | skill filter: → ${filtered.length}`);
   }
 
-  return finalDeck.map((s) => s.recipe);
+  const result = finalDeck.map((s) => s.recipe);
+
+  // Adventure card injection — surfaces a niche adjacent cuisine at position 6
+  if (userId && isReadyForAdventureCard(profile, swipes) && result.length >= 6) {
+    const existingCuisines = new Set(result.slice(0, 8).map((r) => (r.cuisine ?? '').toLowerCase()));
+    const existingIds = new Set(result.map((r) => r.supabase_id ?? '').filter(Boolean));
+    const adventureCuisine = pickAdventureCuisine(profile, existingCuisines);
+    if (adventureCuisine) {
+      const adventureRecipe = await fetchAdventureRecipe(adventureCuisine, existingIds);
+      if (adventureRecipe) {
+        result.splice(5, 0, adventureRecipe);
+        console.log(`[fetchScoredDeck] adventure card injected: "${adventureRecipe.title}" (${adventureCuisine})`);
+      }
+    }
+  }
+
+  return result;
 }
 
 // Fetch a personalised, Claude-ranked deck from /api/recommendations.
@@ -567,6 +665,15 @@ export async function setRecipeLiked(userId: string, externalId: string, liked: 
     .update({ liked })
     .eq('user_id', userId)
     .eq('recipe_id', recipeData.id);
+}
+
+// Writes the user's post-cook star rating (1-5) to saved_recipes.user_rating.
+export async function rateRecipe(userId: string, recipeSupabaseId: string, rating: number): Promise<void> {
+  await supabase
+    .from('saved_recipes')
+    .update({ user_rating: rating })
+    .eq('user_id', userId)
+    .eq('recipe_id', recipeSupabaseId);
 }
 
 export async function unsaveRecipe(userId: string, recipeExternalId: string, supabaseId?: string): Promise<void> {

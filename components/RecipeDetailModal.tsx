@@ -76,6 +76,7 @@ interface RecipeDetailModalProps {
   onSaveToggle: () => void;
   onAddToCart: () => void;
   onMarkCooked?: () => void;
+  onRateRecipe?: (rating: number) => void;
 }
 
 export function RecipeDetailModal({
@@ -89,15 +90,17 @@ export function RecipeDetailModal({
   onSaveToggle,
   onAddToCart,
   onMarkCooked,
+  onRateRecipe,
 }: RecipeDetailModalProps) {
   const [baseMacros, setBaseMacros] = useState<Macros | null>(null);
   const [servings, setServings] = useState(1);
+  const [userRating, setUserRating] = useState(0);
 
   const baseServings = recipe?.servings ?? 4;
 
-  // Reset servings and fetch macros when modal opens / recipe changes
+  // Reset state when modal opens / recipe changes
   useEffect(() => {
-    if (!visible || !recipe) { setBaseMacros(null); setServings(baseServings); return; }
+    if (!visible || !recipe) { setBaseMacros(null); setServings(baseServings); setUserRating(0); return; }
     setServings(baseServings);
     const ings = recipe.ingredients.length > 0
       ? recipe.ingredients
@@ -358,6 +361,43 @@ export function RecipeDetailModal({
                 {isCooked ? 'Cooked this!' : 'Mark as cooked'}
               </Text>
             </Pressable>
+          )}
+
+          {/* Post-cook rating — appears after marking as cooked */}
+          {isCooked && onRateRecipe && (
+            <View style={{
+              marginTop: 12, padding: 16,
+              backgroundColor: colors.white, borderRadius: 12,
+              borderWidth: 1, borderColor: colors.border,
+              alignItems: 'center',
+            }}>
+              <Text style={{ fontSize: 14, fontWeight: '600', color: colors.text, marginBottom: 10 }}>
+                How was it?
+              </Text>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <Pressable
+                    key={star}
+                    onPress={() => {
+                      setUserRating(star);
+                      onRateRecipe(star);
+                    }}
+                    hitSlop={4}
+                  >
+                    <Ionicons
+                      name={star <= userRating ? 'star' : 'star-outline'}
+                      size={30}
+                      color={star <= userRating ? '#FFB300' : colors.border}
+                    />
+                  </Pressable>
+                ))}
+              </View>
+              {userRating > 0 && (
+                <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 8 }}>
+                  {userRating === 5 ? 'Amazing!' : userRating >= 4 ? 'Really good!' : userRating >= 3 ? 'Pretty good' : userRating >= 2 ? 'Not bad' : 'Not for me'}
+                </Text>
+              )}
+            </View>
           )}
         </ScrollView>
       </View>
