@@ -258,6 +258,7 @@ function isReadyForAdventureCard(
   swipes: { direction: string }[],
 ): boolean {
   if (!profile || profile.skill_level === 'beginner') return false;
+  if (adventureCardCooldown > 0) return false; // recently left-swiped an adventure card
   const total = swipes.length;
   const rights = swipes.filter((s) => s.direction === 'right').length;
   return total >= 20 && rights >= 8 && total > 0 && rights / total >= 0.3;
@@ -316,6 +317,28 @@ async function fetchAdventureRecipe(
   };
 }
 
+// ─── Adventure card settings ──────────────────────────────────────────────────
+// AsyncStorage-backed toggle so users can opt out of cuisine expansion cards.
+
+const ADVENTURE_CARDS_KEY = 'mise_adventure_cards_enabled';
+
+export async function getAdventureCardsEnabled(): Promise<boolean> {
+  try {
+    const val = await AsyncStorage.getItem(ADVENTURE_CARDS_KEY);
+    return val === null ? true : val === 'true'; // default on
+  } catch {
+    return true;
+  }
+}
+
+export async function setAdventureCardsEnabled(enabled: boolean): Promise<void> {
+  try {
+    await AsyncStorage.setItem(ADVENTURE_CARDS_KEY, String(enabled));
+  } catch {
+    // non-critical
+  }
+}
+
 // ─── Session-level swipe tracking (Bug 7) ────────────────────────────────────
 // In-memory only — resets on app close. Prevents left-swiped cards resurfacing
 // within the same session when the 30-min deck cache is still active.
@@ -323,9 +346,31 @@ async function fetchAdventureRecipe(
 const sessionLeftSwipes = new Set<string>(); // supabase_ids left-swiped this session
 const sessionShownIds = new Set<string>();   // supabase_ids already seen this session
 
+// When a user left-swipes an adventure card, suppress adventure cards for the
+// next 10 regular swipes so we don't pester users who aren't interested yet.
+let adventureCardCooldown = 0;
+
+export function recordAdventureCardLeftSwipe(): void {
+  adventureCardCooldown = 10;
+}
+
 export function recordSessionSwipe(supabaseId: string, direction: 'left' | 'right'): void {
   sessionShownIds.add(supabaseId);
   if (direction === 'left') sessionLeftSwipes.add(supabaseId);
+  if (adventureCardCooldown > 0) adventureCardCooldown--;
+}
+
+// ─── Previously-cooked recipe IDs ─────────────────────────────────────────────
+// Fetched on session start to show "Made before" on cards the user has cooked
+// in prior sessions — enables the post-cook check-in flow across sessions.
+
+export async function getCookedRecipeIds(userId: string): Promise<Set<string>> {
+  const { data } = await supabase
+    .from('recipe_interactions')
+    .select('recipe_id')
+    .eq('user_id', userId)
+    .eq('interaction_type', 'cooked');
+  return new Set((data ?? []).map((r: any) => r.recipe_id));
 }
 
 function scoreRecipe(
@@ -466,7 +511,8 @@ export async function fetchScoredDeck(
   const result = finalDeck.map((s) => s.recipe);
 
   // Adventure card injection — surfaces a niche adjacent cuisine at position 6
-  if (userId && isReadyForAdventureCard(profile, swipes) && result.length >= 6) {
+  const adventureEnabled = userId ? await getAdventureCardsEnabled() : false;
+  if (adventureEnabled && isReadyForAdventureCard(profile, swipes) && result.length >= 6) {
     const existingCuisines = new Set(result.slice(0, 8).map((r) => (r.cuisine ?? '').toLowerCase()));
     const existingIds = new Set(result.map((r) => r.supabase_id ?? '').filter(Boolean));
     const adventureCuisine = pickAdventureCuisine(profile, existingCuisines);

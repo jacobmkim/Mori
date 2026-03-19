@@ -1,5 +1,5 @@
 import {
-  View, Text, Modal, Pressable, ScrollView, Dimensions,
+  View, Text, Modal, Pressable, ScrollView, Dimensions, ActivityIndicator,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -95,12 +95,14 @@ export function RecipeDetailModal({
   const [baseMacros, setBaseMacros] = useState<Macros | null>(null);
   const [servings, setServings] = useState(1);
   const [userRating, setUserRating] = useState(0);
+  const [storageTips, setStorageTips] = useState<string | null>(null);
+  const [tipsLoading, setTipsLoading] = useState(false);
 
   const baseServings = recipe?.servings ?? 4;
 
   // Reset state when modal opens / recipe changes
   useEffect(() => {
-    if (!visible || !recipe) { setBaseMacros(null); setServings(baseServings); setUserRating(0); return; }
+    if (!visible || !recipe) { setBaseMacros(null); setServings(baseServings); setUserRating(0); setStorageTips(null); return; }
     setServings(baseServings);
     const ings = recipe.ingredients.length > 0
       ? recipe.ingredients
@@ -116,6 +118,29 @@ export function RecipeDetailModal({
   const adjustServings = useCallback((delta: number) => {
     setServings((prev) => Math.max(1, Math.min(20, prev + delta)));
   }, []);
+
+  // Fetch storage tips when user marks recipe as cooked
+  useEffect(() => {
+    if (!isCooked || !recipe || storageTips !== null || tipsLoading) return;
+    const baseUrl = process.env.EXPO_PUBLIC_API_URL;
+    if (!baseUrl) return;
+    const ingredientNames = (
+      recipe.ingredients.length > 0
+        ? recipe.ingredients.map((i) => i.name)
+        : (detail?.ingredients ?? []).map((i) => i.name)
+    ).slice(0, 8);
+    if (ingredientNames.length === 0) return;
+    setTipsLoading(true);
+    fetch(`${baseUrl}/api/storage-tip`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ingredients: ingredientNames }),
+    })
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => { if (data?.tips) setStorageTips(data.tips); })
+      .catch(() => {})
+      .finally(() => setTipsLoading(false));
+  }, [isCooked]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!recipe) return null;
 
@@ -361,6 +386,28 @@ export function RecipeDetailModal({
                 {isCooked ? 'Cooked this!' : 'Mark as cooked'}
               </Text>
             </Pressable>
+          )}
+
+          {/* Storage tips — fetched automatically after marking as cooked */}
+          {isCooked && (tipsLoading || storageTips) && (
+            <View style={{
+              marginTop: 12, padding: 16,
+              backgroundColor: '#F0F7FF', borderRadius: 12,
+              borderWidth: 1, borderColor: '#BBDEFB',
+            }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: tipsLoading ? 0 : 10 }}>
+                <Ionicons name="bulb-outline" size={16} color="#1976D2" />
+                <Text style={{ fontSize: 14, fontWeight: '600', color: '#1976D2' }}>Storage tips</Text>
+              </View>
+              {tipsLoading ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 }}>
+                  <ActivityIndicator size="small" color="#1976D2" />
+                  <Text style={{ fontSize: 13, color: '#1976D2' }}>Getting tips...</Text>
+                </View>
+              ) : storageTips ? (
+                <Text style={{ fontSize: 13, color: '#0D47A1', lineHeight: 20 }}>{storageTips}</Text>
+              ) : null}
+            </View>
           )}
 
           {/* Post-cook rating — appears after marking as cooked */}

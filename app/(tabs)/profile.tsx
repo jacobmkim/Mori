@@ -1,4 +1,4 @@
-import { View, Text, Pressable, ScrollView, Alert, Modal, TextInput, ActivityIndicator } from 'react-native';
+import { View, Text, Pressable, ScrollView, Alert, Modal, TextInput, ActivityIndicator, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -7,7 +7,7 @@ import type { ReactNode } from 'react';
 import { useUserStore } from '@/stores/userStore';
 import { useSavedStore } from '@/stores/savedStore';
 import { supabase } from '@/lib/supabase';
-import { upsertProfile, patchProfile, clearDiscoverCache, getPantryItems, addPantryItem, deletePantryItem } from '@/lib/api';
+import { upsertProfile, patchProfile, clearDiscoverCache, getPantryItems, addPantryItem, deletePantryItem, getAdventureCardsEnabled, setAdventureCardsEnabled } from '@/lib/api';
 import { clearRecipeCache } from '@/lib/mealdb';
 import { colors } from '@/constants/theme';
 import type { Profile, PantryItem } from '@/types';
@@ -430,6 +430,7 @@ export default function Profile() {
   const savedCount = useSavedStore((s) => s.savedRecipes.length);
   const [editVisible, setEditVisible] = useState(false);
   const [pantryVisible, setPantryVisible] = useState(false);
+  const [adventureCards, setAdventureCards] = useState(true);
   const [tasteProfile, setTasteProfile] = useState<string | null>(
     (profile?.taste_profile as any)?.text ?? null
   );
@@ -461,6 +462,7 @@ export default function Profile() {
     if (!tasteProfile && !tasteLoading) {
       generateTasteProfile();
     }
+    getAdventureCardsEnabled().then(setAdventureCards).catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleSignOut() {
@@ -650,6 +652,45 @@ export default function Profile() {
             </Pressable>
           </View>
         )}
+
+        {/* Discover Settings */}
+        <View style={{ paddingHorizontal: 16, marginBottom: 24 }}>
+          <Text style={{
+            fontSize: 13, fontWeight: '700', color: colors.textMuted,
+            textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 12,
+          }}>
+            Discover Settings
+          </Text>
+          <View style={{
+            backgroundColor: colors.white, borderRadius: 12,
+            borderWidth: 1, borderColor: colors.border, overflow: 'hidden',
+          }}>
+            <View style={{
+              flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+              padding: 16,
+            }}>
+              <View style={{ flex: 1, marginRight: 12 }}>
+                <Text style={{ fontSize: 15, fontWeight: '500', color: colors.text }}>
+                  Adventure cards
+                </Text>
+                <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>
+                  {adventureCards
+                    ? 'Exploring new cuisines based on your taste'
+                    : 'Showing familiar cuisines only'}
+                </Text>
+              </View>
+              <Switch
+                value={adventureCards}
+                onValueChange={(val) => {
+                  setAdventureCards(val);
+                  setAdventureCardsEnabled(val).catch(() => {});
+                }}
+                trackColor={{ false: colors.border, true: colors.primary }}
+                thumbColor="white"
+              />
+            </View>
+          </View>
+        </View>
 
         {/* Sign Out */}
         <View style={{ paddingHorizontal: 16 }}>

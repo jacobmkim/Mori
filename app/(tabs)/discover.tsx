@@ -14,7 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/theme';
 import { formatTime, formatCost, getTimeOfDay } from '@/lib/utils';
 import { fetchMealDetail, type MealDetail } from '@/lib/mealdb';
-import { logSwipe, upsertRecipeByExternalId, setRecipeLiked, fetchMacros, estimateMacrosLocally, fetchScoredDeck, updateRecipeDetail, updateRecipeMacros, logInteraction, recordSessionSwipe, rateRecipe } from '@/lib/api';
+import { logSwipe, upsertRecipeByExternalId, setRecipeLiked, fetchMacros, estimateMacrosLocally, fetchScoredDeck, updateRecipeDetail, updateRecipeMacros, logInteraction, recordSessionSwipe, recordAdventureCardLeftSwipe, getCookedRecipeIds, rateRecipe } from '@/lib/api';
 import { RecipeDetailModal } from '@/components/RecipeDetailModal';
 import { HeadlineMacroPill } from '@/components/ui/MacroRow';
 import { MiseLogo } from '@/components/ui/MiseLogo';
@@ -37,6 +37,7 @@ function RecipeSwipeCard({
   entryX,
   dietaryGoals,
   macros,
+  isCooked,
 }: {
   recipe: Recipe;
   // onSwipe fires immediately at threshold — parent receives position to own the fly-off spring
@@ -48,6 +49,7 @@ function RecipeSwipeCard({
   entryX?: number; // if set, card springs in from this x offset on mount (undo animation)
   dietaryGoals?: string[];
   macros?: Macros | null;
+  isCooked?: boolean;
 }) {
   const position = useRef(new Animated.ValueXY()).current;
 
@@ -168,6 +170,19 @@ function RecipeSwipeCard({
         contentFit="cover"
         priority="high"
       />
+
+      {/* Previously cooked indicator — post-cook check-in prompt */}
+      {isCooked && (
+        <View style={{
+          position: 'absolute', top: 12, left: 12,
+          backgroundColor: 'rgba(46, 125, 50, 0.9)',
+          borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5,
+          flexDirection: 'row', alignItems: 'center', gap: 4,
+        }}>
+          <Ionicons name="checkmark-circle" size={13} color="white" />
+          <Text style={{ color: 'white', fontSize: 11, fontWeight: '600' }}>Made before · Rate it?</Text>
+        </View>
+      )}
 
       {/* SAVE overlay */}
       <Animated.View style={{
@@ -339,6 +354,10 @@ export default function Discover() {
         setRecipes(loaded);
       })
       .finally(() => setIsLoading(false));
+    // Load previously-cooked IDs for cross-session "Made before" banner
+    if (userId) {
+      getCookedRecipeIds(userId).then(setPrevCookedIds).catch(() => {});
+    }
   }, [userId, mode, dietaryGoals]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // When top card changes, update detail from cache (detail has no local estimator).
@@ -433,6 +452,8 @@ export default function Discover() {
   function logSwipeBackground(recipe: Recipe, direction: 'left' | 'right', currentMode: AppMode) {
     if (!userId) return;
     console.log(`[swipe] ${direction === 'right' ? '✓' : '✗'} "${recipe.title}" (${recipe.cuisine ?? 'unknown'})`);
+    // Adventure card left-swipe → pause adventure cards for next 10 swipes
+    if (recipe.isAdventure && direction === 'left') recordAdventureCardLeftSwipe();
     resolveSupabaseId(recipe)
       .then((supabaseId) => {
         recordSessionSwipe(supabaseId, direction);
@@ -534,6 +555,8 @@ export default function Discover() {
   }
 
   const [cookedRecipeIds, setCookedRecipeIds] = useState<Set<string>>(new Set());
+  // Supabase-backed cooked IDs — persists across sessions, enables "Made before" banner
+  const [prevCookedIds, setPrevCookedIds] = useState<Set<string>>(new Set());
   const isSaved = useSavedStore((s) => s.isSaved);
 
   const visibleCards = recipes.slice(currentIndex, currentIndex + 3);
@@ -654,6 +677,7 @@ export default function Discover() {
                       entryX={pendingEntryX ?? undefined}
                       dietaryGoals={dietaryGoals}
                       macros={topMacros}
+                      isCooked={recipe.supabase_id ? prevCookedIds.has(recipe.supabase_id) : false}
                     />
                   </Animated.View>
                 );
