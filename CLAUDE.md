@@ -55,6 +55,7 @@ Mise is the first recipe app that feels genuinely personal from day one, gets sm
 - **Adventure cards** — niche cuisine at position 6, gated on skill+swipe ratio, cooldown, adjacency map, "✦ New for you" badge
 - **"Made before" banner** — green pill on previously-cooked cards for cross-session re-rating
 - Info button opens RecipeDetailModal
+- **Dev flag button** in action bar (`__DEV__` only) — same reason picker as detail modal
 - clearDiscoverCache() + clearSessionState() called on preference save / new deck load
 
 **Recipes Screen**
@@ -70,14 +71,16 @@ Mise is the first recipe app that feels genuinely personal from day one, gets sm
 - Copy-to-clipboard export (formatted plain text)
 
 **Recipe Detail Modal**
-- Slide-up pageSheet — ingredient list, Save + Add to Grocery wired
-- Step-by-step instructions — rendered in numbered sequence from `recipe.steps`
+- Slide-up pageSheet — Save + Add to Grocery wired
+- **Ingredients / Instructions tab switcher** — pill tab bar, switches instantly, resets to Ingredients on open
+- Step-by-step instructions — numbered green circle badges, parsed from TheMealDB strInstructions
 - "Mark as cooked" button — logs cooked interaction, toggles green state within session
 - MacroRow wired — full 4-col macros (calories, protein, carbs, fat) with per-serving scaling
 - Serving size adjuster — increment/decrement buttons scale macros proportionally
 - Post-cook 5-star rating — appears after marking as cooked, persists to saved_recipes.user_rating
 - Storage tips — auto-fetches from `/api/storage-tip` (Claude Haiku) after marking cooked
 - "Values are estimates and may vary" disclaimer beneath macros
+- **Dev flag button** — red flag icon (top-left, `__DEV__` only), 6 preset reasons, AsyncStorage-backed
 
 **Profile Screen**
 - Avatar, name, Recipes Saved stat wired to savedStore, preferences display, sign out
@@ -85,16 +88,17 @@ Mise is the first recipe app that feels genuinely personal from day one, gets sm
 - Conflict warnings for incompatible goals
 - clearDiscoverCache() + clearRecipeCache() called on preference save
 - **Taste Profile card** — Claude Haiku generated via `/api/taste-profile`, cached in DB. Shows "not enough data" if <5 swipes.
+- **Dev Tools section** — (`__DEV__` only) flagged recipe count, view/clear buttons
 
 **Saved Recipes**
 - savedStore wired to Supabase — persists across sessions
 
 **Stores**
-- userStore ✅, savedStore ✅ (Supabase-backed), groceryStore ✅ (full), collectionsStore ✅, mealPlanStore 🔲 placeholder
+- userStore ✅, savedStore ✅ (Supabase-backed), groceryStore ✅ (full), collectionsStore ✅, mealPlanStore ✅ (Supabase-backed)
 
 **Data / Seed**
 - 419 TheMealDB recipes seeded in Supabase with cohort affinity scores (248,886 rows)
-- All 419 recipes backfilled with full ingredients + descriptions
+- All 419 recipes backfilled with full ingredients, descriptions, steps, and macros
 - Lazy ingredient + macro persistence (first fetch writes to DB, all future users load from DB)
 - MacroRow component (full + compact), HeadlineMacroPill, estimateMacrosLocally — components/ui/MacroRow.tsx
 - MiseLogo component — components/ui/MiseLogo.tsx
@@ -274,8 +278,9 @@ mise/
 │   │   └── ProgressBar.tsx            ✅
 │   ├── grocery/
 │   │   └── InstacartButton.tsx        🔲 Phase 3
-│   ├── RecipeDetailModal.tsx          ✅ Slide-up pageSheet, ingredients, Save + Add to Grocery,
-│   │                                     Mark as cooked — MacroRow NOT YET WIRED
+│   ├── RecipeDetailModal.tsx          ✅ Slide-up pageSheet, Ingredients/Instructions tabs,
+│   │                                     MacroRow, serving adjuster, mark as cooked,
+│   │                                     post-cook rating, storage tips, dev flag button
 │   └── ui/
 │       ├── MacroRow.tsx               ✅ MacroRow (full 4-col), HeadlineMacroPill (goal-aware),
 │       │                                 estimateMacrosLocally (instant local estimate)
@@ -317,6 +322,8 @@ mise/
 ├── scripts/
 │   ├── seed-recipes.mjs               ✅ One-time (already ran)
 │   ├── backfill-recipe-details.mjs    ✅ Safe to re-run, skips populated
+│   ├── backfill-macros.mjs            ✅ Claude Haiku macro estimation for all recipes
+│   ├── backfill-steps.mjs             ✅ TheMealDB strInstructions → parsed steps
 │   ├── generate-recipes.mjs           ✅ Bulk recipe generator
 │   └── clean-recipes.mjs              ✅ Jaccard dedup + Haiku tag validation
 ├── supabase/
@@ -442,7 +449,8 @@ Claude Sonnet was built into `/api/recommendations` and wired to the Discover sc
 score = random_jitter (0–0.5)
       + cohort_affinity × 4           // cold-start baseline from 248,886 affinity rows
       + cuisine_match × 3
-      + dietary_tag_matches × 2 each
+      + macro_verified_goal × 10 each  // protein≥25, keto≤10 netCarbs, etc.
+      + tag_only_goal × 5 each         // fallback if no macros or non-macro goal
       + quick_simple_bonus × 2        // eating_style = quick_simple AND ≤30 min total
       - quick_simple_penalty × 2      // eating_style = quick_simple AND >45 min total
       + right_swipe × 5 × decay       // decay = e^(-days/30)
