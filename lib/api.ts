@@ -1086,6 +1086,57 @@ export async function fetchMacros(
   return estimated;
 }
 
+// ─── Dev Recipe Flagging ──────────────────────────────────────────────────────
+// AsyncStorage-backed; dev builds only. Stores recipes flagged for Claude review.
+
+export interface FlaggedRecipe {
+  supabase_id: string;
+  external_id: string;
+  title: string;
+  reason: string;
+  flagged_at: string;
+}
+
+const FLAGGED_KEY = 'mise_flagged_recipes_v1';
+
+export async function flagRecipe(
+  recipe: { supabase_id?: string; id: string; title: string },
+  reason: string
+): Promise<void> {
+  try {
+    const raw = await AsyncStorage.getItem(FLAGGED_KEY);
+    const existing: FlaggedRecipe[] = raw ? JSON.parse(raw) : [];
+    const filtered = existing.filter((f) => f.external_id !== recipe.id);
+    filtered.push({
+      supabase_id: recipe.supabase_id ?? '',
+      external_id: recipe.id,
+      title: recipe.title,
+      reason,
+      flagged_at: new Date().toISOString(),
+    });
+    await AsyncStorage.setItem(FLAGGED_KEY, JSON.stringify(filtered));
+  } catch {
+    // Non-critical
+  }
+}
+
+export async function getFlaggedRecipes(): Promise<FlaggedRecipe[]> {
+  try {
+    const raw = await AsyncStorage.getItem(FLAGGED_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function clearFlaggedRecipes(): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(FLAGGED_KEY);
+  } catch {
+    // Non-critical
+  }
+}
+
 // ─── Cohorts ──────────────────────────────────────────────────────────────────
 
 // Derives a stable cohort key from onboarding answers.

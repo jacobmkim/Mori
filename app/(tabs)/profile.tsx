@@ -7,7 +7,7 @@ import type { ReactNode } from 'react';
 import { useUserStore } from '@/stores/userStore';
 import { useSavedStore } from '@/stores/savedStore';
 import { supabase } from '@/lib/supabase';
-import { upsertProfile, patchProfile, clearDiscoverCache, getPantryItems, addPantryItem, deletePantryItem, getAdventureCardsEnabled, setAdventureCardsEnabled } from '@/lib/api';
+import { upsertProfile, patchProfile, clearDiscoverCache, getPantryItems, addPantryItem, deletePantryItem, getAdventureCardsEnabled, setAdventureCardsEnabled, getFlaggedRecipes, clearFlaggedRecipes, type FlaggedRecipe } from '@/lib/api';
 import { clearRecipeCache } from '@/lib/mealdb';
 import { colors } from '@/constants/theme';
 import type { Profile, PantryItem } from '@/types';
@@ -423,6 +423,100 @@ function PantryModal({
   );
 }
 
+// ── Dev Tools (dev builds only) ───────────────────────────────────────────────
+
+function DevToolsSection() {
+  const [flagged, setFlagged] = useState<FlaggedRecipe[]>([]);
+
+  useEffect(() => {
+    getFlaggedRecipes().then(setFlagged).catch(() => {});
+  }, []);
+
+  function handleView() {
+    if (flagged.length === 0) {
+      Alert.alert('No flagged recipes', 'Open a recipe detail and tap the red flag button to flag it.');
+      return;
+    }
+    const lines = flagged.map((f, i) =>
+      `${i + 1}. ${f.title}\n   Reason: ${f.reason}\n   ID: ${f.supabase_id || f.external_id}`
+    ).join('\n\n');
+    Alert.alert(`Flagged Recipes (${flagged.length})`, lines);
+  }
+
+  function handleClear() {
+    Alert.alert('Clear all flags?', 'This cannot be undone.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Clear',
+        style: 'destructive',
+        onPress: () => {
+          clearFlaggedRecipes();
+          setFlagged([]);
+        },
+      },
+    ]);
+  }
+
+  return (
+    <View style={{ paddingHorizontal: 16, marginBottom: 24 }}>
+      <Text style={{
+        fontSize: 13, fontWeight: '700', color: '#B00020',
+        textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 12,
+      }}>
+        Dev Tools
+      </Text>
+      <View style={{
+        backgroundColor: colors.white, borderRadius: 12,
+        borderWidth: 1, borderColor: '#FFCDD2', overflow: 'hidden',
+      }}>
+        <View style={{
+          flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+          padding: 16, borderBottomWidth: 1, borderBottomColor: colors.border,
+        }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 15, fontWeight: '500', color: colors.text }}>
+              Flagged recipes
+            </Text>
+            <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>
+              {flagged.length === 0
+                ? 'None yet — flag bad recipes from the detail view'
+                : `${flagged.length} recipe${flagged.length === 1 ? '' : 's'} flagged for review`}
+            </Text>
+          </View>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <Pressable
+              onPress={handleView}
+              style={{
+                backgroundColor: '#FFF3E0', borderRadius: 8,
+                paddingHorizontal: 12, paddingVertical: 6,
+              }}
+            >
+              <Text style={{ fontSize: 13, color: '#E65100', fontWeight: '600' }}>View</Text>
+            </Pressable>
+            {flagged.length > 0 && (
+              <Pressable
+                onPress={handleClear}
+                style={{
+                  backgroundColor: '#FFEBEE', borderRadius: 8,
+                  paddingHorizontal: 12, paddingVertical: 6,
+                }}
+              >
+                <Text style={{ fontSize: 13, color: '#B00020', fontWeight: '600' }}>Clear</Text>
+              </Pressable>
+            )}
+          </View>
+        </View>
+        <View style={{ padding: 16 }}>
+          <Text style={{ fontSize: 12, color: colors.textMuted, lineHeight: 18 }}>
+            Open any recipe → tap the red flag icon → choose a reason.{'\n'}
+            Share this list with Claude to review and fix bad recipes.
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
 // ── Main screen ───────────────────────────────────────────────────────────────
 
 export default function Profile() {
@@ -691,6 +785,11 @@ export default function Profile() {
             </View>
           </View>
         </View>
+
+        {/* Dev Tools — only visible in dev builds */}
+        {__DEV__ && (
+          <DevToolsSection />
+        )}
 
         {/* Sign Out */}
         <View style={{ paddingHorizontal: 16 }}>

@@ -195,7 +195,8 @@ The MacroRow component exists and works on swipe cards. It is not connected to t
 13. ✅ /api/storage-tip endpoint — Claude Haiku, live on Vercel
 14. ✅ /api/macros — Spoonacular removed, Claude Haiku only
 15. ✅ Recipe steps wired into RecipeDetailModal
-16. 🔲 Claude macro backfill — run script against all 419 recipes to pre-populate recipes.macros
+16. ✅ Claude macro backfill — all 419 recipes pre-populated (scripts/backfill-macros.mjs)
+17. ✅ Dev recipe flagging — red flag button on detail modal (__DEV__ only), Dev Tools in Profile
 17. 🔲 Macro-verified dietary tag matching (Bug 6 — after macro backfill)
 18. 🔲 Grocery add scepticism scoring (Bug 12 — post-launch)
 19. 🔲 Instacart integration (Phase 3)
@@ -936,7 +937,8 @@ All foundation, onboarding, grocery list, macros, swipe logging done.
 - [x] Weekly meal planner (Plan tab)
 - [x] mealPlanStore wired (loadPlan/savePlan async, Supabase-backed)
 - [x] 10 edge-case bug fixes (race conditions, null safety, stale closures, session state)
-- [ ] Claude macro backfill — run against all 419 recipes to pre-populate recipes.macros
+- [x] Claude macro backfill — all 419 recipes pre-populated via scripts/backfill-macros.mjs
+- [x] Dev recipe flagging — red flag button on RecipeDetailModal (__DEV__ only), AsyncStorage-backed, Dev Tools section in Profile with view/clear
 
 ### Phase 3 — Instacart Integration
 - [ ] Apply to Instacart Developer Platform

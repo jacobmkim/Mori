@@ -1,12 +1,12 @@
 import {
-  View, Text, Modal, Pressable, ScrollView, Dimensions, ActivityIndicator,
+  View, Text, Modal, Pressable, ScrollView, Dimensions, ActivityIndicator, Alert,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useState, useEffect, useCallback } from 'react';
 import { colors } from '@/constants/theme';
 import { formatTime, formatCost } from '@/lib/utils';
-import { fetchMacros } from '@/lib/api';
+import { fetchMacros, flagRecipe } from '@/lib/api';
 import { MacroRow } from '@/components/ui/MacroRow';
 import type { Recipe, Macros } from '@/types';
 import type { MealDetail } from '@/lib/mealdb';
@@ -183,6 +183,36 @@ export function RecipeDetailModal({
           >
             <Ionicons name="close" size={18} color="white" />
           </Pressable>
+          {__DEV__ && (
+            <Pressable
+              onPress={() => {
+                const reasons = ['Wrong ingredients', 'Bad macro data', 'Incorrect cuisine', 'Duplicate recipe', 'Inappropriate content', 'Other'];
+                Alert.alert(
+                  'Flag Recipe',
+                  `"${recipe.title}"\n\nWhat's wrong with this recipe?`,
+                  [
+                    ...reasons.map((r) => ({
+                      text: r,
+                      onPress: () => {
+                        flagRecipe(recipe, r);
+                        Alert.alert('Flagged', `"${recipe.title}" flagged for review.`);
+                      },
+                    })),
+                    { text: 'Cancel', style: 'cancel' },
+                  ]
+                );
+              }}
+              hitSlop={8}
+              style={{
+                position: 'absolute', top: 16, left: 16,
+                width: 34, height: 34, borderRadius: 17,
+                backgroundColor: 'rgba(180,0,0,0.7)',
+                alignItems: 'center', justifyContent: 'center',
+              }}
+            >
+              <Ionicons name="flag" size={16} color="white" />
+            </Pressable>
+          )}
         </View>
 
         <ScrollView
