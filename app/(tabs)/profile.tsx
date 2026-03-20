@@ -26,6 +26,10 @@ const EATING_STYLE_LABELS: Record<string, string> = {
   quick_simple: 'Quick & simple', variety: 'Variety is everything', favourites_rotation: 'Favourites rotation',
 };
 
+const FREQUENCY_LABELS: Record<string, string> = {
+  just_starting: 'Just starting out', few_times_week: 'A few times a week', most_days: 'Most days',
+};
+
 const GOAL_LABELS: Record<string, string> = {
   balanced: 'Balanced', high_protein: 'High Protein', low_carb: 'Low Carb',
   vegetarian: 'Vegetarian', vegan: 'Vegan', gluten_free: 'Gluten Free',
@@ -57,6 +61,7 @@ function EditPreferencesModal({
   );
   const [eatingStyle, setEatingStyle] = useState(profile.eating_style ?? '');
   const [skillLevel, setSkillLevel] = useState(profile.skill_level ?? '');
+  const [cookingFrequency, setCookingFrequency] = useState(profile.cooking_frequency ?? '');
   const [budget, setBudget] = useState(profile.weekly_budget ?? '');
   const [saving, setSaving] = useState(false);
 
@@ -69,6 +74,7 @@ function EditPreferencesModal({
     setCuisines((profile.cuisine_preferences ?? []).map((c) => c.charAt(0).toUpperCase() + c.slice(1)));
     setEatingStyle(profile.eating_style ?? '');
     setSkillLevel(profile.skill_level ?? '');
+    setCookingFrequency(profile.cooking_frequency ?? '');
     setBudget(profile.weekly_budget ?? '');
   }, [visible]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -108,6 +114,7 @@ function EditPreferencesModal({
         cuisine_preferences: cuisines.map((c) => c.toLowerCase()),
         eating_style: (eatingStyle as Profile['eating_style']) || null,
         skill_level: (skillLevel as Profile['skill_level']) || null,
+        cooking_frequency: (cookingFrequency as Profile['cooking_frequency']) || null,
         weekly_budget: budget || null,
       });
       onClose();
@@ -226,6 +233,18 @@ function EditPreferencesModal({
                 label={label}
                 selected={skillLevel === id}
                 onPress={() => setSkillLevel(skillLevel === id ? '' : id)}
+              />
+            ))}
+          </PrefSection>
+
+          {/* Cooking Frequency */}
+          <PrefSection title="Cooking Frequency">
+            {Object.entries(FREQUENCY_LABELS).map(([id, label]) => (
+              <OptionRow
+                key={id}
+                label={label}
+                selected={cookingFrequency === id}
+                onPress={() => setCookingFrequency(cookingFrequency === id ? '' : id)}
               />
             ))}
           </PrefSection>
@@ -687,6 +706,9 @@ export default function Profile() {
               )}
               {profile.eating_style && (
                 <PrefRow label="Eating Style" value={EATING_STYLE_LABELS[profile.eating_style]} />
+              )}
+              {profile.cooking_frequency && (
+                <PrefRow label="Cooking Frequency" value={FREQUENCY_LABELS[profile.cooking_frequency]} />
               )}
               {(profile.dietary_goals ?? []).length > 0 && (
                 <View style={{ padding: 16, borderBottomWidth: (profile.cuisine_preferences ?? []).length > 0 ? 1 : 0, borderBottomColor: colors.border }}>
