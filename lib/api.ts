@@ -133,7 +133,7 @@ export async function fetchDiscoverRecipes(dietaryGoals: string[] = []): Promise
 
   const { data, error } = await supabase
     .from('recipes')
-    .select('id, title, description, cuisine, source_type, dietary_tags, badge, avg_rating, save_count, image_url, external_id, prep_time_mins, cook_time_mins, servings, cost_per_serving, macros, ingredients')
+    .select('id, title, description, cuisine, source_type, dietary_tags, badge, avg_rating, save_count, image_url, external_id, prep_time_mins, cook_time_mins, servings, cost_per_serving, macros, ingredients, steps')
     .not('external_id', 'is', null)
     .limit(400);
 
@@ -162,7 +162,7 @@ export async function fetchDiscoverRecipes(dietaryGoals: string[] = []): Promise
         cuisine: r.cuisine,
         source_type: r.source_type ?? 'curated',
         ingredients: r.ingredients ?? [],
-        steps: [],
+        steps: r.steps ?? [],
         prep_time_mins: r.prep_time_mins,
         cook_time_mins: r.cook_time_mins,
         servings: r.servings,
@@ -286,7 +286,7 @@ async function fetchAdventureRecipe(
 ): Promise<Recipe | null> {
   const { data } = await supabase
     .from('recipes')
-    .select('id, title, description, cuisine, source_type, dietary_tags, badge, avg_rating, save_count, image_url, external_id, prep_time_mins, cook_time_mins, servings, cost_per_serving, macros, ingredients')
+    .select('id, title, description, cuisine, source_type, dietary_tags, badge, avg_rating, save_count, image_url, external_id, prep_time_mins, cook_time_mins, servings, cost_per_serving, macros, ingredients, steps')
     .ilike('cuisine', cuisine)
     .not('external_id', 'is', null)
     .limit(10);
@@ -301,7 +301,7 @@ async function fetchAdventureRecipe(
     cuisine: r.cuisine,
     source_type: r.source_type ?? 'curated',
     ingredients: r.ingredients ?? [],
-    steps: [],
+    steps: r.steps ?? [],
     prep_time_mins: r.prep_time_mins,
     cook_time_mins: r.cook_time_mins,
     servings: r.servings,
@@ -616,7 +616,7 @@ export async function fetchRecommendedDeck(
     // Fetch full recipe objects in one query
     const { data } = await supabase
       .from('recipes')
-      .select('id, title, description, cuisine, source_type, dietary_tags, badge, avg_rating, save_count, image_url, external_id, prep_time_mins, cook_time_mins, servings, cost_per_serving, macros, ingredients')
+      .select('id, title, description, cuisine, source_type, dietary_tags, badge, avg_rating, save_count, image_url, external_id, prep_time_mins, cook_time_mins, servings, cost_per_serving, macros, ingredients, steps')
       .in('id', recipeIds);
 
     if (!data?.length) {
@@ -640,7 +640,7 @@ export async function fetchRecommendedDeck(
       cuisine: r.cuisine,
       source_type: r.source_type ?? 'curated',
       ingredients: r.ingredients ?? [],
-      steps: [],
+      steps: r.steps ?? [],
       prep_time_mins: r.prep_time_mins,
       cook_time_mins: r.cook_time_mins,
       servings: r.servings,
@@ -991,7 +991,7 @@ export async function getRecipesBySupabaseIds(ids: string[]): Promise<Recipe[]> 
   if (ids.length === 0) return [];
   const { data, error } = await supabase
     .from('recipes')
-    .select('id, title, description, cuisine, source_type, dietary_tags, badge, avg_rating, save_count, image_url, external_id, prep_time_mins, cook_time_mins, servings, cost_per_serving, macros, ingredients')
+    .select('id, title, description, cuisine, source_type, dietary_tags, badge, avg_rating, save_count, image_url, external_id, prep_time_mins, cook_time_mins, servings, cost_per_serving, macros, ingredients, steps')
     .in('id', ids);
   if (error) throw error;
   return (data ?? []).map((r: any): Recipe => ({
@@ -1002,7 +1002,7 @@ export async function getRecipesBySupabaseIds(ids: string[]): Promise<Recipe[]> 
     cuisine: r.cuisine,
     source_type: r.source_type ?? 'curated',
     ingredients: r.ingredients ?? [],
-    steps: [],
+    steps: r.steps ?? [],
     prep_time_mins: r.prep_time_mins,
     cook_time_mins: r.cook_time_mins,
     servings: r.servings,
