@@ -6,6 +6,7 @@ import {
   Animated,
   PanResponder,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { useRef, useState, useEffect } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -14,7 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/theme';
 import { formatTime, formatCost, getTimeOfDay } from '@/lib/utils';
 import { fetchMealDetail, type MealDetail } from '@/lib/mealdb';
-import { logSwipe, upsertRecipeByExternalId, setRecipeLiked, fetchMacros, estimateMacrosLocally, fetchScoredDeck, updateRecipeDetail, updateRecipeMacros, logInteraction, recordSessionSwipe, recordAdventureCardLeftSwipe, clearSessionState, getCookedRecipeIds, rateRecipe } from '@/lib/api';
+import { logSwipe, upsertRecipeByExternalId, setRecipeLiked, fetchMacros, estimateMacrosLocally, fetchScoredDeck, updateRecipeDetail, updateRecipeMacros, logInteraction, recordSessionSwipe, recordAdventureCardLeftSwipe, clearSessionState, getCookedRecipeIds, rateRecipe, flagRecipe } from '@/lib/api';
 import { RecipeDetailModal } from '@/components/RecipeDetailModal';
 import { HeadlineMacroPill } from '@/components/ui/MacroRow';
 import { MiseLogo } from '@/components/ui/MiseLogo';
@@ -791,6 +792,36 @@ export default function Discover() {
           >
             <Ionicons name="arrow-undo" size={19} color={lastSwipe ? colors.textMuted : colors.border} />
           </Pressable>
+
+          {/* Flag — dev only */}
+          {__DEV__ && topRecipe && (
+            <Pressable
+              onPress={() => {
+                const reasons = ['Wrong ingredients', 'Bad macro data', 'Incorrect cuisine', 'Duplicate recipe', 'Inappropriate content', 'Other'];
+                Alert.alert(
+                  'Flag Recipe',
+                  `"${topRecipe.title}"\n\nWhat's wrong?`,
+                  [
+                    ...reasons.map((r) => ({
+                      text: r,
+                      onPress: () => {
+                        flagRecipe(topRecipe, r);
+                        Alert.alert('Flagged', `"${topRecipe.title}" flagged for review.`);
+                      },
+                    })),
+                    { text: 'Cancel', style: 'cancel' },
+                  ]
+                );
+              }}
+              style={{
+                width: 44, height: 44, borderRadius: 22,
+                backgroundColor: 'rgba(180,0,0,0.1)', borderWidth: 1.5, borderColor: '#B00020',
+                alignItems: 'center', justifyContent: 'center',
+              }}
+            >
+              <Ionicons name="flag-outline" size={19} color="#B00020" />
+            </Pressable>
+          )}
 
           {/* Add to Grocery List — auto-swipes card right on tap */}
           <Pressable

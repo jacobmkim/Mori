@@ -97,12 +97,13 @@ export function RecipeDetailModal({
   const [userRating, setUserRating] = useState(0);
   const [storageTips, setStorageTips] = useState<string | null>(null);
   const [tipsLoading, setTipsLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<'ingredients' | 'instructions'>('ingredients');
 
   const baseServings = recipe?.servings ?? 4;
 
   // Reset state when modal opens / recipe changes
   useEffect(() => {
-    if (!visible || !recipe) { setBaseMacros(null); setServings(baseServings); setUserRating(0); setStorageTips(null); return; }
+    if (!visible || !recipe) { setBaseMacros(null); setServings(baseServings); setUserRating(0); setStorageTips(null); setActiveTab('ingredients'); return; }
     setServings(baseServings);
     const ings = recipe.ingredients.length > 0
       ? recipe.ingredients
@@ -311,76 +312,120 @@ export function RecipeDetailModal({
             </View>
           )}
 
-          {/* Ingredients — quantities scaled */}
+          {/* Ingredients / Instructions tab switcher */}
           {ingredients.length > 0 && (
             <View style={{ marginBottom: 20 }}>
-              <Text style={{ fontSize: 16, fontWeight: '700', color: colors.text, marginBottom: 12 }}>
-                Ingredients
-              </Text>
-              <View style={{ gap: 8 }}>
-                {ingredients.map((ing, i) => {
-                  const measure = 'measure' in ing ? ing.measure : (ing as { quantity: string }).quantity;
-                  const scaledMeasure = scaleMeasure(measure ?? '', ratio);
-                  return (
-                    <View
-                      key={i}
-                      style={{
-                        flexDirection: 'row', alignItems: 'center',
-                        paddingVertical: 10, paddingHorizontal: 14,
-                        backgroundColor: colors.white, borderRadius: 10,
-                        borderWidth: 1, borderColor: colors.border,
-                      }}
-                    >
-                      <View style={{
-                        width: 6, height: 6, borderRadius: 3,
-                        backgroundColor: colors.primary, marginRight: 12,
-                      }} />
-                      <Text style={{ flex: 1, fontSize: 14, color: colors.text, fontWeight: '500' }}>
-                        {ing.name}
-                      </Text>
-                      {scaledMeasure ? (
-                        <Text style={{ fontSize: 13, color: ratio !== 1 ? colors.primary : colors.textMuted, fontWeight: ratio !== 1 ? '600' : '400' }}>
-                          {scaledMeasure}
-                        </Text>
-                      ) : null}
-                    </View>
-                  );
-                })}
+              {/* Tab bar */}
+              <View style={{
+                flexDirection: 'row',
+                backgroundColor: colors.border,
+                borderRadius: 12,
+                padding: 3,
+                marginBottom: 16,
+              }}>
+                {(['ingredients', 'instructions'] as const).map((tab) => (
+                  <Pressable
+                    key={tab}
+                    onPress={() => setActiveTab(tab)}
+                    style={{
+                      flex: 1, paddingVertical: 10, borderRadius: 10,
+                      backgroundColor: activeTab === tab ? colors.white : 'transparent',
+                      alignItems: 'center',
+                      shadowColor: '#000',
+                      shadowOffset: { width: 0, height: 1 },
+                      shadowOpacity: activeTab === tab ? 0.08 : 0,
+                      shadowRadius: 2,
+                      elevation: activeTab === tab ? 2 : 0,
+                    }}
+                  >
+                    <Text style={{
+                      fontSize: 14, fontWeight: '600',
+                      color: activeTab === tab ? colors.text : colors.textMuted,
+                    }}>
+                      {tab === 'ingredients'
+                        ? `Ingredients (${ingredients.length})`
+                        : 'Instructions'}
+                    </Text>
+                  </Pressable>
+                ))}
               </View>
-            </View>
-          )}
 
-          {/* Steps */}
-          {recipe.steps && recipe.steps.length > 0 && (
-            <View style={{ marginBottom: 20 }}>
-              <Text style={{ fontSize: 16, fontWeight: '700', color: colors.text, marginBottom: 12 }}>
-                Instructions
-              </Text>
-              <View style={{ gap: 12 }}>
-                {recipe.steps
-                  .slice()
-                  .sort((a, b) => a.order - b.order)
-                  .map((step) => (
-                    <View
-                      key={step.order}
-                      style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start' }}
-                    >
-                      <View style={{
-                        width: 28, height: 28, borderRadius: 14,
-                        backgroundColor: colors.primary,
-                        alignItems: 'center', justifyContent: 'center',
-                        flexShrink: 0, marginTop: 1,
-                      }}>
-                        <Text style={{ fontSize: 13, fontWeight: '700', color: colors.white }}>
-                          {step.order}
+              {/* Ingredients tab */}
+              {activeTab === 'ingredients' && (
+                <View style={{ gap: 8 }}>
+                  {ingredients.map((ing, i) => {
+                    const measure = 'measure' in ing ? ing.measure : (ing as { quantity: string }).quantity;
+                    const scaledMeasure = scaleMeasure(measure ?? '', ratio);
+                    return (
+                      <View
+                        key={i}
+                        style={{
+                          flexDirection: 'row', alignItems: 'center',
+                          paddingVertical: 10, paddingHorizontal: 14,
+                          backgroundColor: colors.white, borderRadius: 10,
+                          borderWidth: 1, borderColor: colors.border,
+                        }}
+                      >
+                        <View style={{
+                          width: 6, height: 6, borderRadius: 3,
+                          backgroundColor: colors.primary, marginRight: 12,
+                        }} />
+                        <Text style={{ flex: 1, fontSize: 14, color: colors.text, fontWeight: '500' }}>
+                          {ing.name}
                         </Text>
+                        {scaledMeasure ? (
+                          <Text style={{
+                            fontSize: 13,
+                            color: ratio !== 1 ? colors.primary : colors.textMuted,
+                            fontWeight: ratio !== 1 ? '600' : '400',
+                          }}>
+                            {scaledMeasure}
+                          </Text>
+                        ) : null}
                       </View>
-                      <Text style={{ flex: 1, fontSize: 14, color: colors.text, lineHeight: 21 }}>
-                        {step.instruction}
-                      </Text>
-                    </View>
-                  ))}
-              </View>
+                    );
+                  })}
+                </View>
+              )}
+
+              {/* Instructions tab */}
+              {activeTab === 'instructions' && (
+                recipe.steps && recipe.steps.length > 0 ? (
+                  <View style={{ gap: 16 }}>
+                    {recipe.steps
+                      .slice()
+                      .sort((a, b) => a.order - b.order)
+                      .map((step) => (
+                        <View
+                          key={step.order}
+                          style={{ flexDirection: 'row', gap: 14, alignItems: 'flex-start' }}
+                        >
+                          <View style={{
+                            width: 32, height: 32, borderRadius: 16,
+                            backgroundColor: colors.primary,
+                            alignItems: 'center', justifyContent: 'center',
+                            flexShrink: 0,
+                          }}>
+                            <Text style={{ fontSize: 14, fontWeight: '700', color: colors.white }}>
+                              {step.order}
+                            </Text>
+                          </View>
+                          <View style={{ flex: 1, paddingTop: 5 }}>
+                            <Text style={{ fontSize: 15, color: colors.text, lineHeight: 24 }}>
+                              {step.instruction}
+                            </Text>
+                          </View>
+                        </View>
+                      ))}
+                  </View>
+                ) : (
+                  <View style={{ alignItems: 'center', paddingVertical: 32 }}>
+                    <Text style={{ fontSize: 14, color: colors.textMuted, textAlign: 'center' }}>
+                      Instructions not available for this recipe.
+                    </Text>
+                  </View>
+                )
+              )}
             </View>
           )}
 
