@@ -197,9 +197,10 @@ The MacroRow component exists and works on swipe cards. It is not connected to t
 15. ✅ Recipe steps wired into RecipeDetailModal
 16. ✅ Claude macro backfill — all 419 recipes pre-populated (scripts/backfill-macros.mjs)
 17. ✅ Dev recipe flagging — red flag button on detail modal (__DEV__ only), Dev Tools in Profile
-17. 🔲 Macro-verified dietary tag matching (Bug 6 — after macro backfill)
-18. 🔲 Grocery add scepticism scoring (Bug 12 — post-launch)
-19. 🔲 Instacart integration (Phase 3)
+18. ✅ Macro-verified dietary tag matching (Bug 6) — scorer uses real macros over tags; 10pts verified, 5pts tag-only
+19. ✅ Recipe steps backfilled — 419/419 via scripts/backfill-steps.mjs; tab switcher UI in RecipeDetailModal
+20. 🔲 Grocery add scepticism scoring (Bug 12 — post-launch)
+21. 🔲 Instacart integration (Phase 3)
 
 ---
 
@@ -939,6 +940,8 @@ All foundation, onboarding, grocery list, macros, swipe logging done.
 - [x] 10 edge-case bug fixes (race conditions, null safety, stale closures, session state)
 - [x] Claude macro backfill — all 419 recipes pre-populated via scripts/backfill-macros.mjs
 - [x] Dev recipe flagging — red flag button on RecipeDetailModal (__DEV__ only), AsyncStorage-backed, Dev Tools section in Profile with view/clear
+- [x] Macro-verified goal matching (Bug 6) — scorer uses real macros; 10pts verified, 5pts tag-only fallback
+- [x] Recipe steps backfilled — 419/419 via scripts/backfill-steps.mjs; Ingredients/Instructions tab switcher in RecipeDetailModal
 
 ### Phase 3 — Instacart Integration
 - [ ] Apply to Instacart Developer Platform

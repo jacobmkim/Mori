@@ -408,10 +408,22 @@ function scoreRecipe(
   // Cuisine match
   if (profile?.cuisine_preferences?.includes(recipe.cuisine ?? '')) score += 3;
 
-  // Dietary tag alignment
+  // Dietary goal alignment — Bug 6: trust macro data over tags when available
   const goals = profile?.dietary_goals ?? [];
-  const matchingTags = (recipe.dietary_tags ?? []).filter((t) => goals.includes(t));
-  score += matchingTags.length * 2;
+  for (const goal of goals) {
+    const m = recipe.macros as any;
+    if (m) {
+      // Verified macro data — full 10 points when recipe genuinely meets the goal
+      if (goal === 'high_protein'  && m.protein        >= 25) score += 10;
+      else if (goal === 'keto'     && (m.netCarbs ?? m.carbohydrates - (m.fibre ?? 0)) <= 10) score += 10;
+      else if (goal === 'low_fat'  && m.fat            <= 10) score += 10;
+      else if (goal === 'low_carb' && m.carbohydrates  <= 30) score += 10;
+      else if ((recipe.dietary_tags ?? []).includes(goal)) score += 5; // tag-only fallback
+    } else {
+      // No macro data yet — half points for unverified tags
+      if ((recipe.dietary_tags ?? []).includes(goal)) score += 5;
+    }
+  }
 
   // Eating style
   if (profile?.eating_style === 'quick_simple') {
