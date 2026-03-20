@@ -1049,7 +1049,7 @@ export function estimateMacrosLocally(title: string): Macros {
 export async function fetchMacros(
   recipeTitle: string,
   ingredients: { name: string; quantity: string; unit: string }[],
-  options?: { spoonacularId?: string; externalId?: string }
+  options?: { externalId?: string }
 ): Promise<Macros | null> {
   // Check local AsyncStorage cache first (fastest, zero network)
   const cached = await getCachedMacros(recipeTitle);
@@ -1064,7 +1064,6 @@ export async function fetchMacros(
         body: JSON.stringify({
           recipeTitle,
           ingredients,
-          spoonacularId: options?.spoonacularId,
           externalId: options?.externalId,
         }),
       });

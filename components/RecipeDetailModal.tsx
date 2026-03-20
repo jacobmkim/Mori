@@ -108,7 +108,6 @@ export function RecipeDetailModal({
       ? recipe.ingredients
       : (detail?.ingredients ?? []).map((i) => ({ name: i.name, quantity: i.measure, unit: '' }));
     fetchMacros(recipe.title, ings, {
-      spoonacularId: recipe.spoonacular_id ?? undefined,
       externalId: recipe.id,
     })
       .then(setBaseMacros)
@@ -321,21 +320,39 @@ export function RecipeDetailModal({
             </View>
           )}
 
-          {/* Instructions placeholder */}
-          <View style={{
-            backgroundColor: colors.primaryLight,
-            borderRadius: 12, padding: 16,
-            borderWidth: 1, borderColor: colors.primary + '33',
-            marginBottom: 20,
-          }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-              <Ionicons name="restaurant-outline" size={16} color={colors.primary} />
-              <Text style={{ fontSize: 14, fontWeight: '600', color: colors.primary }}>Full instructions</Text>
+          {/* Steps */}
+          {recipe.steps && recipe.steps.length > 0 && (
+            <View style={{ marginBottom: 20 }}>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: colors.text, marginBottom: 12 }}>
+                Instructions
+              </Text>
+              <View style={{ gap: 12 }}>
+                {recipe.steps
+                  .slice()
+                  .sort((a, b) => a.order - b.order)
+                  .map((step) => (
+                    <View
+                      key={step.order}
+                      style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start' }}
+                    >
+                      <View style={{
+                        width: 28, height: 28, borderRadius: 14,
+                        backgroundColor: colors.primary,
+                        alignItems: 'center', justifyContent: 'center',
+                        flexShrink: 0, marginTop: 1,
+                      }}>
+                        <Text style={{ fontSize: 13, fontWeight: '700', color: colors.white }}>
+                          {step.order}
+                        </Text>
+                      </View>
+                      <Text style={{ flex: 1, fontSize: 14, color: colors.text, lineHeight: 21 }}>
+                        {step.instruction}
+                      </Text>
+                    </View>
+                  ))}
+              </View>
             </View>
-            <Text style={{ fontSize: 13, color: colors.primary + 'CC' }}>
-              Step-by-step cooking instructions are coming in Phase 2.
-            </Text>
-          </View>
+          )}
 
           {/* Action buttons */}
           <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}>

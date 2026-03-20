@@ -40,17 +40,27 @@ Mise is the first recipe app that feels genuinely personal from day one, gets sm
 - Deck sourced from Supabase recipes table (single query, 400 rows) — 30-min in-memory cache keyed by sorted dietary goals
 - **Local weighted scorer** (`fetchScoredDeck`) ranks the deck on-device — no API call, no latency
 - Dietary filtering: vegan/vegetarian exclude all meat; pescatarian excludes land meat only; desserts always excluded
+- Ingredient dislike hard filter — recipes with disliked ingredients removed before scoring
+- Skill level hard cap — beginner ≤60 min, home_cook ≤120 min, confident_chef sees all
+- Diversity constraint post-sort — maxPerCuisine=3 for variety users, 5 for others
+- Graceful fallback cascade — relaxes diversity then skill filter if deck too small
+- Pantry specificity weighting — common staples worth 0.2 vs 1.0 in match scoring
+- First session pantry boost — +50 for full pantry match when total_sessions ≤ 1
+- Session swipe tracking — in-memory Sets prevent left-swiped/shown cards reappearing
 - HeadlineMacroPill on top card AND next card (stackIndex=1) — instant display via local estimator
 - Every swipe logged to `swipe_events` via fire-and-forget
 - Recipe views logged to `recipe_interactions` (interaction_type: 'view')
-- Grocery cart button: logs `recipe_interactions` (interaction_type: 'grocery_add'), sets liked=true, auto-swipes right
-- "Mark as cooked" button on RecipeDetailModal — logs `recipe_interactions` (interaction_type: 'cooked')
+- Grocery cart button: logs grocery_add interaction, sets liked=true, auto-swipes right
+- "Mark as cooked" button on RecipeDetailModal — logs cooked interaction
+- **Adventure cards** — niche cuisine at position 6, gated on skill+swipe ratio, cooldown, adjacency map, "✦ New for you" badge
+- **"Made before" banner** — green pill on previously-cooked cards for cross-session re-rating
 - Info button opens RecipeDetailModal
-- clearDiscoverCache() called from profile.tsx on preference save
+- clearDiscoverCache() + clearSessionState() called on preference save / new deck load
 
 **Recipes Screen**
-- Pinterest grid — Saved tab default, All tab shows TheMealDB category recipes
+- Pinterest grid — Saved / All / Plan tabs (3-way segmented control)
 - Filter dropdown (Type + Cuisine, OR/AND logic), collections bar, search bar
+- **Weekly meal planner** — Plan tab, 7-day × 3 meal type grid (Mon–Sun, Breakfast/Lunch/Dinner), recipe picker, "Add all to grocery" (deduped), Supabase-backed
 - Grocery adds and views logged to recipe_interactions
 
 **Grocery List Screen**
@@ -61,8 +71,13 @@ Mise is the first recipe app that feels genuinely personal from day one, gets sm
 
 **Recipe Detail Modal**
 - Slide-up pageSheet — ingredient list, Save + Add to Grocery wired
+- Step-by-step instructions — rendered in numbered sequence from `recipe.steps`
 - "Mark as cooked" button — logs cooked interaction, toggles green state within session
-- MacroRow NOT YET WIRED — component exists, needs connecting
+- MacroRow wired — full 4-col macros (calories, protein, carbs, fat) with per-serving scaling
+- Serving size adjuster — increment/decrement buttons scale macros proportionally
+- Post-cook 5-star rating — appears after marking as cooked, persists to saved_recipes.user_rating
+- Storage tips — auto-fetches from `/api/storage-tip` (Claude Haiku) after marking cooked
+- "Values are estimates and may vary" disclaimer beneath macros
 
 **Profile Screen**
 - Avatar, name, Recipes Saved stat wired to savedStore, preferences display, sign out
@@ -85,7 +100,7 @@ Mise is the first recipe app that feels genuinely personal from day one, gets sm
 - MiseLogo component — components/ui/MiseLogo.tsx
 
 **Vercel — Deployed and Live**
-- `/api/macros` — Spoonacular → Claude estimate → local fallback
+- `/api/macros` — Claude Haiku estimates macros from ingredients list. Spoonacular removed.
 - `/api/recommendations` — built but not used (local scorer used instead — see Key Decisions)
 - `/api/taste-profile` — Claude Haiku generates taste profile paragraph, saves to profiles.taste_profile
 - `/api/generate-recipe` — Claude Haiku generates recipes with server-side Jaccard similarity guard (409 on duplicate)
@@ -160,24 +175,30 @@ The MacroRow component exists and works on swipe cards. It is not connected to t
 ---
 
 ### ⚠️ Pre-Launch Required (Admin Tasks)
-- **Spoonacular plan upgrade** before beta — free tier (150 points/day) exhausted in dev
+- **Apple Developer account** ($99/year) — needed before App Store submission
 
 ---
 
-### ❌ Not Yet Built — In Scope
-1. Ingredient dislike hard filter (Bug 1 above)
-2. Cooked/grocery_add signal cap (Bug 2 above)
-3. Variety diversity pass (Bug 3 above)
-4. MacroRow on recipe detail (Bug 4 above)
-5. Session-level left-swipe tracking (see Scorer Edge Cases — Bug 7)
-6. Zero-result fallback for restrictive dietary combos (see Scorer Edge Cases — Bug 9)
-7. Skill level hard cap on recipe pool (see Scorer Edge Cases — Bug 8)
-8. Pantry specificity weighting (see Scorer Edge Cases — Bug 5)
-9. Adventure cards — skill-aware cuisine expansion after ~20 swipes (Phase 2)
-10. Instacart integration (Phase 3)
-11. Weekly meal planner (Phase 2)
-12. Pantry tracking screen — opt-in, in Profile (Phase 2)
-13. Spoonacular backfill of all 419 recipes (after plan upgrade)
+### Build Status — In Scope
+1. ✅ Ingredient dislike hard filter (Bug 1)
+2. ✅ Cooked/grocery_add signal cap (Bug 2)
+3. ✅ Variety diversity pass (Bug 3)
+4. ✅ MacroRow on recipe detail modal (Bug 4)
+5. ✅ Session-level left-swipe tracking (Bug 7)
+6. ✅ Zero-result fallback for restrictive dietary combos (Bug 9)
+7. ✅ Skill level hard cap on recipe pool (Bug 8)
+8. ✅ Pantry specificity weighting (Bug 5)
+9. ✅ Adventure cards — skill-aware cuisine expansion
+10. ✅ Weekly meal planner (Plan tab in Recipes)
+11. ✅ Pantry tracking screen — opt-in, in Profile
+12. ✅ Post-cook check-in flow — "Made before" banner, 5-star rating, storage tips
+13. ✅ /api/storage-tip endpoint — Claude Haiku, live on Vercel
+14. ✅ /api/macros — Spoonacular removed, Claude Haiku only
+15. ✅ Recipe steps wired into RecipeDetailModal
+16. 🔲 Claude macro backfill — run script against all 419 recipes to pre-populate recipes.macros
+17. 🔲 Macro-verified dietary tag matching (Bug 6 — after macro backfill)
+18. 🔲 Grocery add scepticism scoring (Bug 12 — post-launch)
+19. 🔲 Instacart integration (Phase 3)
 
 ---
 
@@ -194,7 +215,7 @@ The MacroRow component exists and works on swipe cards. It is not connected to t
 | Styling | **Inline styles + constants/theme.ts** (NativeWind installed but not used) | ✅ Live — do not refactor |
 | State Management | Zustand | ✅ Live |
 | Recipe Seed Data | TheMealDB open source API + Supabase (419 recipes seeded) | ✅ Live |
-| Nutrition / Macro Data | Spoonacular API via /api/macros | ✅ Endpoint deployed; local estimator active in dev |
+| Nutrition / Macro Data | **Claude Haiku via /api/macros** — estimates from ingredients list | ✅ Live — Spoonacular removed |
 | Recommendation Engine | **Local weighted scorer** (on-device, lib/api.ts) | ✅ Live — no API cost, no latency |
 | Serverless Functions | Vercel | ✅ Deployed |
 | AI — Taste Profile | Claude Haiku via /api/taste-profile | ✅ Live |
@@ -376,7 +397,7 @@ Every swipe logged to Supabase immediately — non-negotiable scorer training da
 - **On swipe cards:** One headline macro based on primary dietary goal. No macro shown if no relevant goal.
 - **On recipe detail:** Full MacroRow — calories, protein, carbs, fat. Always visible. Per serving / full batch toggle.
 - **Disclaimer:** "Values are estimates and may vary" beneath all macro displays.
-- **Source:** Spoonacular primary, Claude Haiku estimate as fallback (always labelled "estimated").
+- **Source:** Claude Haiku estimates macros from the recipe's ingredients list via `/api/macros`. Results cached in `recipes.macros` permanently — served from Supabase to all users after first fetch. Always labelled "estimated".
 
 ### 6.5 Recipe Library
 Pinterest grid. Saved tab default. Badge types: Staff Pick, Community Verified, Community Favorite.
@@ -411,7 +432,7 @@ Claude Sonnet was built into `/api/recommendations` and wired to the Discover sc
 
 ### When Claude Is Still Used
 - **Taste profile** — language task, Claude Haiku reads swipe history and writes a 2-3 sentence paragraph
-- **Macro estimation** — Claude Haiku estimates macros from ingredients when Spoonacular unavailable
+- **Macro estimation** — Claude Haiku estimates macros from ingredients list (always, Spoonacular removed)
 - **Recipe generation** — Claude Haiku generates new recipes for the seed database
 
 ### Current Scoring Formula
@@ -494,7 +515,7 @@ function getPantryMatch(recipeIngredients, pantryItems): number {
 }
 ```
 
-### Bug 6 — Dietary tag quality (improve with Spoonacular backfill)
+### Bug 6 — Dietary tag quality (improve after Claude macro backfill)
 TheMealDB recipe tags are inconsistent — a recipe tagged "high_protein" may only have 15g protein. The scorer trusts tags blindly.
 
 **Fix — macro-verified tag matching:**
@@ -516,7 +537,7 @@ function getGoalMatch(recipe, userGoals): number {
   return score
 }
 ```
-Automatically improves as Spoonacular backfill completes.
+Automatically improves as Claude macro backfill completes and `recipes.macros` is populated.
 
 ### Bug 7 — Cold session: left-swiped cards reappearing (Phase 2)
 The cache window is 30 minutes. If a user swipes through 15 cards and re-opens the app within that window, the deck hasn't refreshed. Left-swiped recipes can reappear.
@@ -658,7 +679,7 @@ Only implement once "mark as cooked" is established in user behaviour — otherw
 | 7 | Session left-swipe tracking | Phase 2 | ~20 lines |
 | 8 | Skill level hard cap | Phase 2 | ~15 lines |
 | 5 | Pantry specificity weighting | Phase 2 | ~25 lines |
-| 6 | Macro-verified goal matching | Phase 2 (post Spoonacular backfill) | ~20 lines |
+| 6 | Macro-verified goal matching | Phase 2 (post Claude macro backfill) | ~20 lines |
 | 10 | Adventure card gating | Phase 2 (with adventure cards) | ~10 lines |
 | 11 | First session pantry boost | Phase 2 | ~5 lines |
 | 12 | Grocery add scepticism | Post-launch | ~15 lines |
@@ -852,7 +873,6 @@ EXPO_PUBLIC_API_URL=https://project-x-one-roan.vercel.app
 # Vercel only — never in client code
 ANTHROPIC_API_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
-SPOONACULAR_API_KEY=
 INSTACART_PARTNER_ID=
 INSTACART_API_KEY=
 ```
@@ -862,7 +882,7 @@ INSTACART_API_KEY=
 ## 12. Coding Rules
 
 1. **TypeScript everywhere** — no plain JS, strict mode on
-2. **Never call Claude, Instacart, or Spoonacular from the client** — Vercel functions only
+2. **Never call Claude or Instacart from the client** — Vercel functions only
 3. **Never expose secret keys in client code** — EXPO_PUBLIC_ prefix only on client
 4. **Use Expo Router** — no React Navigation
 5. **Inline styles + constants/theme.ts** — no NativeWind, no StyleSheet.create
@@ -897,19 +917,26 @@ All foundation, onboarding, grocery list, macros, swipe logging done.
 - resolveSupabaseId helper
 - Recipe generation pipeline (generate-recipes.mjs + clean-recipes.mjs)
 
-**❌ Remaining in Phase 2 — in priority order:**
-- [ ] Fix Bug 1 — ingredient dislike hard filter (top priority)
-- [ ] Fix Bug 2 — cooked/grocery_add signal caps (two lines)
-- [ ] Fix Bug 3 — variety diversity pass
-- [ ] Fix Bug 4 — MacroRow on recipe detail modal
-- [ ] Fix Bug 9 — zero-result fallback
-- [ ] Session-level left-swipe tracking (Bug 7)
-- [ ] Skill level hard cap on recipe pool (Bug 8)
-- [ ] Adventure cards (home_cook/confident_chef, ≥20 swipes, ≥8 right swipes, ≥30% ratio)
-- [ ] Pantry tracking screen in Profile
-- [ ] Post-cook check-in flow
-- [ ] /api/storage-tip endpoint
-- [ ] Spoonacular backfill (after plan upgrade)
+**Phase 2 — in priority order:**
+- [x] Fix Bug 1 — ingredient dislike hard filter
+- [x] Fix Bug 2 — cooked/grocery_add signal caps
+- [x] Fix Bug 3 — variety diversity pass
+- [x] Fix Bug 4 — MacroRow on recipe detail modal
+- [x] Fix Bug 9 — zero-result fallback
+- [x] Session-level left-swipe tracking (Bug 7)
+- [x] Skill level hard cap on recipe pool (Bug 8)
+- [x] Pantry specificity weighting + first-session boost (Bugs 5, 11)
+- [x] Adventure cards (home_cook/confident_chef, ≥20 swipes, ≥8 right swipes, ≥30% ratio)
+- [x] Adventure card cooldown, "Keep it familiar" toggle, "Made before" banner
+- [x] Pantry tracking screen in Profile
+- [x] Post-cook check-in flow (5-star rating)
+- [x] /api/storage-tip endpoint
+- [x] /api/macros — Spoonacular removed, Claude Haiku only
+- [x] Recipe steps wired into RecipeDetailModal
+- [x] Weekly meal planner (Plan tab)
+- [x] mealPlanStore wired (loadPlan/savePlan async, Supabase-backed)
+- [x] 10 edge-case bug fixes (race conditions, null safety, stale closures, session state)
+- [ ] Claude macro backfill — run against all 419 recipes to pre-populate recipes.macros
 
 ### Phase 3 — Instacart Integration
 - [ ] Apply to Instacart Developer Platform
@@ -956,7 +983,7 @@ All foundation, onboarding, grocery list, macros, swipe logging done.
 - **Account creation is screen 9 of 10**
 - **Ingredient dislikes are hard filters** — currently broken, fix is top priority
 - **Macros contextual** — headline pill on cards only if relevant goal; full row always on detail
-- **Spoonacular primary, Claude estimate fallback** — always labelled "estimated"
+- **Claude Haiku for all macro estimation** — Spoonacular removed. Claude estimates from ingredients list, cached in recipes.macros permanently. Always labelled "estimated".
 - **Pantry is low stakes and opt-in** — not a main tab
 - **Cold start solved by 248,886 cohort affinity rows**
 - **All AI and external APIs server-side only**
