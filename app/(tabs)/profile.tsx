@@ -1,16 +1,16 @@
-import { View, Text, Pressable, ScrollView, Alert, Modal, TextInput } from 'react-native';
+import { View, Text, Pressable, ScrollView, Alert, Modal, TextInput, ActivityIndicator, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import { useUserStore } from '@/stores/userStore';
 import { useSavedStore } from '@/stores/savedStore';
 import { supabase } from '@/lib/supabase';
-import { upsertProfile, patchProfile, clearDiscoverCache } from '@/lib/api';
+import { upsertProfile, patchProfile, clearDiscoverCache, getPantryItems, addPantryItem, deletePantryItem, getAdventureCardsEnabled, setAdventureCardsEnabled, getFlaggedRecipes, clearFlaggedRecipes, type FlaggedRecipe } from '@/lib/api';
 import { clearRecipeCache } from '@/lib/mealdb';
 import { colors } from '@/constants/theme';
-import type { Profile } from '@/types';
+import type { Profile, PantryItem } from '@/types';
 
 // ── Label maps ────────────────────────────────────────────────────────────────
 
@@ -24,6 +24,10 @@ const BUDGET_LABELS: Record<string, string> = {
 
 const EATING_STYLE_LABELS: Record<string, string> = {
   quick_simple: 'Quick & simple', variety: 'Variety is everything', favourites_rotation: 'Favourites rotation',
+};
+
+const FREQUENCY_LABELS: Record<string, string> = {
+  just_starting: 'Just starting out', few_times_week: 'A few times a week', most_days: 'Most days',
 };
 
 const GOAL_LABELS: Record<string, string> = {
@@ -57,6 +61,7 @@ function EditPreferencesModal({
   );
   const [eatingStyle, setEatingStyle] = useState(profile.eating_style ?? '');
   const [skillLevel, setSkillLevel] = useState(profile.skill_level ?? '');
+  const [cookingFrequency, setCookingFrequency] = useState(profile.cooking_frequency ?? '');
   const [budget, setBudget] = useState(profile.weekly_budget ?? '');
   const [saving, setSaving] = useState(false);
 
@@ -69,6 +74,7 @@ function EditPreferencesModal({
     setCuisines((profile.cuisine_preferences ?? []).map((c) => c.charAt(0).toUpperCase() + c.slice(1)));
     setEatingStyle(profile.eating_style ?? '');
     setSkillLevel(profile.skill_level ?? '');
+    setCookingFrequency(profile.cooking_frequency ?? '');
     setBudget(profile.weekly_budget ?? '');
   }, [visible]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -108,6 +114,7 @@ function EditPreferencesModal({
         cuisine_preferences: cuisines.map((c) => c.toLowerCase()),
         eating_style: (eatingStyle as Profile['eating_style']) || null,
         skill_level: (skillLevel as Profile['skill_level']) || null,
+        cooking_frequency: (cookingFrequency as Profile['cooking_frequency']) || null,
         weekly_budget: budget || null,
       });
       onClose();
@@ -230,6 +237,18 @@ function EditPreferencesModal({
             ))}
           </PrefSection>
 
+          {/* Cooking Frequency */}
+          <PrefSection title="Cooking Frequency">
+            {Object.entries(FREQUENCY_LABELS).map(([id, label]) => (
+              <OptionRow
+                key={id}
+                label={label}
+                selected={cookingFrequency === id}
+                onPress={() => setCookingFrequency(cookingFrequency === id ? '' : id)}
+              />
+            ))}
+          </PrefSection>
+
           {/* Budget */}
           <PrefSection title="Weekly Budget">
             {Object.entries(BUDGET_LABELS).map(([id, label]) => (
@@ -287,12 +306,279 @@ function PrefRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+// ── Pantry Modal ──────────────────────────────────────────────────────────────
+
+function PantryModal({
+  visible,
+  userId,
+  onClose,
+}: {
+  visible: boolean;
+  userId: string;
+  onClose: () => void;
+}) {
+  const [items, setItems] = useState<PantryItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [newItem, setNewItem] = useState('');
+  const [adding, setAdding] = useState(false);
+
+  useEffect(() => {
+    if (!visible) return;
+    setLoading(true);
+    getPantryItems(userId)
+      .then(setItems)
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [visible, userId]);
+
+  async function handleAdd() {
+    const name = newItem.trim();
+    if (!name) return;
+    setAdding(true);
+    try {
+      await addPantryItem({ user_id: userId, ingredient_name: name, quantity: null, unit: null, added_via: 'manual' });
+      const updated = await getPantryItems(userId);
+      setItems(updated);
+      setNewItem('');
+    } catch {
+      Alert.alert('Could not add item', 'Please try again.');
+    } finally {
+      setAdding(false);
+    }
+  }
+
+  async function handleDelete(id: string) {
+    try {
+      await deletePantryItem(id);
+      setItems((prev) => prev.filter((i) => i.id !== id));
+    } catch {
+      Alert.alert('Could not remove item', 'Please try again.');
+    }
+  }
+
+  return (
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+      <View style={{ flex: 1, backgroundColor: colors.background }}>
+        <View style={{
+          flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+          paddingHorizontal: 20, paddingTop: 20, paddingBottom: 16,
+          borderBottomWidth: 1, borderBottomColor: colors.border,
+          backgroundColor: colors.white,
+        }}>
+          <Pressable onPress={onClose} hitSlop={8}>
+            <Text style={{ color: colors.textMuted, fontSize: 16 }}>Done</Text>
+          </Pressable>
+          <Text style={{ fontSize: 17, fontWeight: '700', color: colors.text }}>My Pantry</Text>
+          <View style={{ width: 44 }} />
+        </View>
+
+        <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 48 }} showsVerticalScrollIndicator={false}>
+          {/* Add item row */}
+          <View style={{
+            flexDirection: 'row', gap: 10, marginBottom: 20,
+            backgroundColor: colors.white, borderRadius: 12,
+            borderWidth: 1, borderColor: colors.border, padding: 12,
+          }}>
+            <TextInput
+              value={newItem}
+              onChangeText={setNewItem}
+              placeholder="Add ingredient..."
+              placeholderTextColor={colors.textMuted}
+              style={{ flex: 1, fontSize: 15, color: colors.text }}
+              returnKeyType="done"
+              onSubmitEditing={handleAdd}
+            />
+            <Pressable
+              onPress={handleAdd}
+              disabled={adding || !newItem.trim()}
+              style={{
+                backgroundColor: newItem.trim() ? colors.primary : colors.border,
+                borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8,
+                alignItems: 'center', justifyContent: 'center',
+              }}
+            >
+              <Text style={{ color: 'white', fontWeight: '600', fontSize: 14 }}>
+                {adding ? '...' : 'Add'}
+              </Text>
+            </Pressable>
+          </View>
+
+          {loading ? (
+            <ActivityIndicator color={colors.primary} />
+          ) : items.length === 0 ? (
+            <View style={{ alignItems: 'center', paddingVertical: 32 }}>
+              <Ionicons name="nutrition-outline" size={36} color={colors.border} />
+              <Text style={{ fontSize: 15, color: colors.textMuted, marginTop: 12, textAlign: 'center' }}>
+                No pantry items yet.{'\n'}Add staples you keep on hand.
+              </Text>
+            </View>
+          ) : (
+            <View style={{ gap: 8 }}>
+              {items.map((item) => (
+                <View
+                  key={item.id}
+                  style={{
+                    flexDirection: 'row', alignItems: 'center',
+                    backgroundColor: colors.white, borderRadius: 10,
+                    borderWidth: 1, borderColor: colors.border,
+                    paddingVertical: 12, paddingHorizontal: 14,
+                  }}
+                >
+                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.primary, marginRight: 12 }} />
+                  <Text style={{ flex: 1, fontSize: 15, color: colors.text }}>{item.ingredient_name}</Text>
+                  <Text style={{ fontSize: 11, color: colors.textMuted, marginRight: 12 }}>
+                    {item.added_via === 'onboarding' ? 'Onboarding' : item.added_via === 'manual' ? 'Manual' : 'Grocery'}
+                  </Text>
+                  <Pressable onPress={() => handleDelete(item.id)} hitSlop={8}>
+                    <Ionicons name="close-circle-outline" size={20} color={colors.textMuted} />
+                  </Pressable>
+                </View>
+              ))}
+            </View>
+          )}
+        </ScrollView>
+      </View>
+    </Modal>
+  );
+}
+
+// ── Dev Tools (dev builds only) ───────────────────────────────────────────────
+
+function DevToolsSection() {
+  const [flagged, setFlagged] = useState<FlaggedRecipe[]>([]);
+
+  useEffect(() => {
+    getFlaggedRecipes().then(setFlagged).catch(() => {});
+  }, []);
+
+  async function handleView() {
+    const latest = await getFlaggedRecipes();
+    setFlagged(latest);
+    if (latest.length === 0) {
+      Alert.alert('No flagged recipes', 'Open a recipe detail and tap the red flag button to flag it.');
+      return;
+    }
+    const lines = latest.map((f, i) =>
+      `${i + 1}. ${f.title}\n   Reason: ${f.reason}\n   ID: ${f.supabase_id || f.external_id}`
+    ).join('\n\n');
+    Alert.alert(`Flagged Recipes (${latest.length})`, lines);
+  }
+
+  function handleClear() {
+    Alert.alert('Clear all flags?', 'This cannot be undone.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Clear',
+        style: 'destructive',
+        onPress: () => {
+          clearFlaggedRecipes();
+          setFlagged([]);
+        },
+      },
+    ]);
+  }
+
+  return (
+    <View style={{ paddingHorizontal: 16, marginBottom: 24 }}>
+      <Text style={{
+        fontSize: 13, fontWeight: '700', color: '#B00020',
+        textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 12,
+      }}>
+        Dev Tools
+      </Text>
+      <View style={{
+        backgroundColor: colors.white, borderRadius: 12,
+        borderWidth: 1, borderColor: '#FFCDD2', overflow: 'hidden',
+      }}>
+        <View style={{
+          flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+          padding: 16, borderBottomWidth: 1, borderBottomColor: colors.border,
+        }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 15, fontWeight: '500', color: colors.text }}>
+              Flagged recipes
+            </Text>
+            <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>
+              {flagged.length === 0
+                ? 'None yet — flag bad recipes from the detail view'
+                : `${flagged.length} recipe${flagged.length === 1 ? '' : 's'} flagged for review`}
+            </Text>
+          </View>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <Pressable
+              onPress={handleView}
+              style={{
+                backgroundColor: '#FFF3E0', borderRadius: 8,
+                paddingHorizontal: 12, paddingVertical: 6,
+              }}
+            >
+              <Text style={{ fontSize: 13, color: '#E65100', fontWeight: '600' }}>View</Text>
+            </Pressable>
+            {flagged.length > 0 && (
+              <Pressable
+                onPress={handleClear}
+                style={{
+                  backgroundColor: '#FFEBEE', borderRadius: 8,
+                  paddingHorizontal: 12, paddingVertical: 6,
+                }}
+              >
+                <Text style={{ fontSize: 13, color: '#B00020', fontWeight: '600' }}>Clear</Text>
+              </Pressable>
+            )}
+          </View>
+        </View>
+        <View style={{ padding: 16 }}>
+          <Text style={{ fontSize: 12, color: colors.textMuted, lineHeight: 18 }}>
+            Open any recipe → tap the red flag icon → choose a reason.{'\n'}
+            Share this list with Claude to review and fix bad recipes.
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
 // ── Main screen ───────────────────────────────────────────────────────────────
 
 export default function Profile() {
   const { profile, setProfile } = useUserStore();
   const savedCount = useSavedStore((s) => s.savedRecipes.length);
   const [editVisible, setEditVisible] = useState(false);
+  const [pantryVisible, setPantryVisible] = useState(false);
+  const [adventureCards, setAdventureCards] = useState(true);
+  const [tasteProfile, setTasteProfile] = useState<string | null>(
+    (profile?.taste_profile as any)?.text ?? null
+  );
+  const [tasteLoading, setTasteLoading] = useState(false);
+
+  const generateTasteProfile = useCallback(async () => {
+    if (!profile?.id) return;
+    const baseUrl = process.env.EXPO_PUBLIC_API_URL;
+    if (!baseUrl) return;
+    setTasteLoading(true);
+    try {
+      const res = await fetch(`${baseUrl}/api/taste-profile`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: profile.id }),
+      });
+      if (!res.ok) return;
+      const { tasteProfile: text } = await res.json();
+      if (text) setTasteProfile(text);
+    } catch {
+      // non-critical
+    } finally {
+      setTasteLoading(false);
+    }
+  }, [profile?.id]);
+
+  // Auto-generate on first load if not already set
+  useEffect(() => {
+    if (!tasteProfile && !tasteLoading) {
+      generateTasteProfile();
+    }
+    getAdventureCardsEnabled().then(setAdventureCards).catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleSignOut() {
     Alert.alert('Sign out', 'Are you sure you want to sign out?', [
@@ -364,6 +650,44 @@ export default function Profile() {
           ))}
         </View>
 
+        {/* Taste Profile */}
+        {profile && (
+          <View style={{ paddingHorizontal: 16, marginBottom: 24 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <Text style={{ fontSize: 16, fontWeight: '600', color: colors.text }}>Your Taste Profile</Text>
+              {!tasteLoading && (
+                <Pressable onPress={generateTasteProfile} hitSlop={8}>
+                  <Text style={{ color: colors.primary, fontSize: 14, fontWeight: '500' }}>
+                    {tasteProfile ? 'Refresh' : 'Generate'}
+                  </Text>
+                </Pressable>
+              )}
+            </View>
+            <View style={{
+              backgroundColor: colors.white, borderRadius: 12,
+              borderWidth: 1, borderColor: colors.border,
+              padding: 16,
+            }}>
+              {tasteLoading ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <ActivityIndicator size="small" color={colors.primary} />
+                  <Text style={{ fontSize: 14, color: colors.textMuted }}>
+                    {tasteProfile ? 'Refreshing your taste profile...' : 'Building your taste profile...'}
+                  </Text>
+                </View>
+              ) : tasteProfile ? (
+                <Text style={{ fontSize: 14, color: colors.text, lineHeight: 22, fontStyle: 'italic' }}>
+                  "{tasteProfile}"
+                </Text>
+              ) : (
+                <Text style={{ fontSize: 14, color: colors.textMuted, lineHeight: 22 }}>
+                  Swipe on a few recipes in Discover and we'll learn your taste.
+                </Text>
+              )}
+            </View>
+          </View>
+        )}
+
         {/* Preferences */}
         {profile && (
           <View style={{ paddingHorizontal: 16, marginBottom: 24 }}>
@@ -382,6 +706,9 @@ export default function Profile() {
               )}
               {profile.eating_style && (
                 <PrefRow label="Eating Style" value={EATING_STYLE_LABELS[profile.eating_style]} />
+              )}
+              {profile.cooking_frequency && (
+                <PrefRow label="Cooking Frequency" value={FREQUENCY_LABELS[profile.cooking_frequency]} />
               )}
               {(profile.dietary_goals ?? []).length > 0 && (
                 <View style={{ padding: 16, borderBottomWidth: (profile.cuisine_preferences ?? []).length > 0 ? 1 : 0, borderBottomColor: colors.border }}>
@@ -415,6 +742,79 @@ export default function Profile() {
           </View>
         )}
 
+        {/* Pantry */}
+        {profile && (
+          <View style={{ paddingHorizontal: 16, marginBottom: 24 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <Text style={{ fontSize: 16, fontWeight: '600', color: colors.text }}>My Pantry</Text>
+              <Pressable onPress={() => setPantryVisible(true)} hitSlop={8}>
+                <Text style={{ color: colors.primary, fontSize: 14, fontWeight: '500' }}>Manage</Text>
+              </Pressable>
+            </View>
+            <Pressable
+              onPress={() => setPantryVisible(true)}
+              style={{
+                backgroundColor: colors.white, borderRadius: 12,
+                borderWidth: 1, borderColor: colors.border, padding: 16,
+                flexDirection: 'row', alignItems: 'center', gap: 12,
+              }}
+            >
+              <Ionicons name="nutrition-outline" size={22} color={colors.primary} />
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 14, fontWeight: '500', color: colors.text }}>Pantry staples</Text>
+                <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>
+                  Track ingredients you keep on hand
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+            </Pressable>
+          </View>
+        )}
+
+        {/* Discover Settings */}
+        <View style={{ paddingHorizontal: 16, marginBottom: 24 }}>
+          <Text style={{
+            fontSize: 13, fontWeight: '700', color: colors.textMuted,
+            textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 12,
+          }}>
+            Discover Settings
+          </Text>
+          <View style={{
+            backgroundColor: colors.white, borderRadius: 12,
+            borderWidth: 1, borderColor: colors.border, overflow: 'hidden',
+          }}>
+            <View style={{
+              flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+              padding: 16,
+            }}>
+              <View style={{ flex: 1, marginRight: 12 }}>
+                <Text style={{ fontSize: 15, fontWeight: '500', color: colors.text }}>
+                  Adventure cards
+                </Text>
+                <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>
+                  {adventureCards
+                    ? 'Exploring new cuisines based on your taste'
+                    : 'Showing familiar cuisines only'}
+                </Text>
+              </View>
+              <Switch
+                value={adventureCards}
+                onValueChange={(val) => {
+                  setAdventureCards(val);
+                  setAdventureCardsEnabled(val).catch(() => {});
+                }}
+                trackColor={{ false: colors.border, true: colors.primary }}
+                thumbColor="white"
+              />
+            </View>
+          </View>
+        </View>
+
+        {/* Dev Tools — only visible in dev builds */}
+        {__DEV__ && (
+          <DevToolsSection />
+        )}
+
         {/* Sign Out */}
         <View style={{ paddingHorizontal: 16 }}>
           <Pressable
@@ -437,6 +837,13 @@ export default function Profile() {
           profile={profile}
           onClose={() => setEditVisible(false)}
           onSave={handleSavePrefs}
+        />
+      )}
+      {profile && (
+        <PantryModal
+          visible={pantryVisible}
+          userId={profile.id}
+          onClose={() => setPantryVisible(false)}
         />
       )}
     </SafeAreaView>

@@ -1,6 +1,6 @@
 import {
   View, Text, FlatList, Pressable, TextInput,
-  ActivityIndicator, Alert, Modal,
+  ActivityIndicator, Alert, Modal, ScrollView,
 } from 'react-native';
 import { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -10,12 +10,12 @@ import { useRouter } from 'expo-router';
 import { colors } from '@/constants/theme';
 import { formatTime } from '@/lib/utils';
 import { fetchMealDBRecipesByCategory, fetchMealDetail, MEAL_CATEGORIES, MAIN_CUISINES } from '@/lib/mealdb';
-import { setRecipeLiked, updateRecipeDetail, upsertRecipeByExternalId, logInteraction } from '@/lib/api';
+import { setRecipeLiked, updateRecipeDetail, upsertRecipeByExternalId, logInteraction, getMealPlanForWeek, saveMealPlan, getRecipesBySupabaseIds } from '@/lib/api';
 import { useSavedStore } from '@/stores/savedStore';
 import { useGroceryStore } from '@/stores/groceryStore';
 import { useCollectionsStore, FAVORITES_ID } from '@/stores/collectionsStore';
 import { useUserStore } from '@/stores/userStore';
-import type { Recipe } from '@/types';
+import type { Recipe, MealType, MealSlot } from '@/types';
 import type { RecipeCollection } from '@/stores/collectionsStore';
 import { RecipeDetailModal } from '@/components/RecipeDetailModal';
 import type { MealDetail } from '@/lib/mealdb';
@@ -378,6 +378,281 @@ function TextInputModal({
   );
 }
 
+// ── Meal Plan View ────────────────────────────────────────────────────────────
+
+const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const MEAL_TYPES: MealType[] = ['breakfast', 'lunch', 'dinner'];
+const MEAL_LABELS: Record<MealType, string> = { breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner' };
+
+function getMonday(offset = 0): Date {
+  const now = new Date();
+  const day = now.getDay();
+  const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+  const monday = new Date(now);
+  monday.setDate(diff + offset * 7);
+  monday.setHours(0, 0, 0, 0);
+  return monday;
+}
+
+function formatWeekRange(start: Date): string {
+  const end = new Date(start);
+  end.setDate(end.getDate() + 6);
+  const opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
+  return `${start.toLocaleDateString('en-US', opts)} – ${end.toLocaleDateString('en-US', opts)}`;
+}
+
+function toDateStr(d: Date): string {
+  return d.toISOString().split('T')[0];
+}
+
+function MealPlanView({ savedRecipes, onAddToGrocery }: {
+  savedRecipes: Recipe[];
+  onAddToGrocery: (recipes: Recipe[]) => void;
+}) {
+  const userId = useUserStore((s) => s.profile?.id);
+  const [weekOffset, setWeekOffset] = useState(0);
+  const [slots, setSlots] = useState<MealSlot[]>([]);
+  const [planId, setPlanId] = useState<string | undefined>();
+  const [slotRecipes, setSlotRecipes] = useState<Record<string, Recipe>>({});
+  const [loading, setLoading] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState<{ day: number; mealType: MealType } | null>(null);
+
+  const monday = getMonday(weekOffset);
+  const weekStart = toDateStr(monday);
+
+  // Load plan for current week — cancelled flag prevents stale responses from overwriting
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+    setLoading(true);
+    getMealPlanForWeek(userId, weekStart)
+      .then(async (plan) => {
+        if (cancelled) return;
+        const loadedSlots = (plan?.slots ?? []) as MealSlot[];
+        setSlots(loadedSlots);
+        setPlanId(plan?.id);
+        // Hydrate recipe details for display
+        const ids = [...new Set(loadedSlots.map((s) => s.recipe_id).filter(Boolean))];
+        if (ids.length > 0) {
+          const recipes = await getRecipesBySupabaseIds(ids);
+          if (cancelled) return;
+          const map: Record<string, Recipe> = {};
+          recipes.forEach((r) => { if (r.supabase_id) map[r.supabase_id] = r; });
+          setSlotRecipes(map);
+        } else {
+          setSlotRecipes({});
+        }
+      })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [userId, weekStart]);
+
+  function getSlot(day: number, mealType: MealType): MealSlot | undefined {
+    return slots.find((s) => s.day === day && s.meal_type === mealType);
+  }
+
+  async function handleAssign(recipe: Recipe) {
+    if (!pickerOpen || !userId) return;
+    const recipeId = recipe.supabase_id ?? recipe.id;
+    const newSlot: MealSlot = {
+      day: pickerOpen.day,
+      meal_type: pickerOpen.mealType,
+      recipe_id: recipeId,
+      servings_multiplier: 1,
+    };
+    const updated = [...slots.filter((s) => !(s.day === newSlot.day && s.meal_type === newSlot.meal_type)), newSlot];
+    setSlots(updated);
+    setSlotRecipes((prev) => ({ ...prev, [recipeId]: recipe }));
+    setPickerOpen(null);
+    // Persist
+    const saved = await saveMealPlan(userId, weekStart, updated, planId).catch(() => null);
+    if (saved) setPlanId(saved.id);
+  }
+
+  async function handleRemove(day: number, mealType: MealType) {
+    if (!userId) return;
+    const updated = slots.filter((s) => !(s.day === day && s.meal_type === mealType));
+    setSlots(updated);
+    saveMealPlan(userId, weekStart, updated, planId).catch(() => {});
+  }
+
+  function handleAddAllToGrocery() {
+    const seenIds = new Set<string>();
+    const recipes = slots
+      .map((s) => slotRecipes[s.recipe_id])
+      .filter((r): r is Recipe => {
+        if (!r) return false;
+        const id = r.supabase_id ?? r.id;
+        if (seenIds.has(id)) return false;
+        seenIds.add(id);
+        return true;
+      });
+    if (recipes.length === 0) return;
+    onAddToGrocery(recipes);
+    Alert.alert('Added to grocery list', `${recipes.length} meal${recipes.length !== 1 ? 's' : ''} added.`);
+  }
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 }}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={{ color: colors.textMuted, fontSize: 15 }}>Loading meal plan...</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={{ flex: 1 }}>
+      {/* Week header */}
+      <View style={{
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+        paddingHorizontal: 16, paddingVertical: 12,
+      }}>
+        <Pressable onPress={() => setWeekOffset((w) => w - 1)} hitSlop={8}>
+          <Ionicons name="chevron-back" size={22} color={colors.primary} />
+        </Pressable>
+        <View style={{ alignItems: 'center' }}>
+          <Text style={{ fontSize: 15, fontWeight: '600', color: colors.text }}>
+            {formatWeekRange(monday)}
+          </Text>
+          {weekOffset !== 0 && (
+            <Pressable onPress={() => setWeekOffset(0)}>
+              <Text style={{ fontSize: 12, color: colors.primary, marginTop: 2 }}>This week</Text>
+            </Pressable>
+          )}
+        </View>
+        <Pressable onPress={() => setWeekOffset((w) => w + 1)} hitSlop={8}>
+          <Ionicons name="chevron-forward" size={22} color={colors.primary} />
+        </Pressable>
+      </View>
+
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}>
+        {DAY_NAMES.map((dayName, dayIndex) => (
+          <View key={dayIndex} style={{ marginBottom: 16 }}>
+            <Text style={{ fontSize: 15, fontWeight: '700', color: colors.text, marginBottom: 8 }}>
+              {dayName}
+            </Text>
+            {MEAL_TYPES.map((mealType) => {
+              const slot = getSlot(dayIndex, mealType);
+              const recipe = slot ? slotRecipes[slot.recipe_id] : null;
+              return (
+                <Pressable
+                  key={mealType}
+                  onPress={() => {
+                    if (recipe) return; // tap to view later
+                    setPickerOpen({ day: dayIndex, mealType });
+                  }}
+                  onLongPress={() => { if (slot) handleRemove(dayIndex, mealType); }}
+                  style={{
+                    flexDirection: 'row', alignItems: 'center',
+                    backgroundColor: colors.white, borderRadius: 10,
+                    borderWidth: 1, borderColor: colors.border,
+                    padding: 10, marginBottom: 6, minHeight: 52,
+                  }}
+                >
+                  <Text style={{ width: 72, fontSize: 12, color: colors.textMuted, fontWeight: '500' }}>
+                    {MEAL_LABELS[mealType]}
+                  </Text>
+                  {recipe ? (
+                    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                      {recipe.image_url && (
+                        <Image source={{ uri: recipe.image_url }} style={{ width: 36, height: 36, borderRadius: 6 }} contentFit="cover" />
+                      )}
+                      <Text style={{ flex: 1, fontSize: 14, fontWeight: '500', color: colors.text }} numberOfLines={1}>
+                        {recipe.title}
+                      </Text>
+                      <Pressable onPress={() => handleRemove(dayIndex, mealType)} hitSlop={8}>
+                        <Ionicons name="close-circle-outline" size={18} color={colors.textMuted} />
+                      </Pressable>
+                    </View>
+                  ) : (
+                    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Ionicons name="add-circle-outline" size={18} color={colors.border} />
+                      <Text style={{ fontSize: 13, color: colors.border }}>Add recipe</Text>
+                    </View>
+                  )}
+                </Pressable>
+              );
+            })}
+          </View>
+        ))}
+
+        {/* Add all to grocery */}
+        {slots.length > 0 && (
+          <Pressable
+            onPress={handleAddAllToGrocery}
+            style={{
+              backgroundColor: colors.primary, borderRadius: 12,
+              paddingVertical: 14, alignItems: 'center', marginTop: 8,
+            }}
+          >
+            <Text style={{ color: 'white', fontSize: 15, fontWeight: '600' }}>
+              Add all {slots.length} meal{slots.length !== 1 ? 's' : ''} to grocery list
+            </Text>
+          </Pressable>
+        )}
+      </ScrollView>
+
+      {/* Recipe picker modal */}
+      <Modal visible={!!pickerOpen} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setPickerOpen(null)}>
+        <View style={{ flex: 1, backgroundColor: colors.background }}>
+          <View style={{
+            flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+            paddingHorizontal: 20, paddingTop: 20, paddingBottom: 16,
+            borderBottomWidth: 1, borderBottomColor: colors.border,
+            backgroundColor: colors.white,
+          }}>
+            <Pressable onPress={() => setPickerOpen(null)} hitSlop={8}>
+              <Text style={{ color: colors.textMuted, fontSize: 16 }}>Cancel</Text>
+            </Pressable>
+            <Text style={{ fontSize: 17, fontWeight: '700', color: colors.text }}>
+              Pick a recipe
+            </Text>
+            <View style={{ width: 50 }} />
+          </View>
+          {savedRecipes.length === 0 ? (
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', gap: 8 }}>
+              <Ionicons name="bookmark-outline" size={40} color={colors.border} />
+              <Text style={{ fontSize: 15, color: colors.textMuted, textAlign: 'center' }}>
+                Save some recipes in Discover first.
+              </Text>
+            </View>
+          ) : (
+            <FlatList
+              data={savedRecipes}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={{ padding: 16 }}
+              renderItem={({ item }) => (
+                <Pressable
+                  onPress={() => handleAssign(item)}
+                  style={{
+                    flexDirection: 'row', alignItems: 'center', gap: 12,
+                    backgroundColor: colors.white, borderRadius: 12,
+                    borderWidth: 1, borderColor: colors.border,
+                    padding: 12, marginBottom: 8,
+                  }}
+                >
+                  {item.image_url && (
+                    <Image source={{ uri: item.image_url }} style={{ width: 48, height: 48, borderRadius: 8 }} contentFit="cover" />
+                  )}
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 15, fontWeight: '500', color: colors.text }} numberOfLines={1}>{item.title}</Text>
+                    <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>
+                      {item.cuisine}{item.prep_time_mins || item.cook_time_mins ? ` · ${formatTime(item.prep_time_mins, item.cook_time_mins)}` : ''}
+                    </Text>
+                  </View>
+                  <Ionicons name="add-circle" size={24} color={colors.primary} />
+                </Pressable>
+              )}
+            />
+          )}
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
 // ── Main screen ────────────────────────────────────────────────────────────────
 
 export default function Recipes() {
@@ -385,7 +660,7 @@ export default function Recipes() {
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
-  const [showSaved, setShowSaved] = useState(true);
+  const [tab, setTab] = useState<'saved' | 'all' | 'plan'>('saved');
   const [editMode, setEditMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [addingToList, setAddingToList] = useState<string | null>(null);
@@ -431,7 +706,7 @@ export default function Recipes() {
     setSelectedIds(new Set());
     setActiveCollectionId('all');
     setActiveFilters(new Set());
-  }, [showSaved]);
+  }, [tab]);
 
   // Open detail modal — serves from Supabase ingredients if already stored,
   // otherwise fetches from TheMealDB and persists for future opens.
@@ -463,7 +738,7 @@ export default function Recipes() {
       })
       .catch(() => {})
       .finally(() => setDetailLoading(false));
-  }, []);
+  }, [profile]);
 
   // Toggle a single filter in/out of the active set
   const toggleFilter = useCallback((f: string) => {
@@ -510,7 +785,7 @@ export default function Recipes() {
   }, [selectedRecipes, addFromDetail, removeRecipeFromList, router, profile]);
 
   const handleSaveToggle = useCallback((recipe: Recipe) => {
-    if (isSaved(recipe.id)) removeRecipe(recipe.id, profile?.id);
+    if (isSaved(recipe.id)) removeRecipe(recipe, profile?.id);
     else addRecipe(recipe, profile?.id);
   }, [isSaved, removeRecipe, addRecipe, profile]);
 
@@ -532,10 +807,10 @@ export default function Recipes() {
 
   // Long press on a recipe card — enter edit mode and select it
   const handleLongPress = useCallback((recipe: Recipe) => {
-    if (!showSaved) return; // edit mode only in Saved tab
+    if (tab !== 'saved') return; // edit mode only in Saved tab
     setEditMode(true);
     setSelectedIds(new Set([recipe.id]));
-  }, [showSaved]);
+  }, [tab]);
 
   const handleBatchDelete = () => {
     const count = selectedIds.size;
@@ -544,7 +819,10 @@ export default function Recipes() {
       {
         text: 'Remove', style: 'destructive',
         onPress: () => {
-          selectedIds.forEach((id) => removeRecipe(id, profile?.id));
+          selectedIds.forEach((id) => {
+            const recipe = savedRecipes.find((r) => r.id === id);
+            if (recipe) removeRecipe(recipe, profile?.id);
+          });
           setSelectedIds(new Set());
           setEditMode(false);
         },
@@ -570,6 +848,7 @@ export default function Recipes() {
   };
 
   // Derive display data
+  const showSaved = tab === 'saved';
   const baseData = showSaved ? savedRecipes : allRecipes;
   const collectionFiltered = (!showSaved || activeCollectionId === 'all')
     ? baseData
@@ -619,7 +898,7 @@ export default function Recipes() {
         onViewDetail={() => handleViewDetail(item)}
       />
     );
-  }, [showSaved, isSaved, favoriteIds, selectedRecipes, editMode, selectedIds,
+  }, [tab, isSaved, favoriteIds, selectedRecipes, editMode, selectedIds,
       handleSaveToggle, handleFavoriteToggle, handleAddToList, toggleSelect, handleLongPress, handleViewDetail]);
 
   return (
@@ -637,21 +916,27 @@ export default function Recipes() {
               </Pressable>
             )}
             <View style={{ flexDirection: 'row', backgroundColor: colors.border, borderRadius: 20, padding: 3 }}>
-              <Pressable onPress={() => setShowSaved(false)}
-                style={{ paddingHorizontal: 14, paddingVertical: 6, borderRadius: 17, backgroundColor: !showSaved ? colors.primary : 'transparent' }}>
-                <Text style={{ color: !showSaved ? 'white' : colors.textMuted, fontSize: 13, fontWeight: '600' }}>All</Text>
+              <Pressable onPress={() => setTab('all')}
+                style={{ paddingHorizontal: 14, paddingVertical: 6, borderRadius: 17, backgroundColor: tab === 'all' ? colors.primary : 'transparent' }}>
+                <Text style={{ color: tab === 'all' ? 'white' : colors.textMuted, fontSize: 13, fontWeight: '600' }}>All</Text>
               </Pressable>
-              <Pressable onPress={() => setShowSaved(true)}
-                style={{ paddingHorizontal: 14, paddingVertical: 6, borderRadius: 17, backgroundColor: showSaved ? colors.primary : 'transparent', flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                <Ionicons name="bookmark" size={12} color={showSaved ? 'white' : colors.textMuted} />
-                <Text style={{ color: showSaved ? 'white' : colors.textMuted, fontSize: 13, fontWeight: '600' }}>
+              <Pressable onPress={() => setTab('saved')}
+                style={{ paddingHorizontal: 14, paddingVertical: 6, borderRadius: 17, backgroundColor: tab === 'saved' ? colors.primary : 'transparent', flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <Ionicons name="bookmark" size={12} color={tab === 'saved' ? 'white' : colors.textMuted} />
+                <Text style={{ color: tab === 'saved' ? 'white' : colors.textMuted, fontSize: 13, fontWeight: '600' }}>
                   Saved {savedRecipes.length > 0 ? `(${savedRecipes.length})` : ''}
                 </Text>
+              </Pressable>
+              <Pressable onPress={() => setTab('plan')}
+                style={{ paddingHorizontal: 14, paddingVertical: 6, borderRadius: 17, backgroundColor: tab === 'plan' ? colors.primary : 'transparent', flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <Ionicons name="calendar-outline" size={12} color={tab === 'plan' ? 'white' : colors.textMuted} />
+                <Text style={{ color: tab === 'plan' ? 'white' : colors.textMuted, fontSize: 13, fontWeight: '600' }}>Plan</Text>
               </Pressable>
             </View>
           </View>
         </View>
 
+        {tab !== 'plan' && <>
         {/* Search + filter button row — filter button opens a dropdown */}
         <View style={{ zIndex: 20 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
@@ -829,10 +1114,24 @@ export default function Recipes() {
             </View>
           </View>
         )}
+        </>}
       </View>
 
+      {/* Meal Plan tab */}
+      {tab === 'plan' && (
+        <MealPlanView
+          savedRecipes={savedRecipes}
+          onAddToGrocery={(recipes) => {
+            for (const recipe of recipes) {
+              const ingredients = (recipe.ingredients ?? []).map((i) => ({ name: i.name, measure: i.quantity ?? '' }));
+              if (ingredients.length > 0) addFromDetail(recipe, ingredients);
+            }
+          }}
+        />
+      )}
+
       {/* Grid */}
-      {isLoading && !showSaved ? (
+      {tab !== 'plan' && (isLoading && !showSaved ? (
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 }}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={{ color: colors.textMuted, fontSize: 15 }}>Loading recipes...</Text>
@@ -860,7 +1159,7 @@ export default function Recipes() {
             </View>
           }
         />
-      )}
+      ))}
 
       {/* Edit mode batch action bar */}
       {editMode && selectedIds.size > 0 && (
@@ -1066,7 +1365,7 @@ export default function Recipes() {
         onClose={() => setDetailRecipe(null)}
         onSaveToggle={() => {
           if (!detailRecipe) return;
-          if (isSaved(detailRecipe.id)) removeRecipe(detailRecipe.id, profile?.id);
+          if (isSaved(detailRecipe.id)) removeRecipe(detailRecipe, profile?.id);
           else addRecipe(detailRecipe, profile?.id);
         }}
         onAddToCart={() => {

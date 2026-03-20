@@ -10,7 +10,7 @@ import {
 interface SavedStore {
   savedRecipes: Recipe[];
   addRecipe: (recipe: Recipe, userId?: string) => void;
-  removeRecipe: (id: string, userId?: string) => void;
+  removeRecipe: (recipe: Recipe, userId?: string) => void;
   isSaved: (id: string) => boolean;
   loadSavedRecipes: (userId: string) => Promise<void>;
 }
@@ -33,12 +33,12 @@ export const useSavedStore = create<SavedStore>((set, get) => ({
     }
   },
 
-  removeRecipe: (id, userId) => {
+  removeRecipe: (recipe, userId) => {
     set((state) => ({
-      savedRecipes: state.savedRecipes.filter((r) => r.id !== id),
+      savedRecipes: state.savedRecipes.filter((r) => r.id !== recipe.id),
     }));
     if (userId) {
-      apiUnsaveRecipe(userId, id).catch(console.error);
+      apiUnsaveRecipe(userId, recipe.id, recipe.supabase_id).catch(console.error);
     }
   },
 

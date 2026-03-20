@@ -6,6 +6,7 @@ import {
   Animated,
   PanResponder,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { useRef, useState, useEffect } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -14,7 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/theme';
 import { formatTime, formatCost, getTimeOfDay } from '@/lib/utils';
 import { fetchMealDetail, type MealDetail } from '@/lib/mealdb';
-import { logSwipe, upsertRecipeByExternalId, setRecipeLiked, fetchMacros, estimateMacrosLocally, fetchDiscoverRecipes, updateRecipeDetail, updateRecipeMacros, logInteraction } from '@/lib/api';
+import { logSwipe, upsertRecipeByExternalId, setRecipeLiked, fetchMacros, estimateMacrosLocally, fetchScoredDeck, updateRecipeDetail, updateRecipeMacros, logInteraction, recordSessionSwipe, recordAdventureCardLeftSwipe, clearSessionState, getCookedRecipeIds, rateRecipe, flagRecipe } from '@/lib/api';
 import { RecipeDetailModal } from '@/components/RecipeDetailModal';
 import { HeadlineMacroPill } from '@/components/ui/MacroRow';
 import { MiseLogo } from '@/components/ui/MiseLogo';
@@ -37,6 +38,7 @@ function RecipeSwipeCard({
   entryX,
   dietaryGoals,
   macros,
+  isCooked,
 }: {
   recipe: Recipe;
   // onSwipe fires immediately at threshold — parent receives position to own the fly-off spring
@@ -48,6 +50,7 @@ function RecipeSwipeCard({
   entryX?: number; // if set, card springs in from this x offset on mount (undo animation)
   dietaryGoals?: string[];
   macros?: Macros | null;
+  isCooked?: boolean;
 }) {
   const position = useRef(new Animated.ValueXY()).current;
 
@@ -169,6 +172,19 @@ function RecipeSwipeCard({
         priority="high"
       />
 
+      {/* Previously cooked indicator — post-cook check-in prompt */}
+      {isCooked && (
+        <View style={{
+          position: 'absolute', top: 12, left: 12,
+          backgroundColor: 'rgba(46, 125, 50, 0.9)',
+          borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5,
+          flexDirection: 'row', alignItems: 'center', gap: 4,
+        }}>
+          <Ionicons name="checkmark-circle" size={13} color="white" />
+          <Text style={{ color: 'white', fontSize: 11, fontWeight: '600' }}>Made before · Rate it?</Text>
+        </View>
+      )}
+
       {/* SAVE overlay */}
       <Animated.View style={{
         position: 'absolute', top: 0, left: 0, right: 0, height: '62%',
@@ -196,13 +212,17 @@ function RecipeSwipeCard({
           <Text style={{ fontSize: 19, fontWeight: '700', color: colors.text, flex: 1, lineHeight: 24 }} numberOfLines={2}>
             {recipe.title}
           </Text>
-          {recipe.badge !== 'none' && (
+          {recipe.isAdventure ? (
+            <View style={{ backgroundColor: '#FFF8E1', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, marginLeft: 8, marginTop: 2 }}>
+              <Text style={{ color: '#F57F17', fontSize: 11, fontWeight: '600' }}>✦ New for you</Text>
+            </View>
+          ) : recipe.badge !== 'none' ? (
             <View style={{ backgroundColor: colors.primaryLight, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, marginLeft: 8, marginTop: 2 }}>
               <Text style={{ color: colors.primary, fontSize: 11, fontWeight: '600' }}>
                 {recipe.badge === 'staff_pick' ? 'Staff Pick' : 'Fan Fave'}
               </Text>
             </View>
-          )}
+          ) : null}
         </View>
 
         {/* Blurb */}
@@ -284,7 +304,9 @@ export default function Discover() {
   const { addFromDetail, selectedRecipes } = useGroceryStore();
   const userId = useUserStore((s) => s.profile?.id);
   const sessionNumber = useUserStore((s) => s.sessionNumber);
+  const profile = useUserStore((s) => s.profile ?? null);
   const dietaryGoals = useUserStore((s) => s.profile?.dietary_goals ?? EMPTY_GOALS);
+  const savedRecipes = useSavedStore((s) => s.savedRecipes);
 
   // Single Animated.Value tracking the top card's drag X.
   // Background cards interpolate from this — fully decoupled from the top
@@ -314,12 +336,14 @@ export default function Discover() {
     })
   ).current;
 
-  // Re-fetch when dietary goals change — cache key includes goals so a new filtered
-  // deck is built automatically. setCurrentIndex(0) resets position on new deck.
+  // Re-fetch when userId, mode, or dietary goals change.
+  // Scores locally via weighted function — no API call, runs on-device.
   useEffect(() => {
     setIsLoading(true);
     setCurrentIndex(0);
-    fetchDiscoverRecipes(dietaryGoals)
+    clearSessionState();
+    const savedExternalIds = new Set(savedRecipes.map((r) => r.id));
+    fetchScoredDeck(userId, dietaryGoals, profile, savedExternalIds)
       .then((loaded) => {
         // Pre-populate macro cache from Supabase data so pills show instantly
         // for recipes that already have macros stored — no API call needed.
@@ -332,7 +356,11 @@ export default function Discover() {
         setRecipes(loaded);
       })
       .finally(() => setIsLoading(false));
-  }, [dietaryGoals]); // eslint-disable-line react-hooks/exhaustive-deps
+    // Load previously-cooked IDs for cross-session "Made before" banner
+    if (userId) {
+      getCookedRecipeIds(userId).then(setPrevCookedIds).catch(() => {});
+    }
+  }, [userId, mode, dietaryGoals]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // When top card changes, update detail from cache (detail has no local estimator).
   useEffect(() => {
@@ -414,13 +442,24 @@ export default function Discover() {
     return () => { cancelled = true; };
   }, [currentIndex, recipes]);
 
-  // Fire-and-forget: upsert recipe to get Supabase UUID then log the swipe.
+  // Resolves the Supabase UUID for a recipe — uses supabase_id directly if present
+  // (AI-generated and recommended recipes already have it), otherwise upserts via external_id.
+  function resolveSupabaseId(recipe: Recipe): Promise<string> {
+    if (recipe.supabase_id) return Promise.resolve(recipe.supabase_id);
+    return upsertRecipeByExternalId(recipe);
+  }
+
+  // Fire-and-forget: resolve Supabase UUID then log the swipe.
   // Never blocks the animation or the UI — errors are silently swallowed.
   function logSwipeBackground(recipe: Recipe, direction: 'left' | 'right', currentMode: AppMode) {
     if (!userId) return;
-    upsertRecipeByExternalId(recipe)
-      .then((supabaseId) =>
-        logSwipe({
+    console.log(`[swipe] ${direction === 'right' ? '✓' : '✗'} "${recipe.title}" (${recipe.cuisine ?? 'unknown'})`);
+    // Adventure card left-swipe → pause adventure cards for next 10 swipes
+    if (recipe.isAdventure && direction === 'left') recordAdventureCardLeftSwipe();
+    resolveSupabaseId(recipe)
+      .then((supabaseId) => {
+        recordSessionSwipe(supabaseId, direction);
+        return logSwipe({
           user_id: userId,
           recipe_id: supabaseId,
           direction,
@@ -428,22 +467,21 @@ export default function Discover() {
           time_of_day: getTimeOfDay(),
           day_of_week: new Date().getDay(),
           session_number: sessionNumber,
-        })
-      )
+        });
+      })
       .catch(() => {}); // swipe logging is non-critical
   }
 
   function handleSwipe(direction: 'left' | 'right', cardPosition: Animated.ValueXY) {
     const recipe = recipes[currentIndexRef.current];
-    if (direction === 'right' && recipe) addRecipe(recipe, userId);
-    if (recipe) {
-      setLastSwipe({ recipe, direction });
-      logSwipeBackground(recipe, direction, mode);
-    }
+    if (!recipe) return;
+    if (direction === 'right') addRecipe(recipe, userId);
+    setLastSwipe({ recipe, direction });
+    logSwipeBackground(recipe, direction, mode);
 
     // Keep the exiting card rendered as an overlay so its fly-off animation
     // plays while the new top card is already fully interactive.
-    setExitCard({ recipe: recipe!, detail: detailCache.current.get(recipe!.id), position: cardPosition });
+    setExitCard({ recipe, detail: detailCache.current.get(recipe.id), position: cardPosition });
 
     // Increment immediately — new top card's PanResponder is active right now.
     setCurrentIndex((prev) => prev + 1);
@@ -461,7 +499,7 @@ export default function Discover() {
 
   function handleUndo() {
     if (!lastSwipe || currentIndexRef.current === 0) return;
-    if (lastSwipe.direction === 'right') removeRecipe(lastSwipe.recipe.id, userId);
+    if (lastSwipe.direction === 'right') removeRecipe(lastSwipe.recipe, userId);
     // Card springs in from the direction it was swiped out
     undoEntryXRef.current = lastSwipe.direction === 'right' ? SCREEN_WIDTH * 1.5 : -SCREEN_WIDTH * 1.5;
     setCurrentIndex((prev) => prev - 1);
@@ -485,7 +523,7 @@ export default function Discover() {
     addFromDetail(recipe, detail?.ingredients ?? []);
     // Mark liked = true + log grocery_add interaction — cart add is the strongest positive signal
     if (userId) {
-      upsertRecipeByExternalId(recipe)
+      resolveSupabaseId(recipe)
         .then((supabaseId) => {
           setRecipeLiked(userId, recipe.id, true).catch(() => {});
           logInteraction(userId, supabaseId, 'grocery_add', sessionNumber).catch(() => {});
@@ -511,12 +549,15 @@ export default function Discover() {
     setShowDetail(true);
     // Log view — repeated views of the same recipe = strong interest signal
     if (userId) {
-      upsertRecipeByExternalId(recipe)
+      resolveSupabaseId(recipe)
         .then((supabaseId) => logInteraction(userId, supabaseId, 'view', sessionNumber))
         .catch(() => {});
     }
   }
 
+  const [cookedRecipeIds, setCookedRecipeIds] = useState<Set<string>>(new Set());
+  // Supabase-backed cooked IDs — persists across sessions, enables "Made before" banner
+  const [prevCookedIds, setPrevCookedIds] = useState<Set<string>>(new Set());
   const isSaved = useSavedStore((s) => s.isSaved);
 
   const visibleCards = recipes.slice(currentIndex, currentIndex + 3);
@@ -637,6 +678,7 @@ export default function Discover() {
                       entryX={pendingEntryX ?? undefined}
                       dietaryGoals={dietaryGoals}
                       macros={topMacros}
+                      isCooked={recipe.supabase_id ? (prevCookedIds.has(recipe.supabase_id) || cookedRecipeIds.has(recipe.supabase_id)) : false}
                     />
                   </Animated.View>
                 );
@@ -750,6 +792,36 @@ export default function Discover() {
             <Ionicons name="arrow-undo" size={19} color={lastSwipe ? colors.textMuted : colors.border} />
           </Pressable>
 
+          {/* Flag — dev only */}
+          {__DEV__ && topRecipe && (
+            <Pressable
+              onPress={() => {
+                const reasons = ['Wrong ingredients', 'Bad macro data', 'Incorrect cuisine', 'Duplicate recipe', 'Inappropriate content', 'Other'];
+                Alert.alert(
+                  'Flag Recipe',
+                  `"${topRecipe.title}"\n\nWhat's wrong?`,
+                  [
+                    ...reasons.map((r) => ({
+                      text: r,
+                      onPress: () => {
+                        flagRecipe(topRecipe, r);
+                        Alert.alert('Flagged', `"${topRecipe.title}" flagged for review.`);
+                      },
+                    })),
+                    { text: 'Cancel', style: 'cancel' },
+                  ]
+                );
+              }}
+              style={{
+                width: 44, height: 44, borderRadius: 22,
+                backgroundColor: 'rgba(180,0,0,0.1)', borderWidth: 1.5, borderColor: '#B00020',
+                alignItems: 'center', justifyContent: 'center',
+              }}
+            >
+              <Ionicons name="flag-outline" size={19} color="#B00020" />
+            </Pressable>
+          )}
+
           {/* Add to Grocery List — auto-swipes card right on tap */}
           <Pressable
             onPress={handleAddToCart}
@@ -792,16 +864,30 @@ export default function Discover() {
             detail={topCachedDetail}
             isSaved={topRecipe ? isSaved(topRecipe.id) : false}
             isInCart={topRecipe ? selectedRecipes.some((r) => r.id === topRecipe.id) : false}
+            isCooked={topRecipe?.supabase_id ? (prevCookedIds.has(topRecipe.supabase_id) || cookedRecipeIds.has(topRecipe.supabase_id)) : false}
             onClose={() => setShowDetail(false)}
             onSaveToggle={() => {
               if (!topRecipe) return;
-              if (isSaved(topRecipe.id)) removeRecipe(topRecipe.id, userId);
+              if (isSaved(topRecipe.id)) removeRecipe(topRecipe, userId);
               else addRecipe(topRecipe, userId);
             }}
             onAddToCart={() => {
               if (!topRecipe) return;
               handleAddToCart();
               setShowDetail(false);
+            }}
+            onMarkCooked={() => {
+              if (!topRecipe || !userId) return;
+              if (topRecipe.supabase_id) setCookedRecipeIds((prev) => new Set([...prev, topRecipe.supabase_id!]));
+              resolveSupabaseId(topRecipe)
+                .then((supabaseId) => logInteraction(userId, supabaseId, 'cooked', sessionNumber))
+                .catch(() => {});
+            }}
+            onRateRecipe={(rating) => {
+              if (!topRecipe || !userId) return;
+              resolveSupabaseId(topRecipe)
+                .then((supabaseId) => rateRecipe(userId, supabaseId, rating))
+                .catch(() => {});
             }}
           />
         );
