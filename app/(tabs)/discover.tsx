@@ -474,15 +474,14 @@ export default function Discover() {
 
   function handleSwipe(direction: 'left' | 'right', cardPosition: Animated.ValueXY) {
     const recipe = recipes[currentIndexRef.current];
-    if (direction === 'right' && recipe) addRecipe(recipe, userId);
-    if (recipe) {
-      setLastSwipe({ recipe, direction });
-      logSwipeBackground(recipe, direction, mode);
-    }
+    if (!recipe) return;
+    if (direction === 'right') addRecipe(recipe, userId);
+    setLastSwipe({ recipe, direction });
+    logSwipeBackground(recipe, direction, mode);
 
     // Keep the exiting card rendered as an overlay so its fly-off animation
     // plays while the new top card is already fully interactive.
-    setExitCard({ recipe: recipe!, detail: detailCache.current.get(recipe!.id), position: cardPosition });
+    setExitCard({ recipe, detail: detailCache.current.get(recipe.id), position: cardPosition });
 
     // Increment immediately — new top card's PanResponder is active right now.
     setCurrentIndex((prev) => prev + 1);
@@ -679,7 +678,7 @@ export default function Discover() {
                       entryX={pendingEntryX ?? undefined}
                       dietaryGoals={dietaryGoals}
                       macros={topMacros}
-                      isCooked={recipe.supabase_id ? prevCookedIds.has(recipe.supabase_id) : false}
+                      isCooked={recipe.supabase_id ? (prevCookedIds.has(recipe.supabase_id) || cookedRecipeIds.has(recipe.supabase_id)) : false}
                     />
                   </Animated.View>
                 );

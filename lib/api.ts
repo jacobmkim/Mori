@@ -840,6 +840,7 @@ export async function upsertRecipeByExternalId(recipe: Recipe): Promise<string> 
     .eq('external_id', recipe.id)
     .single();
   if (fetchErr) throw fetchErr;
+  if (!existing) throw new Error(`Recipe with external_id ${recipe.id} not found after upsert`);
   return existing.id;
 }
 
@@ -854,7 +855,7 @@ export async function getSavedRecipesWithDetails(userId: string): Promise<Recipe
         id, title, description, cuisine, source_type,
         ingredients, steps, prep_time_mins, cook_time_mins,
         servings, cost_per_serving, dietary_tags, image_url,
-        external_id, badge, avg_rating, save_count
+        external_id, badge, avg_rating, save_count, macros
       )
     `)
     .eq('user_id', userId);
@@ -866,6 +867,7 @@ export async function getSavedRecipesWithDetails(userId: string): Promise<Recipe
       if (!r) return null;
       return {
         id: r.external_id ?? r.id,
+        supabase_id: r.id,
         title: r.title,
         description: r.description,
         cuisine: r.cuisine,
@@ -877,6 +879,7 @@ export async function getSavedRecipesWithDetails(userId: string): Promise<Recipe
         servings: r.servings,
         cost_per_serving: r.cost_per_serving,
         dietary_tags: r.dietary_tags ?? [],
+        macros: r.macros ?? null,
         image_url: r.image_url,
         badge: r.badge,
         avg_rating: r.avg_rating,

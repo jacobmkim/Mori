@@ -432,15 +432,17 @@ function DevToolsSection() {
     getFlaggedRecipes().then(setFlagged).catch(() => {});
   }, []);
 
-  function handleView() {
-    if (flagged.length === 0) {
+  async function handleView() {
+    const latest = await getFlaggedRecipes();
+    setFlagged(latest);
+    if (latest.length === 0) {
       Alert.alert('No flagged recipes', 'Open a recipe detail and tap the red flag button to flag it.');
       return;
     }
-    const lines = flagged.map((f, i) =>
+    const lines = latest.map((f, i) =>
       `${i + 1}. ${f.title}\n   Reason: ${f.reason}\n   ID: ${f.supabase_id || f.external_id}`
     ).join('\n\n');
-    Alert.alert(`Flagged Recipes (${flagged.length})`, lines);
+    Alert.alert(`Flagged Recipes (${latest.length})`, lines);
   }
 
   function handleClear() {
