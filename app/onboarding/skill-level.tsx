@@ -2,7 +2,7 @@ import { View, Text, Pressable } from 'react-native';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { useUserStore } from '@/stores/userStore';
-import { colors } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
 import ProgressBar from '@/components/onboarding/ProgressBar';
 import type { SkillLevel } from '@/types';
 
@@ -28,6 +28,7 @@ const OPTIONS: { id: SkillLevel; label: string; description: string; icon: strin
 ];
 
 export default function SkillLevel() {
+  const colors = useTheme();
   const { setOnboardingField } = useUserStore();
   const [selected, setSelected] = useState<SkillLevel | null>(null);
 

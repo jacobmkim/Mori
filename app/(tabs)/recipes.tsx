@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { colors } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
 import { formatTime } from '@/lib/utils';
 import { fetchMealDBRecipesByCategory, fetchMealDetail, MEAL_CATEGORIES, MAIN_CUISINES } from '@/lib/mealdb';
 import { setRecipeLiked, updateRecipeDetail, upsertRecipeByExternalId, logInteraction, getMealPlanForWeek, saveMealPlan, getRecipesBySupabaseIds } from '@/lib/api';
@@ -68,6 +68,7 @@ const RecipeGridCard = memo(function RecipeGridCard({
   onLongPress: () => void;
   onViewDetail: () => void;
 }) {
+  const colors = useTheme();
   const heartActive = showSaved ? isFavorite : isSaved;
   const heartIcon = showSaved
     ? (isFavorite ? 'heart' : 'heart-outline')
@@ -194,6 +195,7 @@ function RecipeActionMenu({
   onAddToList: () => void;
   onPickCollection: () => void;
 }) {
+  const colors = useTheme();
   if (!recipe) return null;
   return (
     <Modal visible={visible} animationType="slide" transparent presentationStyle="overFullScreen">
@@ -223,6 +225,7 @@ function RecipeActionMenu({
 function MenuItem({ icon, iconColor, label, onPress }: {
   icon: string; iconColor?: string; label: string; onPress: () => void;
 }) {
+  const colors = useTheme();
   return (
     <Pressable onPress={onPress} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14, gap: 14 }}>
       <Ionicons name={icon as any} size={22} color={iconColor ?? colors.text} />
@@ -246,6 +249,7 @@ function CollectionActionMenu({
   onRename: () => void;
   onDelete: () => void;
 }) {
+  const colors = useTheme();
   if (!collection) return null;
   return (
     <Modal visible={visible} animationType="slide" transparent presentationStyle="overFullScreen">
@@ -288,6 +292,7 @@ function CollectionPickerModal({
   onToggleCollection: (collectionId: string) => void;
   onCreateNew: () => void;
 }) {
+  const colors = useTheme();
   return (
     <Modal visible={visible} animationType="slide" transparent presentationStyle="overFullScreen">
       <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }} onPress={onClose}>
@@ -343,6 +348,7 @@ function TextInputModal({
   onClose: () => void;
   onConfirm: (value: string) => void;
 }) {
+  const colors = useTheme();
   const [value, setValue] = useState(initialValue ?? '');
 
   // Sync when the modal opens with a new initialValue
@@ -409,6 +415,7 @@ function MealPlanView({ savedRecipes, onAddToGrocery }: {
   savedRecipes: Recipe[];
   onAddToGrocery: (recipes: Recipe[]) => void;
 }) {
+  const colors = useTheme();
   const userId = useUserStore((s) => s.profile?.id);
   const [weekOffset, setWeekOffset] = useState(0);
   const [slots, setSlots] = useState<MealSlot[]>([]);
@@ -656,6 +663,7 @@ function MealPlanView({ savedRecipes, onAddToGrocery }: {
 // ── Main screen ────────────────────────────────────────────────────────────────
 
 export default function Recipes() {
+  const colors = useTheme();
   const [allRecipes, setAllRecipes] = useState<Recipe[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');

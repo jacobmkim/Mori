@@ -2,7 +2,7 @@ import { View, Text, ScrollView, Pressable } from 'react-native';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { useUserStore } from '@/stores/userStore';
-import { colors } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
 import ProgressBar from '@/components/onboarding/ProgressBar';
 
 const STYLES = [
@@ -29,6 +29,7 @@ const STYLES = [
 type EatingStyleId = typeof STYLES[number]['id'];
 
 export default function EatingStyle() {
+  const colors = useTheme();
   const { setOnboardingField } = useUserStore();
   const [selected, setSelected] = useState<EatingStyleId | null>(null);
 

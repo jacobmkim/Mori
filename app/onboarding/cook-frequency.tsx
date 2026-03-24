@@ -2,7 +2,7 @@ import { View, Text, Pressable } from 'react-native';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { useUserStore } from '@/stores/userStore';
-import { colors } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
 import ProgressBar from '@/components/onboarding/ProgressBar';
 import type { CookingFrequency } from '@/types';
 
@@ -13,6 +13,7 @@ const OPTIONS: { id: CookingFrequency; label: string; subtitle: string; icon: st
 ];
 
 export default function CookFrequency() {
+  const colors = useTheme();
   const { setOnboardingField } = useUserStore();
   const [selected, setSelected] = useState<CookingFrequency | null>(null);
 

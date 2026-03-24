@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { useUserStore } from '@/stores/userStore';
-import { colors } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
 import ProgressBar from '@/components/onboarding/ProgressBar';
 
 // Common dislikes pre-populated as quick-tap chips
@@ -13,6 +13,7 @@ const COMMON_DISLIKES = [
 ];
 
 export default function IngredientDislikes() {
+  const colors = useTheme();
   const { setOnboardingField } = useUserStore();
   const [selected, setSelected] = useState<string[]>([]);
   const [inputText, setInputText] = useState('');

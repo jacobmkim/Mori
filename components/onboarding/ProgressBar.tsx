@@ -1,7 +1,7 @@
 import { View, Pressable, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { colors } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
 
 interface ProgressBarProps {
   current: number; // 1-based
@@ -9,6 +9,7 @@ interface ProgressBarProps {
 }
 
 export default function ProgressBar({ current, total }: ProgressBarProps) {
+  const colors = useTheme();
   return (
     <SafeAreaView edges={['top']} style={{ backgroundColor: colors.background }}>
       <View style={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4 }}>

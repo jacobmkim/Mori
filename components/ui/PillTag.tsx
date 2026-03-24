@@ -1,5 +1,5 @@
 import { View, Text } from 'react-native';
-import { colors } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
 
 interface PillTagProps {
   label: string;
@@ -7,6 +7,7 @@ interface PillTagProps {
 }
 
 export default function PillTag({ label, variant = 'green' }: PillTagProps) {
+  const colors = useTheme();
   const isGreen = variant === 'green';
   return (
     <View

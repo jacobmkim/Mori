@@ -1,5 +1,6 @@
 import { Pressable, Text, ActivityIndicator } from 'react-native';
-import { colors, radius } from '@/constants/theme';
+import { radius } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
 
 interface ButtonProps {
   label: string;
@@ -18,6 +19,7 @@ export default function Button({
   loading = false,
   fullWidth = true,
 }: ButtonProps) {
+  const colors = useTheme();
   const isPrimary = variant === 'primary';
   const isOutline = variant === 'outline';
 

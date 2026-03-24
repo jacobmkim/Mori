@@ -5,9 +5,10 @@ import { supabase } from '@/lib/supabase';
 import { getProfile, upsertProfile, incrementSessionCount } from '@/lib/api';
 import { useUserStore } from '@/stores/userStore';
 import { useSavedStore } from '@/stores/savedStore';
-import { colors } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
 
 export default function Index() {
+  const colors = useTheme();
   const [checking, setChecking] = useState(true);
   const [hasSession, setHasSession] = useState(false);
   const { setProfile, setSessionNumber } = useUserStore();

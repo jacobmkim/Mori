@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
-import type { Profile, Recipe, SwipeEvent, SavedRecipe, PantryItem, GroceryList, MealPlan, MealSlot, OnboardingState, Macros } from '@/types';
+import type { Profile, Recipe, SwipeEvent, SavedRecipe, PantryItem, GroceryList, MealPlan, MealSlot, OnboardingState, Macros, AppMode } from '@/types';
 
 // ─── Macro AsyncStorage cache ─────────────────────────────────────────────────
 // Persists macro data across sessions so Spoonacular is never called twice for
@@ -486,6 +486,7 @@ export async function fetchScoredDeck(
   dietaryGoals: string[],
   profile: Profile | null,
   savedExternalIds: Set<string>,
+  mode: AppMode = 'spontaneous',
 ): Promise<Recipe[]> {
   const [deck, swipes, affinityMap, interactionMap, pantryItems] = await Promise.all([
     fetchDiscoverRecipes(dietaryGoals),
@@ -529,6 +530,15 @@ export async function fetchScoredDeck(
     recipe: r,
     score: scoreRecipe(r, profile, swipeMap, savedExternalIds, affinityMap, interactionMap, pantrySet),
   }));
+
+  // Phase 2.5 — Meal Prep mode scoring boost
+  if (mode === 'meal_prep') {
+    for (const entry of scored) {
+      if (entry.recipe.meal_prep_friendly === true)  entry.score += 8;
+      if (entry.recipe.meal_prep_friendly === false) entry.score -= 10;
+    }
+  }
+
   scored.sort((a, b) => b.score - a.score);
 
   // Bug 3 fix — diversity pass (prevents monoculture for all users, stricter for variety)

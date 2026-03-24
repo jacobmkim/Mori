@@ -1,11 +1,12 @@
 import { useEffect } from 'react';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
 import { useSavedStore } from '@/stores/savedStore';
 
 export default function TabLayout() {
+  const colors = useTheme();
   const loadSavedRecipes = useSavedStore((s) => s.loadSavedRecipes);
 
   useEffect(() => {

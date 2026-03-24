@@ -9,7 +9,7 @@ import { useSavedStore } from '@/stores/savedStore';
 import { supabase } from '@/lib/supabase';
 import { upsertProfile, patchProfile, clearDiscoverCache, getPantryItems, addPantryItem, deletePantryItem, getAdventureCardsEnabled, setAdventureCardsEnabled, getFlaggedRecipes, clearFlaggedRecipes, type FlaggedRecipe } from '@/lib/api';
 import { clearRecipeCache } from '@/lib/mealdb';
-import { colors } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
 import type { Profile, PantryItem } from '@/types';
 
 // ── Label maps ────────────────────────────────────────────────────────────────
@@ -54,6 +54,7 @@ function EditPreferencesModal({
   onClose: () => void;
   onSave: (updates: Partial<Profile>) => Promise<void>;
 }) {
+  const colors = useTheme();
   const [dietaryGoals, setDietaryGoals] = useState<string[]>(profile.dietary_goals ?? []);
   const [extraPrefs, setExtraPrefs] = useState(profile.dietary_extra_preferences ?? '');
   const [cuisines, setCuisines] = useState<string[]>(
@@ -268,6 +269,7 @@ function EditPreferencesModal({
 }
 
 function PrefSection({ title, children }: { title: string; children: ReactNode }) {
+  const colors = useTheme();
   return (
     <View style={{ marginBottom: 28 }}>
       <Text style={{
@@ -282,6 +284,7 @@ function PrefSection({ title, children }: { title: string; children: ReactNode }
 }
 
 function OptionRow({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
+  const colors = useTheme();
   return (
     <Pressable onPress={onPress} style={{
       flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -298,6 +301,7 @@ function OptionRow({ label, selected, onPress }: { label: string; selected: bool
 }
 
 function PrefRow({ label, value }: { label: string; value: string }) {
+  const colors = useTheme();
   return (
     <View style={{ flexDirection: 'row', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderBottomColor: colors.border }}>
       <Text style={{ color: colors.textMuted, fontSize: 14 }}>{label}</Text>
@@ -317,6 +321,7 @@ function PantryModal({
   userId: string;
   onClose: () => void;
 }) {
+  const colors = useTheme();
   const [items, setItems] = useState<PantryItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [newItem, setNewItem] = useState('');
@@ -445,6 +450,7 @@ function PantryModal({
 // ── Dev Tools (dev builds only) ───────────────────────────────────────────────
 
 function DevToolsSection() {
+  const colors = useTheme();
   const [flagged, setFlagged] = useState<FlaggedRecipe[]>([]);
 
   useEffect(() => {
@@ -541,6 +547,7 @@ function DevToolsSection() {
 // ── Main screen ───────────────────────────────────────────────────────────────
 
 export default function Profile() {
+  const colors = useTheme();
   const { profile, setProfile } = useUserStore();
   const savedCount = useSavedStore((s) => s.savedRecipes.length);
   const [editVisible, setEditVisible] = useState(false);

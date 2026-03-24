@@ -4,7 +4,7 @@ import { useRef, useState, useEffect } from 'react';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useUserStore } from '@/stores/userStore';
-import { colors } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
 import ProgressBar from '@/components/onboarding/ProgressBar';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -46,6 +46,7 @@ function CuisineCard({
   topDragX?: Animated.Value;
   entryX?: number;
 }) {
+  const colors = useTheme();
   const position = useRef(new Animated.ValueXY()).current;
   const [isUndoEntry, setIsUndoEntry] = useState(entryX != null);
 
@@ -190,6 +191,7 @@ interface ExitCard {
 }
 
 export default function CuisinePrefs() {
+  const colors = useTheme();
   const { setOnboardingField } = useUserStore();
   const [index, setIndex] = useState(0);
   const [exitCard, setExitCard] = useState<ExitCard | null>(null);

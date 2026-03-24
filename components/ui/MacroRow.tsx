@@ -1,5 +1,5 @@
 import { View, Text } from 'react-native';
-import { colors } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
 import type { Macros } from '@/types';
 
 interface MacroRowProps {
@@ -8,6 +8,7 @@ interface MacroRowProps {
 }
 
 export function MacroRow({ macros, compact = false }: MacroRowProps) {
+  const colors = useTheme();
   if (compact) {
     // Single-line summary used in grocery tally etc.
     return (
@@ -54,6 +55,7 @@ export function HeadlineMacroPill({
   macros: Macros | null | undefined;
   dietaryGoals: string[];
 }) {
+  const colors = useTheme();
   if (!macros) return null;
 
   // Normalise — stored as snake_case ('high_protein') but check with spaces
@@ -96,6 +98,7 @@ export function HeadlineMacroPill({
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 function MacroColumn({ label, value }: { label: string; value: string }) {
+  const colors = useTheme();
   return (
     <View style={{ flex: 1, alignItems: 'center', gap: 2 }}>
       <Text style={{ fontSize: 18, fontWeight: '700', color: colors.text }}>{value}</Text>
@@ -105,6 +108,7 @@ function MacroColumn({ label, value }: { label: string; value: string }) {
 }
 
 function MacroCell({ label, value }: { label: string; value: string }) {
+  const colors = useTheme();
   return (
     <View style={{ flexDirection: 'row', gap: 3, alignItems: 'baseline' }}>
       <Text style={{ fontSize: 13, fontWeight: '600', color: colors.text }}>{value}</Text>
@@ -114,6 +118,7 @@ function MacroCell({ label, value }: { label: string; value: string }) {
 }
 
 function ColumnDivider() {
+  const colors = useTheme();
   return (
     <View style={{ width: 1, backgroundColor: colors.border, marginHorizontal: 4, borderRadius: 1 }} />
   );

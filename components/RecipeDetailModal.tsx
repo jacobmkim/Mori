@@ -4,7 +4,7 @@ import {
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useState, useEffect, useCallback } from 'react';
-import { colors } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
 import { formatTime, formatCost } from '@/lib/utils';
 import { fetchMacros, flagRecipe } from '@/lib/api';
 import { MacroRow } from '@/components/ui/MacroRow';
@@ -92,6 +92,7 @@ export function RecipeDetailModal({
   onMarkCooked,
   onRateRecipe,
 }: RecipeDetailModalProps) {
+  const colors = useTheme();
   const [baseMacros, setBaseMacros] = useState<Macros | null>(null);
   const [servings, setServings] = useState(1);
   const [userRating, setUserRating] = useState(0);

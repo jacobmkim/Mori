@@ -2,7 +2,7 @@ import { View, Text, ScrollView, Pressable, TextInput } from 'react-native';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { useUserStore } from '@/stores/userStore';
-import { colors } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
 import ProgressBar from '@/components/onboarding/ProgressBar';
 
 const GOALS = [
@@ -19,6 +19,7 @@ const GOALS = [
 ];
 
 export default function DietaryGoals() {
+  const colors = useTheme();
   const { onboarding, setOnboardingField } = useUserStore();
   const [selected, setSelected] = useState<string[]>(onboarding.dietary_goals);
   const [extraText, setExtraText] = useState<string>(onboarding.dietary_extra_preferences ?? '');

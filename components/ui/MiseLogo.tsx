@@ -1,5 +1,5 @@
 import { View, Text } from 'react-native';
-import { colors } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
 
 /**
  * Reusable Mise logo — "m[spatula]se" with the spatula replacing the "i".
@@ -15,6 +15,7 @@ export function MiseLogo({
   textColor?: string;
   showTagline?: boolean;
 }) {
+  const colors = useTheme();
   const s = size / 76; // scale factor
 
   const bladeW = Math.round(26 * s);

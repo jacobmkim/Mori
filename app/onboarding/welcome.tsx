@@ -4,9 +4,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MiseLogo } from '@/components/ui/MiseLogo';
-import { colors } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
 
 export default function Welcome() {
+  const colors = useTheme();
   return (
     <View style={{ flex: 1, backgroundColor: '#111' }}>
       {/* Hero image */}

@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { upsertProfile, getProfile } from '@/lib/api';
 import { useUserStore } from '@/stores/userStore';
 import { useSavedStore } from '@/stores/savedStore';
-import { colors } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
 import ProgressBar from '@/components/onboarding/ProgressBar';
 
 interface FormData {
@@ -15,6 +15,7 @@ interface FormData {
 }
 
 export default function Account() {
+  const colors = useTheme();
   const { onboarding, setProfile } = useUserStore();
   const loadSavedRecipes = useSavedStore((s) => s.loadSavedRecipes);
   const [loading, setLoading] = useState(false);

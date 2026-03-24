@@ -2,7 +2,7 @@ import { View, Text, ScrollView, Pressable } from 'react-native';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { useUserStore } from '@/stores/userStore';
-import { colors } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
 import { addPantryItems, upsertProfile, computeCohortKey, upsertUserCohort } from '@/lib/api';
 
 const GOAL_LABELS: Record<string, string> = {
@@ -45,6 +45,7 @@ const PANTRY_STAPLES = [
 ];
 
 export default function Payoff() {
+  const colors = useTheme();
   const { onboarding, profile } = useUserStore();
   const [selectedPantry, setSelectedPantry] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);

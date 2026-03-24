@@ -15,10 +15,11 @@ import { Image } from 'expo-image';
 import * as Clipboard from 'expo-clipboard';
 import { useState, useRef, useEffect } from 'react';
 import { useGroceryStore } from '@/stores/groceryStore';
+import { useDiscoverStore } from '@/stores/discoverStore';
 import { fetchMacros } from '@/lib/api';
 import { fetchMealDetail } from '@/lib/mealdb';
 import { MacroRow } from '@/components/ui/MacroRow';
-import { colors } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
 import type { GroceryItem, Recipe, Macros } from '@/types';
 
 // ── Category helpers ────────────────────────────────────────────────────────
@@ -74,6 +75,7 @@ function UndoBanner({ count, onUndo, onDismiss }: {
   onUndo: () => void;
   onDismiss: () => void;
 }) {
+  const colors = useTheme();
   const opacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -117,6 +119,7 @@ function MealsModal({
   onRemove: (recipe: Recipe) => void;
   onClose: () => void;
 }) {
+  const colors = useTheme();
   return (
     <Modal visible={visible} animationType="slide" transparent presentationStyle="overFullScreen">
       <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }}>
@@ -190,6 +193,8 @@ function MealsModal({
 // ── Main component ───────────────────────────────────────────────────────────
 
 export default function GroceryList() {
+  const colors = useTheme();
+  const mode = useDiscoverStore((s) => s.mode);
   const {
     list, selectedRecipes,
     toggleItem, deleteItem, clearChecked, restoreItems, removeRecipeFromList, clearAll, addCustomItem,
@@ -437,6 +442,24 @@ export default function GroceryList() {
         }}
       />
 
+      {/* Meal Prep week summary header */}
+      {mode === 'meal_prep' && selectedRecipes.length > 0 && (
+        <View style={{
+          marginHorizontal: 16, marginBottom: 8,
+          backgroundColor: colors.weekBarBg,
+          borderRadius: 10, paddingVertical: 10, paddingHorizontal: 14,
+          flexDirection: 'row', alignItems: 'center', gap: 8,
+        }}>
+          <Ionicons name="calendar-outline" size={15} color={colors.primary} />
+          <Text style={{ color: colors.primary, fontSize: 13, fontWeight: '600', flex: 1 }}>
+            Week of {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+          </Text>
+          <Text style={{ color: colors.primary, fontSize: 12 }}>
+            {selectedRecipes.length} meal{selectedRecipes.length !== 1 ? 's' : ''} · {items.length} ingredient{items.length !== 1 ? 's' : ''}
+          </Text>
+        </View>
+      )}
+
       {/* Tally header */}
       <View style={{
         flexDirection: 'row',
@@ -653,6 +676,7 @@ function GroceryRow({
   onToggle: () => void;
   onDelete: () => void;
 }) {
+  const colors = useTheme();
   // Build a readable source label for this ingredient
   const sourceLabel = (() => {
     if (item.recipe_ids.length === 0) return null;
@@ -726,6 +750,7 @@ function GroceryRow({
 }
 
 function TallyItem({ icon, value, label }: { icon: string; value: number; label: string }) {
+  const colors = useTheme();
   return (
     <View style={{ flex: 1, alignItems: 'center', gap: 2 }}>
       <Ionicons name={icon as any} size={18} color={colors.primary} />
@@ -736,6 +761,7 @@ function TallyItem({ icon, value, label }: { icon: string; value: number; label:
 }
 
 function TallyDivider() {
+  const colors = useTheme();
   return (
     <View style={{ width: 1, backgroundColor: colors.primary, opacity: 0.2, marginHorizontal: 4, borderRadius: 1 }} />
   );
