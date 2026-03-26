@@ -251,7 +251,7 @@ export function RecipeDetailModal({
           {/* Serving size adjuster */}
           <View style={{
             flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-            backgroundColor: colors.white, borderRadius: 12,
+            backgroundColor: colors.card, borderRadius: 12,
             paddingVertical: 12, paddingHorizontal: 16,
             borderWidth: 1, borderColor: colors.border,
             marginBottom: 16,
@@ -330,7 +330,7 @@ export function RecipeDetailModal({
                     onPress={() => setActiveTab(tab)}
                     style={{
                       flex: 1, paddingVertical: 10, borderRadius: 10,
-                      backgroundColor: activeTab === tab ? colors.white : 'transparent',
+                      backgroundColor: activeTab === tab ? colors.card : 'transparent',
                       alignItems: 'center',
                       shadowColor: '#000',
                       shadowOffset: { width: 0, height: 1 },
@@ -363,7 +363,7 @@ export function RecipeDetailModal({
                         style={{
                           flexDirection: 'row', alignItems: 'center',
                           paddingVertical: 10, paddingHorizontal: 14,
-                          backgroundColor: colors.white, borderRadius: 10,
+                          backgroundColor: colors.card, borderRadius: 10,
                           borderWidth: 1, borderColor: colors.border,
                         }}
                       >
@@ -437,7 +437,7 @@ export function RecipeDetailModal({
               style={{
                 flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
                 paddingVertical: 14, borderRadius: 12,
-                backgroundColor: isSaved ? colors.primary : colors.white,
+                backgroundColor: isSaved ? colors.primary : colors.card,
                 borderWidth: 1.5, borderColor: isSaved ? colors.primary : colors.border,
               }}
             >
@@ -452,7 +452,7 @@ export function RecipeDetailModal({
               style={{
                 flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
                 paddingVertical: 14, borderRadius: 12,
-                backgroundColor: isInCart ? colors.primary : colors.white,
+                backgroundColor: isInCart ? colors.primary : colors.card,
                 borderWidth: 1.5, borderColor: isInCart ? colors.primary : colors.border,
               }}
             >
@@ -470,7 +470,7 @@ export function RecipeDetailModal({
               style={{
                 flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
                 paddingVertical: 14, borderRadius: 12,
-                backgroundColor: isCooked ? '#E8F5E9' : colors.white,
+                backgroundColor: isCooked ? colors.primaryLight : colors.card,
                 borderWidth: 1.5, borderColor: isCooked ? colors.primary : colors.border,
               }}
             >
@@ -485,20 +485,20 @@ export function RecipeDetailModal({
           {isCooked && (tipsLoading || storageTips) && (
             <View style={{
               marginTop: 12, padding: 16,
-              backgroundColor: '#F0F7FF', borderRadius: 12,
-              borderWidth: 1, borderColor: '#BBDEFB',
+              backgroundColor: colors.primaryLight, borderRadius: 12,
+              borderWidth: 1, borderColor: colors.primary + '40',
             }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: tipsLoading ? 0 : 10 }}>
-                <Ionicons name="bulb-outline" size={16} color="#1976D2" />
-                <Text style={{ fontSize: 14, fontWeight: '600', color: '#1976D2' }}>Storage tips</Text>
+                <Ionicons name="bulb-outline" size={16} color={colors.primary} />
+                <Text style={{ fontSize: 14, fontWeight: '600', color: colors.primary }}>Storage tips</Text>
               </View>
               {tipsLoading ? (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 }}>
-                  <ActivityIndicator size="small" color="#1976D2" />
-                  <Text style={{ fontSize: 13, color: '#1976D2' }}>Getting tips...</Text>
+                  <ActivityIndicator size="small" color={colors.primary} />
+                  <Text style={{ fontSize: 13, color: colors.primary }}>Getting tips...</Text>
                 </View>
               ) : storageTips ? (
-                <Text style={{ fontSize: 13, color: '#0D47A1', lineHeight: 20 }}>{storageTips}</Text>
+                <Text style={{ fontSize: 13, color: colors.text, lineHeight: 20 }}>{storageTips}</Text>
               ) : null}
             </View>
           )}
@@ -507,7 +507,7 @@ export function RecipeDetailModal({
           {isCooked && onRateRecipe && (
             <View style={{
               marginTop: 12, padding: 16,
-              backgroundColor: colors.white, borderRadius: 12,
+              backgroundColor: colors.card, borderRadius: 12,
               borderWidth: 1, borderColor: colors.border,
               alignItems: 'center',
             }}>

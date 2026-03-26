@@ -155,7 +155,7 @@ function EditPreferencesModal({
                 const on = dietaryGoals.includes(id);
                 return (
                   <Pressable key={id} onPress={() => toggleGoal(id)} style={{
-                    backgroundColor: on ? colors.primaryLight : colors.white,
+                    backgroundColor: on ? colors.primaryLight : colors.card,
                     borderColor: on ? colors.primary : colors.border,
                     borderWidth: 1.5, borderRadius: 999,
                     paddingHorizontal: 14, paddingVertical: 8,
@@ -201,7 +201,7 @@ function EditPreferencesModal({
                 const on = cuisines.includes(c);
                 return (
                   <Pressable key={c} onPress={() => toggleCuisine(c)} style={{
-                    backgroundColor: on ? colors.primaryLight : colors.white,
+                    backgroundColor: on ? colors.primaryLight : colors.card,
                     borderColor: on ? colors.primary : colors.border,
                     borderWidth: 1.5, borderRadius: 999,
                     paddingHorizontal: 14, paddingVertical: 8,
@@ -289,7 +289,7 @@ function OptionRow({ label, selected, onPress }: { label: string; selected: bool
   return (
     <Pressable onPress={onPress} style={{
       flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-      backgroundColor: selected ? colors.primaryLight : colors.white,
+      backgroundColor: selected ? colors.primaryLight : colors.card,
       borderWidth: 1.5, borderColor: selected ? colors.primary : colors.border,
       borderRadius: 12, paddingVertical: 14, paddingHorizontal: 16, marginBottom: 8,
     }}>

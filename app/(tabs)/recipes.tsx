@@ -202,7 +202,7 @@ function RecipeActionMenu({
     <Modal visible={visible} animationType="slide" transparent presentationStyle="overFullScreen">
       <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }} onPress={onClose}>
         <Pressable onPress={() => {}}>
-          <View style={{ backgroundColor: colors.white, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: 36 }}>
+          <View style={{ backgroundColor: colors.card, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: 36 }}>
             <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: colors.border, alignSelf: 'center', marginTop: 12, marginBottom: 4 }} />
             <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14, gap: 12 }}>
               <Image source={{ uri: recipe.image_url ?? '' }} style={{ width: 48, height: 48, borderRadius: 8 }} contentFit="cover" />
@@ -256,7 +256,7 @@ function CollectionActionMenu({
     <Modal visible={visible} animationType="slide" transparent presentationStyle="overFullScreen">
       <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }} onPress={onClose}>
         <Pressable onPress={() => {}}>
-          <View style={{ backgroundColor: colors.white, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: 36 }}>
+          <View style={{ backgroundColor: colors.card, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: 36 }}>
             <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: colors.border, alignSelf: 'center', marginTop: 12, marginBottom: 4 }} />
             <View style={{ paddingHorizontal: 20, paddingVertical: 14 }}>
               <Text style={{ fontSize: 18, fontWeight: '700', color: colors.text }}>{collection.name}</Text>
@@ -298,7 +298,7 @@ function CollectionPickerModal({
     <Modal visible={visible} animationType="slide" transparent presentationStyle="overFullScreen">
       <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }} onPress={onClose}>
         <Pressable onPress={() => {}}>
-          <View style={{ backgroundColor: colors.white, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: 36 }}>
+          <View style={{ backgroundColor: colors.card, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: 36 }}>
             <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: colors.border, alignSelf: 'center', marginTop: 12, marginBottom: 4 }} />
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 14 }}>
               <Text style={{ fontSize: 18, fontWeight: '700', color: colors.text }}>Add to list</Text>
@@ -358,7 +358,7 @@ function TextInputModal({
   return (
     <Modal visible={visible} animationType="fade" transparent>
       <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', alignItems: 'center', padding: 24 }}>
-        <View style={{ backgroundColor: colors.white, borderRadius: 16, padding: 24, width: '100%', gap: 16 }}>
+        <View style={{ backgroundColor: colors.card, borderRadius: 16, padding: 24, width: '100%', gap: 16 }}>
           <Text style={{ fontSize: 18, fontWeight: '700', color: colors.text }}>{title}</Text>
           <TextInput
             value={value}
@@ -540,7 +540,7 @@ function MealPlanView({ savedRecipes, onAddToGrocery }: {
                   onLongPress={() => { if (slot) handleRemove(dayIndex, mealType); }}
                   style={{
                     flexDirection: 'row', alignItems: 'center',
-                    backgroundColor: colors.white, borderRadius: 10,
+                    backgroundColor: colors.card, borderRadius: 10,
                     borderWidth: 1, borderColor: colors.border,
                     padding: 10, marginBottom: 6, minHeight: 52,
                   }}
@@ -595,7 +595,7 @@ function MealPlanView({ savedRecipes, onAddToGrocery }: {
             flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
             paddingHorizontal: 20, paddingTop: 20, paddingBottom: 16,
             borderBottomWidth: 1, borderBottomColor: colors.border,
-            backgroundColor: colors.white,
+            backgroundColor: colors.card,
           }}>
             <Pressable onPress={() => setPickerOpen(null)} hitSlop={8}>
               <Text style={{ color: colors.textMuted, fontSize: 16 }}>Cancel</Text>
@@ -622,7 +622,7 @@ function MealPlanView({ savedRecipes, onAddToGrocery }: {
                   onPress={() => handleAssign(item)}
                   style={{
                     flexDirection: 'row', alignItems: 'center', gap: 12,
-                    backgroundColor: colors.white, borderRadius: 12,
+                    backgroundColor: colors.card, borderRadius: 12,
                     borderWidth: 1, borderColor: colors.border,
                     padding: 12, marginBottom: 8,
                   }}
@@ -959,7 +959,7 @@ export default function Recipes() {
               onPress={() => setShowFilterPanel((v) => !v)}
               style={{
                 width: 44, height: 44, borderRadius: 12,
-                backgroundColor: activeFilters.size > 0 ? colors.primary : colors.white,
+                backgroundColor: activeFilters.size > 0 ? colors.primary : colors.card,
                 borderWidth: 1, borderColor: activeFilters.size > 0 ? colors.primary : colors.border,
                 alignItems: 'center', justifyContent: 'center',
               }}
@@ -969,7 +969,7 @@ export default function Recipes() {
                 <View style={{
                   position: 'absolute', top: -5, right: -5,
                   width: 16, height: 16, borderRadius: 8,
-                  backgroundColor: '#fff', borderWidth: 1.5, borderColor: colors.primary,
+                  backgroundColor: colors.card, borderWidth: 1.5, borderColor: colors.primary,
                   alignItems: 'center', justifyContent: 'center',
                 }}>
                   <Text style={{ fontSize: 9, fontWeight: '800', color: colors.primary }}>{activeFilters.size}</Text>
@@ -987,7 +987,7 @@ export default function Recipes() {
               />
               <View style={{
                 position: 'absolute', top: 52, left: 0, right: 0, zIndex: 20,
-                backgroundColor: colors.white, borderRadius: 14,
+                backgroundColor: colors.card, borderRadius: 14,
                 borderWidth: 1, borderColor: colors.border, padding: 14,
                 shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
                 shadowOpacity: 0.12, shadowRadius: 14, elevation: 10,
@@ -1094,7 +1094,7 @@ export default function Recipes() {
                 style={{
                   paddingHorizontal: 10, paddingVertical: 6,
                   borderRadius: 999, borderWidth: 1, borderColor: colors.border,
-                  backgroundColor: colors.white,
+                  backgroundColor: colors.card,
                 }}
               >
                 <Text style={{ fontSize: 12, color: colors.textMuted, fontWeight: '500' }}>All lists</Text>
@@ -1164,7 +1164,7 @@ export default function Recipes() {
       {editMode && selectedIds.size > 0 && (
         <View style={{
           position: 'absolute', bottom: 0, left: 0, right: 0,
-          backgroundColor: colors.white, borderTopWidth: 1, borderTopColor: colors.border,
+          backgroundColor: colors.card, borderTopWidth: 1, borderTopColor: colors.border,
           padding: 16, flexDirection: 'row', gap: 12,
         }}>
           <Pressable onPress={handleBatchDelete}
@@ -1239,7 +1239,7 @@ export default function Recipes() {
         <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' }} onPress={() => setShowAllCollections(false)} />
         <View style={{
           position: 'absolute', bottom: 0, left: 0, right: 0,
-          backgroundColor: colors.white, borderTopLeftRadius: 20, borderTopRightRadius: 20,
+          backgroundColor: colors.card, borderTopLeftRadius: 20, borderTopRightRadius: 20,
           paddingTop: 12, paddingBottom: 40, maxHeight: '75%',
         }}>
           {/* Handle */}
@@ -1313,7 +1313,7 @@ export default function Recipes() {
               />
               <View style={{
                 position: 'absolute', bottom: 0, left: 0, right: 0,
-                backgroundColor: colors.white,
+                backgroundColor: colors.card,
                 borderTopLeftRadius: 16, borderTopRightRadius: 16,
                 paddingBottom: 32, paddingTop: 8,
               }}>

@@ -127,7 +127,7 @@ function MealsModal({
         <Pressable style={{ ...StyleSheet.absoluteFillObject }} onPress={onClose} />
 
         <View style={{
-          backgroundColor: colors.white,
+          backgroundColor: colors.card,
           borderTopLeftRadius: 20, borderTopRightRadius: 20,
           paddingBottom: 36,
           maxHeight: '70%',
@@ -309,7 +309,7 @@ export default function GroceryList() {
           {addingItem ? (
             <View style={{
               flexDirection: 'row', alignItems: 'center', gap: 8, width: '100%',
-              backgroundColor: colors.white, borderRadius: 12,
+              backgroundColor: colors.card, borderRadius: 12,
               borderWidth: 1.5, borderColor: colors.primary,
               paddingVertical: 4, paddingHorizontal: 12,
             }}>
@@ -528,7 +528,7 @@ export default function GroceryList() {
             {addingItem ? (
               <View style={{
                 flexDirection: 'row', alignItems: 'center', gap: 8,
-                backgroundColor: colors.white, borderRadius: 10,
+                backgroundColor: colors.card, borderRadius: 10,
                 borderWidth: 1.5, borderColor: colors.primary,
                 paddingVertical: 4, paddingHorizontal: 12,
               }}>
@@ -572,7 +572,7 @@ export default function GroceryList() {
                 onPress={() => setAddingItem(true)}
                 style={{
                   flexDirection: 'row', alignItems: 'center', gap: 8,
-                  backgroundColor: colors.white, borderRadius: 10,
+                  backgroundColor: colors.card, borderRadius: 10,
                   borderWidth: 1, borderColor: colors.border,
                   borderStyle: 'dashed',
                   paddingVertical: 12, paddingHorizontal: 14,
@@ -629,7 +629,7 @@ export default function GroceryList() {
       {/* Bottom action bar */}
       <View style={{
         position: 'absolute', bottom: 0, left: 0, right: 0,
-        backgroundColor: colors.white,
+        backgroundColor: colors.card,
         borderTopWidth: 1, borderTopColor: colors.border,
         padding: 16, gap: 10,
       }}>
@@ -648,7 +648,7 @@ export default function GroceryList() {
         <Pressable
           onPress={() => Alert.alert('Coming soon', 'Instacart integration ships in Phase 3. Cost estimates will also appear here once connected.')}
           style={{
-            backgroundColor: colors.white, borderRadius: 12, borderWidth: 1.5,
+            backgroundColor: colors.card, borderRadius: 12, borderWidth: 1.5,
             borderColor: colors.border, paddingVertical: 13, alignItems: 'center',
             flexDirection: 'row', justifyContent: 'center', gap: 8,
           }}
@@ -692,7 +692,7 @@ function GroceryRow({
       onPress={editMode ? undefined : onToggle}
       style={{
         flexDirection: 'row', alignItems: 'center',
-        backgroundColor: colors.white, borderRadius: 10,
+        backgroundColor: colors.card, borderRadius: 10,
         paddingVertical: 11, paddingHorizontal: 13,
         marginBottom: 6,
         borderWidth: 1,
