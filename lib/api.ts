@@ -114,6 +114,13 @@ const DECK_SEAFOOD = [
 
 const DECK_ALL_MEAT = [...DECK_LAND_MEAT, ...DECK_SEAFOOD];
 
+// Hard-excluded from Meal Prep mode
+const MEAL_PREP_SHELLFISH = [
+  'clam', 'mussel', 'oyster', 'scallop', 'lobster', 'crab', 'prawn', 'shrimp',
+];
+// Cooking methods that don't suit meal prep (title-based check)
+const MEAL_PREP_EXCLUDE_METHODS = ['steamed', 'poached', 'raw ', 'ceviche', 'tartare', 'sashimi'];
+
 // In-memory cache — survives tab switches, cleared on goal change or after 30 min.
 let deckCache: { data: Recipe[]; goalsKey: string; at: number } | null = null;
 const DECK_CACHE_TTL = 30 * 60 * 1000;
@@ -340,11 +347,39 @@ export async function setAdventureCardsEnabled(enabled: boolean): Promise<void> 
 }
 
 // ─── Session-level swipe tracking (Bug 7) ────────────────────────────────────
-// In-memory only — resets on app close. Prevents left-swiped cards resurfacing
-// within the same session when the 30-min deck cache is still active.
+// In-memory: resets on app close. Cross-session left-swipes persisted to AsyncStorage
+// with a 14-day TTL so recently-rejected recipes don't resurface immediately.
 
 const sessionLeftSwipes = new Set<string>(); // supabase_ids left-swiped this session
 const sessionShownIds = new Set<string>();   // supabase_ids already seen this session
+
+const RECENT_LEFT_SWIPES_KEY = 'mise_recent_left_swipes_v1';
+const LEFT_SWIPE_TTL_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
+
+interface PersistedLeftSwipe { id: string; at: number; }
+
+async function loadPersistedLeftSwipes(): Promise<void> {
+  try {
+    const raw = await AsyncStorage.getItem(RECENT_LEFT_SWIPES_KEY);
+    if (!raw) return;
+    const entries: PersistedLeftSwipe[] = JSON.parse(raw);
+    const cutoff = Date.now() - LEFT_SWIPE_TTL_MS;
+    for (const e of entries) {
+      if (e.at > cutoff) sessionLeftSwipes.add(e.id);
+    }
+  } catch {}
+}
+
+async function persistLeftSwipe(supabaseId: string): Promise<void> {
+  try {
+    const raw = await AsyncStorage.getItem(RECENT_LEFT_SWIPES_KEY);
+    const existing: PersistedLeftSwipe[] = raw ? JSON.parse(raw) : [];
+    const cutoff = Date.now() - LEFT_SWIPE_TTL_MS;
+    const fresh = existing.filter((e) => e.at > cutoff && e.id !== supabaseId);
+    fresh.push({ id: supabaseId, at: Date.now() });
+    await AsyncStorage.setItem(RECENT_LEFT_SWIPES_KEY, JSON.stringify(fresh));
+  } catch {}
+}
 
 // When a user left-swipes an adventure card, suppress adventure cards for the
 // next 10 regular swipes so we don't pester users who aren't interested yet.
@@ -356,8 +391,26 @@ export function recordAdventureCardLeftSwipe(): void {
 
 export function recordSessionSwipe(supabaseId: string, direction: 'left' | 'right'): void {
   sessionShownIds.add(supabaseId);
-  if (direction === 'left') sessionLeftSwipes.add(supabaseId);
+  if (direction === 'left') {
+    sessionLeftSwipes.add(supabaseId);
+    persistLeftSwipe(supabaseId); // fire-and-forget — cross-session persistence
+  }
   if (adventureCardCooldown > 0) adventureCardCooldown--;
+}
+
+// Called when the user undoes a left swipe — removes the id from the left-swipe
+// suppression list so a subsequent right swipe isn't blocked on deck re-fetch.
+export async function cancelLeftSwipe(supabaseId: string): Promise<void> {
+  sessionLeftSwipes.delete(supabaseId);
+  try {
+    const raw = await AsyncStorage.getItem(RECENT_LEFT_SWIPES_KEY);
+    if (!raw) return;
+    const entries: PersistedLeftSwipe[] = JSON.parse(raw);
+    await AsyncStorage.setItem(
+      RECENT_LEFT_SWIPES_KEY,
+      JSON.stringify(entries.filter((e) => e.id !== supabaseId))
+    );
+  } catch {}
 }
 
 export function clearSessionState(): void {
@@ -399,7 +452,7 @@ function scoreRecipe(
   const sid = recipe.supabase_id;
   if (sid && (sessionLeftSwipes.has(sid) || sessionShownIds.has(sid))) return -999;
 
-  let score = Math.random() * 0.5; // small jitter so ties never produce a static order
+  let score = Math.random() * 3; // jitter — shuffles similarly-scored recipes each session
 
   // Cohort affinity base (0.0–1.0, scaled up) — cold-start signal for new users
   const affinity = affinityMap.get(recipe.supabase_id ?? '');
@@ -450,8 +503,7 @@ function scoreRecipe(
     }
   }
 
-  // Already saved — soft penalty (user has it, show fresher options first)
-  if (savedExternalIds.has(recipe.external_id ?? recipe.id)) score -= 3;
+  // Saved recipes are hard-excluded in fetchScoredDeck before scoring reaches here.
 
   // Bug 5 — pantry match with specificity weighting (common staples count less)
   if (pantrySet.size > 0) {
@@ -488,6 +540,9 @@ export async function fetchScoredDeck(
   savedExternalIds: Set<string>,
   mode: AppMode = 'spontaneous',
 ): Promise<Recipe[]> {
+  // Load persisted left-swipes from previous sessions into the session Set
+  await loadPersistedLeftSwipes();
+
   const [deck, swipes, affinityMap, interactionMap, pantryItems] = await Promise.all([
     fetchDiscoverRecipes(dietaryGoals),
     userId ? getRecentSwipes(userId) : Promise.resolve([]),
@@ -509,9 +564,14 @@ export async function fetchScoredDeck(
     );
   });
 
+  // Exclude saved recipes — user already has them in their library
+  const afterSaved = savedExternalIds.size === 0 ? afterDislikes : afterDislikes.filter((r) =>
+    !savedExternalIds.has(r.external_id ?? r.id ?? '')
+  );
+
   // Bug 8 fix — skill level hard cap (filter before scoring, not a score penalty)
   const skillLevel = profile?.skill_level;
-  const filtered = !skillLevel ? afterDislikes : afterDislikes.filter((r) => {
+  const filtered = !skillLevel ? afterSaved : afterSaved.filter((r) => {
     const totalTime = (r.prep_time_mins ?? 0) + (r.cook_time_mins ?? 0);
     if (skillLevel === 'beginner' && totalTime > 0 && totalTime > 60) return false;
     if (skillLevel === 'home_cook' && totalTime > 0 && totalTime > 120) return false;
@@ -526,13 +586,22 @@ export async function fetchScoredDeck(
     }
   }
 
-  const scored = filtered.map((r) => ({
+  let scored = filtered.map((r) => ({
     recipe: r,
     score: scoreRecipe(r, profile, swipeMap, savedExternalIds, affinityMap, interactionMap, pantrySet),
   }));
 
-  // Phase 2.5 — Meal Prep mode scoring boost
+  // Phase 2.5 — Meal Prep mode: hard-exclude shellfish + scoring boost
   if (mode === 'meal_prep') {
+    scored = scored.filter(({ recipe }) => {
+      const ingredientNames = (recipe.ingredients ?? [])
+        .map((i: any) => (i.name ?? i).toLowerCase())
+        .join(' ');
+      if (MEAL_PREP_SHELLFISH.some((kw) => ingredientNames.includes(kw))) return false;
+      const titleLower = (recipe.title ?? '').toLowerCase();
+      if (MEAL_PREP_EXCLUDE_METHODS.some((kw) => titleLower.includes(kw))) return false;
+      return true;
+    });
     for (const entry of scored) {
       if (entry.recipe.meal_prep_friendly === true)  entry.score += 8;
       if (entry.recipe.meal_prep_friendly === false) entry.score -= 10;
@@ -554,18 +623,29 @@ export async function fetchScoredDeck(
     }
   }
 
-  // Bug 9 fix — graceful relaxation cascade. Hard filters (ingredient dislikes,
-  // dietary exclusions) are NEVER relaxed. Relaxation order:
+  // Graceful relaxation cascade. Hard filters (ingredient dislikes, dietary exclusions)
+  // are NEVER relaxed. Saved recipe exclusion is relaxed last (edge case: power user
+  // who has saved most of the 419-recipe catalogue). Relaxation order:
   //   1. Drop diversity constraint
   //   2. Drop skill level cap
-  //   3. Serve whatever passes hard filters
+  //   3. Re-include saved recipes (last resort only)
   let finalDeck = diverse;
   if (diverse.length < 10 && scored.length > diverse.length) {
     console.warn(`[fetchScoredDeck] diversity pass left only ${diverse.length} recipes — relaxing constraint`);
     finalDeck = scored;
   }
-  if (finalDeck.length < 5 && afterDislikes.length > filtered.length) {
-    console.warn(`[fetchScoredDeck] skill filter too aggressive (${filtered.length} recipes) — relaxing to ${afterDislikes.length}`);
+  if (finalDeck.length < 5 && afterSaved.length > filtered.length) {
+    console.warn(`[fetchScoredDeck] skill filter too aggressive — relaxing`);
+    const rescored = afterSaved.map((r) => ({
+      recipe: r,
+      score: scoreRecipe(r, profile, swipeMap, savedExternalIds, affinityMap, interactionMap, pantrySet),
+    }));
+    rescored.sort((a, b) => b.score - a.score);
+    finalDeck = rescored;
+  }
+  if (finalDeck.length < 5 && afterDislikes.length > afterSaved.length) {
+    // Last resort: re-include saved recipes so the deck is never empty
+    console.warn(`[fetchScoredDeck] very few unsaved recipes — re-including saved as last resort`);
     const rescored = afterDislikes.map((r) => ({
       recipe: r,
       score: scoreRecipe(r, profile, swipeMap, savedExternalIds, affinityMap, interactionMap, pantrySet),
@@ -865,7 +945,7 @@ export async function getSavedRecipesWithDetails(userId: string): Promise<Recipe
         id, title, description, cuisine, source_type,
         ingredients, steps, prep_time_mins, cook_time_mins,
         servings, cost_per_serving, dietary_tags, image_url,
-        external_id, badge, avg_rating, save_count, macros
+        external_id, badge, avg_rating, save_count, macros, meal_prep_friendly
       )
     `)
     .eq('user_id', userId);
@@ -894,6 +974,7 @@ export async function getSavedRecipesWithDetails(userId: string): Promise<Recipe
         badge: r.badge,
         avg_rating: r.avg_rating,
         save_count: r.save_count,
+        meal_prep_friendly: r.meal_prep_friendly ?? null,
       } as Recipe;
     })
     .filter(Boolean) as Recipe[];

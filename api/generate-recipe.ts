@@ -27,6 +27,7 @@ export interface GeneratedRecipe {
   cook_time_mins: number;
   servings: number;
   dietary_tags: string[];
+  meal_prep_friendly: boolean;
   estimated_macros: {
     calories: number;
     protein: number;
@@ -93,6 +94,7 @@ Respond with valid JSON only — no markdown, no explanation. Use this exact str
   "cook_time_mins": 25,
   "servings": 4,
   "dietary_tags": ["tag1", "tag2"],
+  "meal_prep_friendly": true,
   "estimated_macros": {
     "calories": 420,
     "protein": 32,
@@ -106,6 +108,7 @@ Rules:
 - 6-12 ingredients
 - 4-8 steps
 - dietary_tags from: vegan, vegetarian, pescatarian, gluten_free, dairy_free, keto, high_protein, low_carb, paleo, halal
+- meal_prep_friendly: true if the dish can be batch-cooked, stored 3-5 days in the fridge, and reheated without significant quality loss (curries, stews, grain bowls, roasted proteins, pasta bakes = true; delicate fish, dressed salads, fried foods, poached eggs, fresh pasta = false)
 - macros are per serving estimates
 - make it a real, cookable recipe a home cook would actually want to make
 - TITLE RULE: Always use the common English name. If the dish has a well-known foreign name, put the English name first and the foreign name in parentheses. Examples: "Braised Veal Shanks (Osso Buco)", "Hunter's Chicken (Pollo alla Cacciatora)", "Creamy Rice Pudding (Arroz con Leche)". Never use a foreign-language title alone.
@@ -172,6 +175,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         cook_time_mins: recipe.cook_time_mins,
         servings: recipe.servings,
         dietary_tags: recipe.dietary_tags,
+        meal_prep_friendly: recipe.meal_prep_friendly ?? false,
         macros: { ...recipe.estimated_macros, isEstimated: true },
         badge: 'none',
         avg_rating: 4.0 + Math.random() * 0.9,

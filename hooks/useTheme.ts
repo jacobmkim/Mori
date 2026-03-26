@@ -3,9 +3,14 @@ import { useDiscoverStore } from '@/stores/discoverStore';
 import { lightTheme, darkTheme, mealPrepLightTheme, mealPrepDarkTheme, type Theme } from '@/constants/theme';
 
 export function useTheme(): Theme {
-  const colorScheme = useColorScheme();
+  const systemScheme = useColorScheme();
   const mode = useDiscoverStore((s) => s.mode);
-  const isDark = colorScheme === 'dark';
+  const appearanceMode = useDiscoverStore((s) => s.appearanceMode);
+
+  const isDark =
+    appearanceMode === 'dark' ? true :
+    appearanceMode === 'light' ? false :
+    systemScheme === 'dark';
 
   if (mode === 'meal_prep' && isDark)  return mealPrepDarkTheme;
   if (mode === 'meal_prep' && !isDark) return mealPrepLightTheme;

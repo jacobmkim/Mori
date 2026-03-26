@@ -2,6 +2,10 @@ import { create } from 'zustand';
 import { getMealPlanForWeek, saveMealPlan as saveMealPlanApi } from '@/lib/api';
 import type { MealPlan, MealSlot, MealType } from '@/types';
 
+const EMPTY_PLAN: MealPlan = {
+  id: '', user_id: '', week_start_date: '', is_public: false, slots: [], created_at: '',
+};
+
 interface MealPlanStore {
   plan: MealPlan | null;
   isLoading: boolean;
@@ -26,11 +30,11 @@ export const useMealPlanStore = create<MealPlanStore>((set, get) => ({
 
   addSlot: (slot) =>
     set((state) => {
-      if (!state.plan) return state;
-      const slots = state.plan.slots.filter(
+      const base = state.plan ?? EMPTY_PLAN;
+      const slots = base.slots.filter(
         (s) => !(s.day === slot.day && s.meal_type === slot.meal_type)
       );
-      return { plan: { ...state.plan, slots: [...slots, slot] } };
+      return { plan: { ...base, slots: [...slots, slot] } };
     }),
 
   removeSlot: (day, mealType) =>

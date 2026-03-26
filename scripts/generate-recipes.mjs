@@ -25,9 +25,10 @@ const envVars = Object.fromEntries(
     .map(l => { const [k, ...v] = l.split('='); return [k.trim(), v.join('=').trim()]; })
 );
 
-const SUPABASE_URL = envVars['EXPO_PUBLIC_SUPABASE_URL'];
-const SERVICE_KEY = envVars['SUPABASE_SERVICE_ROLE_KEY'];
-const API_URL = envVars['EXPO_PUBLIC_API_URL']; // Vercel deployment URL
+const SUPABASE_URL   = envVars['EXPO_PUBLIC_SUPABASE_URL'];
+const SERVICE_KEY    = envVars['SUPABASE_SERVICE_ROLE_KEY'];
+const API_URL        = envVars['EXPO_PUBLIC_API_URL'];
+const UNSPLASH_KEY   = envVars['UNSPLASH_ACCESS_KEY'];
 
 if (!SUPABASE_URL || !SERVICE_KEY) {
   console.error('Missing EXPO_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in .env');
@@ -37,8 +38,49 @@ if (!API_URL) {
   console.error('Missing EXPO_PUBLIC_API_URL in .env — deploy to Vercel first');
   process.exit(1);
 }
+if (!UNSPLASH_KEY) {
+  console.warn('Warning: UNSPLASH_ACCESS_KEY not set — recipes will save without images.\n');
+}
 
 const sb = createClient(SUPABASE_URL, SERVICE_KEY);
+
+// ── Unsplash rate limiter ──────────────────────────────────────────────────────
+// Demo tier: 50 req/hour. We cap at 45 and pause until the window resets.
+
+const unsplashCalls = [];   // timestamps of recent calls
+const UNSPLASH_LIMIT = 45;  // stay under 50 hard limit
+const UNSPLASH_WINDOW = 60 * 60 * 1000; // 1 hour in ms
+
+async function fetchUnsplashImage(title, cuisine) {
+  if (!UNSPLASH_KEY) return null;
+
+  // Prune calls older than 1 hour
+  const now = Date.now();
+  while (unsplashCalls.length && now - unsplashCalls[0] > UNSPLASH_WINDOW) unsplashCalls.shift();
+
+  // If at limit, wait until oldest call expires
+  if (unsplashCalls.length >= UNSPLASH_LIMIT) {
+    const waitMs = UNSPLASH_WINDOW - (now - unsplashCalls[0]) + 1000;
+    const mins = Math.ceil(waitMs / 60000);
+    process.stdout.write(`  [Unsplash] Rate limit reached — waiting ${mins}m for window reset...\n`);
+    await sleep(waitMs);
+    unsplashCalls.shift();
+  }
+
+  try {
+    const query = encodeURIComponent(`${title} ${cuisine} food dish`);
+    const res = await fetch(
+      `https://api.unsplash.com/search/photos?query=${query}&per_page=1&orientation=landscape&content_filter=high`,
+      { headers: { Authorization: `Client-ID ${UNSPLASH_KEY}` } }
+    );
+    unsplashCalls.push(Date.now());
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.results?.[0]?.urls?.regular ?? null;
+  } catch {
+    return null;
+  }
+}
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
@@ -170,7 +212,18 @@ async function main() {
         const recipe = await generateOne(name, i, generatedTitles);
         generated++;
         if (recipe?.title) generatedTitles.push(recipe.title);
-        process.stdout.write(`  ✓ ${recipe?.title ?? 'untitled'}\n`);
+
+        // Fetch image and attach to the saved recipe
+        const imageUrl = await fetchUnsplashImage(recipe.title, name);
+        if (imageUrl && recipe?.title) {
+          await sb.from('recipes')
+            .update({ image_url: imageUrl })
+            .eq('title', recipe.title)
+            .eq('source_type', 'curated')
+            .is('external_id', null);
+        }
+
+        process.stdout.write(`  ✓ ${recipe?.title ?? 'untitled'}${imageUrl ? ' 📷' : ''}\n`);
       } catch (err) {
         failed++;
         process.stdout.write(`  ✗ Error: ${err.message}\n`);

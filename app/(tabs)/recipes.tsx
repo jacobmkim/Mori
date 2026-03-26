@@ -6,11 +6,12 @@ import { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '@/hooks/useTheme';
 import { formatTime } from '@/lib/utils';
 import { fetchMealDBRecipesByCategory, fetchMealDetail, MEAL_CATEGORIES, MAIN_CUISINES } from '@/lib/mealdb';
-import { setRecipeLiked, updateRecipeDetail, upsertRecipeByExternalId, logInteraction, getMealPlanForWeek, saveMealPlan, getRecipesBySupabaseIds } from '@/lib/api';
+import { setRecipeLiked, updateRecipeDetail, upsertRecipeByExternalId, logInteraction, getRecipesBySupabaseIds } from '@/lib/api';
+import { useMealPlanStore } from '@/stores/mealPlanStore';
 import { useSavedStore } from '@/stores/savedStore';
 import { useGroceryStore } from '@/stores/groceryStore';
 import { useCollectionsStore, FAVORITES_ID } from '@/stores/collectionsStore';
@@ -418,70 +419,56 @@ function MealPlanView({ savedRecipes, onAddToGrocery }: {
   const colors = useTheme();
   const userId = useUserStore((s) => s.profile?.id);
   const [weekOffset, setWeekOffset] = useState(0);
-  const [slots, setSlots] = useState<MealSlot[]>([]);
-  const [planId, setPlanId] = useState<string | undefined>();
   const [slotRecipes, setSlotRecipes] = useState<Record<string, Recipe>>({});
-  const [loading, setLoading] = useState(false);
   const [pickerOpen, setPickerOpen] = useState<{ day: number; mealType: MealType } | null>(null);
+
+  // Shared store — keeps Plan tab and Discover (meal prep slot picker) in sync
+  const plan = useMealPlanStore((s) => s.plan);
+  const isLoading = useMealPlanStore((s) => s.isLoading);
+  const loadPlan = useMealPlanStore((s) => s.loadPlan);
+  const addSlot = useMealPlanStore((s) => s.addSlot);
+  const removeSlot = useMealPlanStore((s) => s.removeSlot);
+  const savePlan = useMealPlanStore((s) => s.savePlan);
+
+  const slots = plan?.slots ?? [];
 
   const monday = getMonday(weekOffset);
   const weekStart = toDateStr(monday);
 
-  // Load plan for current week — cancelled flag prevents stale responses from overwriting
+  // Load the week's plan whenever week navigation changes
   useEffect(() => {
     if (!userId) return;
-    let cancelled = false;
-    setLoading(true);
-    getMealPlanForWeek(userId, weekStart)
-      .then(async (plan) => {
-        if (cancelled) return;
-        const loadedSlots = (plan?.slots ?? []) as MealSlot[];
-        setSlots(loadedSlots);
-        setPlanId(plan?.id);
-        // Hydrate recipe details for display
-        const ids = [...new Set(loadedSlots.map((s) => s.recipe_id).filter(Boolean))];
-        if (ids.length > 0) {
-          const recipes = await getRecipesBySupabaseIds(ids);
-          if (cancelled) return;
-          const map: Record<string, Recipe> = {};
-          recipes.forEach((r) => { if (r.supabase_id) map[r.supabase_id] = r; });
-          setSlotRecipes(map);
-        } else {
-          setSlotRecipes({});
-        }
-      })
-      .catch(() => {})
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, [userId, weekStart]);
+    loadPlan(userId, weekStart);
+  }, [userId, weekStart]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Hydrate recipe display data whenever slots change
+  useEffect(() => {
+    const ids = [...new Set(slots.map((s) => s.recipe_id).filter(Boolean))];
+    if (ids.length === 0) { setSlotRecipes({}); return; }
+    getRecipesBySupabaseIds(ids).then((recipes) => {
+      const map: Record<string, Recipe> = {};
+      recipes.forEach((r) => { if (r.supabase_id) map[r.supabase_id] = r; });
+      setSlotRecipes(map);
+    }).catch(() => {});
+  }, [plan?.slots]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function getSlot(day: number, mealType: MealType): MealSlot | undefined {
     return slots.find((s) => s.day === day && s.meal_type === mealType);
   }
 
-  async function handleAssign(recipe: Recipe) {
+  function handleAssign(recipe: Recipe) {
     if (!pickerOpen || !userId) return;
     const recipeId = recipe.supabase_id ?? recipe.id;
-    const newSlot: MealSlot = {
-      day: pickerOpen.day,
-      meal_type: pickerOpen.mealType,
-      recipe_id: recipeId,
-      servings_multiplier: 1,
-    };
-    const updated = [...slots.filter((s) => !(s.day === newSlot.day && s.meal_type === newSlot.meal_type)), newSlot];
-    setSlots(updated);
+    addSlot({ day: pickerOpen.day, meal_type: pickerOpen.mealType, recipe_id: recipeId, servings_multiplier: 1 });
     setSlotRecipes((prev) => ({ ...prev, [recipeId]: recipe }));
     setPickerOpen(null);
-    // Persist
-    const saved = await saveMealPlan(userId, weekStart, updated, planId).catch(() => null);
-    if (saved) setPlanId(saved.id);
+    savePlan(userId, weekStart);
   }
 
-  async function handleRemove(day: number, mealType: MealType) {
+  function handleRemove(day: number, mealType: MealType) {
     if (!userId) return;
-    const updated = slots.filter((s) => !(s.day === day && s.meal_type === mealType));
-    setSlots(updated);
-    saveMealPlan(userId, weekStart, updated, planId).catch(() => {});
+    removeSlot(day, mealType);
+    savePlan(userId, weekStart);
   }
 
   function handleAddAllToGrocery() {
@@ -500,7 +487,7 @@ function MealPlanView({ savedRecipes, onAddToGrocery }: {
     Alert.alert('Added to grocery list', `${recipes.length} meal${recipes.length !== 1 ? 's' : ''} added.`);
   }
 
-  if (loading) {
+  if (isLoading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 }}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -668,7 +655,13 @@ export default function Recipes() {
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
-  const [tab, setTab] = useState<'saved' | 'all' | 'plan'>('saved');
+  const { tab: tabParam } = useLocalSearchParams<{ tab?: string }>();
+  const [tab, setTab] = useState<'saved' | 'meal_prep' | 'all' | 'plan'>('saved');
+
+  // Deep-link from Discover week progress bar
+  useEffect(() => {
+    if (tabParam === 'plan') setTab('plan');
+  }, [tabParam]);
   const [editMode, setEditMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [addingToList, setAddingToList] = useState<string | null>(null);
@@ -815,7 +808,7 @@ export default function Recipes() {
 
   // Long press on a recipe card — enter edit mode and select it
   const handleLongPress = useCallback((recipe: Recipe) => {
-    if (tab !== 'saved') return; // edit mode only in Saved tab
+    if (tab !== 'saved' && tab !== 'meal_prep') return; // edit mode only in saved tabs
     setEditMode(true);
     setSelectedIds(new Set([recipe.id]));
   }, [tab]);
@@ -856,8 +849,10 @@ export default function Recipes() {
   };
 
   // Derive display data
-  const showSaved = tab === 'saved';
-  const baseData = showSaved ? savedRecipes : allRecipes;
+  const showSaved = tab === 'saved' || tab === 'meal_prep';
+  const baseData = tab === 'all' ? allRecipes
+    : tab === 'meal_prep' ? savedRecipes.filter((r) => r.meal_prep_friendly === true)
+    : savedRecipes;
   const collectionFiltered = (!showSaved || activeCollectionId === 'all')
     ? baseData
     : baseData.filter((r) => isInCollection(activeCollectionId, r.id));
@@ -913,42 +908,38 @@ export default function Recipes() {
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       {/* Header */}
       <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        {/* Row 1: Title + Edit */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
           <Text style={{ fontSize: 24, fontWeight: '700', color: colors.text }}>Recipes</Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-            {showSaved && (
-              <Pressable onPress={() => { setEditMode((e) => !e); setSelectedIds(new Set()); }}>
-                <Text style={{ color: editMode ? colors.primary : colors.textMuted, fontSize: 14, fontWeight: '500' }}>
-                  {editMode ? 'Done' : 'Edit'}
-                </Text>
-              </Pressable>
-            )}
-            <View style={{ flexDirection: 'row', backgroundColor: colors.border, borderRadius: 20, padding: 3 }}>
-              <Pressable onPress={() => setTab('all')}
-                style={{ paddingHorizontal: 14, paddingVertical: 6, borderRadius: 17, backgroundColor: tab === 'all' ? colors.primary : 'transparent' }}>
-                <Text style={{ color: tab === 'all' ? 'white' : colors.textMuted, fontSize: 13, fontWeight: '600' }}>All</Text>
-              </Pressable>
-              <Pressable onPress={() => setTab('saved')}
-                style={{ paddingHorizontal: 14, paddingVertical: 6, borderRadius: 17, backgroundColor: tab === 'saved' ? colors.primary : 'transparent', flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                <Ionicons name="bookmark" size={12} color={tab === 'saved' ? 'white' : colors.textMuted} />
-                <Text style={{ color: tab === 'saved' ? 'white' : colors.textMuted, fontSize: 13, fontWeight: '600' }}>
-                  Saved {savedRecipes.length > 0 ? `(${savedRecipes.length})` : ''}
-                </Text>
-              </Pressable>
-              <Pressable onPress={() => setTab('plan')}
-                style={{ paddingHorizontal: 14, paddingVertical: 6, borderRadius: 17, backgroundColor: tab === 'plan' ? colors.primary : 'transparent', flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                <Ionicons name="calendar-outline" size={12} color={tab === 'plan' ? 'white' : colors.textMuted} />
-                <Text style={{ color: tab === 'plan' ? 'white' : colors.textMuted, fontSize: 13, fontWeight: '600' }}>Plan</Text>
-              </Pressable>
-            </View>
-          </View>
+          {showSaved && (
+            <Pressable onPress={() => { setEditMode((e) => !e); setSelectedIds(new Set()); }}>
+              <Text style={{ color: editMode ? colors.primary : colors.textMuted, fontSize: 14, fontWeight: '500' }}>
+                {editMode ? 'Done' : 'Edit'}
+              </Text>
+            </Pressable>
+          )}
+        </View>
+        {/* Row 2: Tabs — equal-width pills */}
+        <View style={{ flexDirection: 'row', backgroundColor: colors.border, borderRadius: 20, padding: 3 }}>
+          {([
+            { key: 'all', label: 'All' },
+            { key: 'saved', label: `Saved${savedRecipes.length > 0 ? ` (${savedRecipes.length})` : ''}` },
+            { key: 'meal_prep', label: 'Meal Prep' },
+            { key: 'plan', label: 'Plan' },
+          ] as const).map(({ key, label }) => (
+            <Pressable key={key} onPress={() => setTab(key)}
+              style={{ flex: 1, paddingVertical: 7, borderRadius: 17, alignItems: 'center', backgroundColor: tab === key ? colors.primary : 'transparent' }}>
+              <Text style={{ color: tab === key ? 'white' : colors.textMuted, fontSize: 12, fontWeight: '600' }} numberOfLines={1}>{label}</Text>
+            </Pressable>
+          ))}
         </View>
 
         {tab !== 'plan' && <>
+        <View style={{ height: 12 }} />
         {/* Search + filter button row — filter button opens a dropdown */}
         <View style={{ zIndex: 20 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: colors.white, borderRadius: 12, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 12 }}>
+            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, borderRadius: 12, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 12 }}>
               <Ionicons name="search-outline" size={18} color={colors.textMuted} />
               <TextInput
                 value={search}

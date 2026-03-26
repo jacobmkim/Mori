@@ -11,13 +11,14 @@ import {
   ScrollView,
 } from 'react-native';
 import { useRef, useState, useEffect } from 'react';
+import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks/useTheme';
 import { formatTime, formatCost, getTimeOfDay, getWeekStart } from '@/lib/utils';
 import { fetchMealDetail, type MealDetail } from '@/lib/mealdb';
-import { logSwipe, upsertRecipeByExternalId, setRecipeLiked, fetchMacros, estimateMacrosLocally, fetchScoredDeck, updateRecipeDetail, updateRecipeMacros, logInteraction, recordSessionSwipe, recordAdventureCardLeftSwipe, clearSessionState, getCookedRecipeIds, rateRecipe, flagRecipe } from '@/lib/api';
+import { logSwipe, upsertRecipeByExternalId, setRecipeLiked, fetchMacros, estimateMacrosLocally, fetchScoredDeck, updateRecipeDetail, updateRecipeMacros, logInteraction, recordSessionSwipe, cancelLeftSwipe, recordAdventureCardLeftSwipe, clearSessionState, getCookedRecipeIds, rateRecipe, flagRecipe } from '@/lib/api';
 import { RecipeDetailModal } from '@/components/RecipeDetailModal';
 import { HeadlineMacroPill } from '@/components/ui/MacroRow';
 import { MiseLogo } from '@/components/ui/MiseLogo';
@@ -287,6 +288,7 @@ const EMPTY_GOALS: string[] = [];
 
 export default function Discover() {
   const colors = useTheme();
+  const router = useRouter();
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { mode, setMode, loadMode } = useDiscoverStore();
@@ -313,6 +315,10 @@ export default function Discover() {
   const profile = useUserStore((s) => s.profile ?? null);
   const dietaryGoals = useUserStore((s) => s.profile?.dietary_goals ?? EMPTY_GOALS);
   const savedRecipes = useSavedStore((s) => s.savedRecipes);
+
+  // Tracks whether a deck is already on screen — used to skip the loading
+  // spinner when re-fetching silently (mode switch, prefs change).
+  const hasDeckRef = useRef(false);
 
   // Single Animated.Value tracking the top card's drag X.
   // Background cards interpolate from this — fully decoupled from the top
@@ -352,11 +358,17 @@ export default function Discover() {
   }, [userId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Re-fetch when userId, mode, or dietary goals change.
-  // Scores locally via weighted function — no API call, runs on-device.
+  // If a deck is already visible (mode switch / prefs change), fetch silently
+  // in the background — keep existing cards on screen until new deck is ready.
   useEffect(() => {
-    setIsLoading(true);
-    setCurrentIndex(0);
-    clearSessionState();
+    const silent = hasDeckRef.current;
+
+    if (!silent) {
+      setIsLoading(true);
+      setCurrentIndex(0);
+      clearSessionState();
+    }
+
     const savedExternalIds = new Set(savedRecipes.map((r) => r.id));
     fetchScoredDeck(userId, dietaryGoals, profile, savedExternalIds, mode)
       .then((loaded) => {
@@ -368,9 +380,16 @@ export default function Discover() {
           }
         });
         setMacroCacheVersion((v) => v + 1);
+        // Swap deck — batched with setRecipes so index + recipes update together
+        if (silent) {
+          clearSessionState();
+          setCurrentIndex(0);
+        }
         setRecipes(loaded);
+        hasDeckRef.current = true;
       })
-      .finally(() => setIsLoading(false));
+      .finally(() => { if (!silent) setIsLoading(false); });
+
     // Load previously-cooked IDs for cross-session "Made before" banner
     if (userId) {
       getCookedRecipeIds(userId).then(setPrevCookedIds).catch(() => {});
@@ -493,11 +512,6 @@ export default function Discover() {
     if (direction === 'right') addRecipe(recipe, userId);
     setLastSwipe({ recipe, direction });
     logSwipeBackground(recipe, direction, mode as AppMode);
-    // Meal Prep mode — right swipe opens slot picker to assign to a week day
-    if (direction === 'right' && mode === 'meal_prep') {
-      setSlotPickerServings(1);
-      setSlotPickerRecipe(recipe);
-    }
 
     // Keep the exiting card rendered as an overlay so its fly-off animation
     // plays while the new top card is already fully interactive.
@@ -520,6 +534,10 @@ export default function Discover() {
   function handleUndo() {
     if (!lastSwipe || currentIndexRef.current === 0) return;
     if (lastSwipe.direction === 'right') removeRecipe(lastSwipe.recipe, userId);
+    // Undo a left swipe — remove from suppression so a subsequent right swipe isn't blocked
+    if (lastSwipe.direction === 'left' && lastSwipe.recipe.supabase_id) {
+      cancelLeftSwipe(lastSwipe.recipe.supabase_id);
+    }
     // Card springs in from the direction it was swiped out
     undoEntryXRef.current = lastSwipe.direction === 'right' ? SCREEN_WIDTH * 1.5 : -SCREEN_WIDTH * 1.5;
     setCurrentIndex((prev) => prev - 1);
@@ -579,12 +597,9 @@ export default function Discover() {
   // Supabase-backed cooked IDs — persists across sessions, enables "Made before" banner
   const [prevCookedIds, setPrevCookedIds] = useState<Set<string>>(new Set());
   // Meal prep slot picker — shown after right swipe in meal_prep mode
-  const [slotPickerRecipe, setSlotPickerRecipe] = useState<Recipe | null>(null);
-  const [slotPickerServings, setSlotPickerServings] = useState<1 | 2 | 3>(1);
+
   const isSaved = useSavedStore((s) => s.isSaved);
   const mealPlan = useMealPlanStore((s) => s.plan);
-  const addMealSlot = useMealPlanStore((s) => s.addSlot);
-  const saveMealPlan = useMealPlanStore((s) => s.savePlan);
   const loadMealPlan = useMealPlanStore((s) => s.loadPlan);
   // Days with at least one slot filled this week
   const daysPlanned = new Set((mealPlan?.slots ?? []).map((s) => s.day)).size;
@@ -787,9 +802,12 @@ export default function Discover() {
         </Animated.View>
       )}
 
-      {/* Week progress indicator — Meal Prep mode only */}
+      {/* Week progress indicator — Meal Prep mode only. Tap → Plan tab */}
       {mode === 'meal_prep' && !isLoading && (
-        <View style={{ alignItems: 'center', paddingBottom: 4 }}>
+        <Pressable
+          onPress={() => router.push('/(tabs)/recipes?tab=plan')}
+          style={{ alignItems: 'center', paddingBottom: 4, paddingVertical: 6 }}
+        >
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <View style={{ flexDirection: 'row', gap: 4 }}>
               {Array.from({ length: 7 }).map((_, i) => (
@@ -803,10 +821,10 @@ export default function Discover() {
               ))}
             </View>
             <Text style={{ color: colors.textMuted, fontSize: 12 }}>
-              {daysPlanned} of 7 days planned
+              {daysPlanned} of 7 days planned · Plan week →
             </Text>
           </View>
-        </View>
+        </Pressable>
       )}
 
       {/* Action Buttons */}
@@ -817,7 +835,7 @@ export default function Discover() {
             onPress={() => handleButtonSwipe('left')}
             style={{
               width: 60, height: 60, borderRadius: 30,
-              backgroundColor: colors.white, borderWidth: 1.5, borderColor: colors.error,
+              backgroundColor: colors.card, borderWidth: 1.5, borderColor: colors.error,
               alignItems: 'center', justifyContent: 'center',
               shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
               shadowOpacity: 0.08, shadowRadius: 4, elevation: 3,
@@ -832,12 +850,12 @@ export default function Discover() {
             disabled={!lastSwipe}
             style={{
               width: 44, height: 44, borderRadius: 22,
-              backgroundColor: colors.white, borderWidth: 1.5,
-              borderColor: lastSwipe ? colors.textMuted : colors.border,
+              backgroundColor: colors.card, borderWidth: 1.5,
+              borderColor: lastSwipe ? colors.border : colors.border,
               alignItems: 'center', justifyContent: 'center',
               shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
               shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
-              opacity: lastSwipe ? 1 : 0.4,
+              opacity: lastSwipe ? 1 : 0.35,
             }}
           >
             <Ionicons name="arrow-undo" size={19} color={lastSwipe ? colors.textMuted : colors.border} />
@@ -847,7 +865,7 @@ export default function Discover() {
           {__DEV__ && topRecipe && (
             <Pressable
               onPress={() => {
-                const reasons = ['Wrong ingredients', 'Bad macro data', 'Incorrect cuisine', 'Duplicate recipe', 'Inappropriate content', 'Other'];
+                const reasons = ['Wrong image', 'Bad recipe / not tasty', 'Wrong ingredients', 'Bad macro data', 'Incorrect cuisine', 'Duplicate recipe', 'Inappropriate content', 'Other'];
                 Alert.alert(
                   'Flag Recipe',
                   `"${topRecipe.title}"\n\nWhat's wrong?`,
@@ -873,19 +891,18 @@ export default function Discover() {
             </Pressable>
           )}
 
-          {/* Add to Grocery List — auto-swipes card right on tap */}
+          {/* Add to Grocery List — filled green to stand out */}
           <Pressable
             onPress={handleAddToCart}
             style={{
-              width: 44, height: 44, borderRadius: 22,
-              backgroundColor: colors.white,
-              borderWidth: 1.5, borderColor: colors.border,
+              width: 52, height: 52, borderRadius: 26,
+              backgroundColor: colors.primary,
               alignItems: 'center', justifyContent: 'center',
-              shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
+              shadowColor: colors.primary, shadowOffset: { width: 0, height: 3 },
+              shadowOpacity: 0.35, shadowRadius: 6, elevation: 4,
             }}
           >
-            <Ionicons name="cart-outline" size={19} color={colors.textMuted} />
+            <Ionicons name="cart" size={22} color={colors.white} />
           </Pressable>
 
           {/* Save */}
@@ -893,7 +910,7 @@ export default function Discover() {
             onPress={() => handleButtonSwipe('right')}
             style={{
               width: 60, height: 60, borderRadius: 30,
-              backgroundColor: colors.white, borderWidth: 1.5, borderColor: colors.primary,
+              backgroundColor: colors.card, borderWidth: 1.5, borderColor: colors.primary,
               alignItems: 'center', justifyContent: 'center',
               shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
               shadowOpacity: 0.08, shadowRadius: 4, elevation: 3,
@@ -903,97 +920,6 @@ export default function Discover() {
           </Pressable>
         </View>
       )}
-
-      {/* Meal Prep slot picker — slide-up modal after right swipe */}
-      <Modal
-        visible={!!slotPickerRecipe}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setSlotPickerRecipe(null)}
-      >
-        <Pressable
-          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' }}
-          onPress={() => setSlotPickerRecipe(null)}
-        >
-          <Pressable onPress={() => {}}>
-            <View style={{ backgroundColor: colors.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 36 }}>
-              {/* Handle bar */}
-              <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: colors.border, alignSelf: 'center', marginBottom: 16 }} />
-
-              <Text style={{ fontSize: 16, fontWeight: '700', color: colors.text, marginBottom: 4 }}>
-                Add to your week?
-              </Text>
-              <Text style={{ fontSize: 13, color: colors.textMuted, marginBottom: 16 }} numberOfLines={1}>
-                {slotPickerRecipe?.title}
-              </Text>
-
-              {/* Day × Meal grid */}
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
-                <View style={{ gap: 8 }}>
-                  {(['breakfast', 'lunch', 'dinner'] as MealType[]).map((meal) => (
-                    <View key={meal} style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
-                      <Text style={{ width: 60, fontSize: 12, color: colors.textMuted, textTransform: 'capitalize' }}>{meal}</Text>
-                      {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, dayIdx) => {
-                        const filled = (mealPlan?.slots ?? []).some((s) => s.day === dayIdx && s.meal_type === meal);
-                        return (
-                          <Pressable
-                            key={day}
-                            onPress={() => {
-                              if (!slotPickerRecipe || !userId) return;
-                              const weekStart = getWeekStart(new Date());
-                              addMealSlot({
-                                day: dayIdx,
-                                meal_type: meal,
-                                recipe_id: slotPickerRecipe.supabase_id ?? slotPickerRecipe.id,
-                                servings_multiplier: slotPickerServings,
-                              });
-                              saveMealPlan(userId, weekStart);
-                              setSlotPickerRecipe(null);
-                            }}
-                            style={{
-                              width: 40, height: 36, borderRadius: 8, alignItems: 'center', justifyContent: 'center',
-                              backgroundColor: filled ? colors.primaryLight : colors.background,
-                              borderWidth: 1.5,
-                              borderColor: filled ? colors.primary : colors.border,
-                            }}
-                          >
-                            <Text style={{ fontSize: 11, fontWeight: '600', color: filled ? colors.primary : colors.textMuted }}>{day}</Text>
-                          </Pressable>
-                        );
-                      })}
-                    </View>
-                  ))}
-                </View>
-              </ScrollView>
-
-              {/* Servings multiplier */}
-              <Text style={{ fontSize: 13, color: colors.textMuted, marginBottom: 8 }}>Servings</Text>
-              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
-                {([1, 2, 3] as const).map((n) => (
-                  <Pressable
-                    key={n}
-                    onPress={() => setSlotPickerServings(n)}
-                    style={{
-                      flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center',
-                      backgroundColor: slotPickerServings === n ? colors.primary : colors.background,
-                      borderWidth: 1.5, borderColor: slotPickerServings === n ? colors.primary : colors.border,
-                    }}
-                  >
-                    <Text style={{ fontWeight: '600', color: slotPickerServings === n ? 'white' : colors.textMuted }}>
-                      {n}×
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-
-              {/* Skip */}
-              <Pressable onPress={() => setSlotPickerRecipe(null)} style={{ alignItems: 'center', paddingVertical: 8 }}>
-                <Text style={{ color: colors.textMuted, fontSize: 14 }}>Skip — saved to library</Text>
-              </Pressable>
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
 
       {/* Recipe detail modal */}
       {(() => {

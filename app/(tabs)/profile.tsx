@@ -10,6 +10,7 @@ import { supabase } from '@/lib/supabase';
 import { upsertProfile, patchProfile, clearDiscoverCache, getPantryItems, addPantryItem, deletePantryItem, getAdventureCardsEnabled, setAdventureCardsEnabled, getFlaggedRecipes, clearFlaggedRecipes, type FlaggedRecipe } from '@/lib/api';
 import { clearRecipeCache } from '@/lib/mealdb';
 import { useTheme } from '@/hooks/useTheme';
+import { useDiscoverStore, type AppearanceMode } from '@/stores/discoverStore';
 import type { Profile, PantryItem } from '@/types';
 
 // ── Label maps ────────────────────────────────────────────────────────────────
@@ -132,7 +133,7 @@ function EditPreferencesModal({
           flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
           paddingHorizontal: 20, paddingTop: 20, paddingBottom: 16,
           borderBottomWidth: 1, borderBottomColor: colors.border,
-          backgroundColor: colors.white,
+          backgroundColor: colors.card,
         }}>
           <Pressable onPress={onClose} hitSlop={8}>
             <Text style={{ color: colors.textMuted, fontSize: 16 }}>Cancel</Text>
@@ -185,7 +186,7 @@ function EditPreferencesModal({
               multiline
               style={{
                 marginTop: 12,
-                backgroundColor: colors.white, borderWidth: 1.5, borderColor: colors.border,
+                backgroundColor: colors.card, borderWidth: 1.5, borderColor: colors.border,
                 borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10,
                 fontSize: 14, color: colors.text, lineHeight: 20, textAlignVertical: 'top',
                 minHeight: 64,
@@ -368,7 +369,7 @@ function PantryModal({
           flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
           paddingHorizontal: 20, paddingTop: 20, paddingBottom: 16,
           borderBottomWidth: 1, borderBottomColor: colors.border,
-          backgroundColor: colors.white,
+          backgroundColor: colors.card,
         }}>
           <Pressable onPress={onClose} hitSlop={8}>
             <Text style={{ color: colors.textMuted, fontSize: 16 }}>Done</Text>
@@ -381,7 +382,7 @@ function PantryModal({
           {/* Add item row */}
           <View style={{
             flexDirection: 'row', gap: 10, marginBottom: 20,
-            backgroundColor: colors.white, borderRadius: 12,
+            backgroundColor: colors.card, borderRadius: 12,
             borderWidth: 1, borderColor: colors.border, padding: 12,
           }}>
             <TextInput
@@ -424,7 +425,7 @@ function PantryModal({
                   key={item.id}
                   style={{
                     flexDirection: 'row', alignItems: 'center',
-                    backgroundColor: colors.white, borderRadius: 10,
+                    backgroundColor: colors.card, borderRadius: 10,
                     borderWidth: 1, borderColor: colors.border,
                     paddingVertical: 12, paddingHorizontal: 14,
                   }}
@@ -493,7 +494,7 @@ function DevToolsSection() {
         Dev Tools
       </Text>
       <View style={{
-        backgroundColor: colors.white, borderRadius: 12,
+        backgroundColor: colors.card, borderRadius: 12,
         borderWidth: 1, borderColor: '#FFCDD2', overflow: 'hidden',
       }}>
         <View style={{
@@ -553,6 +554,7 @@ export default function Profile() {
   const [editVisible, setEditVisible] = useState(false);
   const [pantryVisible, setPantryVisible] = useState(false);
   const [adventureCards, setAdventureCards] = useState(true);
+  const { appearanceMode, setAppearanceMode } = useDiscoverStore();
   const [tasteProfile, setTasteProfile] = useState<string | null>(
     (profile?.taste_profile as any)?.text ?? null
   );
@@ -646,7 +648,7 @@ export default function Profile() {
         <View style={{ flexDirection: 'row', paddingHorizontal: 16, gap: 8, marginBottom: 24 }}>
           {stats.map((stat) => (
             <View key={stat.label} style={{
-              flex: 1, backgroundColor: colors.white, borderRadius: 12,
+              flex: 1, backgroundColor: colors.card, borderRadius: 12,
               padding: 14, alignItems: 'center',
               borderWidth: 1, borderColor: colors.border,
             }}>
@@ -671,7 +673,7 @@ export default function Profile() {
               )}
             </View>
             <View style={{
-              backgroundColor: colors.white, borderRadius: 12,
+              backgroundColor: colors.card, borderRadius: 12,
               borderWidth: 1, borderColor: colors.border,
               padding: 16,
             }}>
@@ -704,7 +706,7 @@ export default function Profile() {
                 <Text style={{ color: colors.primary, fontSize: 14, fontWeight: '500' }}>Edit</Text>
               </Pressable>
             </View>
-            <View style={{ backgroundColor: colors.white, borderRadius: 12, borderWidth: 1, borderColor: colors.border, overflow: 'hidden' }}>
+            <View style={{ backgroundColor: colors.card, borderRadius: 12, borderWidth: 1, borderColor: colors.border, overflow: 'hidden' }}>
               {profile.skill_level && (
                 <PrefRow label="Skill Level" value={SKILL_LABELS[profile.skill_level]} />
               )}
@@ -761,7 +763,7 @@ export default function Profile() {
             <Pressable
               onPress={() => setPantryVisible(true)}
               style={{
-                backgroundColor: colors.white, borderRadius: 12,
+                backgroundColor: colors.card, borderRadius: 12,
                 borderWidth: 1, borderColor: colors.border, padding: 16,
                 flexDirection: 'row', alignItems: 'center', gap: 12,
               }}
@@ -787,12 +789,13 @@ export default function Profile() {
             Discover Settings
           </Text>
           <View style={{
-            backgroundColor: colors.white, borderRadius: 12,
+            backgroundColor: colors.card, borderRadius: 12,
             borderWidth: 1, borderColor: colors.border, overflow: 'hidden',
           }}>
+            {/* Adventure cards */}
             <View style={{
               flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-              padding: 16,
+              padding: 16, borderBottomWidth: 1, borderBottomColor: colors.border,
             }}>
               <View style={{ flex: 1, marginRight: 12 }}>
                 <Text style={{ fontSize: 15, fontWeight: '500', color: colors.text }}>
@@ -814,6 +817,37 @@ export default function Profile() {
                 thumbColor="white"
               />
             </View>
+
+            {/* Appearance */}
+            <View style={{ padding: 16 }}>
+              <Text style={{ fontSize: 15, fontWeight: '500', color: colors.text, marginBottom: 10 }}>
+                Appearance
+              </Text>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                {(['light', 'system', 'dark'] as AppearanceMode[]).map((opt) => (
+                  <Pressable
+                    key={opt}
+                    onPress={() => setAppearanceMode(opt)}
+                    style={{
+                      flex: 1, paddingVertical: 8, borderRadius: 10, alignItems: 'center',
+                      backgroundColor: appearanceMode === opt ? colors.primary : colors.background,
+                      borderWidth: 1.5,
+                      borderColor: appearanceMode === opt ? colors.primary : colors.border,
+                    }}
+                  >
+                    <Text style={{ fontSize: 18, marginBottom: 2 }}>
+                      {opt === 'light' ? '☀️' : opt === 'dark' ? '🌙' : '⚙️'}
+                    </Text>
+                    <Text style={{
+                      fontSize: 11, fontWeight: '600', textTransform: 'capitalize',
+                      color: appearanceMode === opt ? 'white' : colors.textMuted,
+                    }}>
+                      {opt}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
           </View>
         </View>
 
@@ -828,7 +862,7 @@ export default function Profile() {
             onPress={handleSignOut}
             style={{
               flexDirection: 'row', alignItems: 'center', gap: 12,
-              backgroundColor: colors.white, borderRadius: 12,
+              backgroundColor: colors.card, borderRadius: 12,
               padding: 16, borderWidth: 1, borderColor: colors.border,
             }}
           >

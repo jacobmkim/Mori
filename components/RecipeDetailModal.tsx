@@ -188,7 +188,7 @@ export function RecipeDetailModal({
           {__DEV__ && (
             <Pressable
               onPress={() => {
-                const reasons = ['Wrong ingredients', 'Bad macro data', 'Incorrect cuisine', 'Duplicate recipe', 'Inappropriate content', 'Other'];
+                const reasons = ['Wrong image', 'Bad recipe / not tasty', 'Wrong ingredients', 'Bad macro data', 'Incorrect cuisine', 'Duplicate recipe', 'Inappropriate content', 'Other'];
                 Alert.alert(
                   'Flag Recipe',
                   `"${recipe.title}"\n\nWhat's wrong with this recipe?`,
