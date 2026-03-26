@@ -275,3 +275,11 @@ CREATE INDEX idx_recipe_cohort_affinities_cohort ON recipe_cohort_affinities(coh
 CREATE INDEX idx_recipe_interactions_user_id ON recipe_interactions(user_id);
 CREATE INDEX idx_recipe_interactions_recipe_id ON recipe_interactions(recipe_id);
 CREATE INDEX idx_recipe_interactions_type ON recipe_interactions(user_id, interaction_type);
+
+-- ─── Waitlist ─────────────────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS waitlist (
+  id         uuid primary key default gen_random_uuid(),
+  email      text not null unique,
+  created_at timestamp with time zone default now()
+);
