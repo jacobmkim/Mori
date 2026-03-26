@@ -21,7 +21,7 @@ import { fetchMealDetail, type MealDetail } from '@/lib/mealdb';
 import { logSwipe, upsertRecipeByExternalId, setRecipeLiked, fetchMacros, estimateMacrosLocally, fetchScoredDeck, updateRecipeDetail, updateRecipeMacros, logInteraction, recordSessionSwipe, cancelLeftSwipe, recordAdventureCardLeftSwipe, clearSessionState, getCookedRecipeIds, rateRecipe, flagRecipe } from '@/lib/api';
 import { RecipeDetailModal } from '@/components/RecipeDetailModal';
 import { HeadlineMacroPill } from '@/components/ui/MacroRow';
-import { MiseLogo } from '@/components/ui/MiseLogo';
+import { MoriLogo } from '@/components/ui/MoriLogo';
 import { useSavedStore } from '@/stores/savedStore';
 import { useGroceryStore } from '@/stores/groceryStore';
 import { useUserStore } from '@/stores/userStore';
@@ -623,7 +623,7 @@ export default function Discover() {
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       {/* Header */}
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 }}>
-        <MiseLogo size={40} textColor={colors.text} />
+        <MoriLogo size={40} textColor={colors.text} />
         <View style={{ flexDirection: 'row', backgroundColor: colors.toggleBg, borderRadius: 20, padding: 3 }}>
           {(['spontaneous', 'meal_prep'] as AppMode[]).map((m) => (
             <Pressable

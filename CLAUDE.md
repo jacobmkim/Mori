@@ -1,22 +1,22 @@
-# Mise — CLAUDE.md
+# Mori — CLAUDE.md
 > This file is the single source of truth for this project. Read it in full at the start of every session before writing any code. It reflects the actual current build state as of the latest update.
 
 ---
 
 ## 1. What We Are Building
 
-**Mise** is a smart recipe discovery and grocery delivery app powered by personalised recommendations. The name comes from *mise en place* — the chef's practice of having everything prepared and in its place before cooking begins. The app does exactly that for everyday home cooks.
+**Mori** is a smart recipe discovery and grocery delivery app powered by personalised recommendations. The name comes from the Korean word for gathering and assembling — which is exactly what the app does. It gathers your taste, your pantry, and your week into one place and assembles everything you need to cook.
 
 **Core loop:**
 A local weighted scoring engine ranks recipes personalised to the user's taste, goals, and behaviour → user swipes yes or no on recipe cards → recipes save to personal library → user selects meals and builds a smart grocery list → list is sent to Instacart in one tap or copied to clipboard as a fallback.
 
-**Note on delivery:** Mise uses the Instacart Developer Platform API — not a full logistics partnership. The grocery list is sent to Instacart as a pre-built cart and the user completes checkout inside the Instacart app. Mise earns affiliate commissions through Impact on every attributed order. DoorDash and Uber Eats full API integration remain out of scope.
+**Note on delivery:** Mori uses the Instacart Developer Platform API — not a full logistics partnership. The grocery list is sent to Instacart as a pre-built cart and the user completes checkout inside the Instacart app. Mori earns affiliate commissions through Impact on every attributed order. DoorDash and Uber Eats full API integration remain out of scope.
 
 **Value proposition:**
-Mise is the first recipe app that feels genuinely personal from day one, gets smarter every session, surfaces simple macros for health-conscious users, and removes the biggest friction in home cooking — the gap between "what should I make?" and a grocery list ready to order. It does not try to control your oven, partner with appliance brands, or replace Instacart. It connects your taste, your pantry, and your week into a smart list that makes cooking feel like the easier choice.
+Mori is the first recipe app that feels genuinely personal from day one, gets smarter every session, surfaces simple macros for health-conscious users, and removes the biggest friction in home cooking — the gap between "what should I make?" and a grocery list ready to order. It does not try to control your oven, partner with appliance brands, or replace Instacart. It connects your taste, your pantry, and your week into a smart list that makes cooking feel like the easier choice.
 
 **Competitive position:**
-No competitor has a swipe-based discovery mechanic. Samsung Food (most formidable competitor) has 218,500+ recipes, 4.5M community members, and delivery from 23 retailers — but it is overwhelming and tied to Samsung hardware. Ollie owns AI family meal planning. Mealime owns quick weeknight dinners. Mise owns the exploratory everyday cook who wants to discover something new and get from "that looks good" to groceries ordered in one tap. Community (Phase 4–5) is a retention flywheel, not the primary differentiator.
+No competitor has a swipe-based discovery mechanic. Samsung Food (most formidable competitor) has 218,500+ recipes, 4.5M community members, and delivery from 23 retailers — but it is overwhelming and tied to Samsung hardware. Ollie owns AI family meal planning. Mealime owns quick weeknight dinners. Mori owns the exploratory everyday cook who wants to discover something new and get from "that looks good" to groceries ordered in one tap. Community (Phase 4–5) is a retention flywheel, not the primary differentiator.
 
 ---
 
@@ -108,7 +108,7 @@ No competitor has a swipe-based discovery mechanic. Samsung Food (most formidabl
 - `UNSPLASH_ACCESS_KEY` in .env — 45 req/hour rate limiter in script, auto-pauses and resumes
 - Lazy macro persistence — Claude estimate written to recipes.macros once, served to all users thereafter
 - MacroRow component (full + compact), HeadlineMacroPill, estimateMacrosLocally — components/ui/MacroRow.tsx
-- MiseLogo component — components/ui/MiseLogo.tsx
+- MoriLogo component — components/ui/MoriLogo.tsx
 
 **Vercel — Deployed and Live**
 - `/api/macros` — Claude Haiku estimates macros from ingredients list (Spoonacular removed)
@@ -146,6 +146,7 @@ No competitor has a swipe-based discovery mechanic. Samsung Food (most formidabl
 - **Apple AI transparency disclosure** — Apple requires explicit disclosure that user data is sent to Claude (Anthropic) for taste profile generation and macro estimation. Must be in privacy policy and surfaced in-app before submission.
 - **TestFlight internal testing** — test on real devices before any external beta. No placeholder content, no crashes.
 - **Unsplash API key** ✅ — registered, `UNSPLASH_ACCESS_KEY` in .env, wired into `generate-recipes.mjs`.
+- **Register `getmori.app`** — domain for landing page, App Store support URL, and privacy policy.
 
 ---
 
@@ -185,7 +186,7 @@ No competitor has a swipe-based discovery mechanic. Samsung Food (most formidabl
 ## 4. Project Structure — Actual
 
 ```
-mise/
+mori/
 ├── app/
 │   ├── _layout.tsx                    ✅ Root layout, session check, total_sessions increment
 │   ├── index.tsx                      ✅ Redirects to onboarding or tabs; loads savedStore on session restore
@@ -229,7 +230,7 @@ mise/
 │   └── ui/
 │       ├── MacroRow.tsx               ✅ MacroRow (full 4-col), HeadlineMacroPill (goal-aware),
 │       │                                 estimateMacrosLocally (instant local estimate)
-│       └── MiseLogo.tsx               ✅
+│       └── MoriLogo.tsx               ✅ Italic serif wordmark with green dot accent
 ├── lib/
 │   ├── supabase.ts                    ✅
 │   ├── api.ts                         ✅ All DB calls + local recommendation scorer
@@ -243,7 +244,7 @@ mise/
 │   ├── groceryStore.ts                ✅ full
 │   ├── collectionsStore.ts            ✅ FAVORITES_ID + custom collections
 │   ├── mealPlanStore.ts               ✅ loadPlan/savePlan async, Supabase-backed
-│   └── discoverStore.ts               ✅ mode ('spontaneous'|'meal_prep'), AsyncStorage-persisted
+│   └── discoverStore.ts               ✅ mode ('spontaneous'|'meal_prep'), appearanceMode override, AsyncStorage-persisted
 ├── types/
 │   └── index.ts                       ✅ All types including supabase_id?: string on Recipe
 ├── constants/
@@ -273,9 +274,55 @@ mise/
 
 ## 5. Design System
 
+### Brand Identity
+
+#### App Name
+**Mori** — from the Korean word for gathering and assembling. Previously called Mise (conflicted with 3+ App Store apps). Renamed March 2026.
+
+#### Logo — Wordmark
+- Typeface: Georgia, serif — italic, weight 400
+- Letterforms: lowercase `mori` in italic serif
+- Letter spacing: −1 to −1.5 (tight, editorial)
+- Accent: single dot above the `i` — matches primary green of the current theme
+- In-app nav: wordmark only, no tagline, left-aligned top of Discover screen
+- Component: `components/ui/MoriLogo.tsx`
+
+```
+Spontaneous Light:  text #2E7D32,  dot #2E7D32
+Spontaneous Dark:   text #F0EDE6,  dot #4CAF50
+Meal Prep Light:    text #2E5438,  dot #2E5438
+Meal Prep Dark:     text #F0EDE6,  dot #4CAF50
+```
+
+#### App Icon — Linen Light (single version, all contexts)
+The icon never changes between themes — always linen light. Consistent home screen presence regardless of system mode.
+
+- Background: `#F8F3EC` (warm linen)
+- Letter: italic Georgia lowercase `m`, fill `#2E5438` (deep moss)
+- Dot: circle, fill `#2E5438`, positioned top-right above the `m`
+- Border: `0.5px solid #E0D4C4` — subtle warm edge, prevents blending into light wallpapers
+- Exception: in Meal Prep Light mode header, add `1.5px solid #2E5438` border so icon remains visible against linen background
+- Corner radius: iOS squircle — use Xcode automatic rounding, do not manually round in asset
+
+#### Typography — Direction A (locked)
+Recipe titles and headings use italic serif. Body, metadata, and UI elements use system sans-serif. Matches the editorial quality of the wordmark. Differentiates every recipe card from every competitor.
+
+```
+Recipe card title:      Georgia, serif, italic, 400, ~21px
+Recipe detail title:    Georgia, serif, italic, 400, ~24px
+Section headings:       Georgia, serif, italic, 700, ~18px
+Metadata (cuisine/time):SF Pro, sans-serif, 400, 11px, uppercase, letter-spacing 0.08em
+Body / instructions:    SF Pro, sans-serif, 400, 16px
+Macro pills:            SF Pro, sans-serif, 600, 11px
+```
+
+The contrast between italic serif titles and tight-tracked sans metadata is intentional and distinctive. Do NOT make recipe titles sans-serif. Do NOT make metadata serif.
+
+---
+
 ### Theme Architecture
 
-Mise has four theme states. Use the `useTheme()` hook to get the correct theme everywhere — never import a static color object directly from theme.ts.
+Mori has four theme states. Use the `useTheme()` hook to get the correct theme everywhere — never import a static color object directly from theme.ts.
 
 ```typescript
 // hooks/useTheme.ts
@@ -302,9 +349,9 @@ Every component calls `const colors = useTheme()` — all four states handled au
 ### Spontaneous Light (default)
 ```typescript
 export const lightTheme = {
-  primary:      '#2E7D32',   // Forest green
-  primaryLight: '#E8F5E9',   // Light green tint
-  primaryDark:  '#1B5E20',   // Pressed state
+  primary:      '#2E7D32',
+  primaryLight: '#E8F5E9',
+  primaryDark:  '#1B5E20',
   background:   '#F9F9F9',
   card:         '#FFFFFF',
   text:         '#1A1A1A',
@@ -322,12 +369,12 @@ export const lightTheme = {
 ### Spontaneous Dark
 ```typescript
 export const darkTheme = {
-  primary:      '#4CAF50',   // Brighter green — readable on dark
+  primary:      '#4CAF50',
   primaryLight: '#1B2E1C',
   primaryDark:  '#2E7D32',
   background:   '#0D0D0D',
   card:         '#1A1A1A',
-  text:         '#F0EDE6',   // Warm off-white
+  text:         '#F0EDE6',
   textMuted:    '#9E9E9E',
   border:       '#2C2C2C',
   tabBar:       '#111111',
@@ -343,20 +390,20 @@ export const darkTheme = {
 Warm linen background, deep moss green. Intentional, grounded, Sunday prep energy.
 ```typescript
 export const mealPrepLightTheme = {
-  primary:      '#2E5438',   // Deep moss green
-  primaryLight: '#E0EDD8',   // Soft sage tint
+  primary:      '#2E5438',
+  primaryLight: '#E0EDD8',
   primaryDark:  '#1A3820',
-  background:   '#F8F3EC',   // Warm linen
+  background:   '#F8F3EC',
   card:         '#FFFFFF',
-  text:         '#1A1408',   // Warm near-black
-  textMuted:    '#5A5040',   // Warm grey-brown
+  text:         '#1A1408',
+  textMuted:    '#5A5040',
   border:       '#D8CCBC',
-  tabBar:       '#F0E8DC',   // Deeper linen
+  tabBar:       '#F0E8DC',
   tabBorder:    '#D8CCBC',
-  toggleBg:     '#EDE5D8',   // Toasted linen for mode toggle
-  weekBarBg:    '#E0EDD8',   // Sage fill for week progress bar
-  dayFilled:    '#2E5438',   // Moss dot — planned days
-  dayEmpty:     '#B8D0B0',   // Pale sage — unplanned days
+  toggleBg:     '#EDE5D8',
+  weekBarBg:    '#E0EDD8',
+  dayFilled:    '#2E5438',
+  dayEmpty:     '#B8D0B0',
   error:        '#D32F2F',
   swipeRight:   '#2E5438',
   swipeLeft:    '#D32F2F',
@@ -365,14 +412,13 @@ export const mealPrepLightTheme = {
 ```
 
 ### Meal Prep Dark
-Deep forest green background, bright green accents — the most premium of the four states.
 ```typescript
 export const mealPrepDarkTheme = {
   primary:      '#4CAF50',
   primaryLight: '#1A3028',
   primaryDark:  '#2E7D32',
-  background:   '#0F1F1A',   // Deep forest
-  card:         '#1E2E28',   // Dark green-tinted card
+  background:   '#0F1F1A',
+  card:         '#1E2E28',
   text:         '#F0EDE6',
   textMuted:    '#8AAB9E',
   border:       '#2A3D35',
@@ -389,9 +435,8 @@ export const mealPrepDarkTheme = {
 }
 ```
 
-### Typography
+### Typography (legacy — superseded by Direction A above for recipe titles)
 - Font: System default (SF Pro on iOS)
-- Headings: Bold, sizes 28 / 24 / 20 / 18
 - Body: Regular, size 16
 - Caption: Regular, size 13, color textMuted
 
@@ -489,19 +534,19 @@ score = session_penalty (-999 if shown/left-swiped this session)
       + random_jitter (0–0.5)
       + cohort_affinity × 4
       + cuisine_match × 3
-      + macro_verified_goal × 10      // protein≥25g, keto netCarbs≤10, etc.
-      + tag_only_goal × 5             // fallback when macros not available
-      + quick_simple_bonus × 2        // eating_style=quick_simple AND ≤30 min
-      - quick_simple_penalty × 2      // eating_style=quick_simple AND >45 min
-      + right_swipe × 5 × decay       // decay = e^(-days/30)
+      + macro_verified_goal × 10
+      + tag_only_goal × 5
+      + quick_simple_bonus × 2
+      - quick_simple_penalty × 2
+      + right_swipe × 5 × decay
       - left_swipe × 15 × decay
       + Math.min(grocery_add_count, 2) × 3
       + Math.min(cooked_count, 2) × 4
       - saved × 3
-      + pantry_match_ratio × 20       // specificity-weighted
-      + first_session_full_match × 50 // total_sessions ≤ 1 AND pantry ratio = 1.0
-      + meal_prep_friendly × 8        // Meal Prep mode only
-      - meal_prep_unfriendly × 10     // Meal Prep mode only
+      + pantry_match_ratio × 20
+      + first_session_full_match × 50
+      + meal_prep_friendly × 8
+      - meal_prep_unfriendly × 10
 ```
 
 Decay: `Math.exp(-daysSince / 30)` — Today=1.0 | 30 days=0.37 | 90 days=0.05
@@ -577,7 +622,7 @@ Respond with JSON only:
 
 ### Image Sourcing — Unsplash API (primary) + Pexels (fallback)
 
-Claude cannot generate images. Generated recipes get their thumbnail from Unsplash — real food photography, free, high quality, and search-relevant.
+Claude cannot generate images. Generated recipes get their thumbnail from Unsplash.
 
 **Flow for each generated recipe:**
 1. Search Unsplash: `GET https://api.unsplash.com/search/photos?query={recipeTitle}&orientation=landscape&per_page=1`
@@ -585,54 +630,24 @@ Claude cannot generate images. Generated recipes get their thumbnail from Unspla
 3. If no Unsplash result: search Pexels: `GET https://api.pexels.com/v1/search?query={cuisine}+food&per_page=1`
 4. If neither returns a result: use a cuisine-level fallback image stored in Supabase storage
 
-```typescript
-async function fetchRecipeImage(title: string, cuisine: string): Promise<string> {
-  // Try Unsplash first
-  const unsplashRes = await fetch(
-    `https://api.unsplash.com/search/photos?query=${encodeURIComponent(title)}&orientation=landscape&per_page=1`,
-    { headers: { Authorization: `Client-ID ${process.env.UNSPLASH_ACCESS_KEY}` } }
-  )
-  const unsplashData = await unsplashRes.json()
-  if (unsplashData.results?.length > 0) {
-    return unsplashData.results[0].urls.regular
-  }
-
-  // Pexels fallback
-  const pexelsRes = await fetch(
-    `https://api.pexels.com/v1/search?query=${encodeURIComponent(cuisine + ' food')}&per_page=1`,
-    { headers: { Authorization: process.env.PEXELS_API_KEY! } }
-  )
-  const pexelsData = await pexelsRes.json()
-  if (pexelsData.photos?.length > 0) {
-    return pexelsData.photos[0].src.large
-  }
-
-  // Cuisine-level fallback (stored in Supabase storage)
-  return getCuisineFallbackImage(cuisine)
-}
-```
-
 **Image source summary:**
-- TheMealDB recipes (419) → TheMealDB CDN URLs — already populated ✅
-- Claude-generated recipes → Unsplash search by title → Pexels fallback by cuisine → Supabase fallback image
+- TheMealDB recipes (419) → TheMealDB CDN URLs ✅
+- Claude-generated recipes → Unsplash → Pexels fallback → Supabase fallback
 - Community-submitted recipes (Phase 4) → user uploads their own photo
 
 ### Cost
-- Unsplash: free, 50 requests/hour on free tier, 5000/hour on production
-- Pexels: free, 200 requests/hour
+- Unsplash: free, 45 req/hour rate limiter in script, auto-pauses and resumes
 - Two Claude Haiku validation calls per recipe: ~$0.001 total
-- 500 generated recipes: ~$0.50 in Claude costs + free image fetches
+- 1,200 generated recipes: ~$1.20 in Claude costs + free image fetches
 
 ### Human Spot-Check
-Before any large batch goes live, manually read 20-30 generated recipes and cook 2-3 of them. Automated validation catches structural problems; your eye catches tone, realism, and taste issues Claude cannot evaluate.
+Before any large batch goes live, manually read 20-30 generated recipes and cook 2-3 of them.
 
 ### Environment Variables Required
 ```bash
-UNSPLASH_ACCESS_KEY=     # register at unsplash.com/developers — free
+UNSPLASH_ACCESS_KEY=     # ✅ registered, in .env
 PEXELS_API_KEY=          # register at pexels.com/api — free
 ```
-
-Add to Vercel environment variables. Safe to use server-side only — never in client code.
 
 ---
 
@@ -770,23 +785,10 @@ create table recipe_cohort_affinities (
 
 ```
 POST /api/macros                   ✅ Live
-  Body: { recipeTitle, ingredients: [{ name, quantity, unit }] }
-  Returns: { macros: Macros }
-
 POST /api/taste-profile            ✅ Live
-  Body: { userId }
-  Returns: { tasteProfile: string | null, reason?: 'not_enough_data' }
-
 POST /api/generate-recipe          ✅ Live
-  Body: { cuisine, dietaryGoals, skillLevel, maxMins?, avoidDishes?: string[] }
-  Returns: { recipe } or 409 if Jaccard ≥60%
-
 POST /api/storage-tip              ✅ Live
-  Body: { ingredients: string[] }
-  Returns: { tips: string }
-
 POST /api/recommendations          ✅ Built — not used (local scorer preferred)
-
 POST /api/instacart-cart           🔲 Phase 3
 POST /api/check-recipe             🔲 Phase 4
 ```
@@ -803,7 +805,7 @@ EXPO_PUBLIC_API_URL=https://project-x-one-roan.vercel.app
 # Vercel only — never in client code
 ANTHROPIC_API_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
-UNSPLASH_ACCESS_KEY=       # free — register at unsplash.com/developers
+UNSPLASH_ACCESS_KEY=       # ✅ registered, in .env
 PEXELS_API_KEY=            # free — register at pexels.com/api
 INSTACART_PARTNER_ID=      # Phase 3
 INSTACART_API_KEY=         # Phase 3
@@ -831,7 +833,9 @@ INSTACART_API_KEY=         # Phase 3
 16. **Do not replace fetchScoredDeck with an API call** — local scorer is intentional
 17. **Scorer signal caps** — grocery_add and cooked capped at Math.min(count, 2)
 18. **Diversity constraint always applied post-sort** — maxPerCuisine=3 for variety, 5 for others
-19. **Generated recipe images via Unsplash first, Pexels fallback** — never use AI image generation, never leave image_url null
+19. **Generated recipe images via Unsplash first, Pexels fallback** — never AI image generation, never null image_url
+20. **Recipe card titles use Georgia italic serif** — Direction A typography, never sans-serif for titles
+21. **App name is Mori** — bundle ID `com.mori.app`, logo component is `MoriLogo.tsx`
 
 ---
 
@@ -840,7 +844,7 @@ INSTACART_API_KEY=         # Phase 3
 ### ✅ Phase 1 — Complete
 ### ✅ Phase 2 — Complete
 ### ✅ Phase 2.5 — Complete
-Meal Prep Mode end-to-end: 4-theme system, discoverStore, mode toggle, meal prep scoring, slot picker, serving multiplier, week progress indicator, mode-aware grocery header, tag-meal-prep-recipes.mjs.
+Meal Prep Mode: 4-theme system, discoverStore, mode toggle, meal prep scoring, slot picker, serving multiplier, week progress indicator, mode-aware grocery header. All 419 steps rewritten. Bulk generator running.
 
 ### Phase 3 — Instacart Integration (waiting on dev key)
 - [ ] Instacart Developer Platform approval ← submitted, waiting
@@ -863,14 +867,15 @@ Meal Prep Mode end-to-end: 4-theme system, discoverStore, mode toggle, meal prep
 ## 15. App Store Launch Checklist
 
 - [ ] Apple Developer Program ($99/year) — apply at developer.apple.com
+- [ ] Register `getmori.app` domain
 - [ ] Privacy policy live at a URL — disclose all data collected + AI usage
 - [ ] Apple AI transparency — explicit disclosure of Anthropic/Claude usage in privacy policy + in-app consent
 - [ ] TestFlight internal testing — all flows on real iOS devices
 - [ ] App Store Connect listing — screenshots, description, keywords, age rating
 - [ ] No placeholder content — every screen shows real data
 - [ ] No crashes on oldest supported iOS version
-- [ ] Run `tag-meal-prep-recipes.mjs` before submission
-- [ ] Register Unsplash and Pexels API keys — add to Vercel env vars
+- [ ] Clean generated recipes — run `clean-recipes.mjs` before submission
+- [ ] Register Pexels API key — add to Vercel env vars
 - [ ] Submit early in the week — avoid Fridays and holidays
 
 ---
@@ -895,14 +900,15 @@ Meal Prep Mode end-to-end: 4-theme system, discoverStore, mode toggle, meal prep
 
 ## 17. Key Decisions Already Made
 
+- **App name: Mori** — renamed from Mise (March 2026). Korean word for gathering. No App Store conflicts.
 - **iOS first**
 - **React Native Animated API** — do not migrate
 - **Inline styles + theme.ts** — do not migrate to NativeWind
 - **Local weighted scorer** — Claude UUID problem makes LLM ranking unreliable
-- **Claude used for:** taste profile, macros, recipe generation, storage tips
+- **Claude used for:** taste profile, macros, recipe generation, storage tips, step rewriting
 - **Spoonacular removed** — Claude Haiku estimates suffice for discovery app macros
-- **Unsplash + Pexels for generated recipe images** — real food photography, free, no AI image generation needed
-- **Instacart Developer Platform** — grocery list → pre-built cart → checkout in Instacart app. Affiliate commissions via Impact = primary revenue model
+- **Unsplash + Pexels for generated recipe images** — real food photography, free
+- **Instacart Developer Platform** — grocery list → pre-built cart → checkout in Instacart. Affiliate via Impact = primary revenue
 - **Copy/paste export Phase 1** — Instacart Phase 3
 - **Account creation screen 9 of 10** — user invested before committing
 - **Ingredient dislikes are hard filters**
@@ -910,7 +916,9 @@ Meal Prep Mode end-to-end: 4-theme system, discoverStore, mode toggle, meal prep
 - **Cold start solved by 248,886 cohort affinity rows**
 - **All AI and external APIs server-side only**
 - **Community Phase 4, social Phase 5**
+- **Direction A typography** — Georgia italic for recipe titles, SF Pro for body/metadata
+- **Linen light app icon** — `#F8F3EC` background, moss `m`, consistent across all system themes
 
 ---
 
-*Mise CLAUDE.md — v5.5 — All 419 TheMealDB steps rewritten by Claude Haiku. Bulk recipe generator running (targeting 1,200 total) with Unsplash images and meal_prep_friendly tagged at generation time. 4-theme system locked: Linen & Moss light/dark for meal prep, green/dark for spontaneous. useTheme() hook + appearanceMode override (light/dark/system) in discoverStore. Tab bar, action buttons, cart all theme-aware. Deck variety fixes: saved exclusion, cross-session left-swipe persistence. Phases 1, 2, 2.5 complete. Phase 3 waiting on Instacart approval.*
+*Mori CLAUDE.md — v5.6 — Renamed from Mise to Mori (March 2026). Brand identity locked: linen light app icon, italic serif wordmark, Direction A typography. Merged with latest build state: rewrite-steps.mjs complete, bulk recipe generator running (targeting 1,200), Unsplash wired. Phases 1, 2, 2.5 complete. Phase 3 waiting on Instacart approval.*

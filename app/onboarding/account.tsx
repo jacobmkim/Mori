@@ -87,7 +87,7 @@ export default function Account() {
           {mode === 'signup' ? 'Create your account' : 'Welcome back'}
         </Text>
         <Text style={{ fontSize: 15, color: colors.textMuted, marginBottom: 32 }}>
-          {mode === 'signup' ? "Your preferences are saved. Let's make it official." : 'Sign in to continue to Mise.'}
+          {mode === 'signup' ? "Your preferences are saved. Let's make it official." : 'Sign in to continue to Mori.'}
         </Text>
 
         <View style={{ gap: 16 }}>

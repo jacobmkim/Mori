@@ -5,7 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 // POST /api/generate-recipe
 // Generates a complete original recipe using Claude Haiku (~$0.004 per recipe).
 // Used by scripts/generate-recipes.mjs for bulk seeding and on-demand gap filling.
-// Generated recipes are owned by Mise — no copyright issues.
+// Generated recipes are owned by Mori — no copyright issues.
 //
 // Body: {
 //   cuisine: string,

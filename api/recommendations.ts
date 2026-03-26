@@ -135,7 +135,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const client = new Anthropic({ apiKey });
 
-    const prompt = `You are a recipe recommendation engine for Mise, a personalised recipe discovery app.
+    const prompt = `You are a recipe recommendation engine for Mori, a personalised recipe discovery app.
 
 ## User Profile
 - Dietary goals: ${profile.dietary_goals?.join(', ') || 'none set'}

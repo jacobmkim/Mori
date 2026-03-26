@@ -23,7 +23,7 @@ export default function Index() {
           if (!profile) {
             // No profile row — try to create a minimal one
             const email = data.session.user.email ?? '';
-            const name = email.split('@')[0] ?? 'Mise User';
+            const name = email.split('@')[0] ?? 'Mori User';
             try {
               profile = await upsertProfile({
                 id: userId,

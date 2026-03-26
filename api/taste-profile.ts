@@ -73,7 +73,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const client = new Anthropic({ apiKey });
 
-    const prompt = `You are summarising a home cook's taste profile for a recipe discovery app called Mise.
+    const prompt = `You are summarising a home cook's taste profile for a recipe discovery app called Mori.
 
 User data:
 - Dietary goals: ${profile?.dietary_goals?.join(', ') || 'none set'}

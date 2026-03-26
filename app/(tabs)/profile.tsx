@@ -637,7 +637,7 @@ export default function Profile() {
             <Ionicons name="person" size={40} color={colors.primary} />
           </View>
           <Text style={{ fontSize: 20, fontWeight: '700', color: colors.text }}>
-            {profile?.name ?? 'Mise User'}
+            {profile?.name ?? 'Mori User'}
           </Text>
           <Text style={{ fontSize: 14, color: colors.textMuted, marginTop: 4 }}>
             {profile ? 'Member since ' + new Date(profile.created_at).getFullYear() : 'Welcome!'}

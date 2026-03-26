@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { MiseLogo } from '@/components/ui/MiseLogo';
+import { MoriLogo } from '@/components/ui/MoriLogo';
 import { useTheme } from '@/hooks/useTheme';
 
 export default function Welcome() {
@@ -29,7 +29,7 @@ export default function Welcome() {
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
         {/* Logo */}
         <View style={{ paddingHorizontal: 28, paddingTop: 36 }}>
-          <MiseLogo size={76} textColor="#FFFFFF" showTagline />
+          <MoriLogo size={76} textColor="#FFFFFF" showTagline />
         </View>
 
         {/* Text block — vertically centred */}
