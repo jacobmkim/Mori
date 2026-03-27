@@ -47,8 +47,7 @@ function RecipeSwipeCard({
   isSaved,
 }: {
   recipe: Recipe;
-  // onSwipe fires immediately at threshold — parent receives position to own the fly-off spring
-  onSwipe: (direction: 'left' | 'right', cardPosition: Animated.ValueXY) => void;
+  onSwipe: (direction: 'left' | 'right', releaseX: number, releaseY: number) => void;
   onTap?: () => void;
   isTop: boolean;
   detail?: MealDetail;
@@ -63,7 +62,6 @@ function RecipeSwipeCard({
   const position = useRef(new Animated.ValueXY()).current;
 
   // Undo entry animation — runs once on mount if entryX is provided.
-  // Capture entryX in a ref so the effect closure is stable.
   const entryXRef = useRef(entryX);
   useEffect(() => {
     if (entryXRef.current == null) return;
@@ -75,6 +73,7 @@ function RecipeSwipeCard({
       useNativeDriver: true,
     }).start();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const topDragXRef = useRef(topDragX);
   topDragXRef.current = topDragX;
 
@@ -96,14 +95,9 @@ function RecipeSwipeCard({
       onPanResponderRelease: (_, gesture) => {
         if (Math.abs(gesture.dx) > SWIPE_THRESHOLD) {
           const dir = gesture.dx > 0 ? 'right' : 'left';
-          // Snap background to full-swipe position so the next card is at
-          // scale=1.0 the instant the index changes — no pop on transition.
           topDragXRef.current?.setValue(dir === 'right' ? SCREEN_WIDTH : -SCREEN_WIDTH);
-          // Fire immediately — parent gets position and starts the fly-off spring.
-          // The new top card becomes swipeable right now, no animation delay.
-          onSwipeRef.current(dir, position);
+          onSwipeRef.current(dir, gesture.dx, gesture.dy * 0.15);
         } else if (Math.abs(gesture.dx) < 6 && Math.abs(gesture.dy) < 6) {
-          // Tiny movement = tap — snap back and open detail
           Animated.spring(position, {
             toValue: { x: 0, y: 0 },
             friction: 5,
@@ -344,6 +338,10 @@ export default function Discover() {
   // card's own visual position so resetting it never causes a flash.
   const topDragX = useRef(new Animated.Value(0)).current;
 
+  // Tracks exit card identity so rapid swipes don't clobber each other's
+  // cleanup callbacks.
+  const exitIdRef = useRef(0);
+
   const swipeProgress = useRef(
     topDragX.interpolate({
       inputRange: [-SCREEN_WIDTH, 0, SCREEN_WIDTH],
@@ -525,29 +523,36 @@ export default function Discover() {
       .catch(() => {}); // swipe logging is non-critical
   }
 
-  function handleSwipe(direction: 'left' | 'right', cardPosition: Animated.ValueXY) {
+  function handleSwipe(direction: 'left' | 'right', releaseX = 0, releaseY = 0) {
     const recipe = recipes[currentIndexRef.current];
     if (!recipe) return;
     if (direction === 'right') addRecipe(recipe, userId);
     setLastSwipe({ recipe, direction });
     logSwipeBackground(recipe, direction, mode as AppMode);
 
-    // Keep the exiting card rendered as an overlay so its fly-off animation
-    // plays while the new top card is already fully interactive.
-    setExitCard({ recipe, detail: detailCache.current.get(recipe.id), position: cardPosition });
+    // Each exit card gets its own ValueXY so rapid swipes don't conflict.
+    const exitPos = new Animated.ValueXY({ x: releaseX, y: releaseY });
+    const exitId = ++exitIdRef.current;
+    setExitCard({ recipe, detail: detailCache.current.get(recipe.id), position: exitPos });
 
-    // Increment immediately — new top card's PanResponder is active right now.
+    // Increment immediately — the card has no running animation on its own
+    // position, so unmounting it won't cause a native-driver flash. The exit
+    // overlay (above) handles the visual fly-off on a separate ValueXY.
     setCurrentIndex((prev) => prev + 1);
 
-    // Spring topDragX back so the new background card settles into resting position.
+    // Spring topDragX back so the background card settles smoothly (no pop).
     Animated.spring(topDragX, { toValue: 0, friction: 6, tension: 40, useNativeDriver: true }).start();
 
-    // Fly the exiting card off screen, then clear it.
-    Animated.spring(cardPosition, {
+    // Fly exit overlay off screen.
+    Animated.spring(exitPos, {
       toValue: { x: direction === 'right' ? SCREEN_WIDTH * 1.5 : -SCREEN_WIDTH * 1.5, y: 0 },
       useNativeDriver: true,
       speed: 20,
-    }).start(() => setExitCard(null));
+      bounciness: 0,
+    }).start(() => {
+      // Only clear if this is still the latest exit card
+      if (exitIdRef.current === exitId) setExitCard(null);
+    });
   }
 
   function handleUndo() {
@@ -563,12 +568,9 @@ export default function Discover() {
     setLastSwipe(null);
   }
 
-  // Button-tap swipe: synthesise a position and do the same fly-off.
+  // Button-tap swipe: fly off from center position.
   function handleButtonSwipe(direction: 'left' | 'right') {
-    const recipe = recipes[currentIndexRef.current];
-    if (!recipe) return;
-    const syntheticPos = new Animated.ValueXY({ x: 0, y: 0 });
-    handleSwipe(direction, syntheticPos);
+    handleSwipe(direction, 0, 0);
   }
 
   // Add current top card to grocery list, mark liked for Phase 2 AI signal,
@@ -725,15 +727,11 @@ export default function Discover() {
               };
 
               if (stackIndex === 0) {
-                // Animated.View (not plain View) so React reconciles by key+type
-                // when this card transitions from stackIndex=1 → 0, avoiding a
-                // remount that would cause a flash. No transforms needed here —
-                // the card handles its own position internally.
                 return (
                   <Animated.View key={recipe.id} style={baseStyle}>
                     <RecipeSwipeCard
                       recipe={recipe}
-                      onSwipe={(dir, pos) => handleSwipe(dir, pos)}
+                      onSwipe={(dir, rx, ry) => handleSwipe(dir, rx, ry)}
                       onTap={handleViewDetail}
                       isTop
                       detail={cardDetail}
