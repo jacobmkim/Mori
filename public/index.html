@@ -2,15 +2,24 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Mori — Swipe. Cook. Order.</title>
 <meta name="description" content="The recipe app that learns your taste. Swipe through personalised recipes, build a smart grocery list, and order ingredients through Instacart in one tap.">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Mori">
+<meta name="theme-color" content="#2E7D32">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet">
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
+button, a { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  html { scroll-behavior: auto; }
+}
 
 :root {
   --green:       #2E7D32;
@@ -77,22 +86,24 @@ nav {
 .nav-link:hover { color: var(--text); }
 .btn-primary {
   background: var(--green); color: #fff;
-  border: none; padding: 0.6rem 1.4rem;
+  border: none; padding: 0.75rem 1.4rem;
   border-radius: 999px;
   font-family: 'DM Sans', sans-serif;
   font-size: 0.875rem; font-weight: 500;
   cursor: pointer; text-decoration: none;
-  display: inline-block; transition: all 0.2s;
+  display: inline-flex; align-items: center; min-height: 44px; /* Apple HIG minimum */
+  transition: all 0.2s;
 }
 .btn-primary:hover { background: #236227; transform: translateY(-1px); }
 .btn-outline {
   background: transparent; color: var(--green);
   border: 1.5px solid var(--green);
-  padding: 0.55rem 1.3rem; border-radius: 999px;
+  padding: 0.7rem 1.3rem; border-radius: 999px;
   font-family: 'DM Sans', sans-serif;
   font-size: 0.875rem; font-weight: 500;
   cursor: pointer; text-decoration: none;
-  display: inline-block; transition: all 0.2s;
+  display: inline-flex; align-items: center; min-height: 44px;
+  transition: all 0.2s;
 }
 .btn-outline:hover { background: var(--green-pale); }
 
@@ -154,8 +165,9 @@ nav {
   flex: 1; background: var(--bg-soft);
   border: 1.5px solid var(--border);
   border-radius: 999px; padding: 0.75rem 1.2rem;
-  font-family: 'DM Sans', sans-serif; font-size: 0.9rem;
+  font-family: 'DM Sans', sans-serif; font-size: 1rem; /* 16px min — prevents iOS auto-zoom */
   color: var(--text); outline: none; transition: border-color 0.2s;
+  -webkit-appearance: none;
 }
 .hero-input::placeholder { color: var(--text-muted); }
 .hero-input:focus { border-color: var(--green); }
@@ -256,10 +268,29 @@ nav {
   padding: 5rem 2rem; overflow: hidden;
 }
 .showcase-inner { max-width: 1100px; margin: 0 auto; }
-.screens-row {
-  display: flex; gap: 1.25rem; justify-content: center;
-  align-items: flex-start; padding: 1rem 0;
+.carousel-wrap { position: relative; }
+.carousel-btn {
+  position: absolute; top: 45%; transform: translateY(-50%);
+  width: 40px; height: 40px; border-radius: 50%;
+  background: #fff; border: 1.5px solid var(--border);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.12);
+  cursor: pointer; z-index: 10;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.4rem; color: var(--text-mid); line-height: 1;
+  transition: all 0.2s; padding: 0;
 }
+.carousel-btn:hover { border-color: var(--green); color: var(--green); box-shadow: 0 4px 16px rgba(46,125,50,0.15); }
+.carousel-btn.prev { left: -12px; }
+.carousel-btn.next { right: -12px; }
+.screens-row {
+  display: flex; gap: 1.25rem; justify-content: flex-start;
+  align-items: flex-start; padding: 1rem 0.5rem;
+  overflow-x: auto; -webkit-overflow-scrolling: touch;
+  scrollbar-width: none; /* Firefox */
+  scroll-snap-type: x mandatory;
+}
+.screens-row > div { scroll-snap-align: start; }
+.screens-row::-webkit-scrollbar { display: none; } /* Safari/Chrome */
 .screen-item {
   flex-shrink: 0; width: 200px;
   border-radius: 28px; overflow: hidden;
@@ -338,8 +369,9 @@ nav {
   flex: 1; background: rgba(255,255,255,0.15);
   border: 1.5px solid rgba(255,255,255,0.35);
   border-radius: 999px; padding: 0.75rem 1.2rem;
-  font-family: 'DM Sans', sans-serif; font-size: 0.9rem;
+  font-family: 'DM Sans', sans-serif; font-size: 1rem; /* 16px min — prevents iOS auto-zoom */
   color: #fff; outline: none; transition: all 0.2s;
+  -webkit-appearance: none;
 }
 .cta-input::placeholder { color: rgba(255,255,255,0.5); }
 .cta-input:focus { border-color: rgba(255,255,255,0.7); }
@@ -349,7 +381,9 @@ nav {
   border-radius: 999px;
   font-family: 'DM Sans', sans-serif;
   font-size: 0.875rem; font-weight: 500;
-  cursor: pointer; white-space: nowrap; transition: all 0.2s;
+  cursor: pointer; white-space: nowrap;
+  display: inline-flex; align-items: center; min-height: 44px;
+  transition: all 0.2s;
 }
 .btn-white:hover { background: #F1FBF1; }
 .cta-note { font-size: 0.75rem; color: rgba(255,255,255,0.5); margin-top: 0.75rem; }
@@ -403,6 +437,18 @@ footer {
   .nav-link { display: none; }
   .screen-item { width: 120px; border-radius: 20px; }
   .stats-inner { grid-template-columns: 1fr; gap: 1.5rem; }
+  /* Stack the email form vertically on small phones */
+  .hero-form, .cta-form {
+    flex-direction: column; align-items: stretch;
+  }
+  .hero-form .btn-primary, .cta-form .btn-white {
+    justify-content: center;
+  }
+  /* Safe area padding for notch/Dynamic Island */
+  nav { padding-top: max(1rem, env(safe-area-inset-top)); }
+  body { padding-bottom: env(safe-area-inset-bottom); }
+  /* Screens row: left-align so swipe feels natural */
+  .screens-row { justify-content: flex-start; padding-left: 1rem; padding-right: 1rem; }
 }
 </style>
 </head>
@@ -411,7 +457,18 @@ footer {
 <!-- NAV -->
 <nav>
   <div class="nav-logo">
-    mori
+    <svg width="175" height="54" viewBox="0 0 175 54" style="display:block;">
+      <g transform="translate(1,2) scale(0.44)">
+        <path d="M7 4 Q7 0 11 0 L25 0 Q29 0 29 4 L29 28 Q29 33 25 36 L20 39 L16 39 Q12 36 7 33 Z" fill="#2E7D32"/>
+        <rect x="12" y="4" width="3" height="24" rx="1.5" fill="white"/>
+        <rect x="17.5" y="4" width="3" height="24" rx="1.5" fill="white"/>
+        <rect x="23" y="4" width="3" height="24" rx="1.5" fill="white"/>
+        <path d="M14 39 Q13 52 13.5 65 Q14 75 16 83 Q17 87 18 93 Q19 87 20 83 Q22 75 22.5 65 Q23 52 22 39 Z" fill="#2E7D32"/>
+        <circle cx="18" cy="96" r="4.5" fill="#2E7D32"/>
+        <circle cx="18" cy="96" r="2.2" fill="white"/>
+      </g>
+      <text x="30" y="36" font-family="'Playfair Display',Georgia,serif" font-size="32" font-style="italic" font-weight="400" fill="#2E7D32" letter-spacing="-0.8">mori</text>
+    </svg>
   </div>
   <div class="nav-right">
     <a href="#features" class="nav-link">Features</a>
@@ -427,7 +484,15 @@ footer {
       <div class="app-icon app-icon-sm">
         <svg viewBox="0 0 90 90" width="40" height="40">
           <text x="5" y="76" font-family="Georgia,serif" font-size="74" font-style="italic" font-weight="400" fill="#2E5438" letter-spacing="-2">m</text>
-          <circle cx="74" cy="15" r="7.5" fill="#2E5438"/>
+          <g transform="translate(64,1) scale(0.46)">
+            <path d="M7 4 Q7 0 11 0 L25 0 Q29 0 29 4 L29 28 Q29 33 25 36 L20 39 L16 39 Q12 36 7 33 Z" fill="#2E5438"/>
+            <rect x="12" y="4" width="3" height="24" rx="1.5" fill="#F8F3EC"/>
+            <rect x="17.5" y="4" width="3" height="24" rx="1.5" fill="#F8F3EC"/>
+            <rect x="23" y="4" width="3" height="24" rx="1.5" fill="#F8F3EC"/>
+            <path d="M14 39 Q13 52 13.5 65 Q14 75 16 83 Q17 87 18 93 Q19 87 20 83 Q22 75 22.5 65 Q23 52 22 39 Z" fill="#2E5438"/>
+            <circle cx="18" cy="96" r="4.5" fill="#2E5438"/>
+            <circle cx="18" cy="96" r="2.2" fill="#F8F3EC"/>
+          </g>
         </svg>
       </div>
       <span>Launching on iOS · Summer 2026</span>
@@ -445,28 +510,36 @@ footer {
     </form>
     <p class="hero-note" id="hero-msg"></p>
   </div>
-  <div class="hero-right">
+  <div class="hero-right" style="flex-direction:column;align-items:center;gap:1.5rem;">
     <div class="phone-stack">
       <div class="phone-back">
-        <img src="screen5.png" alt="Mori swipe mechanic">
+        <img src="IMG_8982.PNG" alt="Mori discover screen dark mode">
       </div>
       <div class="phone-front">
-        <img src="screen1.png" alt="Mori discover screen">
+        <img src="IMG_8970.PNG" alt="Mori discover screen">
       </div>
-      <!-- App icon floating badge -->
-      <div style="position:absolute;bottom:-16px;right:8px;display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #E0E0E0;border-radius:16px;padding:10px 16px 10px 10px;box-shadow:0 8px 24px rgba(0,0,0,0.1);">
-        <div class="app-icon" style="width:48px;height:48px;border-radius:12px;">
-          <svg viewBox="0 0 90 90" width="36" height="36">
-            <text x="5" y="76" font-family="Georgia,serif" font-size="74" font-style="italic" font-weight="400" fill="#2E5438" letter-spacing="-2">m</text>
-            <circle cx="74" cy="15" r="7.5" fill="#2E5438"/>
-          </svg>
-        </div>
-        <div>
-          <div style="font-size:0.8rem;font-weight:500;color:#1A1A1A;font-family:'DM Sans',sans-serif;">Mori</div>
-          <div style="font-size:0.7rem;color:#888;font-family:'DM Sans',sans-serif;">Recipe discovery</div>
-        </div>
-        <div style="margin-left:8px;background:#2E7D32;color:#fff;font-size:0.65rem;font-weight:600;padding:4px 10px;border-radius:999px;font-family:'DM Sans',sans-serif;">GET</div>
+    </div>
+    <!-- App icon floating badge — sits below phones, not on top -->
+    <div style="display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #E0E0E0;border-radius:16px;padding:10px 16px 10px 10px;box-shadow:0 8px 24px rgba(0,0,0,0.1);align-self:flex-end;margin-right:8px;">
+      <div class="app-icon" style="width:48px;height:48px;border-radius:12px;">
+        <svg viewBox="0 0 90 90" width="36" height="36">
+          <text x="5" y="76" font-family="Georgia,serif" font-size="74" font-style="italic" font-weight="400" fill="#2E5438" letter-spacing="-2">m</text>
+          <g transform="translate(64,1) scale(0.46)">
+            <path d="M7 4 Q7 0 11 0 L25 0 Q29 0 29 4 L29 28 Q29 33 25 36 L20 39 L16 39 Q12 36 7 33 Z" fill="#2E5438"/>
+            <rect x="12" y="4" width="3" height="24" rx="1.5" fill="#F8F3EC"/>
+            <rect x="17.5" y="4" width="3" height="24" rx="1.5" fill="#F8F3EC"/>
+            <rect x="23" y="4" width="3" height="24" rx="1.5" fill="#F8F3EC"/>
+            <path d="M14 39 Q13 52 13.5 65 Q14 75 16 83 Q17 87 18 93 Q19 87 20 83 Q22 75 22.5 65 Q23 52 22 39 Z" fill="#2E5438"/>
+            <circle cx="18" cy="96" r="4.5" fill="#2E5438"/>
+            <circle cx="18" cy="96" r="2.2" fill="#F8F3EC"/>
+          </g>
+        </svg>
       </div>
+      <div>
+        <div style="font-size:0.8rem;font-weight:500;color:#1A1A1A;font-family:'DM Sans',sans-serif;">Mori</div>
+        <div style="font-size:0.7rem;color:#888;font-family:'DM Sans',sans-serif;">Recipe discovery</div>
+      </div>
+      <div style="margin-left:8px;background:#2E7D32;color:#fff;font-size:0.65rem;font-weight:600;padding:4px 10px;border-radius:999px;font-family:'DM Sans',sans-serif;">GET</div>
     </div>
   </div>
 </section>
@@ -496,7 +569,15 @@ footer {
       <div style="width:48px;height:48px;border-radius:12px;background:#F8F3EC;border:1px solid #E0D4C4;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 2px 6px rgba(46,84,56,0.08);">
         <svg width="36" height="36" viewBox="0 0 90 90">
           <text x="6" y="78" font-family="Georgia,serif" font-size="74" font-style="italic" fill="#2E5438" letter-spacing="-2">m</text>
-          <circle cx="74" cy="16" r="7.5" fill="#2E5438"/>
+          <g transform="translate(64,1) scale(0.46)">
+            <path d="M7 4 Q7 0 11 0 L25 0 Q29 0 29 4 L29 28 Q29 33 25 36 L20 39 L16 39 Q12 36 7 33 Z" fill="#2E5438"/>
+            <rect x="12" y="4" width="3" height="24" rx="1.5" fill="#F8F3EC"/>
+            <rect x="17.5" y="4" width="3" height="24" rx="1.5" fill="#F8F3EC"/>
+            <rect x="23" y="4" width="3" height="24" rx="1.5" fill="#F8F3EC"/>
+            <path d="M14 39 Q13 52 13.5 65 Q14 75 16 83 Q17 87 18 93 Q19 87 20 83 Q22 75 22.5 65 Q23 52 22 39 Z" fill="#2E5438"/>
+            <circle cx="18" cy="96" r="4.5" fill="#2E5438"/>
+            <circle cx="18" cy="96" r="2.2" fill="#F8F3EC"/>
+          </g>
         </svg>
       </div>
       <span class="section-eyebrow" style="margin-bottom:0;">Why Mori</span>
@@ -546,37 +627,47 @@ footer {
       <h2 class="section-title" style="text-align:center;">Built for <em>real cooks</em></h2>
       <p class="section-sub" style="margin:0 auto;">Every screen designed around the moment you're actually in.</p>
     </div>
-    <div class="screens-row reveal">
-      <div>
-        <div class="screen-item offset-down">
-          <img src="screen2.png" alt="Recipe library">
+    <div class="carousel-wrap">
+      <button class="carousel-btn prev" onclick="scrollCarousel(-1)" aria-label="Previous">&#8249;</button>
+      <div class="screens-row reveal" id="screens-row">
+        <div>
+          <div class="screen-item offset-down">
+            <img src="IMG_8970.PNG" alt="Discover — swipe recipes">
+          </div>
+          <p class="screen-caption">Discover</p>
         </div>
-        <p class="screen-caption">Recipe library</p>
-      </div>
-      <div>
-        <div class="screen-item">
-          <img src="screen1.png" alt="Discover">
+        <div>
+          <div class="screen-item">
+            <img src="IMG_8971.PNG" alt="Meal Prep mode">
+          </div>
+          <p class="screen-caption">Meal Prep mode</p>
         </div>
-        <p class="screen-caption">Discover</p>
-      </div>
-      <div>
-        <div class="screen-item offset-down">
-          <img src="screen3.png" alt="Grocery list">
+        <div>
+          <div class="screen-item offset-down">
+            <img src="IMG_8973.PNG" alt="Recipe detail">
+          </div>
+          <p class="screen-caption">Recipe detail</p>
         </div>
-        <p class="screen-caption">Grocery list</p>
-      </div>
-      <div>
-        <div class="screen-item">
-          <img src="screen6.png" alt="Meal Prep">
+        <div>
+          <div class="screen-item">
+            <img src="IMG_8976.PNG" alt="Weekly meal planner">
+          </div>
+          <p class="screen-caption">Weekly planner</p>
         </div>
-        <p class="screen-caption">Meal Prep mode</p>
-      </div>
-      <div>
-        <div class="screen-item offset-down">
-          <img src="screen4.png" alt="Taste profile">
+        <div>
+          <div class="screen-item offset-down">
+            <img src="IMG_8977.PNG" alt="Grocery list">
+          </div>
+          <p class="screen-caption">Grocery list</p>
         </div>
-        <p class="screen-caption">Taste profile</p>
+        <div>
+          <div class="screen-item">
+            <img src="IMG_8978.PNG" alt="Taste profile">
+          </div>
+          <p class="screen-caption">Taste profile</p>
+        </div>
       </div>
+      <button class="carousel-btn next" onclick="scrollCarousel(1)" aria-label="Next">&#8250;</button>
     </div>
   </div>
 </section>
@@ -639,7 +730,15 @@ footer {
       <div style="width:32px;height:32px;border-radius:8px;background:#F8F3EC;border:1px solid #E0D4C4;display:flex;align-items:center;justify-content:center;">
         <svg width="24" height="24" viewBox="0 0 90 90">
           <text x="6" y="78" font-family="Georgia,serif" font-size="74" font-style="italic" fill="#2E5438" letter-spacing="-2">m</text>
-          <circle cx="74" cy="16" r="7.5" fill="#2E5438"/>
+          <g transform="translate(64,1) scale(0.46)">
+            <path d="M7 4 Q7 0 11 0 L25 0 Q29 0 29 4 L29 28 Q29 33 25 36 L20 39 L16 39 Q12 36 7 33 Z" fill="#2E5438"/>
+            <rect x="12" y="4" width="3" height="24" rx="1.5" fill="#F8F3EC"/>
+            <rect x="17.5" y="4" width="3" height="24" rx="1.5" fill="#F8F3EC"/>
+            <rect x="23" y="4" width="3" height="24" rx="1.5" fill="#F8F3EC"/>
+            <path d="M14 39 Q13 52 13.5 65 Q14 75 16 83 Q17 87 18 93 Q19 87 20 83 Q22 75 22.5 65 Q23 52 22 39 Z" fill="#2E5438"/>
+            <circle cx="18" cy="96" r="4.5" fill="#2E5438"/>
+            <circle cx="18" cy="96" r="2.2" fill="#F8F3EC"/>
+          </g>
         </svg>
       </div>
       <div class="footer-logo">mori</div>
@@ -688,6 +787,11 @@ async function handleSubmit(e, id) {
     btn.disabled = false;
     btn.style.opacity = '1';
   }
+}
+
+function scrollCarousel(dir) {
+  const row = document.getElementById('screens-row');
+  row.scrollBy({ left: dir * 240, behavior: 'smooth' });
 }
 
 const observer = new IntersectionObserver(entries => {
