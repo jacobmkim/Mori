@@ -98,6 +98,8 @@ const CUISINES = [
   { name: 'Greek',          target: 100 },
   { name: 'Korean',         target: 100 },
   { name: 'Middle Eastern', target: 100 },
+  // Simple everyday meals — beginner skill, short time, supermarket ingredients only
+  { name: 'Simple Weeknight', target: 60, forceSkill: 'beginner', maxMins: 30 },
 ];
 
 // Spread dietary goals across generated recipes for variety
@@ -149,15 +151,18 @@ async function getExistingTitles(cuisine) {
   return (data ?? []).map(r => r.title);
 }
 
-async function generateOne(cuisine, index, existingTitles = [], retryAvoid = []) {
+async function generateOne(cuisine, index, existingTitles = [], retryAvoid = [], opts = {}) {
   const dietaryGoals = DIETARY_ROTATION[index % DIETARY_ROTATION.length];
-  const skillLevel = SKILL_ROTATION[index % SKILL_ROTATION.length];
+  const skillLevel = opts.forceSkill ?? SKILL_ROTATION[index % SKILL_ROTATION.length];
   const avoidDishes = [...existingTitles, ...retryAvoid];
+
+  const body = { cuisine, dietaryGoals, skillLevel, save: true, avoidDishes };
+  if (opts.maxMins) body.maxMins = opts.maxMins;
 
   const response = await fetch(`${API_URL}/api/generate-recipe`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ cuisine, dietaryGoals, skillLevel, save: true, avoidDishes }),
+    body: JSON.stringify(body),
   });
 
   // 409 = too similar to existing — retry once with the offending title added to avoid list
@@ -165,7 +170,7 @@ async function generateOne(cuisine, index, existingTitles = [], retryAvoid = [])
     const body = await response.json();
     process.stdout.write(`  ↩ Too similar (${body.title}), retrying...\n`);
     await sleep(DELAY_MS);
-    return generateOne(cuisine, index + 7, existingTitles, [...retryAvoid, body.title]);
+    return generateOne(cuisine, index + 7, existingTitles, [...retryAvoid, body.title], opts);
   }
 
   if (!response.ok) {
@@ -195,7 +200,7 @@ async function main() {
   console.log(`API: ${API_URL}`);
   console.log(`Mode: ${isDryRun ? 'DRY RUN' : 'LIVE'}\n`);
 
-  for (const { name, target } of targets) {
+  for (const { name, target, forceSkill, maxMins } of targets) {
     const existing = await countExisting(name);
     const needed = Math.max(0, (perCuisine ?? target) - existing);
 
@@ -206,10 +211,11 @@ async function main() {
     let generated = 0;
     let failed = 0;
     const generatedTitles = await getExistingTitles(name);
+    const opts = { forceSkill, maxMins };
 
     for (let i = 0; i < needed; i++) {
       try {
-        const recipe = await generateOne(name, i, generatedTitles);
+        const recipe = await generateOne(name, i, generatedTitles, [], opts);
         generated++;
         if (recipe?.title) generatedTitles.push(recipe.title);
 
