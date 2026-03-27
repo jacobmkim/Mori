@@ -44,6 +44,7 @@ function RecipeSwipeCard({
   dietaryGoals,
   macros,
   isCooked,
+  isSaved,
 }: {
   recipe: Recipe;
   // onSwipe fires immediately at threshold — parent receives position to own the fly-off spring
@@ -56,6 +57,7 @@ function RecipeSwipeCard({
   dietaryGoals?: string[];
   macros?: Macros | null;
   isCooked?: boolean;
+  isSaved?: boolean;
 }) {
   const colors = useTheme();
   const position = useRef(new Animated.ValueXY()).current;
@@ -191,6 +193,19 @@ function RecipeSwipeCard({
         </View>
       )}
 
+      {/* Already saved indicator — shown when saved recipe appears in deck (fallback case) */}
+      {isSaved && !isCooked && (
+        <View style={{
+          position: 'absolute', top: 12, left: 12,
+          backgroundColor: 'rgba(0,0,0,0.55)',
+          borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5,
+          flexDirection: 'row', alignItems: 'center', gap: 4,
+        }}>
+          <Ionicons name="bookmark" size={12} color="white" />
+          <Text style={{ color: 'white', fontSize: 11, fontWeight: '600' }}>Already saved</Text>
+        </View>
+      )}
+
       {/* SAVE overlay */}
       <Animated.View style={{
         position: 'absolute', top: 0, left: 0, right: 0, height: '62%',
@@ -221,6 +236,10 @@ function RecipeSwipeCard({
           {recipe.isAdventure ? (
             <View style={{ backgroundColor: '#FFF8E1', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, marginLeft: 8, marginTop: 2 }}>
               <Text style={{ color: '#F57F17', fontSize: 11, fontWeight: '600' }}>✦ New for you</Text>
+            </View>
+          ) : recipe.isTrending ? (
+            <View style={{ backgroundColor: '#FFF3E0', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, marginLeft: 8, marginTop: 2 }}>
+              <Text style={{ color: '#E65100', fontSize: 11, fontWeight: '600' }}>🔥 Trending</Text>
             </View>
           ) : recipe.badge !== 'none' ? (
             <View style={{ backgroundColor: colors.primaryLight, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, marginLeft: 8, marginTop: 2 }}>
@@ -623,7 +642,7 @@ export default function Discover() {
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       {/* Header */}
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 }}>
-        <MoriLogo size={40} textColor={colors.text} />
+        <MoriLogo size="sm" />
         <View style={{ flexDirection: 'row', backgroundColor: colors.toggleBg, borderRadius: 20, padding: 3 }}>
           {(['spontaneous', 'meal_prep'] as AppMode[]).map((m) => (
             <Pressable
@@ -723,6 +742,7 @@ export default function Discover() {
                       dietaryGoals={dietaryGoals}
                       macros={topMacros}
                       isCooked={recipe.supabase_id ? (prevCookedIds.has(recipe.supabase_id) || cookedRecipeIds.has(recipe.supabase_id)) : false}
+                      isSaved={isSaved(recipe.id)}
                     />
                   </Animated.View>
                 );

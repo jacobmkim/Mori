@@ -268,29 +268,48 @@ nav {
   padding: 5rem 2rem; overflow: hidden;
 }
 .showcase-inner { max-width: 1100px; margin: 0 auto; }
-.carousel-wrap { position: relative; }
-.carousel-btn {
-  position: absolute; top: 45%; transform: translateY(-50%);
-  width: 40px; height: 40px; border-radius: 50%;
-  background: #fff; border: 1.5px solid var(--border);
-  box-shadow: 0 2px 12px rgba(0,0,0,0.12);
-  cursor: pointer; z-index: 10;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 1.4rem; color: var(--text-mid); line-height: 1;
-  transition: all 0.2s; padding: 0;
+.screens-showcase {
+  display: flex; gap: 1.5rem;
+  justify-content: center; align-items: flex-start;
+  padding: 0.5rem 2rem 1.5rem;
 }
-.carousel-btn:hover { border-color: var(--green); color: var(--green); box-shadow: 0 4px 16px rgba(46,125,50,0.15); }
-.carousel-btn.prev { left: -12px; }
-.carousel-btn.next { right: -12px; }
-.screens-row {
-  display: flex; gap: 1.25rem; justify-content: flex-start;
-  align-items: flex-start; padding: 1rem 0.5rem;
-  overflow-x: auto; -webkit-overflow-scrolling: touch;
-  scrollbar-width: none; /* Firefox */
-  scroll-snap-type: x mandatory;
+.screen-phone-wrap { text-align: center; flex-shrink: 0; }
+.screen-phone {
+  width: 200px; border-radius: 28px; overflow: hidden;
+  border: 1.5px solid rgba(0,0,0,0.07);
+  box-shadow: 0 20px 56px rgba(0,0,0,0.11), 0 4px 14px rgba(0,0,0,0.06);
+  cursor: zoom-in;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
-.screens-row > div { scroll-snap-align: start; }
-.screens-row::-webkit-scrollbar { display: none; } /* Safari/Chrome */
+.screen-phone:hover {
+  transform: translateY(-10px);
+  box-shadow: 0 30px 72px rgba(0,0,0,0.16), 0 8px 24px rgba(0,0,0,0.07);
+}
+.screen-phone img { width: 100%; display: block; }
+.screen-phone-label { font-size: 0.72rem; color: var(--text-muted); margin-top: 0.65rem; }
+/* staggered heights */
+.screen-phone-wrap:nth-child(1) .screen-phone { margin-top: 56px; }
+.screen-phone-wrap:nth-child(2) .screen-phone { margin-top: 16px; }
+.screen-phone-wrap:nth-child(3) .screen-phone { margin-top: 0; }
+.screen-phone-wrap:nth-child(4) .screen-phone { margin-top: 40px; }
+@media (max-width: 900px) {
+  .screens-showcase { overflow-x: auto; justify-content: flex-start; padding-left: 1rem; }
+  .screen-phone { width: 155px; }
+}
+/* Lightbox */
+#lightbox {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.88); z-index: 9999;
+  align-items: center; justify-content: center;
+  cursor: zoom-out;
+}
+#lightbox.open { display: flex; }
+#lightbox img {
+  max-height: 90vh; max-width: min(420px, 90vw);
+  border-radius: 28px;
+  box-shadow: 0 32px 80px rgba(0,0,0,0.6);
+  animation: fadeUp 0.2s ease forwards;
+}
 .screen-item {
   flex-shrink: 0; width: 200px;
   border-radius: 28px; overflow: hidden;
@@ -454,6 +473,11 @@ footer {
 </head>
 <body>
 
+<!-- LIGHTBOX -->
+<div id="lightbox" onclick="closeLightbox()">
+  <img id="lightbox-img" src="" alt="">
+</div>
+
 <!-- NAV -->
 <nav>
   <div class="nav-logo">
@@ -519,8 +543,8 @@ footer {
         <img src="IMG_8970.PNG" alt="Mori discover screen">
       </div>
     </div>
-    <!-- App icon floating badge — sits below phones, not on top -->
-    <div style="display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #E0E0E0;border-radius:16px;padding:10px 16px 10px 10px;box-shadow:0 8px 24px rgba(0,0,0,0.1);align-self:flex-end;margin-right:8px;">
+    <!-- App icon floating badge — sits below phones, centered -->
+    <div style="display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #E0E0E0;border-radius:16px;padding:10px 16px 10px 10px;box-shadow:0 8px 24px rgba(0,0,0,0.1);align-self:center;margin-top:2.5rem;">
       <div class="app-icon" style="width:48px;height:48px;border-radius:12px;">
         <svg viewBox="0 0 90 90" width="36" height="36">
           <text x="5" y="76" font-family="Georgia,serif" font-size="74" font-style="italic" font-weight="400" fill="#2E5438" letter-spacing="-2">m</text>
@@ -627,47 +651,23 @@ footer {
       <h2 class="section-title" style="text-align:center;">Built for <em>real cooks</em></h2>
       <p class="section-sub" style="margin:0 auto;">Every screen designed around the moment you're actually in.</p>
     </div>
-    <div class="carousel-wrap">
-      <button class="carousel-btn prev" onclick="scrollCarousel(-1)" aria-label="Previous">&#8249;</button>
-      <div class="screens-row reveal" id="screens-row">
-        <div>
-          <div class="screen-item offset-down">
-            <img src="IMG_8970.PNG" alt="Discover — swipe recipes">
-          </div>
-          <p class="screen-caption">Discover</p>
-        </div>
-        <div>
-          <div class="screen-item">
-            <img src="IMG_8971.PNG" alt="Meal Prep mode">
-          </div>
-          <p class="screen-caption">Meal Prep mode</p>
-        </div>
-        <div>
-          <div class="screen-item offset-down">
-            <img src="IMG_8973.PNG" alt="Recipe detail">
-          </div>
-          <p class="screen-caption">Recipe detail</p>
-        </div>
-        <div>
-          <div class="screen-item">
-            <img src="IMG_8976.PNG" alt="Weekly meal planner">
-          </div>
-          <p class="screen-caption">Weekly planner</p>
-        </div>
-        <div>
-          <div class="screen-item offset-down">
-            <img src="IMG_8977.PNG" alt="Grocery list">
-          </div>
-          <p class="screen-caption">Grocery list</p>
-        </div>
-        <div>
-          <div class="screen-item">
-            <img src="IMG_8978.PNG" alt="Taste profile">
-          </div>
-          <p class="screen-caption">Taste profile</p>
-        </div>
+    <div class="screens-showcase reveal">
+      <div class="screen-phone-wrap">
+        <div class="screen-phone" onclick="openLightbox('IMG_8970.PNG')"><img src="IMG_8970.PNG" alt="Discover"></div>
+        <p class="screen-phone-label">Discover</p>
       </div>
-      <button class="carousel-btn next" onclick="scrollCarousel(1)" aria-label="Next">&#8250;</button>
+      <div class="screen-phone-wrap">
+        <div class="screen-phone" onclick="openLightbox('IMG_8971.PNG')"><img src="IMG_8971.PNG" alt="Meal Prep"></div>
+        <p class="screen-phone-label">Meal Prep</p>
+      </div>
+      <div class="screen-phone-wrap">
+        <div class="screen-phone" onclick="openLightbox('IMG_8973.PNG')"><img src="IMG_8973.PNG" alt="Recipe detail"></div>
+        <p class="screen-phone-label">Recipe detail</p>
+      </div>
+      <div class="screen-phone-wrap">
+        <div class="screen-phone" onclick="openLightbox('IMG_8977.PNG')"><img src="IMG_8977.PNG" alt="Grocery list"></div>
+        <p class="screen-phone-label">Grocery list</p>
+      </div>
     </div>
   </div>
 </section>
@@ -789,10 +789,19 @@ async function handleSubmit(e, id) {
   }
 }
 
-function scrollCarousel(dir) {
-  const row = document.getElementById('screens-row');
-  row.scrollBy({ left: dir * 240, behavior: 'smooth' });
+// ── Lightbox ──
+function openLightbox(src) {
+  const lb = document.getElementById('lightbox');
+  const img = document.getElementById('lightbox-img');
+  img.src = src;
+  lb.classList.add('open');
+  document.body.style.overflow = 'hidden';
 }
+function closeLightbox() {
+  document.getElementById('lightbox').classList.remove('open');
+  document.body.style.overflow = '';
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
 
 const observer = new IntersectionObserver(entries => {
   entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); observer.unobserve(e.target); } });

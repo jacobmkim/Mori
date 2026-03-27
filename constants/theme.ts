@@ -86,7 +86,7 @@ export const mealPrepDarkTheme = {
   dayEmpty:     '#2A4038',   // Dark sage — unplanned days
 } as const;
 
-export type Theme = typeof lightTheme;
+export type Theme = { [K in keyof typeof lightTheme]: string };
 
 // Legacy — kept for one-off non-component uses (scripts, utils).
 // Components must use useTheme() hook instead.

@@ -29,7 +29,7 @@ export default function Welcome() {
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
         {/* Logo */}
         <View style={{ paddingHorizontal: 28, paddingTop: 36 }}>
-          <MoriLogo size={76} textColor="#FFFFFF" showTagline />
+          <MoriLogo size="lg" showTagline />
         </View>
 
         {/* Text block — vertically centred */}

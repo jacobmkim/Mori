@@ -88,6 +88,8 @@ export interface Recipe {
   // True when this card was injected by the adventure card system (cuisine expansion).
   // Renders "✦ New for you" badge on the swipe card.
   isAdventure?: boolean;
+  // True when this recipe is trending (many right swipes from other users recently).
+  isTrending?: boolean;
 }
 
 // ─── Swipe ───────────────────────────────────────────────────────────────────

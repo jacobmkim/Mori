@@ -125,6 +125,37 @@ const MEAL_PREP_EXCLUDE_METHODS = ['steamed', 'poached', 'raw ', 'ceviche', 'tar
 let deckCache: { data: Recipe[]; goalsKey: string; at: number } | null = null;
 const DECK_CACHE_TTL = 30 * 60 * 1000;
 
+// Trending recipe IDs — recipes with ≥3 right swipes from any user in the past 7 days.
+// Cached in-memory for 30 min to avoid hammering swipe_events on every deck load.
+let trendingCache: { ids: Set<string>; at: number } | null = null;
+
+export async function fetchTrendingRecipeIds(): Promise<Set<string>> {
+  if (trendingCache && Date.now() - trendingCache.at < DECK_CACHE_TTL) {
+    return trendingCache.ids;
+  }
+  try {
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const { data } = await supabase
+      .from('swipe_events')
+      .select('recipe_id')
+      .eq('direction', 'right')
+      .gte('swiped_at', sevenDaysAgo);
+
+    const counts = new Map<string, number>();
+    for (const row of (data ?? [])) {
+      counts.set(row.recipe_id, (counts.get(row.recipe_id) ?? 0) + 1);
+    }
+    const ids = new Set<string>();
+    for (const [id, count] of counts) {
+      if (count >= 3) ids.add(id);
+    }
+    trendingCache = { ids, at: Date.now() };
+    return ids;
+  } catch {
+    return new Set();
+  }
+}
+
 export function clearDiscoverCache(): void {
   deckCache = null;
 }
@@ -543,7 +574,7 @@ export async function fetchScoredDeck(
   // Load persisted left-swipes from previous sessions into the session Set
   await loadPersistedLeftSwipes();
 
-  const [deck, swipes, affinityMap, interactionMap, pantryItems] = await Promise.all([
+  const [deck, swipes, affinityMap, interactionMap, pantryItems, trendingIds] = await Promise.all([
     fetchDiscoverRecipes(dietaryGoals),
     userId ? getRecentSwipes(userId) : Promise.resolve([]),
     userId
@@ -551,6 +582,7 @@ export async function fetchScoredDeck(
       : Promise.resolve(new Map<string, number>()),
     userId ? getInteractionCounts(userId) : Promise.resolve(new Map<string, { grocery_add: number; cooked: number }>()),
     userId ? getPantryItems(userId) : Promise.resolve([]),
+    fetchTrendingRecipeIds(),
   ]);
 
   const pantrySet = new Set(pantryItems.map((p) => p.ingredient_name.toLowerCase()));
@@ -662,7 +694,11 @@ export async function fetchScoredDeck(
     console.log(`[fetchScoredDeck] dislike filter: ${deck.length} → ${afterDislikes.length} | skill filter: → ${filtered.length}`);
   }
 
-  const result = finalDeck.map((s) => s.recipe);
+  // Tag trending recipes — isTrending = true when supabase_id is in the trending set
+  const result = finalDeck.map((s) => ({
+    ...s.recipe,
+    isTrending: trendingIds.has(s.recipe.supabase_id ?? ''),
+  }));
 
   // Adventure card injection — surfaces a niche adjacent cuisine at position 6
   const adventureEnabled = userId ? await getAdventureCardsEnabled() : false;
@@ -673,7 +709,7 @@ export async function fetchScoredDeck(
     if (adventureCuisine) {
       const adventureRecipe = await fetchAdventureRecipe(adventureCuisine, existingIds);
       if (adventureRecipe) {
-        result.splice(5, 0, adventureRecipe);
+        result.splice(5, 0, { ...adventureRecipe, isTrending: adventureRecipe.isTrending ?? false });
         console.log(`[fetchScoredDeck] adventure card injected: "${adventureRecipe.title}" (${adventureCuisine})`);
       }
     }

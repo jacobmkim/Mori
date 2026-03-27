@@ -1,68 +1,149 @@
-import { View, Text } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import Svg, { Path, Rect, Circle, Text as SvgText, G } from 'react-native-svg';
 import { useTheme } from '@/hooks/useTheme';
+import { useDiscoverStore } from '@/stores/discoverStore';
 
 /**
- * Reusable Mori logo — italic serif wordmark with green dot accent.
- * `size` is the font size; dot and tagline scale proportionally.
+ * MoriLogo — v1.0
+ * Brand system locked March 2026.
+ *
+ * WORDMARK: upright spatula (left) + italic Georgia "mori" (right)
+ * APP ICON:  linen #F8F3EC bg, italic Georgia "m" in moss #2E5438, spatula top-right
  */
-export function MoriLogo({
-  size = 76,
-  textColor = '#FFFFFF',
-  showTagline = false,
-}: {
-  size?: number;
-  textColor?: string;
+
+// ─── Spatula ─────────────────────────────────────────────────────────────────
+// Natural bounding box ≈ 36w × 100h at scale(1). Use G transform to position.
+
+interface SpatulaProps {
+  fill: string;
+  slotFill: string;
+  scale?: number;
+  x?: number;
+  y?: number;
+}
+
+function Spatula({ fill, slotFill, scale = 1, x = 0, y = 0 }: SpatulaProps) {
+  return (
+    <G transform={`translate(${x},${y}) scale(${scale})`}>
+      <Path
+        d="M7 4 Q7 0 11 0 L25 0 Q29 0 29 4 L29 28 Q29 33 25 36 L20 39 L16 39 Q12 36 7 33 Z"
+        fill={fill}
+      />
+      <Rect x={12} y={4} width={3} height={24} rx={1.5} fill={slotFill} />
+      <Rect x={17.5} y={4} width={3} height={24} rx={1.5} fill={slotFill} />
+      <Rect x={23} y={4} width={3} height={24} rx={1.5} fill={slotFill} />
+      <Path
+        d="M14 39 Q13 52 13.5 65 Q14 75 16 83 Q17 87 18 93 Q19 87 20 83 Q22 75 22.5 65 Q23 52 22 39 Z"
+        fill={fill}
+      />
+      <Circle cx={18} cy={96} r={4.5} fill={fill} />
+      <Circle cx={18} cy={96} r={2.2} fill={slotFill} />
+    </G>
+  );
+}
+
+// ─── Wordmark ─────────────────────────────────────────────────────────────────
+
+interface MoriLogoProps {
   showTagline?: boolean;
-}) {
+  size?: 'sm' | 'md' | 'lg';
+}
+
+export function MoriLogo({ showTagline = false, size = 'md' }: MoriLogoProps) {
   const colors = useTheme();
-  const s = size / 76;
-  const dotSize = Math.max(6, Math.round(10 * s));
+  const isMealPrep = useDiscoverStore((s) => s.mode === 'meal_prep');
+
+  const spatulaFill = colors.primary;
+  const slotFill = colors.background;
+  const textFill = isMealPrep && (colors.background as string) === '#F8F3EC'
+    ? '#2E5438'
+    : colors.text;
+  const taglineFill = colors.textMuted;
+
+  const scales     = { sm: 0.44, md: 0.62, lg: 0.72 };
+  const fontSizes  = { sm: 30,   md: 46,   lg: 52   };
+  const taglineSizes = { sm: 7.5, md: 9,  lg: 10   };
+  const widths     = { sm: 175,  md: 240,  lg: 275  };
+  const heights    = { sm: 54,   md: 78,   lg: 88   };
+
+  const s = scales[size];
+  const fs = fontSizes[size];
+  const ts = taglineSizes[size];
+  const wordX = size === 'sm' ? 30 : 38;
+  const wordY = size === 'sm' ? 32 : size === 'md' ? 50 : 54;
+  const tagY  = size === 'sm' ? 45 : size === 'md' ? 65 : 72;
 
   return (
-    <View>
-      <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
-        <Text
-          style={{
-            color: textColor,
-            fontSize: size,
-            fontStyle: 'italic',
-            fontFamily: 'Georgia',
-            fontWeight: '400',
-            letterSpacing: -1 * s,
-            lineHeight: size * 1.1,
-          }}
-        >
-          Mori
-        </Text>
-        {/* Green dot accent */}
-        <View
-          style={{
-            width: dotSize,
-            height: dotSize,
-            borderRadius: dotSize / 2,
-            backgroundColor: colors.primary,
-            marginLeft: Math.round(4 * s),
-            marginBottom: Math.round(10 * s),
-          }}
-        />
-      </View>
-
+    <Svg width={widths[size]} height={heights[size]}>
+      <Spatula fill={spatulaFill} slotFill={slotFill} scale={s} x={1} y={2} />
+      <SvgText
+        x={wordX}
+        y={wordY}
+        fontFamily="Georgia, serif"
+        fontSize={fs}
+        fontStyle="italic"
+        fontWeight="400"
+        fill={textFill}
+        letterSpacing={-1.5}
+      >
+        mori
+      </SvgText>
       {showTagline && (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 }}>
-          <View style={{ width: Math.round(20 * s), height: 2, backgroundColor: colors.primary, borderRadius: 1 }} />
-          <Text
-            style={{
-              color: colors.primary,
-              fontSize: Math.round(12 * s),
-              fontWeight: '600',
-              letterSpacing: 5,
-              textTransform: 'uppercase',
-            }}
-          >
-            gather · cook · discover
-          </Text>
-        </View>
+        <SvgText
+          x={wordX + 1}
+          y={tagY}
+          fontFamily="System"
+          fontSize={ts}
+          fill={taglineFill}
+          letterSpacing={3.5}
+        >
+          SWIPE. COOK. ORDER.
+        </SvgText>
       )}
+    </Svg>
+  );
+}
+
+// ─── App Icon ─────────────────────────────────────────────────────────────────
+// Always linen #F8F3EC bg + moss #2E5438 — never changes with theme.
+
+export function MoriAppIcon({ size = 120 }: { size?: number }) {
+  const iconBg   = '#F8F3EC';
+  const iconFill = '#2E5438';
+  const slotFill = '#F8F3EC';
+  const borderRadius = Math.round(size * 0.233);
+
+  return (
+    <View
+      style={[
+        styles.iconContainer,
+        { width: size, height: size, borderRadius, backgroundColor: iconBg, borderColor: '#E0D4C4' },
+      ]}
+    >
+      <Svg width={size * 0.92} height={size * 0.92} viewBox="0 0 92 92">
+        <SvgText
+          x={4}
+          y={78}
+          fontFamily="Georgia, serif"
+          fontSize={76}
+          fontStyle="italic"
+          fontWeight="400"
+          fill={iconFill}
+          letterSpacing={-2}
+        >
+          m
+        </SvgText>
+        <Spatula fill={iconFill} slotFill={slotFill} scale={0.46} x={64} y={1} />
+      </Svg>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  iconContainer: {
+    borderWidth: 0.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+});

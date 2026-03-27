@@ -30,7 +30,7 @@ No competitor has a swipe-based discovery mechanic. Samsung Food (most formidabl
 - Expo SDK 54 / React Native 0.81.5 / Expo Router
 - Supabase auth — email sign in/sign up
 - Supabase schema applied — all tables, RLS, indexes, auto-profile trigger live
-- Bottom tab navigation — Discover, Recipes, Grocery List, Profile
+- Bottom tab navigation — Discover, Recipes, Plan, Grocery List, Profile (5 tabs)
 - constants/theme.ts, types/index.ts, lib/supabase.ts, lib/api.ts, lib/utils.ts, lib/mealdb.ts
 
 **Onboarding — 10 screens complete**
@@ -57,14 +57,27 @@ No competitor has a swipe-based discovery mechanic. Samsung Food (most formidabl
 - "Mark as cooked" button on RecipeDetailModal — logs cooked interaction
 - **Adventure cards** — niche cuisine at deck position 6, gated on skill+swipe ratio, cooldown, adjacency map, "✦ New for you" amber badge
 - **"Made before" banner** — green pill on previously-cooked cards for cross-session re-rating
+- **"Already saved" badge** — semi-transparent pill overlay on discover cards for recipes already in saved library
+- **"🔥 Trending" badge** — shown on cards where recipe has ≥3 right swipes from other users in last 7 days
+- `isTrending` flag set by `fetchScoredDeck` via `fetchTrendingRecipeIds()` — 30-min in-memory cache, no schema change required
 - Dev flag button in action bar (`__DEV__` only)
 - clearDiscoverCache() + clearSessionState() called on preference save / new deck load
 
 **Recipes Screen**
-- Pinterest grid — Saved / All / Plan tabs (3-way segmented control)
+- Pinterest grid — Saved / All / Meal Prep tabs (3-way segmented control)
 - Filter dropdown (Type + Cuisine, OR/AND logic), collections bar, search bar
-- **Weekly meal planner** — Plan tab, 7-day × 3 meal type grid (Mon–Sun, Breakfast/Lunch/Dinner), recipe picker, "Add all to grocery" (deduped), Supabase-backed
 - Grocery adds and views logged to recipe_interactions
+- Plan tab removed — moved to its own bottom nav tab (`plan.tsx`)
+
+**Plan Screen (dedicated tab)**
+- Standalone bottom tab — calendar icon, between Recipes and Grocery
+- 7-day × 3 meal type grid (Mon–Sun, Breakfast/Lunch/Dinner), week navigation
+- "Back to this week" shortcut when navigating to other weeks
+- Week summary pill — "X of 21 meals planned"
+- "Add all to list" button in header when slots exist
+- Recipe picker — `SectionList` with "Meal Prep Friendly" and "All Saved" sections + search bar
+- "Meal prep ✓" label on meal_prep_friendly recipes in picker
+- Supabase-backed via mealPlanStore
 
 **Grocery List Screen**
 - Tally header: meals, items, estimated cost, combined macros
@@ -116,6 +129,12 @@ No competitor has a swipe-based discovery mechanic. Samsung Food (most formidabl
 - `/api/taste-profile` — Claude Haiku generates taste profile paragraph, saves to profiles.taste_profile
 - `/api/generate-recipe` — Claude Haiku generates recipes with Jaccard similarity guard (409 on duplicate)
 - `/api/storage-tip` — Claude Haiku generates storage/usage tips after cooking
+- `/api/waitlist` — POST endpoint: validates email, inserts to `waitlist` Supabase table, handles duplicate as success
+
+**Landing Page**
+- `public/index.html` — live at project-x-one-roan.vercel.app; waitlist forms POST to `/api/waitlist`
+- Stats bar shows "1,200+" recipes (targeting generated + seeded total)
+- `waitlist` table added to supabase/schema.sql
 
 **Tracking / AI Signal Collection**
 - `swipe_events` — every swipe logged (direction, mode, time_of_day, day_of_week, session_number)
@@ -128,10 +147,9 @@ No competitor has a swipe-based discovery mechanic. Samsung Food (most formidabl
 | # | Feature | Phase |
 |---|---|---|
 | 1 | Clean generated recipes — review titles, remove bad ones, run `clean-recipes.mjs` dedup | Pre-release |
-| 2 | Profile page dark mode — white card backgrounds need `colors.card` | Pre-release |
-| 3 | Remove slot picker from right swipe in meal prep (move to Plan tab) | Pre-release |
-| 4 | Steamed/delicate fish hard-exclude from meal prep deck | Pre-release |
-| 5 | "Order on Instacart" button + /api/instacart-cart | Phase 3 |
+| 2 | Remove slot picker from right swipe in meal prep (move to Plan tab) | Pre-release |
+| 3 | Steamed/delicate fish hard-exclude from meal prep deck | Pre-release |
+| 4 | "Order on Instacart" button + /api/instacart-cart | Phase 3 |
 | 6 | Impact affiliate tracking | Phase 3 |
 | 7 | Grocery list history view | Phase 3 |
 | 8 | Recipe submission form | Phase 4 |
@@ -207,10 +225,13 @@ mori/
 │       ├── discover.tsx               ✅ Full swipe mechanic, fetchScoredDeck, dietary filtering,
 │       │                                 swipe logging, interaction logging, macro pills,
 │       │                                 RecipeDetailModal, mark as cooked, adventure cards,
-│       │                                 "Made before" badge, session swipe tracking, dev flag
-│       ├── recipes.tsx                ✅ Pinterest grid, Saved/All/Plan tabs, filter dropdown,
-│       │                                 collections bar, interaction logging, RecipeDetailModal,
-│       │                                 MealPlanView (weekly 7×3 grid, recipe picker, grocery add)
+│       │                                 "Made before" badge, "Already saved" badge, isTrending badge,
+│       │                                 session swipe tracking, dev flag
+│       ├── recipes.tsx                ✅ Pinterest grid, Saved/All/Meal Prep tabs, filter dropdown,
+│       │                                 collections bar, interaction logging, RecipeDetailModal
+│       ├── plan.tsx                   ✅ Dedicated Plan tab — 7×3 meal grid, week nav, SectionList
+│       │                                 recipe picker (Meal Prep Friendly + All Saved sections),
+│       │                                 search bar, week summary pill, Add all to grocery
 │       ├── grocery-list.tsx           ✅ Tally header, grouped categories, checkboxes,
 │       │                                 edit mode, undo, copy-to-clipboard export
 │       └── profile.tsx                ✅ Stats, taste profile card, preferences, edit modal,
@@ -230,10 +251,10 @@ mori/
 │   └── ui/
 │       ├── MacroRow.tsx               ✅ MacroRow (full 4-col), HeadlineMacroPill (goal-aware),
 │       │                                 estimateMacrosLocally (instant local estimate)
-│       └── MoriLogo.tsx               ✅ Italic serif wordmark with green dot accent
+│       └── MoriLogo.tsx               ✅ Italic serif wordmark — dot floats above "i" via stacked layout
 ├── lib/
 │   ├── supabase.ts                    ✅
-│   ├── api.ts                         ✅ All DB calls + local recommendation scorer
+│   ├── api.ts                         ✅ All DB calls + local recommendation scorer + fetchTrendingRecipeIds()
 │   ├── mealdb.ts                      ✅ fetchMealDBRecipes, fetchMealDetail, shouldExclude, clearRecipeCache
 │   └── utils.ts                       ✅ formatTime, formatCost, capitalize, getWeekStart, getTimeOfDay
 ├── hooks/
@@ -246,7 +267,7 @@ mori/
 │   ├── mealPlanStore.ts               ✅ loadPlan/savePlan async, Supabase-backed
 │   └── discoverStore.ts               ✅ mode ('spontaneous'|'meal_prep'), appearanceMode override, AsyncStorage-persisted
 ├── types/
-│   └── index.ts                       ✅ All types including supabase_id?: string on Recipe
+│   └── index.ts                       ✅ All types including supabase_id?, isAdventure?, isTrending? on Recipe
 ├── constants/
 │   └── theme.ts                       ✅ lightTheme, darkTheme, mealPrepLightTheme, mealPrepDarkTheme
 ├── api/
@@ -255,6 +276,7 @@ mori/
 │   ├── taste-profile.ts               ✅ Vercel fn
 │   ├── generate-recipe.ts             ✅ Vercel fn
 │   ├── storage-tip.ts                 ✅ Vercel fn
+│   ├── waitlist.ts                    ✅ Vercel fn — POST email to waitlist table
 │   └── seed-recipes.ts                ✅ Vercel fn — already ran, do not re-run
 ├── scripts/
 │   ├── seed-recipes.mjs               ✅ One-time (already ran — do not re-run)
@@ -788,6 +810,7 @@ POST /api/macros                   ✅ Live
 POST /api/taste-profile            ✅ Live
 POST /api/generate-recipe          ✅ Live
 POST /api/storage-tip              ✅ Live
+POST /api/waitlist                 ✅ Live
 POST /api/recommendations          ✅ Built — not used (local scorer preferred)
 POST /api/instacart-cart           🔲 Phase 3
 POST /api/check-recipe             🔲 Phase 4
@@ -845,6 +868,17 @@ INSTACART_API_KEY=         # Phase 3
 ### ✅ Phase 2 — Complete
 ### ✅ Phase 2.5 — Complete
 Meal Prep Mode: 4-theme system, discoverStore, mode toggle, meal prep scoring, slot picker, serving multiplier, week progress indicator, mode-aware grocery header. All 419 steps rewritten. Bulk generator running.
+
+### ✅ Phase 2.6 — Complete (UX Polish + Discovery Improvements)
+- Dark mode fixes: all `colors.white` surfaces → `colors.card` across RecipeDetailModal, recipes.tsx, grocery-list.tsx, profile.tsx
+- "Already saved" badge on discover cards (semi-transparent pill overlay)
+- "🔥 Trending" badge — `fetchTrendingRecipeIds()` queries swipe_events, ≥3 right swipes in 7 days, 30-min cache
+- `isTrending` field added to Recipe type
+- MoriLogo dot: stacked layout — dot rendered in its own View above the wordmark text, `alignItems: 'flex-end'` to align above the "i"
+- Plan tab promoted to dedicated bottom nav tab (`app/(tabs)/plan.tsx`) with SectionList recipe picker
+- recipes.tsx Plan tab removed — now has 3 tabs: All / Saved / Meal Prep
+- Landing page (`public/index.html`) live with waitlist form → `/api/waitlist`
+- `waitlist` table added to Supabase schema
 
 ### Phase 3 — Instacart Integration (waiting on dev key)
 - [ ] Instacart Developer Platform approval ← submitted, waiting
