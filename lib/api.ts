@@ -171,7 +171,7 @@ export async function fetchDiscoverRecipes(dietaryGoals: string[] = []): Promise
 
   const { data, error } = await supabase
     .from('recipes')
-    .select('id, title, description, cuisine, source_type, dietary_tags, badge, avg_rating, save_count, image_url, external_id, prep_time_mins, cook_time_mins, servings, cost_per_serving, macros, ingredients, steps')
+    .select('id, title, description, cuisine, source_type, dietary_tags, badge, avg_rating, save_count, image_url, external_id, prep_time_mins, cook_time_mins, servings, cost_per_serving, macros, ingredients, steps, meal_prep_friendly')
     .not('external_id', 'is', null)
     .limit(400);
 
@@ -212,6 +212,7 @@ export async function fetchDiscoverRecipes(dietaryGoals: string[] = []): Promise
         save_count: r.save_count ?? 0,
         image_url: r.image_url,
         external_id: r.external_id,
+        meal_prep_friendly: r.meal_prep_friendly ?? null,
       })
     );
 
