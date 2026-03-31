@@ -22,6 +22,7 @@ import { logSwipe, upsertRecipeByExternalId, setRecipeLiked, fetchMacros, estima
 import { RecipeDetailModal } from '@/components/RecipeDetailModal';
 import { HeadlineMacroPill } from '@/components/ui/MacroRow';
 import { MoriLogo } from '@/components/ui/MoriLogo';
+import { AvatarButton } from '@/components/AvatarButton';
 import { useSavedStore } from '@/stores/savedStore';
 import { useGroceryStore } from '@/stores/groceryStore';
 import { useUserStore } from '@/stores/userStore';
@@ -645,21 +646,24 @@ export default function Discover() {
       {/* Header */}
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 }}>
         <MoriLogo size="sm" />
-        <View style={{ flexDirection: 'row', backgroundColor: colors.toggleBg, borderRadius: 20, padding: 3 }}>
-          {(['spontaneous', 'meal_prep'] as AppMode[]).map((m) => (
-            <Pressable
-              key={m}
-              onPress={() => setMode(m as AppMode)}
-              style={{
-                paddingHorizontal: 14, paddingVertical: 7, borderRadius: 17,
-                backgroundColor: mode === m ? colors.primary : 'transparent',
-              }}
-            >
-              <Text style={{ color: mode === m ? 'white' : colors.textMuted, fontSize: 13, fontWeight: '600' }}>
-                {m === 'spontaneous' ? 'Quick' : 'Meal Prep'}
-              </Text>
-            </Pressable>
-          ))}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <View style={{ flexDirection: 'row', backgroundColor: colors.toggleBg, borderRadius: 20, padding: 3 }}>
+            {(['spontaneous', 'meal_prep'] as AppMode[]).map((m) => (
+              <Pressable
+                key={m}
+                onPress={() => setMode(m as AppMode)}
+                style={{
+                  paddingHorizontal: 14, paddingVertical: 7, borderRadius: 17,
+                  backgroundColor: mode === m ? colors.primary : 'transparent',
+                }}
+              >
+                <Text style={{ color: mode === m ? 'white' : colors.textMuted, fontSize: 13, fontWeight: '600' }}>
+                  {m === 'spontaneous' ? 'Quick' : 'Meal Prep'}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+          <AvatarButton />
         </View>
       </View>
 

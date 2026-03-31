@@ -1,27 +1,27 @@
 {
   "expo": {
-    "name": "Mise",
-    "slug": "mise",
+    "name": "Mori",
+    "slug": "mori",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "scheme": "mise",
-    "userInterfaceStyle": "light",
+    "scheme": "mori",
+    "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#2E7D32"
+      "backgroundColor": "#F8F3EC"
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.prepswipe.app"
+      "bundleIdentifier": "com.mori.app"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#2E7D32"
+        "backgroundColor": "#F8F3EC"
       },
-      "package": "com.prepswipe.app"
+      "package": "com.mori.app"
     },
     "web": {
       "bundler": "metro",
@@ -36,12 +36,16 @@
           "image": "./assets/splash.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#2E7D32"
+          "backgroundColor": "#F8F3EC"
         }
       ]
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "supportUrl": "https://getmori.app/support",
+      "privacyUrl": "https://getmori.app/privacy"
     }
   }
 }

@@ -72,6 +72,7 @@ export interface Recipe {
   cost_per_serving: number | null;
   dietary_tags: string[];
   meal_prep_friendly?: boolean;
+  skill_level?: 'beginner' | 'home_cook' | 'confident_chef' | null;
   macros?: Macros | null;
   badge: RecipeBadge;
   submitted_by?: string | null;
@@ -90,6 +91,19 @@ export interface Recipe {
   isAdventure?: boolean;
   // True when this recipe is trending (many right swipes from other users recently).
   isTrending?: boolean;
+}
+
+// ─── Recipe Notes ─────────────────────────────────────────────────────────────
+export interface RecipeNote {
+  id?: string;
+  user_id?: string;
+  recipe_id?: string;
+  note_text: string | null;
+  substitutions: string | null;
+  tags: string[];
+  make_again: 'yes' | 'with_changes' | 'no' | null;
+  created_at?: string;
+  updated_at?: string;
 }
 
 // ─── Swipe ───────────────────────────────────────────────────────────────────

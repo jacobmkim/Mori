@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
-import type { Profile, Recipe, SwipeEvent, SavedRecipe, PantryItem, GroceryList, MealPlan, MealSlot, OnboardingState, Macros, AppMode } from '@/types';
+import type { Profile, Recipe, SwipeEvent, SavedRecipe, PantryItem, GroceryList, MealPlan, MealSlot, OnboardingState, Macros, AppMode, RecipeNote } from '@/types';
 
 // ─── Macro AsyncStorage cache ─────────────────────────────────────────────────
 // Persists macro data across sessions so Spoonacular is never called twice for
@@ -120,6 +120,11 @@ const MEAL_PREP_SHELLFISH = [
 ];
 // Cooking methods that don't suit meal prep (title-based check)
 const MEAL_PREP_EXCLUDE_METHODS = ['steamed', 'poached', 'raw ', 'ceviche', 'tartare', 'sashimi'];
+// Delicate fish that don't reheat well — excluded from meal prep
+const MEAL_PREP_DELICATE_FISH = [
+  'sole', 'flounder', 'tilapia', 'cod', 'halibut', 'sea bass', 'branzino',
+  'snapper', 'trout', 'whiting', 'plaice', 'dover sole',
+];
 
 // In-memory cache — survives tab switches, cleared on goal change or after 30 min.
 let deckCache: { data: Recipe[]; goalsKey: string; at: number } | null = null;
@@ -171,9 +176,8 @@ export async function fetchDiscoverRecipes(dietaryGoals: string[] = []): Promise
 
   const { data, error } = await supabase
     .from('recipes')
-    .select('id, title, description, cuisine, source_type, dietary_tags, badge, avg_rating, save_count, image_url, external_id, prep_time_mins, cook_time_mins, servings, cost_per_serving, macros, ingredients, steps, meal_prep_friendly')
-    .not('external_id', 'is', null)
-    .limit(400);
+    .select('id, title, description, cuisine, source_type, dietary_tags, badge, avg_rating, save_count, image_url, external_id, prep_time_mins, cook_time_mins, servings, cost_per_serving, macros, ingredients, steps, meal_prep_friendly, skill_level')
+    .limit(2000);
 
   if (error) throw error;
 
@@ -193,8 +197,8 @@ export async function fetchDiscoverRecipes(dietaryGoals: string[] = []): Promise
     })
     .map(
       (r): Recipe => ({
-        id: r.external_id,        // TheMealDB id — fetchMealDetail + logging work unchanged
-        supabase_id: r.id,        // real UUID — used for swipe history matching in scorer
+        id: r.external_id ?? r.id,  // TheMealDB id for seeded recipes, UUID for generated
+        supabase_id: r.id,          // real UUID — used for swipe history matching in scorer
         title: r.title,
         description: r.description,
         cuisine: r.cuisine,
@@ -213,7 +217,8 @@ export async function fetchDiscoverRecipes(dietaryGoals: string[] = []): Promise
         image_url: r.image_url,
         external_id: r.external_id,
         meal_prep_friendly: r.meal_prep_friendly ?? null,
-      })
+        skill_level: r.skill_level ?? null,
+      } as Recipe)
     );
 
   deckCache = { data: filtered, goalsKey, at: Date.now() };
@@ -603,11 +608,19 @@ export async function fetchScoredDeck(
   );
 
   // Bug 8 fix — skill level hard cap (filter before scoring, not a score penalty)
+  // Recipe-level skill_level (set at generation from CSV difficulty) takes precedence;
+  // time-based cap is the fallback for TheMealDB recipes that lack the field.
   const skillLevel = profile?.skill_level;
   const filtered = !skillLevel ? afterSaved : afterSaved.filter((r) => {
-    const totalTime = (r.prep_time_mins ?? 0) + (r.cook_time_mins ?? 0);
-    if (skillLevel === 'beginner' && totalTime > 0 && totalTime > 60) return false;
-    if (skillLevel === 'home_cook' && totalTime > 0 && totalTime > 120) return false;
+    const recipeSkill = (r as any).skill_level as string | null | undefined;
+    if (recipeSkill === 'confident_chef' && skillLevel !== 'confident_chef') return false;
+    if (recipeSkill === 'home_cook' && skillLevel === 'beginner') return false;
+    if (!recipeSkill) {
+      // time-based fallback for recipes without an explicit skill_level
+      const totalTime = (r.prep_time_mins ?? 0) + (r.cook_time_mins ?? 0);
+      if (skillLevel === 'beginner' && totalTime > 0 && totalTime > 60) return false;
+      if (skillLevel === 'home_cook' && totalTime > 0 && totalTime > 120) return false;
+    }
     return true;
   });
 
@@ -633,6 +646,8 @@ export async function fetchScoredDeck(
       if (MEAL_PREP_SHELLFISH.some((kw) => ingredientNames.includes(kw))) return false;
       const titleLower = (recipe.title ?? '').toLowerCase();
       if (MEAL_PREP_EXCLUDE_METHODS.some((kw) => titleLower.includes(kw))) return false;
+      // Exclude delicate fish that don't reheat well
+      if (MEAL_PREP_DELICATE_FISH.some((kw) => ingredientNames.includes(kw))) return false;
       return true;
     });
     for (const entry of scored) {
@@ -1315,4 +1330,33 @@ export async function upsertUserCohort(userId: string, cohortKey: string): Promi
     .insert({ user_id: userId, cohort_key: cohortKey });
   // Errors intentionally swallowed — this is non-critical and can only be called
   // once per user (at end of onboarding), so duplicate inserts won't occur.
+}
+
+// ─── Recipe Notes ─────────────────────────────────────────────────────────────
+
+export async function getRecipeNote(userId: string, recipeId: string | undefined): Promise<RecipeNote | null> {
+  if (!recipeId) return null;
+  const { data, error } = await supabase
+    .from('recipe_notes')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('recipe_id', recipeId)
+    .maybeSingle();
+  if (error) throw error;
+  return data ?? null;
+}
+
+export async function saveRecipeNote(
+  userId: string,
+  recipeId: string | undefined,
+  note: Pick<RecipeNote, 'note_text' | 'substitutions' | 'tags' | 'make_again'>
+): Promise<void> {
+  if (!recipeId) return;
+  const { error } = await supabase
+    .from('recipe_notes')
+    .upsert(
+      { user_id: userId, recipe_id: recipeId, ...note, updated_at: new Date().toISOString() },
+      { onConflict: 'user_id,recipe_id' }
+    );
+  if (error) throw error;
 }

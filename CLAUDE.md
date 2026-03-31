@@ -22,7 +22,7 @@ No competitor has a swipe-based discovery mechanic. Samsung Food (most formidabl
 
 ## 2. Current Build State
 
-> **Read this section first every session.** Phases 1, 2, and 2.5 are complete. Phase 3 (Instacart) is next — waiting on Instacart Developer Platform approval.
+> **Read this section first every session.** Phases 1, 2, 2.5, 2.6, and 2.7 are complete. Phase 3 (UX overhaul + TestFlight) is next — full spec in Section 18.
 
 ### ✅ Built and Working
 
@@ -30,7 +30,7 @@ No competitor has a swipe-based discovery mechanic. Samsung Food (most formidabl
 - Expo SDK 54 / React Native 0.81.5 / Expo Router
 - Supabase auth — email sign in/sign up
 - Supabase schema applied — all tables, RLS, indexes, auto-profile trigger live
-- Bottom tab navigation — Discover, Recipes, Plan, Grocery List, Profile (5 tabs)
+- Bottom tab navigation — Discover, Recipes, Grocery List, Profile
 - constants/theme.ts, types/index.ts, lib/supabase.ts, lib/api.ts, lib/utils.ts, lib/mealdb.ts
 
 **Onboarding — 10 screens complete**
@@ -57,27 +57,14 @@ No competitor has a swipe-based discovery mechanic. Samsung Food (most formidabl
 - "Mark as cooked" button on RecipeDetailModal — logs cooked interaction
 - **Adventure cards** — niche cuisine at deck position 6, gated on skill+swipe ratio, cooldown, adjacency map, "✦ New for you" amber badge
 - **"Made before" banner** — green pill on previously-cooked cards for cross-session re-rating
-- **"Already saved" badge** — semi-transparent pill overlay on discover cards for recipes already in saved library
-- **"🔥 Trending" badge** — shown on cards where recipe has ≥3 right swipes from other users in last 7 days
-- `isTrending` flag set by `fetchScoredDeck` via `fetchTrendingRecipeIds()` — 30-min in-memory cache, no schema change required
 - Dev flag button in action bar (`__DEV__` only)
 - clearDiscoverCache() + clearSessionState() called on preference save / new deck load
 
 **Recipes Screen**
-- Pinterest grid — Saved / All / Meal Prep tabs (3-way segmented control)
+- Pinterest grid — Saved / All / Plan tabs (3-way segmented control)
 - Filter dropdown (Type + Cuisine, OR/AND logic), collections bar, search bar
+- **Weekly meal planner** — Plan tab, 7-day × 3 meal type grid (Mon–Sun, Breakfast/Lunch/Dinner), recipe picker, "Add all to grocery" (deduped), Supabase-backed
 - Grocery adds and views logged to recipe_interactions
-- Plan tab removed — moved to its own bottom nav tab (`plan.tsx`)
-
-**Plan Screen (dedicated tab)**
-- Standalone bottom tab — calendar icon, between Recipes and Grocery
-- 7-day × 3 meal type grid (Mon–Sun, Breakfast/Lunch/Dinner), week navigation
-- "Back to this week" shortcut when navigating to other weeks
-- Week summary pill — "X of 21 meals planned"
-- "Add all to list" button in header when slots exist
-- Recipe picker — `SectionList` with "Meal Prep Friendly" and "All Saved" sections + search bar
-- "Meal prep ✓" label on meal_prep_friendly recipes in picker
-- Supabase-backed via mealPlanStore
 
 **Grocery List Screen**
 - Tally header: meals, items, estimated cost, combined macros
@@ -117,8 +104,11 @@ No competitor has a swipe-based discovery mechanic. Samsung Food (most formidabl
 - All 419 recipes backfilled with full ingredients, steps, descriptions, and macros
 - TheMealDB recipes use TheMealDB CDN image URLs — all 419 have real food photography
 - **All 419 TheMealDB steps rewritten by Claude Haiku** — clean 5–8 step format, specific timings/technique, artifacts removed (`scripts/rewrite-steps.mjs`)
-- **Claude-generated recipes in progress** — targeting 100 per cuisine (1,200 total), each tagged with `meal_prep_friendly` at generation time, Unsplash image fetched and saved to `image_url`
-- `UNSPLASH_ACCESS_KEY` in .env — 45 req/hour rate limiter in script, auto-pauses and resumes
+- **622 Claude-generated recipes live** — all tagged with `meal_prep_friendly` at generation time
+- **Recipe images — gpt-image-1 (OpenAI)** — `scripts/generate-images.mjs` generates food photography via `gpt-image-1` medium quality (~$0.04/image), uploads to Supabase Storage (`recipe-images/generated/{id}.jpg`), writes permanent CDN URL to `recipes.image_url`. All 622 generated recipes have images. ✅ Complete.
+- **Image prompts** — description-based: `buildPrompt()` uses recipe title + description + cuisine-specific plating context (Japanese → ceramic bowl + chopsticks, Indian → copper karahi, etc). Photography cues: 45° overhead, soft natural window light, shallow depth of field, warm tones, steam/sheen, authentic garnishes. No text/watermarks.
+- **63 recipe descriptions updated** — curries now mention rice/naan, kebabs mention chutney/tzatziki, fried snacks mention dipping sauces — so accompaniments appear in generated images
+- `OPENAI_API_KEY` in .env — required for `generate-images.mjs`
 - Lazy macro persistence — Claude estimate written to recipes.macros once, served to all users thereafter
 - MacroRow component (full + compact), HeadlineMacroPill, estimateMacrosLocally — components/ui/MacroRow.tsx
 - MoriLogo component — components/ui/MoriLogo.tsx
@@ -129,12 +119,6 @@ No competitor has a swipe-based discovery mechanic. Samsung Food (most formidabl
 - `/api/taste-profile` — Claude Haiku generates taste profile paragraph, saves to profiles.taste_profile
 - `/api/generate-recipe` — Claude Haiku generates recipes with Jaccard similarity guard (409 on duplicate)
 - `/api/storage-tip` — Claude Haiku generates storage/usage tips after cooking
-- `/api/waitlist` — POST endpoint: validates email, inserts to `waitlist` Supabase table, handles duplicate as success
-
-**Landing Page**
-- `public/index.html` — live at project-x-one-roan.vercel.app; waitlist forms POST to `/api/waitlist`
-- Stats bar shows "1,200+" recipes (targeting generated + seeded total)
-- `waitlist` table added to supabase/schema.sql
 
 **Tracking / AI Signal Collection**
 - `swipe_events` — every swipe logged (direction, mode, time_of_day, day_of_week, session_number)
@@ -146,25 +130,35 @@ No competitor has a swipe-based discovery mechanic. Samsung Food (most formidabl
 
 | # | Feature | Phase |
 |---|---|---|
-| 1 | Clean generated recipes — review titles, remove bad ones, run `clean-recipes.mjs` dedup | Pre-release |
-| 2 | Remove slot picker from right swipe in meal prep (move to Plan tab) | Pre-release |
-| 3 | Steamed/delicate fish hard-exclude from meal prep deck | Pre-release |
-| 4 | "Order on Instacart" button + /api/instacart-cart | Phase 3 |
-| 6 | Impact affiliate tracking | Phase 3 |
-| 7 | Grocery list history view | Phase 3 |
-| 8 | Recipe submission form | Phase 4 |
-| 9 | /api/check-recipe AI checker + badge system | Phase 4 |
-| 10 | Public ratings and community explore page | Phase 4 |
-| 11 | Follow system + community feed | Phase 5 |
-| 12 | Public meal plans with AI adaptation | Phase 5 |
-| 13 | Grocery add scepticism scoring | Post-launch |
+| 1 | Navigation overhaul — 5 tabs + persistent avatar button replacing Profile tab | Phase 3 |
+| 2 | Explore tab — editorial browse screen with sections (Cook Again, Trending, Just Added, Cuisine chips, Under 30 min, High Protein) | Phase 3 |
+| 3 | Recipes tab redesign — My Recipes with Saved/Cooked/Mine/Meal Prep sub-tabs | Phase 3 |
+| 4 | Recipe Detail redesign — full-screen modal, step cards, sticky footer, My Notes tab | Phase 3 |
+| 5 | Cooking Mode — full-screen dark mode, step-by-step, per-step timer, keepScreenAwake | Phase 3 |
+| 6 | My Notes — per-recipe notes, substitutions, tags, make-again signal, `recipe_notes` table | Phase 3 |
+| 7 | Add Recipe wizard — 4-step: basics → ingredients (autocomplete) → steps (timer hints) → review | Phase 3 |
+| 8 | Mobile spacing audit — 44pt touch targets, 16pt margins throughout | Phase 3 |
+| 9 | Clean generated recipes — run `clean-recipes.mjs` dedup before TestFlight | Phase 3 |
+| 10 | Strip prep instructions from ingredient fields — run `clean-ingredient-units.mjs` | Phase 3 |
+| 11 | Fix profile page dark mode — white card backgrounds → `colors.card` | Phase 3 |
+| 12 | Steamed/delicate fish hard-exclude from meal prep deck | Phase 3 |
+| 13 | Walmart Recipes & Bundle API cart integration | Phase 4 |
+| 14 | Kroger API cart integration | Phase 4 |
+| 15 | Instacart Developer Platform cart integration | Phase 4 |
+| 16 | Grocery ordering bottom sheet (Walmart / Kroger / Instacart / Copy) | Phase 4 |
+| 17 | Affiliate tracking via Impact | Phase 4 |
+| 18 | Grocery list history view | Phase 4 |
+| 19 | Add Recipe goes public + /api/check-recipe AI validator | Phase 5 |
+| 20 | Community badge system, public ratings, Creator Insights screen | Phase 5 |
+| 21 | Follow system, public meal plans, community feed | Phase 6 |
+| 22 | Grocery add scepticism scoring | Post-launch |
 
 ### ⚠️ Pre-Launch Required (Admin Tasks)
 - **Apple Developer account** ($99/year) — apply now, 24-48hrs to process. Required before any App Store or TestFlight submission.
 - **Apple AI transparency disclosure** — Apple requires explicit disclosure that user data is sent to Claude (Anthropic) for taste profile generation and macro estimation. Must be in privacy policy and surfaced in-app before submission.
 - **TestFlight internal testing** — test on real devices before any external beta. No placeholder content, no crashes.
-- **Unsplash API key** ✅ — registered, `UNSPLASH_ACCESS_KEY` in .env, wired into `generate-recipes.mjs`.
-- **Register `getmori.app`** — domain for landing page, App Store support URL, and privacy policy.
+- **OpenAI API key** ✅ — `OPENAI_API_KEY` in .env, used by `generate-images.mjs` for gpt-image-1 food photography. All 622 images generated.
+- **`getmori.app`** ✅ — domain registered. Landing page, App Store support URL (`https://getmori.app/support`), privacy policy (`https://getmori.app/privacy`).
 
 ---
 
@@ -182,7 +176,7 @@ No competitor has a swipe-based discovery mechanic. Samsung Food (most formidabl
 | State Management | Zustand | ✅ Live |
 | Recipe Seed Data | TheMealDB + Supabase (419 recipes, steps, macros all backfilled) | ✅ Live |
 | Recipe Images — Seeded | TheMealDB CDN URLs (all 419 have real food photography) | ✅ Live |
-| Recipe Images — Generated | Unsplash API (search by title/cuisine) + Pexels fallback | 🔲 Pre-release |
+| Recipe Images — Generated | **gpt-image-1 (OpenAI)** via `scripts/generate-images.mjs` → Supabase Storage CDN | ✅ Live — all 622 done |
 | Nutrition / Macro Data | **Claude Haiku via /api/macros** — estimates from ingredients list | ✅ Live — Spoonacular removed |
 | Recommendation Engine | **Local weighted scorer** (on-device, lib/api.ts) | ✅ Live — no API cost, no latency |
 | Serverless Functions | Vercel | ✅ Deployed |
@@ -225,13 +219,10 @@ mori/
 │       ├── discover.tsx               ✅ Full swipe mechanic, fetchScoredDeck, dietary filtering,
 │       │                                 swipe logging, interaction logging, macro pills,
 │       │                                 RecipeDetailModal, mark as cooked, adventure cards,
-│       │                                 "Made before" badge, "Already saved" badge, isTrending badge,
-│       │                                 session swipe tracking, dev flag
-│       ├── recipes.tsx                ✅ Pinterest grid, Saved/All/Meal Prep tabs, filter dropdown,
-│       │                                 collections bar, interaction logging, RecipeDetailModal
-│       ├── plan.tsx                   ✅ Dedicated Plan tab — 7×3 meal grid, week nav, SectionList
-│       │                                 recipe picker (Meal Prep Friendly + All Saved sections),
-│       │                                 search bar, week summary pill, Add all to grocery
+│       │                                 "Made before" badge, session swipe tracking, dev flag
+│       ├── recipes.tsx                ✅ Pinterest grid, Saved/All/Plan tabs, filter dropdown,
+│       │                                 collections bar, interaction logging, RecipeDetailModal,
+│       │                                 MealPlanView (weekly 7×3 grid, recipe picker, grocery add)
 │       ├── grocery-list.tsx           ✅ Tally header, grouped categories, checkboxes,
 │       │                                 edit mode, undo, copy-to-clipboard export
 │       └── profile.tsx                ✅ Stats, taste profile card, preferences, edit modal,
@@ -251,10 +242,10 @@ mori/
 │   └── ui/
 │       ├── MacroRow.tsx               ✅ MacroRow (full 4-col), HeadlineMacroPill (goal-aware),
 │       │                                 estimateMacrosLocally (instant local estimate)
-│       └── MoriLogo.tsx               ✅ Italic serif wordmark — dot floats above "i" via stacked layout
+│       └── MoriLogo.tsx               ✅ Italic serif wordmark with green dot accent
 ├── lib/
 │   ├── supabase.ts                    ✅
-│   ├── api.ts                         ✅ All DB calls + local recommendation scorer + fetchTrendingRecipeIds()
+│   ├── api.ts                         ✅ All DB calls + local recommendation scorer
 │   ├── mealdb.ts                      ✅ fetchMealDBRecipes, fetchMealDetail, shouldExclude, clearRecipeCache
 │   └── utils.ts                       ✅ formatTime, formatCost, capitalize, getWeekStart, getTimeOfDay
 ├── hooks/
@@ -267,7 +258,7 @@ mori/
 │   ├── mealPlanStore.ts               ✅ loadPlan/savePlan async, Supabase-backed
 │   └── discoverStore.ts               ✅ mode ('spontaneous'|'meal_prep'), appearanceMode override, AsyncStorage-persisted
 ├── types/
-│   └── index.ts                       ✅ All types including supabase_id?, isAdventure?, isTrending? on Recipe
+│   └── index.ts                       ✅ All types including supabase_id?: string on Recipe
 ├── constants/
 │   └── theme.ts                       ✅ lightTheme, darkTheme, mealPrepLightTheme, mealPrepDarkTheme
 ├── api/
@@ -276,7 +267,6 @@ mori/
 │   ├── taste-profile.ts               ✅ Vercel fn
 │   ├── generate-recipe.ts             ✅ Vercel fn
 │   ├── storage-tip.ts                 ✅ Vercel fn
-│   ├── waitlist.ts                    ✅ Vercel fn — POST email to waitlist table
 │   └── seed-recipes.ts                ✅ Vercel fn — already ran, do not re-run
 ├── scripts/
 │   ├── seed-recipes.mjs               ✅ One-time (already ran — do not re-run)
@@ -285,8 +275,13 @@ mori/
 │   ├── backfill-steps.mjs             ✅ TheMealDB strInstructions → parsed steps — superseded by rewrite-steps.mjs
 │   ├── rewrite-steps.mjs              ✅ Claude Haiku rewrites all TheMealDB steps — 419/419 done, clean 5-8 step format
 │   ├── tag-meal-prep-recipes.mjs      ✅ All 419 tagged — new generated recipes tagged at generation time
-│   ├── generate-recipes.mjs           ✅ Bulk generator — Unsplash images, meal_prep_friendly at insert, safe to resume
-│   └── clean-recipes.mjs              ✅ Jaccard dedup + Haiku tag validation — run after generation completes
+│   ├── generate-recipes.mjs           ✅ Bulk generator — meal_prep_friendly at insert, safe to resume
+│   ├── generate-images.mjs            ✅ gpt-image-1 food photography — all 622 done, uploads to Supabase Storage
+│   │                                     Flags: --missing (skip existing), --test (50 random, timestamped folder),
+│   │                                     --cleanse (wipe all Unsplash images first)
+│   ├── backfill-images.mjs            ✅ Unsplash fallback backfill — superseded by generate-images.mjs
+│   ├── clean-ingredient-units.mjs     ✅ Strips prep instructions from ingredient name/unit/quantity fields
+│   └── clean-recipes.mjs              ✅ Jaccard dedup + Haiku tag validation — run before TestFlight
 ├── supabase/
 │   └── schema.sql                     ✅ Full schema
 └── README.md                          ✅ Full setup guide
@@ -810,7 +805,6 @@ POST /api/macros                   ✅ Live
 POST /api/taste-profile            ✅ Live
 POST /api/generate-recipe          ✅ Live
 POST /api/storage-tip              ✅ Live
-POST /api/waitlist                 ✅ Live
 POST /api/recommendations          ✅ Built — not used (local scorer preferred)
 POST /api/instacart-cart           🔲 Phase 3
 POST /api/check-recipe             🔲 Phase 4
@@ -865,43 +859,94 @@ INSTACART_API_KEY=         # Phase 3
 ## 14. Phase Status
 
 ### ✅ Phase 1 — Complete
+Core app: onboarding, swipe mechanic, recipe detail, grocery list, local scorer, Supabase auth.
+
 ### ✅ Phase 2 — Complete
+Recipe library, collections, profile, taste profile, macro estimation, adventure cards, trending badges, saved/cooked tracking.
+
 ### ✅ Phase 2.5 — Complete
-Meal Prep Mode: 4-theme system, discoverStore, mode toggle, meal prep scoring, slot picker, serving multiplier, week progress indicator, mode-aware grocery header. All 419 steps rewritten. Bulk generator running.
+Meal Prep Mode: 4-theme system, discoverStore, mode toggle, meal prep scoring, slot picker, serving multiplier, week progress indicator, mode-aware grocery header.
 
-### ✅ Phase 2.6 — Complete (UX Polish + Discovery Improvements)
-- Dark mode fixes: all `colors.white` surfaces → `colors.card` across RecipeDetailModal, recipes.tsx, grocery-list.tsx, profile.tsx
-- "Already saved" badge on discover cards (semi-transparent pill overlay)
-- "🔥 Trending" badge — `fetchTrendingRecipeIds()` queries swipe_events, ≥3 right swipes in 7 days, 30-min cache
-- `isTrending` field added to Recipe type
-- MoriLogo dot: stacked layout — dot rendered in its own View above the wordmark text, `alignItems: 'flex-end'` to align above the "i"
-- Plan tab promoted to dedicated bottom nav tab (`app/(tabs)/plan.tsx`) with SectionList recipe picker
-- recipes.tsx Plan tab removed — now has 3 tabs: All / Saved / Meal Prep
-- Landing page (`public/index.html`) live with waitlist form → `/api/waitlist`
-- `waitlist` table added to Supabase schema
+### ✅ Phase 2.6 — Complete
+Dark mode fixes, "Already saved" badge, trending badge, MoriLogo dot, Plan tab as dedicated bottom tab, landing page + waitlist API.
 
-### Phase 3 — Instacart Integration (waiting on dev key)
-- [ ] Instacart Developer Platform approval ← submitted, waiting
-- [ ] /api/instacart-cart Vercel function
-- [ ] "Order on Instacart" button in grocery-list.tsx
-- [ ] InstacartButton.tsx component
-- [ ] Deep link via Linking.openURL()
-- [ ] Impact affiliate tracking verified
+### 🔄 Phase 2.7 — In Progress (AI Food Photography)
+gpt-image-1 image generation replacing Unsplash. 50-image test complete, full run in progress.
+
+---
+
+### 🔲 Phase 3 — UX Overhaul + TestFlight Launch (NEXT — Q2 2026)
+
+**This is the priority phase before any public launch.**
+
+#### 3a — Immediate pre-flight (do these first, no code required)
+- [x] Register `getmori.app` domain ✅
+- [ ] Apple Developer Program confirmed ✅ — set up App Store Connect listing (app name: Mori, bundle ID: com.mori.app)
+- [ ] Write privacy policy and publish at `getmori.app/privacy` — must disclose: data collected, Claude/Anthropic AI usage, Instacart integration, no ads
+- [ ] Apple AI transparency disclosure — add in-app consent for Claude usage (taste profile generation, macro estimation)
+- [ ] Deploy landing page to `getmori.app` via Vercel
+
+#### 3b — UX Overhaul (full spec in Section 18)
+- [ ] Navigation: remove Profile from tab bar, add avatar circle top-right on every screen
+- [ ] **Explore tab** (`app/(tabs)/explore.tsx`) — new editorial browse screen replacing old "All" tab. Sections: Cook Again, Trending, Just Added, Browse by Cuisine, Under 30 min, High Protein (conditional). Full spec in Section 18.2.
+- [ ] **Recipes tab redesign** (`app/(tabs)/recipes.tsx`) — personal library with 4 sub-tabs: Saved, Cooked, Mine, Meal Prep. "+ Add" button in header. Full spec in Section 18.3.
+- [ ] **Recipe Detail redesign** — steps redesigned as cards with bold action title + detail text + inline timer pills. "Start cooking →" button. Sticky footer with Add to Grocery + Save always visible. Full spec in Section 18.4.
+- [ ] **Cooking Mode** (`components/CookingMode.tsx`) — new full-screen dark mode component. One step at a time, per-step timer, per-step ingredients, progress bar, `keepScreenAwake: true`. Full spec in Section 18.5.
+- [ ] **My Notes tab** in RecipeDetailModal — per-recipe personal notes with free text, substitutions field, tags, make-again signal. `recipe_notes` table (schema in Section 18.6). Full spec in Section 18.6.
+- [ ] **Add Recipe wizard** (`app/add-recipe/`) — 4-step wizard: basics → ingredients (with autocomplete) → steps (with inline timer suggestions) → review + publish. Public/Private toggle. AI photo generation for public recipes without photos. Full spec in Section 18.7.
+- [ ] Mobile spacing audit — apply Section 18.9 rules throughout: 44pt touch targets, 16pt margins, 1.6 line height, nothing under 11pt.
+
+#### 3c — TestFlight
+- [ ] Run `clean-recipes.mjs` — dedup and validate all generated recipes
+- [ ] Fix profile page dark mode (white card backgrounds → `colors.card`)
+- [ ] Steamed/delicate fish hard-exclude from meal prep deck
+- [ ] Strip prep instructions from ingredient unit fields (`clean-ingredient-units.mjs`)
+- [ ] No crashes on iPhone 12 (oldest commonly tested device)
+- [ ] All screens show real data — no placeholder content
+- [ ] Internal TestFlight build — test every flow end to end on real device
+- [ ] Fix any crashes or blank screens found in TestFlight
+
+---
+
+### 🔲 Phase 4 — Grocery API Integrations
+
+Grocery ordering is revenue-critical but requires external API approvals. Run these in parallel with Phase 3 so they're ready when Phase 3 ships.
+
+- [ ] **Walmart Recipes & Bundle API** — apply at `walmart.io`. Specifically the Recipes and Bundle API which is purpose-built for ingredient-to-cart. AddToCart proxy for direct cart building. No waitlist — apply today.
+- [ ] **Kroger API** — apply at `developer.kroger.com`. OAuth2 cart API. Covers Kroger, Ralph's, Fred Meyer, King Soopers, Harris Teeter (2,700 stores, 35 states). Mealime already uses this — precedent set. 1–2 week approval.
+- [ ] **Instacart Developer Platform** — applied, waiting (1–3 week approval typical). 85,000+ retailers, best UX.
+- [ ] Grocery ordering bottom sheet in `grocery-list.tsx` — shows available retailers as tappable options (Walmart, Kroger, Instacart, Copy list). Only shows retailers for which API key is configured.
+- [ ] `/api/walmart-cart` Vercel function
+- [ ] `/api/kroger-cart` Vercel function  
+- [ ] `/api/instacart-cart` Vercel function
+- [ ] Affiliate tracking via Impact for all three retailers
 - [ ] Grocery list history view
 
-### Phase 4 — Community
-- [ ] Recipe submission form + /api/check-recipe AI checker
-- [ ] Badge system, public ratings, community explore page
+---
 
-### Phase 5 — Social
-- [ ] Follow system, public meal plans, community feed
+### 🔲 Phase 5 — Community
+
+- [ ] Add Recipe goes live publicly (built in Phase 3 but gated — flip the flag)
+- [ ] `/api/check-recipe` — Claude validation for user-submitted recipes (two-prompt pipeline, same as generated recipes)
+- [ ] Badge system: Community Verified, Community Favorite (based on save count + notes data)
+- [ ] Public ratings visible on recipe detail
+- [ ] Creator Insights screen — recipe authors see save count, note themes, make-again signal
+- [ ] Notes analytics pipeline — weekly Claude batch to surface recipe quality issues from note patterns
+
+---
+
+### 🔲 Phase 6 — Social
+
+- [ ] Follow system
+- [ ] Public meal plans with AI adaptation
+- [ ] Community feed
 
 ---
 
 ## 15. App Store Launch Checklist
 
 - [ ] Apple Developer Program ($99/year) — apply at developer.apple.com
-- [ ] Register `getmori.app` domain
+- [x] Register `getmori.app` domain ✅
 - [ ] Privacy policy live at a URL — disclose all data collected + AI usage
 - [ ] Apple AI transparency — explicit disclosure of Anthropic/Claude usage in privacy policy + in-app consent
 - [ ] TestFlight internal testing — all flows on real iOS devices
@@ -928,7 +973,8 @@ Meal Prep Mode: 4-theme system, discoverStore, mode toggle, meal prep scoring, s
 - Photo of fridge AI vision
 - Weather-aware recommendations
 - Baking tab
-- AI image generation (DALL-E, Stability AI) — Unsplash/Pexels is sufficient and free
+- Stability AI / Midjourney image generation — gpt-image-1 is already in use for generated recipe photography
+- Pexels / Unsplash for generated recipe images — replaced by gpt-image-1 (more accurate, dish-specific)
 
 ---
 
@@ -941,7 +987,7 @@ Meal Prep Mode: 4-theme system, discoverStore, mode toggle, meal prep scoring, s
 - **Local weighted scorer** — Claude UUID problem makes LLM ranking unreliable
 - **Claude used for:** taste profile, macros, recipe generation, storage tips, step rewriting
 - **Spoonacular removed** — Claude Haiku estimates suffice for discovery app macros
-- **Unsplash + Pexels for generated recipe images** — real food photography, free
+- **gpt-image-1 for generated recipe images** — OpenAI medium quality (~$0.04/image), uploaded to Supabase Storage for permanent URLs. Description-based prompts with cuisine-specific plating context. All 622 images complete. Unsplash was inaccurate (wrong dishes); gpt-image-1 generates the actual dish.
 - **Instacart Developer Platform** — grocery list → pre-built cart → checkout in Instacart. Affiliate via Impact = primary revenue
 - **Copy/paste export Phase 1** — Instacart Phase 3
 - **Account creation screen 9 of 10** — user invested before committing
@@ -955,4 +1001,404 @@ Meal Prep Mode: 4-theme system, discoverStore, mode toggle, meal prep scoring, s
 
 ---
 
-*Mori CLAUDE.md — v5.6 — Renamed from Mise to Mori (March 2026). Brand identity locked: linen light app icon, italic serif wordmark, Direction A typography. Merged with latest build state: rewrite-steps.mjs complete, bulk recipe generator running (targeting 1,200), Unsplash wired. Phases 1, 2, 2.5 complete. Phase 3 waiting on Instacart approval.*
+*Mori CLAUDE.md — v6.0 — Phase restructure: Phase 3 = UX overhaul + TestFlight (Section 18 spec). Phase 4 = Grocery APIs (Walmart, Kroger, Instacart). Phase 5 = Community. Phase 6 = Social. Phase 2.7 complete: all 622 generated recipes have gpt-image-1 food photography (~$27 total). 63 recipe descriptions updated with accompaniments. Immediate next steps: register getmori.app, begin Phase 3 UX overhaul per Section 18.*
+
+---
+
+## 18. UX Redesign Spec — Phase 3 (Mobile-First)
+
+> This section is the authoritative design specification for the Phase 3 UX overhaul. Claude Code must follow these specs exactly. No mockup images are available — build entirely from this written spec. Every measurement assumes a standard iPhone screen (390pt wide). Use generous spacing — minimum 44pt touch targets, minimum 16pt horizontal margins, minimum 12pt vertical padding on all interactive elements.
+
+---
+
+### 18.1 Navigation Architecture Change
+
+**BEFORE:** 5 bottom tabs — Discover, Recipes, Plan, Grocery List, Profile
+
+**AFTER:** 4 bottom tabs + persistent avatar button
+
+Remove Profile from the tab bar entirely. The tab bar now has exactly four tabs:
+
+1. **Discover** — swipe deck (existing)
+2. **Explore** — full editorial browse (new, replaces old All Recipes)
+3. **Recipes** — personal library (replaces old Recipes tab)
+4. **Plan** — weekly meal grid (existing, unchanged)
+5. **Grocery** — shopping list (existing, unchanged)
+
+Wait — that's five. Correct count: **Discover, Explore, Recipes, Plan, Grocery = 5 tabs.** Remove Profile only — keep all five functional tabs. The tab bar is slightly tighter but all five fit.
+
+**Profile avatar — persistent top-right on every screen:**
+Every screen in the app has a circular avatar button in the top-right corner of the navigation header, always visible. The circle is 36pt diameter. Background colour is the theme primary (`colors.primary`). Text is the user's initials (first letter of first name + first letter of last name) in white, 13pt, weight 600. If no name is set, show a person icon. Tapping this avatar opens a bottom sheet (not a full screen push) containing: profile photo (if set), display name, Recipes Saved count, Taste Profile snippet (2 lines max), quick links to Edit Preferences, My Pantry, Discover Settings, and Sign Out. This replaces the entire Profile tab screen. The avatar must appear on: Discover header, Explore header, Recipes header, Plan header, Grocery header. It sits to the right of the screen title, vertically centred with it.
+
+---
+
+### 18.2 Explore Tab — Full Specification
+
+**File:** `app/(tabs)/explore.tsx`
+
+**Purpose:** Replaces the old "All" recipes view. This is a curated editorial browse screen showing the full recipe catalogue of 1,000+ recipes organised into meaningful sections. It is NOT a flat grid. It uses a ScrollView with sections stacked vertically.
+
+**Header:**
+- Screen title: "Explore" — 28pt, weight 700, color `colors.text`
+- Avatar button top-right (see 18.1)
+- Search bar below title: full-width, 44pt height, background `colors.border` at 30% opacity, border radius 12pt, placeholder text "Search 1,041 recipes..." in `colors.textMuted`. Tapping opens a full-screen search modal with real-time filtering.
+- Filter chips row below search bar: horizontally scrollable, no scrollbar visible, 12pt gap between chips, 16pt left padding, 8pt bottom padding. Each chip is 32pt tall, horizontal padding 14pt, border radius 999pt (pill shape). Active chip: background `colors.primary`, text white, weight 600, 12pt font. Inactive chip: background `colors.border` at 40% opacity, text `colors.textMuted`, 12pt font. Chips in order: All (default active), Quick (≤30 min), High Protein, Meal Prep, Vegetarian, Vegan. Selecting a chip filters ALL sections below simultaneously. "All" deselects all other chips.
+
+**Section: "Cook again"**
+- Only visible if user has at least 1 cooked recipe (`recipe_interactions` with `interaction_type: 'cooked'`). Hidden entirely if no cook history.
+- Section header: "Cook again" 17pt weight 700 left, "See all" 13pt `colors.primary` right, 16pt vertical margin above section.
+- Horizontally scrollable row of recipe cards. Card width: 140pt, 16pt gap, 16pt left inset, visible overflow on right to signal scrollability.
+- Each card: border radius 14pt, white background, 0.5pt border `colors.border`. Image area 90pt tall, full width. Below image: 10pt padding all sides. Cooked count badge above title (e.g. "Cooked 3×") — background `#E3F2FD`, text `#1565C0` (blue, not green — distinct from saved), 7pt font, weight 700, pill shape. Recipe title in Georgia italic 12pt. Cuisine + time in SF Pro 9pt uppercase `colors.textMuted`.
+- Data source: query `recipe_interactions` for the current user, `interaction_type = 'cooked'`, group by `recipe_id`, order by count descending.
+
+**Section: "Trending this week"**
+- Always visible.
+- Section header: "Trending this week" left, "See all" right.
+- Same horizontal scroll card format. Badge: orange/amber — background `#FFF3E0`, text `#BF360C`, label "Hot". 
+- Data source: `fetchTrendingRecipeIds()` already in `lib/api.ts` — ≥3 right swipes from any users in last 7 days. 30-min cache.
+
+**Section: "Just added"**
+- Always visible.
+- Section header: "Just added" left, "See all" right.
+- Same horizontal scroll card format. Badge: green — background `#E8F5E9`, text `#1B5E20`, label "New".
+- Data source: `recipes` ordered by `created_at` descending, limit 10. Only show recipes added in last 30 days.
+
+**Section: "Browse by cuisine"**
+- Always visible.
+- Section header: "Browse by cuisine" left (no "See all" — the chips ARE the see-all).
+- Horizontally scrollable row of cuisine chips. Each chip is 64pt wide, 72pt tall, border radius 12pt, white background, 0.5pt border `colors.border`. Contains flag emoji (20pt) centered, then cuisine name below in 10pt SF Pro weight 500 `colors.text`. Cuisines in order: Japanese 🇯🇵, Indian 🇮🇳, Mexican 🇲🇽, Korean 🇰🇷, French 🇫🇷, Thai 🇹🇭, Italian 🇮🇹, Chinese 🇨🇳, American 🇺🇸, Spanish 🇪🇸, Mediterranean 🌊, Middle Eastern 🌙. Tapping a cuisine chip navigates to a full-screen filtered grid for that cuisine.
+
+**Section: "Under 30 minutes"**
+- Always visible (there are hundreds of these recipes).
+- Section header: "Under 30 minutes" left, "See all" right.
+- 2-column grid (NOT horizontal scroll). Column gap 10pt. Cards same as grid cards elsewhere. Each card: image 100pt tall, title below in Georgia italic 12pt, cuisine + time in 9pt uppercase. No badge needed.
+- Data source: `recipes` where `(prep_time_mins + cook_time_mins) <= 30`, ordered by `save_count` descending, limit 6.
+
+**Section: "High protein"**
+- Only visible if user has high_protein in their dietary_goals.
+- Same horizontal scroll format. No badge — the section title is the signal.
+- Data source: recipes where `macros->>'protein'` cast to numeric >= 25, ordered by protein descending.
+
+**Empty state (if somehow no recipes):**
+- Centred in screen: fork and knife emoji 40pt, "Nothing here yet" 16pt weight 700, "Pull to refresh" 13pt `colors.textMuted`.
+
+---
+
+### 18.3 Recipes Tab — Personal Library
+
+**File:** `app/(tabs)/recipes.tsx` (replace existing)
+
+**Purpose:** This is the user's personal recipe library. It only shows recipes the user has interacted with — saved, cooked, or submitted. It is NOT the place to browse all recipes (that's Explore). Mental model: Spotify's "Your Library" vs "Search/Browse".
+
+**Header:**
+- Screen title: "My Recipes" — 28pt, weight 700
+- Avatar button top-right (see 18.1)
+- "+" Add button top-right alongside avatar: green pill button, 32pt height, label "+ Add", 14pt weight 600, background `colors.primary`, white text, border radius 999pt. Tapping opens the Add Recipe flow (see 18.5). Position: to the LEFT of the avatar, 8pt gap between them.
+- Search bar below header: same spec as Explore search bar but placeholder "Search your recipes..."
+- Segmented control below search: 4 equal segments. 36pt height total, 3pt internal padding, background `colors.border` at 30% opacity, border radius 10pt. Active segment: white background, black text, weight 600, border radius 8pt. Inactive: transparent background, `colors.textMuted` text. Segments: **Saved | Cooked | Mine | Meal Prep**
+
+**Saved tab (default):**
+- Sub-section "Recently saved": horizontal scroll row, same card format as Explore. Shows last 5 saved recipes by `saved_at` descending.
+- Sub-section "All saved (N)": full-width 2-column grid. N = total saved count. Sort button top-right: "Sort ↕" — tapping shows bottom sheet with options: Recently saved, A–Z, Cook time, Rating.
+- Each grid card: 16pt border radius, white background, 0.5pt border. Image height 100pt. Below image: 10pt padding. If recipe has been cooked: small green pill "✓ Cooked Nx" above title (background `#E8F5E9`, text `#2E7D32`, 8pt, weight 700). Title in Georgia italic 12pt, 2 lines max with ellipsis. Cuisine + time below in 9pt SF Pro uppercase `colors.textMuted`.
+
+**Cooked tab:**
+- Same 2-column grid, but filtered to only recipes with `interaction_type = 'cooked'` in `recipe_interactions`.
+- Sort defaults to cook count descending. Badge shows "Cooked Nx" prominently.
+- If empty: centred empty state — chef hat emoji 36pt, "Nothing cooked yet" 15pt weight 700, "Mark a recipe as cooked to see it here" 12pt `colors.textMuted`.
+
+**Mine tab:**
+- Shows only recipes where `submitted_by = current user id` in the `recipes` table.
+- Same 2-column grid. Each card has a badge: "Public" (background `#E8F5E9`, text `#1B5E20`) or "Private" (background `#EDE7F6`, text `#4527A0`). If recipe has ≥1 saves from other users, show save count "N saves" in small grey text below cuisine/time.
+- Below the grid, if any public recipes have received saves or notes from other users: a soft green notification card (background `#E8F5E9`, border radius 12pt, padding 14pt) with text "[Recipe name] is getting attention — N people saved it." Tapping navigates to a Creator Insights screen (Phase 4, spec this screen when building Phase 4).
+- Empty state: "+" dashed-border card in the grid at position [0,0] if no recipes — "Add your first recipe" 10pt `colors.textMuted` centred inside, font size 24pt "+" above. Tapping this adds a recipe.
+
+**Meal Prep tab:**
+- Filtered to saved recipes where `meal_prep_friendly = true`.
+- Same 2-column grid. Small green "Meal prep ✓" label replaces cuisine in meta row.
+- Empty state: "No meal prep recipes saved yet — explore the Meal Prep section in Explore to find some."
+
+---
+
+### 18.4 Recipe Detail — Redesigned
+
+**Component:** `components/RecipeDetailModal.tsx` (update existing)
+
+The recipe detail opens as a full-screen modal pushed from either Discover (as existing swipe card) or any recipe grid. It is NOT a bottom sheet — it pushes full screen so there is space to breathe on mobile.
+
+**Header image area:**
+- Full-width image, 220pt tall. Uses `expo-image` with `contentFit: 'cover'`.
+- Back button (←) top-left: 36pt circle, background rgba(255,255,255,0.85), border radius 18pt, 16pt from left edge, 16pt from top of safe area. Chevron icon 18pt, color `#1A1A1A`.
+- Save button (♡ or ♥ if saved) top-right: same circle spec. 16pt from right edge.
+- Add to grocery button: NOT in the header. Lives at the bottom of the screen as a sticky footer bar.
+
+**Recipe info block (below image, white background):**
+- 16pt horizontal padding, 14pt top padding.
+- Recipe title: Georgia serif italic, 22pt, weight 400, color `colors.text`, 2 lines max. Do NOT truncate — allow wrapping.
+- Meta pills row: 10pt gap between pills, 8pt top margin. Each pill: background `#F5F5F5`, border radius 8pt, 6pt vertical padding, 12pt horizontal padding, 11pt SF Pro, color `#555555`. Pills in order: cuisine, total time (prep + cook), servings, estimated cost.
+- Macros row: 4 equal tiles in a row, 8pt gap, 10pt top margin. Each tile: background `#F9F9F9`, border radius 8pt, 8pt padding, centered. Number: 14pt weight 700 `colors.primary`. Label: 8pt SF Pro uppercase `colors.textMuted`. Values: calories (kcal), protein (g), carbs (g), fat (g). "Estimated values" in 9pt `colors.textMuted` centered below the row.
+
+**Tab bar (Ingredients | Steps | My Notes):**
+- 3 equal-width tabs, 44pt total height, border bottom 0.5pt `colors.border`.
+- Active tab: text `colors.primary` weight 600 13pt, bottom border 2pt `colors.primary`, no fill.
+- Inactive tab: text `colors.textMuted` 13pt.
+- Default to Ingredients on first open. Remembers last selected tab for that session.
+
+**Ingredients tab:**
+- Serving size adjuster at top: "Servings" label left, minus button / number / plus button right. Buttons 36pt circle, border 1pt `colors.border`. All ingredient quantities scale proportionally.
+- Each ingredient row: 16pt horizontal padding, 14pt vertical padding, border bottom 0.5pt `colors.border` (no border on last item). Quantity + unit left (weight 600 13pt `colors.text`), ingredient name right (13pt `colors.text`). Row height minimum 44pt.
+- "Add all to grocery list" tappable text at bottom: 14pt `colors.primary` weight 600, centered, 20pt top padding.
+
+**Steps tab — SIMPLIFIED (this is the most important change):**
+Each step is a self-contained card. Not a bulleted list. Not paragraph text with bold words buried inside. Full cards with clear visual hierarchy.
+
+Step card specification:
+- Background: `#F9F9F9` for upcoming/incomplete steps. `colors.card` (white) with `colors.border` for the active step (add 1.5pt green border around the entire active card). `colors.border` at 20% opacity background for completed steps.
+- Border radius: 14pt. Margin bottom: 10pt. Padding: 14pt all sides.
+- Inside the card, left side: step number circle. 24pt diameter, background `colors.primary` for active, `#A5D6A7` (lighter green) for completed (with a ✓ checkmark instead of number), `#CCCCCC` for upcoming. Number/check is white, 11pt weight 700.
+- To the right of the number (10pt gap): step title in SF Pro 13pt weight 700 `colors.text` (e.g. "Soak the noodles"). Below title: step detail in SF Pro 13pt weight 400 `colors.textMuted`, line height 1.6. Maximum 2 sentences. The title summarises the action. The detail explains HOW. This is the key to making it readable — non-cooks scan titles, then read detail only if confused.
+- If the step has a time: below the detail text, a tappable timer pill — background `#E8F5E9`, border radius 999pt, 6pt vertical padding, 12pt horizontal padding. Stopwatch icon (14pt) + "4 min" text in 11pt weight 600 `colors.primary`. Tapping starts a countdown timer that shows as a persistent banner at the top of the screen.
+- Completed steps are visually dimmed but remain visible above the active step so users can reference what they already did.
+- Upcoming steps below the active step are also visible but dimmed. This gives context — the user can see what's coming.
+
+**"Start cooking mode" button:**
+- Full-width green button at bottom of Steps tab. 52pt height. Background `colors.primary`. Text "Start cooking →" white 16pt weight 700. Border radius 14pt. Margin 16pt horizontal, 20pt top. This launches the full-screen Cooking Mode (see 18.5).
+
+**My Notes tab:**
+See Section 18.6 for full spec.
+
+**Sticky footer bar (always visible regardless of tab):**
+- 80pt height total including safe area. White background. Border top 0.5pt `colors.border`.
+- Two buttons side by side with 12pt gap, 16pt horizontal padding:
+  - "Add to grocery" (outline button): flex 1, height 52pt, border 1.5pt `colors.primary`, text `colors.primary` 15pt weight 600, border radius 14pt.
+  - "Save recipe" (filled): flex 1, same height, background `colors.primary`, white text, same border radius. If already saved: background `colors.primaryLight`, text `colors.primary`, label "Saved ✓".
+
+---
+
+### 18.5 Cooking Mode — Full Screen
+
+**Component:** `components/CookingMode.tsx` (new component)
+
+Triggered by "Start cooking →" button on the Steps tab. Opens as a full-screen modal over the recipe detail. The screen goes entirely dark. This keeps the phone from activating auto-brightness and helps focus in a kitchen environment. `keepScreenAwake: true` must be set so the screen does not lock.
+
+**Background:** `#1A1A1A` (near-black). All text is light.
+
+**Header (top of screen):**
+- Recipe title in Georgia italic 14pt `#F0EDE6` (warm off-white), truncated to 1 line with ellipsis.
+- Right side: microphone icon button (voice commands, Phase 4 — render the button but make it a no-op for now, labelled "Voice") and an ✕ close button (tapping exits cooking mode and returns to recipe detail).
+- Both buttons are 36pt circles, background `#2A2A2A`.
+
+**Progress bar (below header):**
+- Full-width bar, 4pt height, background `#333333`, border radius 2pt.
+- Fill: `#4CAF50` (bright green), width = (currentStep / totalSteps) * 100%.
+- Below bar: "Step N of M — [encouraging label]" in 10pt `#666666`. Encouraging labels cycle: "Let's go!", "Keep going!", "Nearly there!", "Last step!".
+
+**Active step card (main content):**
+- Rounded rectangle, background `#2A2A2A`, border radius 16pt, margin 16pt horizontal, 12pt vertical padding.
+- Step label: "STEP N" in 9pt SF Pro weight 700 `#4CAF50`, uppercase, letter-spacing 0.1em. 
+- Step title in SF Pro 16pt weight 700 `#F0EDE6`, margin top 6pt.
+- Step detail in SF Pro 15pt weight 400 `#C0C0C0`, line height 1.7, margin top 6pt. Key quantities (weights, temperatures, times) are highlighted: text `#4CAF50` weight 700. For example: "Cook for **4 minutes** on **high heat** until golden" — "4 minutes" and "high heat" both green bold.
+- This card takes up roughly 40% of the screen height. Large text, lots of breathing room.
+
+**Timer block (below active step card):**
+- Only shown if the current step has a timer. Background `#1E3A1E` (very dark green), border radius 12pt, margin 16pt horizontal, padding 16pt.
+- Left side: large timer countdown — 28pt weight 700 `#4CAF50`, format "4:00". Below: "Timer ready" or "Running..." in 9pt `#4CAF50` at 70% opacity.
+- Right side: "Start" button when idle (background `#4CAF50`, text `#fff`, border radius 8pt, padding 8pt 16pt, 13pt weight 700). When running: "Pause" (same style). When finished: brief vibration + "Done ✓" in green.
+
+**Ingredients for this step (below timer or active card):**
+- Small section: "INGREDIENTS THIS STEP" label in 8pt `#555555` uppercase.
+- Horizontal row of ingredient pills. Each pill: background `#252525`, border radius 8pt, 6pt vertical padding, 10pt horizontal padding, ingredient emoji (if available) + ingredient name in 11pt `#F0EDE6`. Only show ingredients actually used in this specific step, parsed from the step text by matching ingredient names.
+
+**Navigation buttons (bottom of screen):**
+- Two buttons above the safe area, 16pt horizontal margin, 12pt gap.
+- "← Back" (left, flex 1): background `#2A2A2A`, text `#F0EDE6` 13pt, border radius 12pt, 48pt height.
+- "Next step →" (right, flex 2): background `#4CAF50`, text `#ffffff` 15pt weight 700, border radius 12pt, same height.
+- On the final step: "Next step →" becomes "Mark as cooked ✓" with the same green background.
+
+**Voice command hint (below navigation):**
+- "Say 'next', 'back', or 'timer'" in 10pt `#444444` centered. Phase 4 functionality — text is visible now as a placeholder.
+
+---
+
+### 18.6 My Notes Tab — Recipe Detail
+
+**Location:** Third tab inside `RecipeDetailModal.tsx`, accessible as "My Notes"
+
+**Purpose:** Personal, private notes that live on a specific recipe. Entirely per-user — other users never see your notes. This is a retention feature: once a user writes a note, they have a personal investment in that recipe and the app.
+
+**Empty state:**
+- White background, 20pt padding all sides.
+- A warm yellow notepad-style empty card: background `#FFFDE7`, border radius 14pt, border 1pt `#FDD835` (yellow), padding 20pt. Centred inside: pencil emoji 28pt, then "Your personal notes on this recipe" in 15pt weight 700 `colors.text`, then "Tweaks, substitutions, what to do differently next time." in 12pt `colors.textMuted` line height 1.6.
+- Rating row below: "Rate this recipe" label 12pt `colors.textMuted`, then 5 star icons in a row 24pt each, default all grey `#DDDDDD`. Tapping a star fills all stars up to and including that one in `#FFC107` (amber). Persists to `saved_recipes.user_rating`.
+- Green "+ Add a note" button at bottom: full width, 52pt height, background `colors.primary`, white text 15pt weight 600, border radius 14pt.
+
+**Filled state (has existing note):**
+- Rating row at top (same as above, but pre-filled to saved rating).
+- Tags row below rating: horizontally scrollable, shows existing tags as green pills (background `#E8F5E9`, text `#2E7D32`, 11pt weight 600, 6pt vertical padding, 12pt horizontal padding, border radius 999pt). "+ tag" pill at end (dashed outline style, `colors.textMuted`). Tapping "+ tag" opens a bottom sheet with: 6 quick-add tags (Family favourite, Make again, Too spicy, Too salty, Weekend only, Quick win) plus a custom text input.
+- Note card: background `#FFFDE7`, border radius 12pt, border 0.5pt `#F9A825` (warm amber), padding 14pt. Note text in 13pt `colors.text` line height 1.6. Date below in 9pt `#BFA000` — "Added March 14 · edited March 16". Full text, no truncation — this is a personal note and users need to read the whole thing.
+- If substitutions were logged: separate card below, background `#E8F5E9`, border radius 12pt, padding 12pt. Header "Substitutions" 10pt `#2E7D32` weight 700. Content in 12pt `colors.text`.
+- Make-again response (if recorded): small row showing their answer — "You said: Yes, exactly as is ✓" in 11pt `colors.textMuted`.
+- "Edit note" button at bottom: same spec as add button but label "Edit note".
+
+**Editing state:**
+- Full-screen sheet pushes from bottom when "+ Add a note" or "Edit note" is tapped.
+- Title: "My note — [Recipe name]" 14pt weight 700.
+- Section: free text area — label "What do you want to remember?" 10pt uppercase `colors.textMuted`. Text input: background `#FFFDE7`, border radius 12pt, border 1pt `#F9A825`, padding 12pt, font 13pt `colors.text`, min height 90pt, multiline, auto-expands. Placeholder: "Tweaks, substitutions, what to do differently next time..."
+- Section: substitutions — label "What did you swap?" 10pt uppercase. Text input same styling, placeholder "e.g. chicken thighs instead of breast, oat milk instead of cream". This is a separate field, not part of the main note.
+- Section: quick tags — label "Tags" 10pt uppercase. 3-column grid of tag buttons. Each: 36pt height, border radius 8pt. Unselected: background `#F5F5F5` text `#555`. Selected: background `#E8F5E9` text `#2E7D32` with a small ✓. Tags: Family favourite, Make again, Too spicy, Too salty, Weekend only, Quick win. Custom tag text input at end.
+- Section: make-again — label "Would you cook it again?" 10pt uppercase. Three wide buttons stacked: "Yes, exactly as is" / "Yes, with some changes" / "Probably not". Each 44pt height, border radius 10pt. Unselected: background `#F5F5F5` text `#555`. Selected: first = background `#E8F5E9` text `#2E7D32`, second = `#FFF8E1` / `#E65100`, third = `#FFEBEE` / `#C62828`.
+- Footer: "Cancel" (grey outline) and "Save note" (green filled) side by side, 52pt height each, 12pt gap.
+- On save: write to `recipe_notes` table (see schema below). Dismiss sheet. Show note in filled state.
+
+**Database table required:**
+```sql
+create table recipe_notes (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references profiles(id) not null,
+  recipe_id uuid references recipes(id) not null,
+  note_text text,
+  substitutions text,
+  tags text[] default '{}',
+  make_again text check (make_again in ('yes', 'with_changes', 'no')),
+  created_at timestamp with time zone default now(),
+  updated_at timestamp with time zone default now(),
+  unique(user_id, recipe_id)
+);
+```
+
+---
+
+### 18.7 Add Recipe Flow — 4-Step Wizard
+
+**Navigation:** Triggered from "+" Add button on Recipes tab header. Pushes a full-screen modal. Progress indicator at top shows "Step N of 4". Back arrow top-left exits with confirmation dialog if any data has been entered ("Discard recipe?").
+
+**Step indicator:** 4 equal-width pills in a row, 3pt height each, 4pt gap. Completed = `colors.primary` solid. Active = `#4CAF50` (slightly lighter). Upcoming = `colors.border`.
+
+---
+
+**Step 1 — The basics:**
+
+- Title: "The basics" 20pt weight 700.
+- Recipe name field: label "Recipe name" 10pt uppercase `colors.textMuted`. Input: background `colors.background`, border 1pt `colors.border`, border radius 10pt, 48pt height, 15pt font, 14pt horizontal padding. Placeholder "What do you call this dish?"
+- Description field: label "A one-line description" 10pt uppercase. Multiline input, 3 lines tall, same styling. Placeholder "e.g. A smoky, slow-cooked lamb shoulder with harissa and preserved lemon." This directly improves the AI-generated images — better descriptions = better prompts.
+- Cuisine selector: label "Cuisine" 10pt uppercase. Horizontally scrollable row of cuisine pill buttons (same 12 cuisines as onboarding). Selected: `colors.primary` background white text. Unselected: `#F5F5F5` background `#555` text.
+- Time fields: two side-by-side inputs, each flex 1, 12pt gap. Left: "Prep time (mins)" label, number input. Right: "Cook time (mins)" label, number input. Both: background `colors.background`, border 1pt `colors.border`, border radius 10pt, 48pt height, number keypad.
+- Servings: same single input "Serves" label, number input, 0-20 range.
+- Visibility toggle (public/private): label "Who can see this?" 10pt uppercase. Two buttons side by side (not a segmented control — these feel weightier and more deliberate). Each: flex 1, 56pt height, border radius 12pt, 12pt gap.
+  - Public button: when selected — background `#E8F5E9`, border 1.5pt `#2E7D32`, globe icon 14pt `#2E7D32`, text "Public" 13pt weight 700 `#2E7D32` below icon, sub-text "Others can discover it" 9pt `#2E7D32` at 70% opacity. When unselected: background `#F5F5F5`, border 1pt `#E0E0E0`, same layout but all grey.
+  - Private button: when selected — background `#EDE7F6`, border 1.5pt `#7B1FA2`, lock icon 14pt `#7B1FA2`, text "Private" 13pt weight 700 `#7B1FA2`, sub-text "Only visible to you" 9pt. When unselected: grey as above.
+  - Default: Public.
+- "Next →" button: full width, 52pt height, `colors.primary` background, white text 16pt weight 700, border radius 14pt, 20pt top margin.
+
+---
+
+**Step 2 — Ingredients:**
+
+- Title: "Ingredients" 20pt weight 700.
+- Hint text below title: "Keep it simple. '2 chicken breasts' not '2 large free-range chicken breasts, patted dry and at room temperature'." 12pt `colors.textMuted` line height 1.5. This actively coaches non-cooks.
+- Column headers: "Qty" / "Unit" / "Ingredient" in 9pt uppercase `colors.textMuted`, left-aligned above each column.
+- Ingredient rows: each row is 48pt height, contains three inputs side by side.
+  - Qty input: 52pt wide. Number keypad. Background `#F5F5F5`, border radius 8pt, border 0.5pt `colors.border`, centered text, 13pt font.
+  - Unit input: 60pt wide. Text input OR tappable — tapping opens a bottom sheet picker with common units: whole, g, kg, ml, l, tsp, tbsp, cup, handful, pinch, slice. 13pt font same styling.
+  - Ingredient name input: flex 1 (takes remaining width). Text input with AUTOCOMPLETE.
+
+**Ingredient autocomplete specification:**
+As the user types in the ingredient name field, a dropdown appears immediately below THAT SPECIFIC ROW (not at the bottom of the screen — it must appear inline below the active field). The dropdown is a white card, border radius 10pt, border 0.5pt `colors.border`, elevation (shadow: 0 4pt 12pt rgba(0,0,0,0.12)). Maximum 4 suggestions visible before scrolling. Each suggestion row is 44pt height, 14pt horizontal padding, 8pt vertical padding, border bottom 0.5pt `colors.border`.
+
+Each suggestion row contains:
+- Left: ingredient category emoji (🥦 Produce, 🥩 Meat, 🧀 Dairy, 🫙 Pantry, ❄️ Frozen) — 16pt
+- Middle: ingredient name in 13pt `colors.text`. Matching characters are shown in weight 700 (e.g. if user typed "chick", "chicken" shows "**chick**en" with the first 5 letters bold).
+- Right: category label in 10pt `colors.textMuted` (e.g. "Meat", "Produce", "Pantry")
+
+The autocomplete is powered by a local index of all unique ingredient names already in your Supabase `recipes` table — across all 1,000+ recipes you have, parse out the distinct ingredient names once and cache them in AsyncStorage on app load. No API call. When the user selects a suggestion, the ingredient name field fills and focus moves to the Qty field of the NEXT row.
+
+If the user types something not in the list, they can still free-type it — autocomplete is a helper not a gate.
+
+- Delete row button: ✕ to the right of each ingredient row, 36pt tap target, color `colors.textMuted`. Visible on all rows.
+- "+ Add ingredient" tappable row at the bottom of the ingredient list: `colors.primary` color, 13pt weight 600, left-aligned, 16pt left padding, 44pt tap target.
+- Maximum 30 ingredients. Show "(30 max)" counter when approaching limit.
+- Footer navigation: "← Back" outline button (flex 1) + "Next →" filled button (flex 2). 52pt height, 12pt gap.
+
+---
+
+**Step 3 — Steps (instructions):**
+
+- Title: "Steps" 20pt weight 700.
+- Hint below title: "One action per step. Start with a verb. 'Heat oil in a pan' — not 'You'll want to start by heating up some oil in a pan'." 12pt `colors.textMuted`. This is critical for recipe quality.
+
+- Existing steps displayed above the current input as numbered cards (same visual style as the recipe detail steps tab — this is intentional, users see exactly how their recipe will look). Completed/filled steps: white background, 0.5pt `colors.border`, border radius 12pt, 14pt padding, step number circle (24pt, `colors.primary`) left, step title right (13pt weight 600 `colors.text`).
+
+- Current step input area: highlighted card, background `#F1FBF1`, border 1.5pt `#4CAF50`, border radius 12pt, padding 12pt.
+  - Step number shown top-left of card in green circle (same spec as above).
+  - Text input inside: multiline, background transparent, 13pt `colors.text`, line height 1.6, placeholder "What happens in this step?". Auto-expands vertically.
+  - Timer suggestion bar (appears when user types a number followed by "min" or "minutes"): appears at the bottom of the step input card as a soft yellow strip. Background `#FFF8E1`, border radius 0 0 10pt 10pt, padding 8pt 12pt. "Add a timer?" label 10pt `colors.textMuted` left. Quick-tap timer pills: "2 min", "5 min", "10 min", "15 min", "custom" — each pill 28pt height, border radius 999pt, background white, border 0.5pt `colors.border`, 10pt font. Tapping a pill attaches that timer to the step. Once attached: pill turns green (background `#E8F5E9` border `#2E7D32` text `#2E7D32`) and shows "⏱ 5 min" with an × to remove it.
+
+- "+ Add next step" tappable row: same spec as ingredient add row.
+- Maximum 15 steps. Show counter "(N of 15 max)".
+- Footer: "← Back" + "Next →" same as step 2.
+
+---
+
+**Step 4 — Review and publish:**
+
+- Title: "Review" 20pt weight 700.
+- This is a READ-ONLY preview of the recipe exactly as it will appear to users. The recipe title renders in Georgia italic 20pt. Meta row shows cuisine, total time, servings. A placeholder image (camera icon + "Add a photo" — see below). Ingredient list. Steps list.
+
+- Photo upload section: label "Add a photo" 10pt uppercase. Upload card: 140pt tall, full width, background `#F5F5F5`, border 1.5pt dashed `#C0C0C0`, border radius 14pt. Camera icon 28pt centered, "Tap to add a photo of your dish" 11pt `colors.textMuted` below. Tapping opens the native image picker. If a photo is selected, it fills the card with `contentFit: 'cover'`, border becomes solid 1pt `colors.border`, an ✕ in the corner allows removal. Photos are uploaded to Supabase Storage `recipe-images/user/{userId}/{recipeId}.jpg` on submission. Note: photo is OPTIONAL — recipes can be submitted without one. If no photo is provided and the recipe is public, `gpt-image-1` will generate one using the recipe title + description as the prompt (same pipeline as generated recipes).
+
+- Visibility reminder: small card showing their choice from Step 1 — globe icon + "Public" or lock icon + "Private" in appropriate colour. "Change" link tapping goes back to Step 1. This is a second chance to confirm before publishing.
+
+- AI review notice (for public recipes only): soft blue card, background `#E3F2FD`, border radius 10pt, padding 12pt. "Before going live, Mori checks your recipe for accuracy. This takes less than a minute." 11pt `#1565C0` line height 1.5. This manages expectations — the two-prompt Claude validation will happen server-side on submission.
+
+- Submit button: "Publish recipe" (if public) or "Save recipe" (if private). Full width, 52pt height, `colors.primary` background, white 16pt weight 700, border radius 14pt.
+
+- On submit: loading state — button becomes a spinner, label "Checking your recipe..." for public recipes (this is the two-prompt Claude validation running). On success: navigate to the recipe detail screen for the newly created recipe, with a green toast "Recipe published!" at the top. On validation failure: show a bottom sheet explaining what needs fixing in plain language.
+
+---
+
+### 18.8 Notes Analytics — What to Track
+
+Every field in `recipe_notes` should be monitored in aggregate. Specifically:
+
+**Query weekly:**
+- For each recipe: count of `make_again = 'no'` as a percentage of total notes. Any recipe >30% "no" should be flagged for manual review.
+- Most common tags by recipe — "Family favourite" on a recipe many times → strong Staff Pick signal.
+- Most common words in `substitutions` field across all recipes — extract patterns with Claude to find systematic recipe issues (e.g. "sauce too thin" appearing in many notes for the same recipe).
+
+**Real-time:**
+- When a public user-submitted recipe receives its 10th save, send the creator a push notification (Phase 4) or an in-app notification card on the Mine tab.
+- Flag any recipe where `note_text` contains words like "wrong", "bad", "awful", "undercooked", "raw" — surface to admin review.
+
+**Schema addition for analytics:**
+```sql
+-- Add to existing recipe_notes table on creation, or via migration:
+-- make_again, tags, substitutions columns are already specified above
+-- Add a trigger to update updated_at on every note change:
+create or replace function update_updated_at()
+returns trigger as $$
+begin new.updated_at = now(); return new; end;
+$$ language plpgsql;
+
+create trigger recipe_notes_updated_at
+before update on recipe_notes
+for each row execute function update_updated_at();
+```
+
+---
+
+### 18.9 Mobile Spacing Rules — Apply Everywhere
+
+These rules override any existing spacing in the codebase. When in doubt, use MORE space not less.
+
+- **Minimum touch target:** 44pt × 44pt for any tappable element. If the visual element is smaller (e.g. a small icon), add transparent padding to reach 44pt.
+- **Horizontal screen margins:** 16pt minimum on all sides. Never let content touch the screen edge.
+- **Vertical padding inside cards:** 14pt minimum top and bottom. 12pt minimum left and right inside cards.
+- **Gap between cards in a grid:** 10pt minimum.
+- **Gap between vertical sections:** 20pt minimum between section header and previous section's content.
+- **Line height for body text:** 1.6 minimum. Never pack text tightly — it is unreadable while cooking.
+- **Font sizes:** No font below 11pt anywhere in the app. Recipe card titles minimum 12pt. Body text 13pt minimum. Step text in cooking mode 15pt minimum.
+- **Scrollable rows:** always 16pt left inset so users can see content starts from the edge. Show partial card (approximately 20pt visible) on the right to signal horizontal scrollability.
+- **Bottom sheets:** always have 20pt bottom padding below the last interactive element to clear the safe area. Never let buttons sit behind the home indicator.
+- **Button heights:** primary CTAs 52pt. Secondary buttons 44pt. Never under 36pt for any button.
+
+*Mori CLAUDE.md — v5.9 — Phase restructure complete. Phase 3 = UX overhaul + TestFlight. Phase 4 = Grocery APIs. Phase 5 = Community. Phase 6 = Social. Section 18 is the full Phase 3 build spec.

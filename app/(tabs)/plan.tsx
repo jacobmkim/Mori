@@ -13,6 +13,7 @@ import { useMealPlanStore } from '@/stores/mealPlanStore';
 import { useSavedStore } from '@/stores/savedStore';
 import { useGroceryStore } from '@/stores/groceryStore';
 import { useUserStore } from '@/stores/userStore';
+import { AvatarButton } from '@/components/AvatarButton';
 import type { Recipe, MealType, MealSlot } from '@/types';
 
 const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -145,6 +146,7 @@ export default function Plan() {
       <View style={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 8 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
           <Text style={{ fontSize: 24, fontWeight: '700', color: colors.text }}>Meal Plan</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           {slots.length > 0 && (
             <Pressable
               onPress={handleAddAllToGrocery}
@@ -158,6 +160,8 @@ export default function Plan() {
               <Text style={{ color: 'white', fontSize: 13, fontWeight: '600' }}>Add all to list</Text>
             </Pressable>
           )}
+          <AvatarButton />
+          </View>
         </View>
 
         {/* Week navigation */}

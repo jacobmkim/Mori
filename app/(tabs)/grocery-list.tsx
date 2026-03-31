@@ -19,6 +19,7 @@ import { useDiscoverStore } from '@/stores/discoverStore';
 import { fetchMacros } from '@/lib/api';
 import { fetchMealDetail } from '@/lib/mealdb';
 import { MacroRow } from '@/components/ui/MacroRow';
+import { AvatarButton } from '@/components/AvatarButton';
 import { useTheme } from '@/hooks/useTheme';
 import type { GroceryItem, Recipe, Macros } from '@/types';
 
@@ -378,6 +379,7 @@ export default function GroceryList() {
           <Pressable onPress={handleClearAll}>
             <Text style={{ color: colors.error, fontSize: 14, fontWeight: '500' }}>Clear</Text>
           </Pressable>
+          <AvatarButton />
         </View>
       </View>
 
