@@ -33,7 +33,7 @@ const CUISINES = [
   { label: 'Chinese', flag: '🇨🇳' },
   { label: 'American', flag: '🇺🇸' },
   { label: 'Spanish', flag: '🇪🇸' },
-  { label: 'Mediterranean', flag: '🌊' },
+  { label: 'Mediterranean', flag: '🫒' },
   { label: 'Middle Eastern', flag: '🌙' },
 ];
 
@@ -154,7 +154,7 @@ function SectionHeader({ title, onSeeAll }: { title: string; onSeeAll?: () => vo
 export default function Explore() {
   const colors = useTheme();
   const userId = useUserStore((s) => s.profile?.id);
-  const dietaryGoals = useUserStore((s) => s.profile?.dietary_goals ?? []);
+  const dietaryGoals = useUserStore((s) => s.profile?.dietary_goals) ?? [];
   const savedRecipes = useSavedStore((s) => s.savedRecipes);
   const { addFromDetail } = useGroceryStore();
 

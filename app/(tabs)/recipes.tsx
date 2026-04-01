@@ -4,7 +4,7 @@
  * Section 18.3 spec
  */
 import {
-  View, Text, FlatList, Pressable, TextInput, ActivityIndicator, ScrollView,
+  View, Text, FlatList, Pressable, TextInput, ActivityIndicator, ScrollView, Modal, Alert,
 } from 'react-native';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -82,6 +82,8 @@ export default function Recipes() {
 
   const [activeTab, setActiveTab] = useState<SubTab>('Saved');
   const [search, setSearch] = useState('');
+  const [recipeFilter, setRecipeFilter] = useState('All');
+  const [filterSheetVisible, setFilterSheetVisible] = useState(false);
   const [cookedRecipes, setCookedRecipes] = useState<Recipe[]>([]);
   const [cookedCounts, setCookedCounts] = useState<Map<string, number>>(new Map());
   const [mineRecipes, setMineRecipes] = useState<Recipe[]>([]);
@@ -185,14 +187,22 @@ export default function Recipes() {
     } catch {}
   }
 
-  // ── Filter by search ───────────────────────────────────────────────────────
+  // ── Filter by search + active filter ─────────────────────────────────────
   function filtered(recipes: Recipe[]) {
-    if (!search.trim()) return recipes;
-    const q = search.toLowerCase();
-    return recipes.filter((r) =>
-      r.title.toLowerCase().includes(q) || (r.cuisine ?? '').toLowerCase().includes(q)
-    );
+    let list = recipes;
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter((r) => r.title.toLowerCase().includes(q) || (r.cuisine ?? '').toLowerCase().includes(q));
+    }
+    if (recipeFilter === 'Quick') list = list.filter((r) => ((r.prep_time_mins ?? 99) + (r.cook_time_mins ?? 99)) <= 30);
+    else if (recipeFilter === 'Meal Prep') list = list.filter((r) => r.meal_prep_friendly === true);
+    else if (recipeFilter === 'Vegetarian') list = list.filter((r) => r.dietary_tags?.includes('vegetarian') || r.dietary_tags?.includes('vegan'));
+    else if (recipeFilter === 'Vegan') list = list.filter((r) => r.dietary_tags?.includes('vegan'));
+    else if (recipeFilter === 'High Protein') list = list.filter((r) => r.dietary_tags?.includes('high_protein') || (r.macros as any)?.protein >= 25);
+    return list;
   }
+
+  const FILTER_OPTIONS = ['All', 'Quick', 'Meal Prep', 'Vegetarian', 'Vegan', 'High Protein'];
 
   const savedList = useMemo(() => filtered(savedRecipes), [savedRecipes, search]); // eslint-disable-line react-hooks/exhaustive-deps
   const cookedList = useMemo(() => filtered(cookedRecipes), [cookedRecipes, search]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -247,30 +257,55 @@ export default function Recipes() {
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
           <Text style={{ fontSize: 28, fontWeight: '700', color: colors.text }}>My Recipes</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <Pressable
+              onPress={() => Alert.alert('Coming soon', 'The recipe builder is coming in the next update.')}
+              style={{
+                flexDirection: 'row', alignItems: 'center', gap: 5,
+                backgroundColor: colors.primary, borderRadius: 999,
+                paddingHorizontal: 12, paddingVertical: 7,
+              }}
+            >
+              <Ionicons name="add" size={15} color="white" />
+              <Text style={{ color: 'white', fontSize: 12, fontWeight: '700' }}>My Recipe</Text>
+            </Pressable>
             <AvatarButton />
           </View>
         </View>
 
-        {/* Search bar */}
-        <View style={{
-          flexDirection: 'row', alignItems: 'center', gap: 8,
-          backgroundColor: colors.card, borderRadius: 12,
-          borderWidth: 1, borderColor: colors.border,
-          paddingHorizontal: 12, paddingVertical: 10, marginBottom: 10,
-        }}>
-          <Ionicons name="search-outline" size={17} color={colors.textMuted} />
-          <TextInput
-            value={search} onChangeText={setSearch}
-            placeholder="Search your recipes..."
-            placeholderTextColor={colors.textMuted}
-            style={{ flex: 1, fontSize: 15, color: colors.text }}
-            autoCorrect={false}
-          />
-          {search.length > 0 && (
-            <Pressable onPress={() => setSearch('')} hitSlop={8}>
-              <Ionicons name="close-circle" size={17} color={colors.textMuted} />
-            </Pressable>
-          )}
+        {/* Search bar + filter button */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+          <View style={{
+            flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8,
+            backgroundColor: colors.card, borderRadius: 12,
+            borderWidth: 1, borderColor: colors.border,
+            paddingHorizontal: 12, paddingVertical: 10,
+          }}>
+            <Ionicons name="search-outline" size={17} color={colors.textMuted} />
+            <TextInput
+              value={search} onChangeText={setSearch}
+              placeholder="Search your recipes..."
+              placeholderTextColor={colors.textMuted}
+              style={{ flex: 1, fontSize: 15, color: colors.text }}
+              autoCorrect={false}
+            />
+            {search.length > 0 && (
+              <Pressable onPress={() => setSearch('')} hitSlop={8}>
+                <Ionicons name="close-circle" size={17} color={colors.textMuted} />
+              </Pressable>
+            )}
+          </View>
+          <Pressable
+            onPress={() => setFilterSheetVisible(true)}
+            hitSlop={6}
+            style={{
+              width: 44, height: 44, borderRadius: 12,
+              backgroundColor: recipeFilter !== 'All' ? colors.primary : colors.card,
+              borderWidth: 1, borderColor: recipeFilter !== 'All' ? colors.primary : colors.border,
+              alignItems: 'center', justifyContent: 'center',
+            }}
+          >
+            <Ionicons name="options-outline" size={20} color={recipeFilter !== 'All' ? 'white' : colors.textMuted} />
+          </Pressable>
         </View>
 
         {/* Segmented control */}
@@ -323,6 +358,40 @@ export default function Recipes() {
           )}
         />
       )}
+
+      {/* Filter sheet */}
+      <Modal
+        visible={filterSheetVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setFilterSheetVisible(false)}
+      >
+        <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+          <View style={{
+            flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+            padding: 20, borderBottomWidth: 1, borderBottomColor: colors.border,
+          }}>
+            <Text style={{ fontSize: 17, fontWeight: '700', color: colors.text }}>Filter Recipes</Text>
+            <Pressable onPress={() => setFilterSheetVisible(false)} hitSlop={8}>
+              <Text style={{ color: colors.primary, fontSize: 16, fontWeight: '600' }}>Done</Text>
+            </Pressable>
+          </View>
+          {FILTER_OPTIONS.map((f) => (
+            <Pressable
+              key={f}
+              onPress={() => { setRecipeFilter(f); setFilterSheetVisible(false); }}
+              style={{
+                flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+                paddingHorizontal: 20, paddingVertical: 16,
+                borderBottomWidth: 1, borderBottomColor: colors.border,
+              }}
+            >
+              <Text style={{ fontSize: 16, color: colors.text }}>{f}</Text>
+              {recipeFilter === f && <Ionicons name="checkmark" size={20} color={colors.primary} />}
+            </Pressable>
+          ))}
+        </SafeAreaView>
+      </Modal>
 
       {/* Recipe detail */}
       <RecipeDetailModal

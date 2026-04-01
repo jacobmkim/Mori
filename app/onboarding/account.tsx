@@ -1,5 +1,5 @@
 import { View, Text, TextInput, Pressable, Alert, ActivityIndicator } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useForm, Controller } from 'react-hook-form';
 import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
@@ -18,8 +18,9 @@ export default function Account() {
   const colors = useTheme();
   const { onboarding, setProfile } = useUserStore();
   const loadSavedRecipes = useSavedStore((s) => s.loadSavedRecipes);
+  const { signin } = useLocalSearchParams<{ signin?: string }>();
   const [loading, setLoading] = useState(false);
-  const [mode, setMode] = useState<'signup' | 'signin'>('signup');
+  const [mode, setMode] = useState<'signup' | 'signin'>(signin === '1' ? 'signin' : 'signup');
 
   const { control, handleSubmit, formState: { errors } } = useForm<FormData>({
     defaultValues: __DEV__
@@ -111,7 +112,7 @@ export default function Account() {
                   autoCapitalize="none"
                   autoComplete="email"
                   style={{
-                    backgroundColor: colors.white,
+                    backgroundColor: colors.card,
                     borderColor: errors.email ? colors.error : colors.border,
                     borderWidth: 1.5,
                     borderRadius: 14,
@@ -148,7 +149,7 @@ export default function Account() {
                   secureTextEntry
                   autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
                   style={{
-                    backgroundColor: colors.white,
+                    backgroundColor: colors.card,
                     borderColor: errors.password ? colors.error : colors.border,
                     borderWidth: 1.5,
                     borderRadius: 14,

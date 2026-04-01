@@ -64,9 +64,16 @@ export default function Welcome() {
               Get Started
             </Text>
           </Pressable>
-          <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, textAlign: 'center', marginTop: 14 }}>
-            Free to use · No credit card required
-          </Text>
+
+          <Pressable
+            onPress={() => router.push('/onboarding/account?signin=1')}
+            style={{ alignItems: 'center', paddingVertical: 16 }}
+          >
+            <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 15 }}>
+              Already have an account?{' '}
+              <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>Sign in</Text>
+            </Text>
+          </Pressable>
 
           {/* DEV ONLY — skip straight to app */}
           {__DEV__ && (

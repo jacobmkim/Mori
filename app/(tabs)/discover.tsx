@@ -647,17 +647,17 @@ export default function Discover() {
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 }}>
         <MoriLogo size="sm" />
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <View style={{ flexDirection: 'row', backgroundColor: colors.toggleBg, borderRadius: 20, padding: 3 }}>
+          <View style={{ flexDirection: 'row', backgroundColor: colors.toggleBg, borderRadius: 16, padding: 2 }}>
             {(['spontaneous', 'meal_prep'] as AppMode[]).map((m) => (
               <Pressable
                 key={m}
                 onPress={() => setMode(m as AppMode)}
                 style={{
-                  paddingHorizontal: 14, paddingVertical: 7, borderRadius: 17,
+                  paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14,
                   backgroundColor: mode === m ? colors.primary : 'transparent',
                 }}
               >
-                <Text style={{ color: mode === m ? 'white' : colors.textMuted, fontSize: 13, fontWeight: '600' }}>
+                <Text style={{ color: mode === m ? 'white' : colors.textMuted, fontSize: 11, fontWeight: '600' }}>
                   {m === 'spontaneous' ? 'Quick' : 'Meal Prep'}
                 </Text>
               </Pressable>

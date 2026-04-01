@@ -22,7 +22,7 @@ No competitor has a swipe-based discovery mechanic. Samsung Food (most formidabl
 
 ## 2. Current Build State
 
-> **Read this section first every session.** Phases 1, 2, 2.5, 2.6, and 2.7 are complete. Phase 3 (UX overhaul + TestFlight) is next — full spec in Section 18.
+> **Read this section first every session.** Phases 1, 2, 2.5, 2.6, 2.7, and most of Phase 3 are complete. Remaining Phase 3 items: Add Recipe wizard, TestFlight prep. Full spec in Section 18.
 
 ### ✅ Built and Working
 
@@ -60,11 +60,21 @@ No competitor has a swipe-based discovery mechanic. Samsung Food (most formidabl
 - Dev flag button in action bar (`__DEV__` only)
 - clearDiscoverCache() + clearSessionState() called on preference save / new deck load
 
-**Recipes Screen**
-- Pinterest grid — Saved / All / Plan tabs (3-way segmented control)
-- Filter dropdown (Type + Cuisine, OR/AND logic), collections bar, search bar
-- **Weekly meal planner** — Plan tab, 7-day × 3 meal type grid (Mon–Sun, Breakfast/Lunch/Dinner), recipe picker, "Add all to grocery" (deduped), Supabase-backed
+**Recipes Screen — Phase 3 redesign complete**
+- 4 sub-tabs: Saved | Cooked | Mine | Meal Prep (segmented control, Section 18.3 spec)
+- Search bar + filter icon button (options-outline) — filter sheet with Quick/Meal Prep/Vegetarian/Vegan/High Protein
+- "+ My Recipe" button in header (alerts "coming soon" until Add Recipe wizard is built)
+- Cooked count badges on grid cards
+- Weekly meal planner (Plan tab) — filter chips in recipe picker (All/Meal Prep/Quick/Vegetarian)
 - Grocery adds and views logged to recipe_interactions
+
+**Explore Screen — Phase 3 new**
+- Editorial browse: Cook Again, Trending, Just Added, Browse by Cuisine, Under 30 min, High Protein sections
+- Horizontal scroll cards per section; 2-col grid for Under 30 min
+- Filter chips (Quick, High Protein, Meal Prep, Vegetarian, Vegan) filter all sections
+- AvatarButton top-right
+- Mediterranean emoji: 🫒 (not 🌊)
+- Infinite loop fixed: Zustand dietary_goals selector `?? []` moved outside selector
 
 **Grocery List Screen**
 - Tally header: meals, items, estimated cost, combined macros
@@ -72,17 +82,59 @@ No competitor has a swipe-based discovery mechanic. Samsung Food (most formidabl
 - Checkboxes, edit mode, undo (batch + single item delete)
 - Copy-to-clipboard export (formatted plain text)
 
-**Recipe Detail Modal**
-- Slide-up pageSheet — Save + Add to Grocery wired
-- **Ingredients / Instructions tab switcher** — pill tab bar, resets to Ingredients on open
-- Step-by-step instructions — numbered green circle badges, parsed from TheMealDB strInstructions
-- MacroRow wired — full 4-col macros (calories, protein, carbs, fat) with per-serving scaling
-- Serving size adjuster — increment/decrement buttons scale macros proportionally
-- "Mark as cooked" button — logs cooked interaction, toggles green state within session
-- Post-cook 5-star rating — appears after marking as cooked, persists to saved_recipes.user_rating
-- Storage tips — auto-fetches from `/api/storage-tip` (Claude Haiku) after marking cooked
-- "Values are estimates and may vary" disclaimer beneath macros
-- Dev flag button — red flag icon (top-left, `__DEV__` only), 6 preset reasons, AsyncStorage-backed
+**Recipe Detail Modal — Phase 3 redesign complete**
+- Full-screen modal (not bottom sheet) — scrollable header: image + recipe info scrolls away, sticky tab bar
+- Steps tab: self-contained cards with title + detail text; step circle badges (green active, lighter completed, grey upcoming); inline timer pills; tapping a step marks it active
+- Ingredients tab: serving adjuster scales quantities; "Add all to grocery" at bottom
+- My Notes tab: empty/filled/editing states; free text, substitutions, 6 quick tags, make-again (yes/with changes/no); 5-star rating; persists to `recipe_notes` table
+- Sticky footer: Add to grocery (outline) + Save recipe (filled) always visible
+- "Start cooking →" button at bottom of steps list — launches CookingMode
+- Mark as cooked + post-cook rating + storage tips
+- Dark mode fix: step card background uses `colors.background` (not hardcoded `#F9F9F9`); meta pill background uses `colors.border + '66'`
+- Dev flag button (`__DEV__` only)
+
+**CookingMode — Phase 3 new**
+- `components/CookingMode.tsx` — full-screen dark modal (#1A1A1A background)
+- Step-by-step: large active step card, title extracted from instruction, HighlightedText (numbers/times/temps in green)
+- Per-step countdown timer with start/pause/reset and progress bar
+- Dot progress indicators + tappable "All Steps" list to jump
+- Back/Next buttons; final step shows "Mark as Cooked ✓"
+- No-op `useKeepAwake()` — install expo-keep-awake before TestFlight
+
+**AvatarButton — Phase 3 new**
+- `components/AvatarButton.tsx` — 36pt circle, user initials or person icon, opens ProfileSheet bottom sheet
+- ProfileSheet: name, Recipes Saved, Taste Profile snippet, links to Edit Preferences / My Pantry / Discover Settings / Sign Out
+- AvatarButton appears top-right on all main tab screens (Discover, Explore, Recipes, Plan, Grocery)
+
+**recipe_notes table — Phase 3 new**
+- Supabase table: `user_id`, `recipe_id`, `note_text`, `substitutions`, `tags[]`, `make_again`, `created_at`, `updated_at`
+- RLS: users can only read/write their own notes
+- `getRecipeNote` + `saveRecipeNote` in `lib/api.ts`
+- `RecipeNote` interface in `types/index.ts`
+- `updated_at` trigger applied
+
+**Auth — Token refresh fix**
+- `lib/supabase.ts` now has AppState listener: `startAutoRefresh` on foreground, `stopAutoRefresh` on background
+- Fixes re-login-on-every-open bug
+
+**Onboarding — Dark mode fix**
+- All 9 onboarding screens: `colors.white` → `colors.card` (replace_all) on tile/input backgrounds
+- Mediterranean cuisine image URL updated (was serving a rack of ribs photo)
+- "Already have an account? Sign in" link added to welcome.tsx → routes to account.tsx with `?signin=1`
+- account.tsx reads `?signin=1` param to default to sign-in mode (fixes onboarding loop for returning users)
+
+**app.json — Renamed to Mori**
+- name: "Mori", slug: "mori", scheme: "mori"
+- bundleIdentifier/package: "com.mori.app"
+- splash backgroundColor: "#F8F3EC" (linen)
+- userInterfaceStyle: "automatic"
+- supportUrl: "https://getmori.app/support", privacyUrl: "https://getmori.app/privacy"
+
+**Landing page — getmori.app**
+- Hero: "Mori. Swipe. Cook. Order."
+- Footer: "© 2026 Mori. Swipe. Cook. Order."
+- Domain registered via Cloudflare, DNS pointed to Vercel (DNS-only, proxy off)
+- Email routing: hello@getmori.app → personal email via Cloudflare Email Routing
 
 **Profile Screen**
 - Avatar, name, Recipes Saved stat wired to savedStore, preferences display, sign out
@@ -92,6 +144,7 @@ No competitor has a swipe-based discovery mechanic. Samsung Food (most formidabl
 - **My Pantry card** — PantryModal (add/delete items, source tags)
 - **Discover Settings** — "Keep it familiar" toggle for adventure cards (AsyncStorage-backed)
 - Dev Tools section (`__DEV__` only) — flagged recipe count, view/clear buttons
+- Profile tab replaced by AvatarButton → ProfileSheet (bottom sheet)
 
 **Saved Recipes**
 - savedStore wired to Supabase — persists across sessions
@@ -130,18 +183,18 @@ No competitor has a swipe-based discovery mechanic. Samsung Food (most formidabl
 
 | # | Feature | Phase |
 |---|---|---|
-| 1 | Navigation overhaul — 5 tabs + persistent avatar button replacing Profile tab | Phase 3 |
-| 2 | Explore tab — editorial browse screen with sections (Cook Again, Trending, Just Added, Cuisine chips, Under 30 min, High Protein) | Phase 3 |
-| 3 | Recipes tab redesign — My Recipes with Saved/Cooked/Mine/Meal Prep sub-tabs | Phase 3 |
-| 4 | Recipe Detail redesign — full-screen modal, step cards, sticky footer, My Notes tab | Phase 3 |
-| 5 | Cooking Mode — full-screen dark mode, step-by-step, per-step timer, keepScreenAwake | Phase 3 |
-| 6 | My Notes — per-recipe notes, substitutions, tags, make-again signal, `recipe_notes` table | Phase 3 |
-| 7 | Add Recipe wizard — 4-step: basics → ingredients (autocomplete) → steps (timer hints) → review | Phase 3 |
-| 8 | Mobile spacing audit — 44pt touch targets, 16pt margins throughout | Phase 3 |
-| 9 | Clean generated recipes — run `clean-recipes.mjs` dedup before TestFlight | Phase 3 |
-| 10 | Strip prep instructions from ingredient fields — run `clean-ingredient-units.mjs` | Phase 3 |
-| 11 | Fix profile page dark mode — white card backgrounds → `colors.card` | Phase 3 |
-| 12 | Steamed/delicate fish hard-exclude from meal prep deck | Phase 3 |
+| ✅ | Navigation overhaul — AvatarButton replacing Profile tab, on all screens | Phase 3 |
+| ✅ | Explore tab — editorial browse, Cook Again, Trending, Just Added, Cuisine chips, Under 30 min, High Protein | Phase 3 |
+| ✅ | Recipes tab redesign — Saved/Cooked/Mine/Meal Prep + filter button + My Recipe button | Phase 3 |
+| ✅ | Recipe Detail redesign — full-screen scrollable, step cards, sticky footer, My Notes tab | Phase 3 |
+| ✅ | Cooking Mode — full-screen dark, step-by-step, per-step timer | Phase 3 |
+| ✅ | My Notes — recipe_notes table, free text, substitutions, tags, make-again, rating | Phase 3 |
+| 1 | Add Recipe wizard — 4-step: basics → ingredients (autocomplete) → steps (timer hints) → review | Phase 3 |
+| 2 | install expo-keep-awake and wire up `useKeepAwake()` in CookingMode | Phase 3 |
+| 3 | Clean generated recipes — run `clean-recipes.mjs` dedup before TestFlight | Phase 3 |
+| 4 | Strip prep instructions from ingredient fields — run `clean-ingredient-units.mjs` | Phase 3 |
+| 5 | Fix profile page dark mode — white card backgrounds → `colors.card` | Phase 3 |
+| 6 | Steamed/delicate fish hard-exclude from meal prep deck | Phase 3 |
 | 13 | Walmart Recipes & Bundle API cart integration | Phase 4 |
 | 14 | Kroger API cart integration | Phase 4 |
 | 15 | Instacart Developer Platform cart integration | Phase 4 |
@@ -220,9 +273,14 @@ mori/
 │       │                                 swipe logging, interaction logging, macro pills,
 │       │                                 RecipeDetailModal, mark as cooked, adventure cards,
 │       │                                 "Made before" badge, session swipe tracking, dev flag
-│       ├── recipes.tsx                ✅ Pinterest grid, Saved/All/Plan tabs, filter dropdown,
-│       │                                 collections bar, interaction logging, RecipeDetailModal,
-│       │                                 MealPlanView (weekly 7×3 grid, recipe picker, grocery add)
+│       ├── explore.tsx                ✅ Editorial browse — Cook Again, Trending, Just Added,
+│       │                                 Browse by Cuisine, Under 30 min, High Protein sections
+│       │                                 Filter chips, AvatarButton, Zustand infinite-loop fix
+│       ├── recipes.tsx                ✅ 4 sub-tabs Saved/Cooked/Mine/Meal Prep, search + filter
+│       │                                 button, "+ My Recipe" button, cooked count badges,
+│       │                                 interaction logging, RecipeDetailModal
+│       ├── plan.tsx                   ✅ Weekly 7×3 meal grid, recipe picker with filter chips
+│       │                                 (All/Meal Prep/Quick/Vegetarian), grocery add, Supabase-backed
 │       ├── grocery-list.tsx           ✅ Tally header, grouped categories, checkboxes,
 │       │                                 edit mode, undo, copy-to-clipboard export
 │       └── profile.tsx                ✅ Stats, taste profile card, preferences, edit modal,
@@ -236,9 +294,13 @@ mori/
 │   │   ├── CuisineCard.tsx            ✅
 │   │   └── ProgressBar.tsx            ✅
 │   ├── grocery/
-│   │   └── InstacartButton.tsx        🔲 Phase 3
-│   ├── RecipeDetailModal.tsx          ✅ Ingredients/Instructions tabs, MacroRow, serving adjuster,
-│   │                                     mark as cooked, post-cook rating, storage tips, dev flag
+│   │   └── InstacartButton.tsx        🔲 Phase 4
+│   ├── RecipeDetailModal.tsx          ✅ Full-screen modal, scrollable header, sticky tab bar,
+│   │                                     step cards (title+detail+timer), My Notes tab, sticky footer,
+│   │                                     CookingMode launch, mark as cooked, storage tips, dev flag
+│   ├── CookingMode.tsx                ✅ Full-screen dark cooking modal, per-step timer,
+│   │                                     HighlightedText, step dots, All Steps list, Back/Next nav
+│   ├── AvatarButton.tsx               ✅ 36pt circle with initials, opens ProfileSheet bottom sheet
 │   └── ui/
 │       ├── MacroRow.tsx               ✅ MacroRow (full 4-col), HeadlineMacroPill (goal-aware),
 │       │                                 estimateMacrosLocally (instant local estimate)
@@ -870,31 +932,32 @@ Meal Prep Mode: 4-theme system, discoverStore, mode toggle, meal prep scoring, s
 ### ✅ Phase 2.6 — Complete
 Dark mode fixes, "Already saved" badge, trending badge, MoriLogo dot, Plan tab as dedicated bottom tab, landing page + waitlist API.
 
-### 🔄 Phase 2.7 — In Progress (AI Food Photography)
-gpt-image-1 image generation replacing Unsplash. 50-image test complete, full run in progress.
+### ✅ Phase 2.7 — Complete (AI Food Photography)
+gpt-image-1 image generation replacing Unsplash. All 622 generated recipes have images. ~$27 total cost.
 
 ---
 
-### 🔲 Phase 3 — UX Overhaul + TestFlight Launch (NEXT — Q2 2026)
+### 🔄 Phase 3 — UX Overhaul + TestFlight Launch (IN PROGRESS — Q2 2026)
 
 **This is the priority phase before any public launch.**
 
-#### 3a — Immediate pre-flight (do these first, no code required)
+#### 3a — Immediate pre-flight
 - [x] Register `getmori.app` domain ✅
-- [ ] Apple Developer Program confirmed ✅ — set up App Store Connect listing (app name: Mori, bundle ID: com.mori.app)
+- [x] Deploy landing page to `getmori.app` via Vercel ✅ — hero: "Mori. Swipe. Cook. Order."
+- [x] Email routing: hello@getmori.app → personal email via Cloudflare ✅
+- [ ] Apple Developer Program — set up App Store Connect listing (app name: Mori, bundle ID: com.mori.app)
 - [ ] Write privacy policy and publish at `getmori.app/privacy` — must disclose: data collected, Claude/Anthropic AI usage, Instacart integration, no ads
 - [ ] Apple AI transparency disclosure — add in-app consent for Claude usage (taste profile generation, macro estimation)
-- [ ] Deploy landing page to `getmori.app` via Vercel
 
 #### 3b — UX Overhaul (full spec in Section 18)
-- [ ] Navigation: remove Profile from tab bar, add avatar circle top-right on every screen
-- [ ] **Explore tab** (`app/(tabs)/explore.tsx`) — new editorial browse screen replacing old "All" tab. Sections: Cook Again, Trending, Just Added, Browse by Cuisine, Under 30 min, High Protein (conditional). Full spec in Section 18.2.
-- [ ] **Recipes tab redesign** (`app/(tabs)/recipes.tsx`) — personal library with 4 sub-tabs: Saved, Cooked, Mine, Meal Prep. "+ Add" button in header. Full spec in Section 18.3.
-- [ ] **Recipe Detail redesign** — steps redesigned as cards with bold action title + detail text + inline timer pills. "Start cooking →" button. Sticky footer with Add to Grocery + Save always visible. Full spec in Section 18.4.
-- [ ] **Cooking Mode** (`components/CookingMode.tsx`) — new full-screen dark mode component. One step at a time, per-step timer, per-step ingredients, progress bar, `keepScreenAwake: true`. Full spec in Section 18.5.
-- [ ] **My Notes tab** in RecipeDetailModal — per-recipe personal notes with free text, substitutions field, tags, make-again signal. `recipe_notes` table (schema in Section 18.6). Full spec in Section 18.6.
-- [ ] **Add Recipe wizard** (`app/add-recipe/`) — 4-step wizard: basics → ingredients (with autocomplete) → steps (with inline timer suggestions) → review + publish. Public/Private toggle. AI photo generation for public recipes without photos. Full spec in Section 18.7.
-- [ ] Mobile spacing audit — apply Section 18.9 rules throughout: 44pt touch targets, 16pt margins, 1.6 line height, nothing under 11pt.
+- [x] Navigation: AvatarButton replaces Profile tab, appears top-right on all screens ✅
+- [x] **Explore tab** (`app/(tabs)/explore.tsx`) ✅ — Cook Again, Trending, Just Added, Browse by Cuisine, Under 30 min, High Protein; filter chips; Zustand infinite-loop fix
+- [x] **Recipes tab redesign** (`app/(tabs)/recipes.tsx`) ✅ — Saved/Cooked/Mine/Meal Prep sub-tabs; filter icon button; "+ My Recipe" button; Plan tab filter chips
+- [x] **Recipe Detail redesign** ✅ — full-screen modal, scrollable header, sticky tab bar, step cards (title+detail+timer), My Notes tab, sticky footer, CookingMode launch
+- [x] **Cooking Mode** (`components/CookingMode.tsx`) ✅ — full-screen dark, per-step timer, HighlightedText, step dots, All Steps list
+- [x] **My Notes tab** ✅ — `recipe_notes` table + full implementation (empty/filled/editing states, tags, make-again, rating)
+- [ ] **Add Recipe wizard** (`app/add-recipe/`) — 4-step wizard. Full spec in Section 18.7.
+- [ ] install expo-keep-awake and wire `useKeepAwake()` in CookingMode.tsx
 
 #### 3c — TestFlight
 - [ ] Run `clean-recipes.mjs` — dedup and validate all generated recipes

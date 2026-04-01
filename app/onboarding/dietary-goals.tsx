@@ -63,7 +63,7 @@ export default function DietaryGoals() {
                 onPress={() => toggle(goal.id)}
                 style={{
                   width: '47%',
-                  backgroundColor: isSelected ? colors.primaryLight : colors.white,
+                  backgroundColor: isSelected ? colors.primaryLight : colors.card,
                   borderColor: isSelected ? colors.primary : colors.border,
                   borderWidth: 1.5,
                   borderRadius: 14,
@@ -106,7 +106,7 @@ export default function DietaryGoals() {
             multiline
             numberOfLines={3}
             style={{
-              backgroundColor: colors.white,
+              backgroundColor: colors.card,
               borderWidth: 1.5,
               borderColor: colors.border,
               borderRadius: 12,

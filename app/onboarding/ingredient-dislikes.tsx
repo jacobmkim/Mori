@@ -86,7 +86,7 @@ export default function IngredientDislikes() {
         {/* Search / add custom ingredient */}
         <View style={{
           flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 20,
-          backgroundColor: colors.white, borderRadius: 12, borderWidth: 1.5,
+          backgroundColor: colors.card, borderRadius: 12, borderWidth: 1.5,
           borderColor: colors.border, paddingHorizontal: 14, paddingVertical: 2,
         }}>
           <Ionicons name="search-outline" size={18} color={colors.textMuted} />
@@ -121,7 +121,7 @@ export default function IngredientDislikes() {
                 key={item}
                 onPress={() => toggle(item)}
                 style={{
-                  backgroundColor: isSelected ? colors.error + '18' : colors.white,
+                  backgroundColor: isSelected ? colors.error + '18' : colors.card,
                   borderWidth: 1.5,
                   borderColor: isSelected ? colors.error : colors.border,
                   borderRadius: 999,

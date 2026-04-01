@@ -23,7 +23,7 @@ const CUISINES = [
   { id: 'japanese',      label: 'Japanese',      image: 'https://images.unsplash.com/photo-1569050467447-ce54b3bbc37d?w=600' },
   { id: 'indian',        label: 'Indian',        image: 'https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=600' },
   { id: 'american',      label: 'American',      image: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=600' },
-  { id: 'mediterranean', label: 'Mediterranean', image: 'https://images.unsplash.com/photo-1544025162-d76694265947?w=600' },
+  { id: 'mediterranean', label: 'Mediterranean', image: 'https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?w=600' },
   { id: 'thai',          label: 'Thai',          image: 'https://images.unsplash.com/photo-1562565652-a0d8f0c59eb4?w=600' },
   { id: 'french',        label: 'French',        image: 'https://images.unsplash.com/photo-1608855238293-a8853e7f7c98?w=600' },
   { id: 'greek',         label: 'Greek',         image: 'https://images.unsplash.com/photo-1476718406336-bb5a9690ee2a?w=600' },
@@ -376,7 +376,7 @@ export default function CuisinePrefs() {
             onPress={() => handleButtonSwipe('pass')}
             style={{
               width: 60, height: 60, borderRadius: 30,
-              backgroundColor: colors.white, borderWidth: 1.5, borderColor: colors.error,
+              backgroundColor: colors.card, borderWidth: 1.5, borderColor: colors.error,
               alignItems: 'center', justifyContent: 'center',
               shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
               shadowOpacity: 0.08, shadowRadius: 6, elevation: 3,
@@ -389,7 +389,7 @@ export default function CuisinePrefs() {
             disabled={swipeHistory.length === 0}
             style={{
               width: 46, height: 46, borderRadius: 23,
-              backgroundColor: colors.white, borderWidth: 1.5,
+              backgroundColor: colors.card, borderWidth: 1.5,
               borderColor: swipeHistory.length > 0 ? colors.textMuted : colors.border,
               alignItems: 'center', justifyContent: 'center',
               shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
@@ -403,7 +403,7 @@ export default function CuisinePrefs() {
             onPress={() => handleButtonSwipe('like')}
             style={{
               width: 60, height: 60, borderRadius: 30,
-              backgroundColor: colors.white, borderWidth: 1.5, borderColor: colors.primary,
+              backgroundColor: colors.card, borderWidth: 1.5, borderColor: colors.primary,
               alignItems: 'center', justifyContent: 'center',
               shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
               shadowOpacity: 0.08, shadowRadius: 6, elevation: 3,

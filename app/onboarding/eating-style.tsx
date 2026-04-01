@@ -65,7 +65,7 @@ export default function EatingStyle() {
                 key={style.id}
                 onPress={() => setSelected(style.id)}
                 style={{
-                  backgroundColor: isSelected ? colors.primaryLight : colors.white,
+                  backgroundColor: isSelected ? colors.primaryLight : colors.card,
                   borderWidth: 2,
                   borderColor: isSelected ? colors.primary : colors.border,
                   borderRadius: 16,

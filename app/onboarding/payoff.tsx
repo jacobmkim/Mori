@@ -123,25 +123,25 @@ export default function Payoff() {
 
         <View style={{ gap: 10, marginBottom: 32 }}>
           {onboarding.eating_style && (
-            <View style={{ backgroundColor: colors.white, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: colors.border }}>
+            <View style={{ backgroundColor: colors.card, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: colors.border }}>
               <Text style={{ color: colors.textMuted, fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 4 }}>Eating Style</Text>
               <Text style={{ color: colors.text, fontSize: 16, fontWeight: '600' }}>{EATING_STYLE_LABELS[onboarding.eating_style]}</Text>
             </View>
           )}
           {onboarding.cooking_frequency && (
-            <View style={{ backgroundColor: colors.white, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: colors.border }}>
+            <View style={{ backgroundColor: colors.card, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: colors.border }}>
               <Text style={{ color: colors.textMuted, fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 4 }}>Cooking Frequency</Text>
               <Text style={{ color: colors.text, fontSize: 16, fontWeight: '600' }}>{FREQ_LABELS[onboarding.cooking_frequency]}</Text>
             </View>
           )}
           {onboarding.skill_level && (
-            <View style={{ backgroundColor: colors.white, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: colors.border }}>
+            <View style={{ backgroundColor: colors.card, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: colors.border }}>
               <Text style={{ color: colors.textMuted, fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 4 }}>Skill Level</Text>
               <Text style={{ color: colors.text, fontSize: 16, fontWeight: '600' }}>{SKILL_LABELS[onboarding.skill_level]}</Text>
             </View>
           )}
           {onboarding.weekly_budget && (
-            <View style={{ backgroundColor: colors.white, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: colors.border }}>
+            <View style={{ backgroundColor: colors.card, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: colors.border }}>
               <Text style={{ color: colors.textMuted, fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 4 }}>Budget</Text>
               <Text style={{ color: colors.text, fontSize: 16, fontWeight: '600' }}>{BUDGET_LABELS[onboarding.weekly_budget]}</Text>
             </View>
@@ -149,7 +149,7 @@ export default function Payoff() {
         </View>
 
         {/* Pantry staple seed — powers the "you can make this tonight" magic moment on session one */}
-        <View style={{ backgroundColor: colors.white, borderRadius: 16, padding: 20, borderWidth: 1, borderColor: colors.border }}>
+        <View style={{ backgroundColor: colors.card, borderRadius: 16, padding: 20, borderWidth: 1, borderColor: colors.border }}>
           <Text style={{ fontSize: 18, fontWeight: '800', color: colors.text, marginBottom: 4 }}>
             What's always in your kitchen?
           </Text>

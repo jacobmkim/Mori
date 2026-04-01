@@ -58,7 +58,7 @@ export default function SkillLevel() {
                 key={opt.id}
                 onPress={() => setSelected(opt.id)}
                 style={{
-                  backgroundColor: isSelected ? colors.primaryLight : colors.white,
+                  backgroundColor: isSelected ? colors.primaryLight : colors.card,
                   borderColor: isSelected ? colors.primary : colors.border,
                   borderWidth: 1.5,
                   borderRadius: 14,

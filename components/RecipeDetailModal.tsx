@@ -255,47 +255,48 @@ export function RecipeDetailModal({
       <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" onRequestClose={onClose}>
         <View style={{ flex: 1, backgroundColor: colors.background }}>
 
-          {/* Header image */}
-          <View style={{ position: 'relative' }}>
+          {/* Back button — floats above scroll content */}
+          <Pressable
+            onPress={onClose} hitSlop={8}
+            style={{
+              position: 'absolute', zIndex: 10, top: 52, left: 16,
+              width: 36, height: 36, borderRadius: 18,
+              backgroundColor: 'rgba(255,255,255,0.88)',
+              alignItems: 'center', justifyContent: 'center',
+            }}
+          >
+            <Ionicons name="chevron-back" size={20} color="#1A1A1A" />
+          </Pressable>
+          {/* Dev flag */}
+          {__DEV__ && (
+            <Pressable
+              onPress={() => {
+                const reasons = ['Wrong image', 'Bad recipe / not tasty', 'Wrong ingredients', 'Bad macro data', 'Incorrect cuisine', 'Duplicate recipe'];
+                Alert.alert('Flag Recipe', `"${recipe.title}"`, [
+                  ...reasons.map((r) => ({ text: r, onPress: () => { flagRecipe(recipe, r); Alert.alert('Flagged', `"${recipe.title}" flagged.`); } })),
+                  { text: 'Cancel', style: 'cancel' },
+                ]);
+              }}
+              hitSlop={8}
+              style={{
+                position: 'absolute', zIndex: 10, top: 52, right: 16,
+                width: 34, height: 34, borderRadius: 17,
+                backgroundColor: 'rgba(180,0,0,0.7)',
+                alignItems: 'center', justifyContent: 'center',
+              }}
+            >
+              <Ionicons name="flag" size={16} color="white" />
+            </Pressable>
+          )}
+
+          <ScrollView stickyHeaderIndices={[1]} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
+          {/* 0: Header — scrolls away */}
+          <View>
             <Image
               source={{ uri: recipe.image_url ?? '' }}
               style={{ width: '100%', height: 220 }}
               contentFit="cover"
             />
-            {/* Back button */}
-            <Pressable
-              onPress={onClose} hitSlop={8}
-              style={{
-                position: 'absolute', top: 52, left: 16,
-                width: 36, height: 36, borderRadius: 18,
-                backgroundColor: 'rgba(255,255,255,0.88)',
-                alignItems: 'center', justifyContent: 'center',
-              }}
-            >
-              <Ionicons name="chevron-back" size={20} color="#1A1A1A" />
-            </Pressable>
-            {/* Dev flag */}
-            {__DEV__ && (
-              <Pressable
-                onPress={() => {
-                  const reasons = ['Wrong image', 'Bad recipe / not tasty', 'Wrong ingredients', 'Bad macro data', 'Incorrect cuisine', 'Duplicate recipe'];
-                  Alert.alert('Flag Recipe', `"${recipe.title}"`, [
-                    ...reasons.map((r) => ({ text: r, onPress: () => { flagRecipe(recipe, r); Alert.alert('Flagged', `"${recipe.title}" flagged.`); } })),
-                    { text: 'Cancel', style: 'cancel' },
-                  ]);
-                }}
-                hitSlop={8}
-                style={{
-                  position: 'absolute', top: 52, right: 16,
-                  width: 34, height: 34, borderRadius: 17,
-                  backgroundColor: 'rgba(180,0,0,0.7)',
-                  alignItems: 'center', justifyContent: 'center',
-                }}
-              >
-                <Ionicons name="flag" size={16} color="white" />
-              </Pressable>
-            )}
-          </View>
 
           {/* Recipe info block */}
           <View style={{ paddingHorizontal: 16, paddingTop: 14, paddingBottom: 10, backgroundColor: colors.background }}>
@@ -312,8 +313,8 @@ export function RecipeDetailModal({
                   recipe.servings ? `${servings} serving${servings !== 1 ? 's' : ''}` : null,
                   costStr ? `${costStr}/serving` : null,
                 ].filter(Boolean).map((pill) => (
-                  <View key={pill} style={{ backgroundColor: '#F5F5F5', borderRadius: 8, paddingVertical: 6, paddingHorizontal: 12 }}>
-                    <Text style={{ fontSize: 11, color: '#555555' }}>{pill}</Text>
+                  <View key={pill} style={{ backgroundColor: colors.border + '66', borderRadius: 8, paddingVertical: 6, paddingHorizontal: 12 }}>
+                    <Text style={{ fontSize: 11, color: colors.textMuted }}>{pill}</Text>
                   </View>
                 ))}
               </View>
@@ -330,7 +331,9 @@ export function RecipeDetailModal({
             )}
           </View>
 
-          {/* Tab bar */}
+          </View>{/* end scrollable header */}
+
+          {/* 1: Tab bar — sticky */}
           <View style={{
             flexDirection: 'row', borderBottomWidth: 0.5, borderBottomColor: colors.border,
             backgroundColor: colors.background,
@@ -355,8 +358,8 @@ export function RecipeDetailModal({
             })}
           </View>
 
-          {/* Tab content */}
-          <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
+          {/* 2: Tab content */}
+          <View style={{ padding: 16 }}>
 
             {/* ── Ingredients tab ───────────────────────────────────────── */}
             {activeTab === 'ingredients' && (
@@ -433,7 +436,7 @@ export function RecipeDetailModal({
                             borderRadius: 14, marginBottom: 10, padding: 14,
                             borderWidth: isActive ? 1.5 : 0.5,
                             borderColor: isActive ? colors.primary : colors.border,
-                            backgroundColor: isCompleted ? colors.border + '33' : isActive ? colors.card : '#F9F9F9',
+                            backgroundColor: isCompleted ? colors.border + '33' : isActive ? colors.card : colors.background,
                           }}
                         >
                           <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
@@ -595,7 +598,8 @@ export function RecipeDetailModal({
                 )}
               </>
             )}
-          </ScrollView>
+          </View>{/* end tab content */}
+          </ScrollView>{/* end outer sticky ScrollView */}
 
           {/* Sticky footer */}
           <View style={{

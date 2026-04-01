@@ -48,6 +48,7 @@ export default function Plan() {
   const [slotRecipes, setSlotRecipes] = useState<Record<string, Recipe>>({});
   const [pickerOpen, setPickerOpen] = useState<{ day: number; mealType: MealType } | null>(null);
   const [pickerSearch, setPickerSearch] = useState('');
+  const [pickerFilter, setPickerFilter] = useState<'All' | 'Meal Prep' | 'Quick' | 'Vegetarian'>('All');
 
   const plan = useMealPlanStore((s) => s.plan);
   const isLoading = useMealPlanStore((s) => s.isLoading);
@@ -89,6 +90,7 @@ export default function Plan() {
     setSlotRecipes((prev) => ({ ...prev, [recipeId]: recipe }));
     setPickerOpen(null);
     setPickerSearch('');
+    setPickerFilter('All');
     savePlan(userId, weekStart);
   }
 
@@ -117,12 +119,16 @@ export default function Plan() {
     Alert.alert('Added to grocery list', `${recipes.length} meal${recipes.length !== 1 ? 's' : ''} added.`);
   }
 
-  // Build sectioned recipe picker data: Meal Prep first, then rest of saved
+  // Build sectioned recipe picker data: filter + search, Meal Prep first
   const pickerSections = (() => {
     const q = pickerSearch.toLowerCase();
-    const all = savedRecipes.filter((r) =>
+    let all = savedRecipes.filter((r) =>
       !q || r.title.toLowerCase().includes(q) || (r.cuisine ?? '').toLowerCase().includes(q)
     );
+    if (pickerFilter === 'Meal Prep') all = all.filter((r) => r.meal_prep_friendly === true);
+    else if (pickerFilter === 'Quick') all = all.filter((r) => ((r.prep_time_mins ?? 99) + (r.cook_time_mins ?? 99)) <= 30);
+    else if (pickerFilter === 'Vegetarian') all = all.filter((r) => r.dietary_tags?.includes('vegetarian') || r.dietary_tags?.includes('vegan'));
+    if (pickerFilter !== 'All') return [{ title: pickerFilter, data: all }];
     const mealPrep = all.filter((r) => r.meal_prep_friendly === true);
     const rest = all.filter((r) => r.meal_prep_friendly !== true);
     const sections = [];
@@ -270,7 +276,7 @@ export default function Plan() {
         visible={!!pickerOpen}
         animationType="slide"
         presentationStyle="pageSheet"
-        onRequestClose={() => { setPickerOpen(null); setPickerSearch(''); }}
+        onRequestClose={() => { setPickerOpen(null); setPickerSearch(''); setPickerFilter('All'); }}
       >
         <View style={{ flex: 1, backgroundColor: colors.background }}>
           {/* Modal header */}
@@ -280,7 +286,7 @@ export default function Plan() {
             borderBottomWidth: 1, borderBottomColor: colors.border,
             backgroundColor: colors.card,
           }}>
-            <Pressable onPress={() => { setPickerOpen(null); setPickerSearch(''); }} hitSlop={8}>
+            <Pressable onPress={() => { setPickerOpen(null); setPickerSearch(''); setPickerFilter('All'); }} hitSlop={8}>
               <Text style={{ color: colors.textMuted, fontSize: 16 }}>Cancel</Text>
             </Pressable>
             <View style={{ alignItems: 'center' }}>
@@ -316,6 +322,28 @@ export default function Plan() {
               </Pressable>
             )}
           </View>
+
+          {/* Filter chips */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 10, gap: 8, flexDirection: 'row' }}>
+            {(['All', 'Meal Prep', 'Quick', 'Vegetarian'] as const).map((f) => {
+              const active = pickerFilter === f;
+              return (
+                <Pressable
+                  key={f}
+                  onPress={() => setPickerFilter(f)}
+                  style={{
+                    height: 30, paddingHorizontal: 12, borderRadius: 999,
+                    justifyContent: 'center',
+                    backgroundColor: active ? colors.primary : colors.border + '55',
+                  }}
+                >
+                  <Text style={{ fontSize: 12, fontWeight: active ? '600' : '400', color: active ? 'white' : colors.textMuted }}>
+                    {f}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
 
           {savedRecipes.length === 0 ? (
             <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12, padding: 32 }}>
