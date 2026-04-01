@@ -13,7 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import type { Recipe, RecipeStep } from '@/types';
 
 // Prevents screen sleep while cooking — install expo-keep-awake if not present
-function useKeepAwake() { /* noop until expo-keep-awake is installed */ }
+import { useKeepAwake } from 'expo-keep-awake';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 

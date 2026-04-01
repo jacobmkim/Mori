@@ -39,11 +39,13 @@ export interface GeneratedRecipe {
 
 interface GenerateRequest {
   cuisine: string;
+  dishName?: string;            // if set, generate this specific dish rather than inventing one
   dietaryGoals?: string[];
   skillLevel?: string;
   maxMins?: number;
   avoidIngredients?: string[];
   avoidDishes?: string[];
+  meal_prep_friendly?: boolean; // if set, overrides Haiku's determination
   save?: boolean;
 }
 
@@ -77,7 +79,11 @@ function buildPrompt(req: GenerateRequest): string {
     );
   }
 
-  return `Generate an original ${req.cuisine} recipe. ${constraints.length ? 'Requirements: ' + constraints.join('; ') + '.' : ''}
+  const dishLine = req.dishName
+    ? `Generate a recipe for "${req.dishName}"${req.cuisine ? ` (${req.cuisine} cuisine)` : ''}. Make it the classic, authentic home-cook version — the way it is actually made in home kitchens, not restaurants.`
+    : `Generate an original ${req.cuisine} recipe.`;
+
+  return `${dishLine} ${constraints.length ? 'Requirements: ' + constraints.join('; ') + '.' : ''}
 
 Respond with valid JSON only — no markdown, no explanation. Use this exact structure:
 {
@@ -108,13 +114,14 @@ Rules:
 - 6-12 ingredients
 - 4-8 steps
 - dietary_tags from: vegan, vegetarian, pescatarian, gluten_free, dairy_free, keto, high_protein, low_carb, paleo, halal
+- INGREDIENT FORMAT: quantity is a number, unit is a measurement ONLY (g, ml, kg, l, tsp, tbsp, cup, oz, lb, whole, slices, cloves, sprigs, leaves, cans, jars) — never put prep instructions (chopped, minced, diced, beaten) in the unit field. Put prep instructions in the step instructions instead. Examples: { "name": "onion", "quantity": "1", "unit": "medium" } NOT { "name": "onion", "quantity": "1", "unit": "medium, finely chopped" }
 - meal_prep_friendly: true if the dish can be batch-cooked, stored 3-5 days in the fridge, and reheated without significant quality loss (curries, stews, grain bowls, roasted proteins, pasta bakes = true; delicate fish, dressed salads, fried foods, poached eggs, fresh pasta = false)
 - macros are per serving estimates
 - make it a real, cookable recipe a home cook would actually want to make
 - TITLE RULE: Always use the common English name. If the dish has a well-known foreign name, put the English name first and the foreign name in parentheses. Examples: "Braised Veal Shanks (Osso Buco)", "Hunter's Chicken (Pollo alla Cacciatora)", "Creamy Rice Pudding (Arroz con Leche)". Never use a foreign-language title alone.
 - INGREDIENT RULE: Every ingredient must be available at a mainstream grocery store (Walmart, Kroger, Safeway). Use store-cupboard shortcuts where needed — Thai curry paste (jar) instead of fresh lemongrass + galangal; fish sauce and coconut milk are fine; chicken or vegetable stock instead of dashi; canned chipotle in adobo instead of dried whole chipotles; garam masala + cumin + turmeric instead of hard-to-find whole spices. If a traditional ingredient isn't on a standard grocery shelf, use the closest accessible substitute that preserves the dish's flavour. The test: a home cook should be able to buy every ingredient in a single trip to their local supermarket.
-- SIMPLE WEEKNIGHT RULE: If the cuisine is "Simple Weeknight", generate universally familiar weeknight dinners any beginner can make: things like spaghetti with meat sauce, honey garlic chicken thighs, one-pan lemon chicken and rice, veggie stir fry with noodles, cheesy baked pasta, black bean quesadillas, beef and vegetable soup, tuna pasta, sheet-pan sausage and vegetables, egg fried rice, creamy tomato soup with grilled cheese, chicken and rice casserole. No single cuisine identity — just simple, satisfying, globally familiar home cooking. All ingredients from a regular supermarket.
-- CULTURE RULE: 90% of recipes should be iconic, everyday dishes — the classics that home cooks in that country make weekly and that anyone from that culture would immediately recognise. Only 10% can be slightly more ambitious dishes for confident home chefs (but still culturally authentic, not restaurant-only). All recipes must use authentic flavour profiles, spice combinations, and techniques native to that culture. Do NOT generate fusion, westernised, or obscure regional dishes. The MUST-HAVE classics per cuisine — Italian: cacio e pepe, spaghetti bolognese, chicken cacciatore, risotto, amatriciana, carbonara, minestrone, frittata, osso buco; Mexican: chicken tacos, enchiladas, chiles rellenos, arroz con pollo, frijoles de olla, pozole, tamales, quesadillas; Japanese: chicken teriyaki, gyudon, katsu curry, miso soup, ramen, yakisoba, oyakodon, onigiri fillings; Indian: dal tadka, chana masala, palak paneer, butter chicken, aloo gobi, biryani, rajma, chicken tikka masala; Chinese: kung pao chicken, mapo tofu, egg fried rice, dumplings, beef and broccoli, sweet and sour pork, char siu; Thai: pad thai, green curry, massaman curry, tom kha gai, pad see ew, laab, khao pad; Korean: kimchi jjigae (kimchi stew), bibimbap, bulgogi, doenjang jjigae, kimchi fried rice, dakgalbi, tteokbokki; Greek: moussaka, spanakopita, souvlaki, horiatiki salad, fasolada, pastitsio, dolmades; French: quiche lorraine, French onion soup, beef bourguignon, ratatouille, croque monsieur, coq au vin; American: mac and cheese, beef chilli, pot roast, BBQ pulled pork, clam chowder, meatloaf, chicken pot pie; Mediterranean: stuffed peppers, baked fish with herbs, falafel, lentil soup, tabbouleh, shakshuka; Middle Eastern: shakshuka, chicken shawarma, falafel, lentil soup, lamb kebabs, hummus bowls, kofta. Generate the iconic dish itself, not a variation or spin-off.`;
+- SIMPLE WEEKNIGHT RULE: If the cuisine is "Simple Weeknight", generate meals that a 25-year-old cooking for the first time would search for on Google. Think: "easy chicken and rice", "quick pasta dinner", "simple beef tacos". ALLOWED proteins: chicken breast, chicken thighs, ground beef, ground turkey, canned tuna, shrimp, salmon fillet, pork chops, eggs, bacon, sausage. ALLOWED starches: pasta, spaghetti, rice, potatoes, bread, tortillas, egg noodles. ALLOWED vegetables: broccoli, green beans, carrots, peas, corn, spinach, bell pepper, zucchini, tomatoes, onions, mushrooms, garlic. BANNED ingredients: duck, halloumi, polenta, farro, barley, quinoa, orzo, miso, bok choy, fennel, celery root, harissa, tahini, za'atar, any specialty cheese. BANNED title words: "seared", "pan-seared", "sautéed", "braised", "port", "reduction", "jus", "crème", "confit". Good title examples: "Honey Garlic Chicken and Rice", "Spaghetti with Meat Sauce", "Sheet Pan Chicken and Broccoli", "Beef Tacos with Salsa", "Creamy Tomato Pasta", "One-Pan Lemon Chicken", "Cheesy Baked Pasta", "Egg Fried Rice", "Chicken Quesadillas", "Simple Beef Chili". If in doubt, ask: would this appear in a BuzzFeed "easy weeknight dinners" listicle? If not, choose something simpler.
+- CULTURE RULE: 90% of recipes should be iconic, everyday dishes — the classics that home cooks in that country make weekly and that anyone from that culture would immediately recognise. Only 10% can be slightly more ambitious dishes for confident home chefs (but still culturally authentic, not restaurant-only). All recipes must use authentic flavour profiles, spice combinations, and techniques native to that culture. Do NOT generate fusion, westernised, or obscure regional dishes. The MUST-HAVE classics per cuisine — Italian: cacio e pepe, spaghetti bolognese, chicken cacciatore, risotto, amatriciana, carbonara, minestrone, frittata, osso buco; Mexican: chicken tacos, enchiladas, chiles rellenos, arroz con pollo, frijoles de olla, pozole, tamales, quesadillas; Japanese: chicken teriyaki, gyudon, katsu curry, miso soup, ramen, yakisoba, oyakodon, onigiri fillings; Indian: dal tadka, chana masala, palak paneer, butter chicken, aloo gobi, biryani, rajma, chicken tikka masala; Chinese: kung pao chicken, mapo tofu, egg fried rice, dumplings, beef and broccoli, sweet and sour pork, char siu; Thai: pad thai, green curry, massaman curry, tom kha gai, pad see ew, laab, khao pad; Korean: kimchi jjigae (kimchi stew), bibimbap, bulgogi, doenjang jjigae, kimchi fried rice, dakgalbi, tteokbokki; Greek: moussaka, spanakopita, souvlaki, horiatiki salad, fasolada, pastitsio, dolmades; French: quiche lorraine, French onion soup, beef bourguignon, ratatouille, croque monsieur, coq au vin; American: mac and cheese, beef chilli, pot roast, BBQ pulled pork, clam chowder, meatloaf, chicken pot pie; Mediterranean: stuffed peppers, baked fish with herbs, falafel, lentil soup, tabbouleh, shakshuka; Middle Eastern: shakshuka, chicken shawarma, falafel, lentil soup, lamb kebabs, hummus bowls, kofta; Spanish: paella valenciana, tortilla española, gazpacho, patatas bravas, croquetas, gambas al ajillo, fabada asturiana, pollo al ajillo, albondigas, pulpo a la gallega. Generate the iconic dish itself, not a variation or spin-off.`;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -131,7 +138,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const message = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 1024,
+      max_tokens: 2048,
       messages: [{ role: 'user', content: buildPrompt(body) }],
     });
 
@@ -145,6 +152,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const cleaned = fenced ? fenced[1].trim() : raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/,'').trim();
       recipe = JSON.parse(cleaned);
     }
+
+    // Sanitize dietary tags — strip unknown tags and fix ingredient-based contradictions
+    const VALID_TAGS = new Set([
+      'vegan', 'vegetarian', 'pescatarian', 'gluten_free', 'dairy_free',
+      'keto', 'high_protein', 'low_carb', 'paleo', 'halal',
+    ]);
+    recipe.dietary_tags = (recipe.dietary_tags ?? []).filter(t => VALID_TAGS.has(t));
+
+    const ingredientText = recipe.ingredients.map(i => i.name.toLowerCase()).join(' ');
+    const hasMeat = /\b(chicken|beef|pork|lamb|turkey|duck|bacon|sausage|prosciutto|pancetta|chorizo|salami|ham|veal|venison|bison|ground beef|ground pork|ground turkey|short rib|oxtail|lard|guanciale)\b/.test(ingredientText);
+    const hasSeafood = /\b(fish|salmon|tuna|shrimp|prawn|crab|lobster|clam|mussel|oyster|squid|octopus|anchov|sardine|cod|bass|tilapia|halibut|mahi|scallop|mackerel|trout|snapper)\b/.test(ingredientText);
+    const hasDairy = /\b(milk|cream|butter|cheese|yogurt|yoghurt|parmesan|mozzarella|ricotta|feta|cheddar|ghee|crème fraîche|sour cream|half.and.half|mascarpone|brie|gruyère|gruyere)\b/.test(ingredientText);
+    const hasGluten = /\b(flour|bread|pasta|noodle|wheat|barley|rye|breadcrumb|panko|soy sauce|tortilla|pita|couscous)\b/.test(ingredientText);
+
+    if (hasMeat || hasSeafood) recipe.dietary_tags = recipe.dietary_tags.filter(t => t !== 'vegan' && t !== 'vegetarian');
+    if (hasMeat)   recipe.dietary_tags = recipe.dietary_tags.filter(t => t !== 'pescatarian');
+    if (hasDairy)  recipe.dietary_tags = recipe.dietary_tags.filter(t => t !== 'vegan' && t !== 'dairy_free');
+    if (hasGluten) recipe.dietary_tags = recipe.dietary_tags.filter(t => t !== 'gluten_free');
 
     // Server-side similarity guard — reject if too close to an existing dish
     if (body.avoidDishes?.length) {
@@ -162,6 +187,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
+    // Caller can override meal_prep_friendly (e.g. seed script reads it from CSV)
+    if (body.meal_prep_friendly !== undefined) {
+      recipe.meal_prep_friendly = body.meal_prep_friendly;
+    }
+
     // Persist to Supabase if requested (used by seed script)
     if (body.save) {
       const sb = getSupabase();
@@ -177,6 +207,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         cook_time_mins: recipe.cook_time_mins,
         servings: recipe.servings,
         dietary_tags: recipe.dietary_tags,
+        skill_level: body.skillLevel ?? 'home_cook',
         meal_prep_friendly: recipe.meal_prep_friendly ?? false,
         macros: { ...recipe.estimated_macros, isEstimated: true },
         badge: 'none',

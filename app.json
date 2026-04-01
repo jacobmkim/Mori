@@ -14,7 +14,10 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.mori.app"
+      "bundleIdentifier": "app.getmori.mori",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -45,7 +48,11 @@
     },
     "extra": {
       "supportUrl": "https://getmori.app/support",
-      "privacyUrl": "https://getmori.app/privacy"
+      "privacyUrl": "https://getmori.app/privacy",
+      "router": {},
+      "eas": {
+        "projectId": "0d817669-e2da-4a4a-b807-609d0e9a8354"
+      }
     }
   }
 }
