@@ -1,127 +1,200 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Privacy Policy — Mori</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet">
-<style>
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: 'DM Sans', sans-serif; background: #FAFAF8; color: #1A1A1A; }
-nav {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 1.25rem 2.5rem;
-  border-bottom: 1px solid #E0E0E0;
-  background: #fff;
-}
-.nav-logo {
-  font-family: 'Playfair Display', serif; font-style: italic;
-  font-size: 1.4rem; font-weight: 400; color: #2E7D32;
-  letter-spacing: -0.03em; text-decoration: none;
-}
-.nav-back {
-  font-size: 0.875rem; color: #888; text-decoration: none;
-  display: flex; align-items: center; gap: 6px;
-  transition: color 0.2s;
-}
-.nav-back:hover { color: #1A1A1A; }
-main {
-  max-width: 720px; margin: 0 auto;
-  padding: 4rem 2rem 6rem;
-}
-.page-title {
-  font-family: 'Playfair Display', serif;
-  font-size: 2.4rem; font-weight: 700; line-height: 1.15;
-  margin-bottom: 0.5rem; color: #1A1A1A;
-}
-.updated {
-  font-size: 0.8rem; color: #888; margin-bottom: 3rem;
-}
-h2 {
-  font-size: 1.05rem; font-weight: 500; color: #1A1A1A;
-  margin: 2.5rem 0 0.75rem;
-}
-p, li {
-  font-size: 0.95rem; font-weight: 300; color: #444;
-  line-height: 1.8;
-}
-ul { padding-left: 1.25rem; }
-li { margin-bottom: 0.35rem; }
-a { color: #2E7D32; }
-hr { border: none; border-top: 1px solid #E0E0E0; margin: 3rem 0; }
-footer {
-  text-align: center; padding: 2rem;
-  font-size: 0.78rem; color: #aaa;
-  border-top: 1px solid #E0E0E0;
-}
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Privacy Policy — Mori</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 16px;
+      line-height: 1.7;
+      color: #1a1a1a;
+      background: #ffffff;
+      padding: 0 1rem;
+    }
+    .nav {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 2rem 0 1rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    .nav a { color: #2E7D32; text-decoration: none; font-size: 15px; }
+    .nav a:hover { text-decoration: underline; }
+    .wordmark {
+      font-family: Georgia, serif;
+      font-style: italic;
+      font-size: 22px;
+      color: #2E7D32;
+      letter-spacing: -0.05em;
+    }
+    main {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 1rem 0 4rem;
+    }
+    h1 {
+      font-family: Georgia, serif;
+      font-style: italic;
+      font-size: 32px;
+      font-weight: 400;
+      margin-bottom: 0.5rem;
+      color: #1a1a1a;
+    }
+    .meta {
+      font-size: 13px;
+      color: #888;
+      margin-bottom: 2rem;
+    }
+    p { margin-bottom: 1rem; }
+    h2 {
+      font-size: 17px;
+      font-weight: 600;
+      margin: 2rem 0 0.75rem;
+      color: #1a1a1a;
+    }
+    ul {
+      margin: 0.5rem 0 1rem 1.25rem;
+      padding: 0;
+    }
+    ul li { margin-bottom: 0.5rem; }
+    a { color: #2E7D32; }
+    a:hover { text-decoration: underline; }
+    .notice {
+      background: #F1FBF1;
+      border: 1px solid #c8e6c9;
+      border-radius: 10px;
+      padding: 1rem 1.25rem;
+      margin: 1.5rem 0;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    .notice strong { display: block; margin-bottom: 0.25rem; font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; color: #2E7D32; }
+    hr { border: none; border-top: 1px solid #e0e0e0; margin: 2.5rem 0; }
+    footer {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 1.5rem 0 3rem;
+      font-size: 13px;
+      color: #888;
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    footer a { color: #888; text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+  </style>
 </head>
 <body>
 
-<nav>
-  <a href="/" class="nav-logo">mori</a>
-  <a href="/" class="nav-back">← Back to home</a>
-</nav>
+  <nav class="nav">
+    <span class="wordmark">mori</span>
+    <a href="https://getmori.app/">← Back to home</a>
+  </nav>
 
-<main>
-  <h1 class="page-title">Privacy Policy</h1>
-  <p class="updated">Last updated: March 2026</p>
+  <main>
+    <h1>Privacy Policy</h1>
+    <p class="meta">Last updated: April 2026</p>
 
-  <p>Mori ("we", "our", or "us") is a recipe discovery app built by an independent developer. This policy explains what data we collect, how we use it, and your rights. We keep this simple because we genuinely don't collect more than we need.</p>
+    <p>Mori ("we", "our", or "us") is a recipe discovery app built by an independent developer. This policy explains what data we collect, how we use it, and your rights. We keep this simple because we genuinely don't collect more than we need.</p>
 
-  <h2>1. What we collect</h2>
-  <ul>
-    <li><strong>Email address</strong> — when you join the waitlist or create an account.</li>
-    <li><strong>Onboarding preferences</strong> — dietary goals, cuisine preferences, skill level, budget, and ingredient dislikes. These power your personalised recipe deck.</li>
-    <li><strong>Swipe and interaction data</strong> — which recipes you swipe right or left on, save, add to your grocery list, or mark as cooked. This is used solely to improve your recommendations.</li>
-    <li><strong>Pantry items</strong> — ingredients you add manually or select during onboarding.</li>
-    <li><strong>Meal plans and grocery lists</strong> — saved to your account so they persist across sessions.</li>
-  </ul>
+    <h2>1. What we collect</h2>
 
-  <h2>2. What we do not collect</h2>
-  <ul>
-    <li>We do not collect your name unless you provide it in your profile.</li>
-    <li>We do not collect location data.</li>
-    <li>We do not use advertising SDKs or sell your data to third parties.</li>
-    <li>We do not track you across other apps or websites.</li>
-  </ul>
+    <ul>
+      <li><strong>Email address</strong> — when you join the waitlist or create an account.</li>
+      <li><strong>Name</strong> — optional. Only if you provide it in your profile.</li>
+      <li><strong>Onboarding preferences</strong> — dietary goals, cuisine preferences, skill level, budget, and ingredient dislikes. These power your personalised recipe deck.</li>
+      <li><strong>Swipe and interaction data</strong> — which recipes you swipe right or left on, save, add to your grocery list, or mark as cooked. Used solely to improve your recommendations and generate your taste profile.</li>
+      <li><strong>Pantry items</strong> — ingredients you add manually or select during onboarding.</li>
+      <li><strong>Meal plans and grocery lists</strong> — saved to your account so they persist across sessions.</li>
+      <li><strong>Recipe notes</strong> — personal notes, substitutions, quick-tags, and ratings you write on recipes you have cooked. Visible only to you.</li>
+      <li><strong>User-submitted recipes</strong> — if you use the Add Recipe feature, the title, ingredients, steps, description, and optional photo you provide are stored. Public recipes are visible to all users. Private recipes are visible only to you.</li>
+    </ul>
 
-  <h2>3. AI features and Anthropic</h2>
-  <p>Mori uses Claude (made by Anthropic) for three features:</p>
-  <ul>
-    <li><strong>Taste profile</strong> — your swipe history is sent to Anthropic's API to generate a short personalised paragraph describing your cooking style. This is cached in our database and not re-sent on every session.</li>
-    <li><strong>Macro estimates</strong> — a recipe's ingredient list is sent to Anthropic's API to estimate calories, protein, carbs, and fat. Results are stored and shared across all users for that recipe.</li>
-    <li><strong>Storage tips</strong> — after you mark a recipe as cooked, the recipe title is sent to Anthropic's API to generate storage and usage suggestions.</li>
-  </ul>
-  <p>Data sent to Anthropic is governed by <a href="https://www.anthropic.com/privacy" target="_blank" rel="noopener">Anthropic's Privacy Policy</a>. We do not send your name, email, or account details to Anthropic.</p>
+    <h2>2. What we do not collect</h2>
 
-  <h2>4. Instacart</h2>
-  <p>When you tap "Order on Instacart", your grocery list (a list of ingredient names) is sent to Instacart to pre-populate a cart. You complete checkout inside the Instacart app. Instacart's own privacy policy governs that interaction. Mori receives an affiliate commission on attributed orders through Impact.</p>
+    <ul>
+      <li>We do not collect location data.</li>
+      <li>We do not use advertising SDKs.</li>
+      <li>We do not sell your data to third parties.</li>
+      <li>We do not track you across other apps or websites.</li>
+      <li>We do not use your data for targeted advertising.</li>
+    </ul>
 
-  <h2>5. Data storage</h2>
-  <p>Your data is stored on <a href="https://supabase.com/privacy" target="_blank" rel="noopener">Supabase</a>, a hosted PostgreSQL provider. Data is stored in the US. Row-level security ensures you can only read and write your own data.</p>
+    <h2>3. How we use your data</h2>
 
-  <h2>6. Data retention and deletion</h2>
-  <p>Your account data is retained until you delete your account. To delete your account and all associated data, email <a href="mailto:hello@getmori.app">hello@getmori.app</a> with the subject "Delete my account". We will process the request within 7 days.</p>
+    <ul>
+      <li><strong>Recommendations</strong> — your preferences and swipe history are used entirely on-device to rank and personalise your recipe deck. No data is sent to a third party for this purpose.</li>
+      <li><strong>Taste profile</strong> — your swipe history is sent to Anthropic's API (see Section 4) to generate a short personalised paragraph describing your cooking style.</li>
+      <li><strong>Macro estimates</strong> — a recipe's ingredient list is sent to Anthropic's API to estimate nutritional values. Results are stored against the recipe and shared across all users who view that recipe. No personal account data is included in this request.</li>
+      <li><strong>Storage tips</strong> — after you mark a recipe as cooked, the recipe title is sent to Anthropic's API to generate storage and usage suggestions.</li>
+      <li><strong>Recipe validation</strong> — when you submit a public recipe using the Add Recipe feature, the recipe content is sent to Anthropic's API to check accuracy before publication. Your name and account details are not included.</li>
+      <li><strong>Account management</strong> — your email is used to authenticate your account. We do not send marketing emails without your explicit consent.</li>
+    </ul>
 
-  <h2>7. Children</h2>
-  <p>Mori is not directed at children under 13. We do not knowingly collect data from anyone under 13.</p>
+    <h2>4. AI features and Anthropic</h2>
 
-  <h2>8. Changes to this policy</h2>
-  <p>If we make material changes, we will update the date at the top of this page and notify users via email if the changes affect how we use personal data.</p>
+    <div class="notice">
+      <strong>AI transparency disclosure</strong>
+      Mori uses Claude, an AI assistant made by Anthropic, for four features: taste profile generation, macro estimation, post-cook storage tips, and recipe validation. By using these features, limited data (described above) is sent to Anthropic's API.
+    </div>
 
-  <h2>9. Contact</h2>
-  <p>Questions? Email us at <a href="mailto:hello@getmori.app">hello@getmori.app</a>.</p>
+    <p>Data sent to Anthropic is governed by <a href="https://www.anthropic.com/privacy" target="_blank" rel="noopener">Anthropic's Privacy Policy</a>. We do not send your name, email address, or account credentials to Anthropic. All AI features are processed server-side — no API keys are exposed to your device.</p>
 
-  <hr>
-  <p style="font-size:0.8rem;color:#aaa;">© 2026 Mori. The name means gathering.</p>
-</main>
+    <p>You can use Mori without triggering AI features. The taste profile requires at least 5 swipes before it generates. Macro estimates are cached per recipe — if another user has already triggered estimation for a recipe you view, no new API call is made.</p>
 
-<footer>
-  <a href="/" style="color:#2E7D32;text-decoration:none;">← Back to mori</a>
-</footer>
+    <h2>5. Grocery delivery (coming soon)</h2>
+
+    <p>A future update will allow you to send your grocery list to a grocery delivery provider to pre-populate a cart. At launch this will include Instacart and Kroger (which also covers Ralph's, Fred Meyer, King Soopers, and Harris Teeter). When you tap to order, your grocery list — a list of ingredient names only — is sent to your chosen provider. You complete checkout inside that provider's app or website. Each provider's own privacy policy governs that interaction. Mori will receive an affiliate commission on attributed orders.</p>
+
+    <ul>
+      <li><a href="https://www.instacart.com/privacy" target="_blank" rel="noopener">Instacart Privacy Policy</a></li>
+      <li><a href="https://www.kroger.com/i/privacy-policy" target="_blank" rel="noopener">Kroger Privacy Policy</a></li>
+    </ul>
+
+    <p>This feature is not available in the current version of the app.</p>
+
+    <h2>6. Data storage</h2>
+
+    <p>Your data is stored on <a href="https://supabase.com/privacy" target="_blank" rel="noopener">Supabase</a>, a hosted PostgreSQL provider. Data is stored in the United States. Row-level security ensures you can only read and write your own data.</p>
+
+    <h2>7. App Store privacy details</h2>
+
+    <p>In accordance with Apple App Store requirements, here is a summary of how data is handled:</p>
+
+    <ul>
+      <li><strong>Data used to track you:</strong> None. Mori does not use your data to track you across third-party apps or websites.</li>
+      <li><strong>Data linked to you:</strong> Email address, usage data (swipes, interactions), preferences (dietary goals, cuisines), and user-generated content (notes, submitted recipes).</li>
+      <li><strong>Data not linked to you:</strong> Recipe nutritional estimates (stored per recipe, not per user).</li>
+    </ul>
+
+    <h2>8. Data retention and deletion</h2>
+
+    <p>Your account data is retained until you delete your account. To delete your account and all associated data — including swipe history, notes, meal plans, and submitted recipes — email <a href="mailto:hello@getmori.app">hello@getmori.app</a> with the subject "Delete my account". We will process the request within 7 days.</p>
+
+    <h2>9. Children</h2>
+
+    <p>Mori is not directed at children under 13. We do not knowingly collect data from anyone under 13. If you believe a child under 13 has provided us with personal information, please contact us and we will delete it promptly.</p>
+
+    <h2>10. Changes to this policy</h2>
+
+    <p>If we make material changes, we will update the date at the top of this page and notify existing users via email if the changes affect how we process personal data.</p>
+
+    <h2>11. Contact</h2>
+
+    <p>Questions about this policy? Email us at <a href="mailto:hello@getmori.app">hello@getmori.app</a>.</p>
+
+    <hr />
+  </main>
+
+  <footer>
+    <span>© 2026 Mori. The name means gathering.</span>
+    <a href="https://getmori.app/">← Back to mori</a>
+  </footer>
 
 </body>
 </html>
