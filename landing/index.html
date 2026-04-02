@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mori — Swipe. Cook. Order.</title>
+<link rel="icon" type="image/png" href="mori_icon.png">
+<meta name="description" content="The recipe app that learns your taste. Swipe through personalised recipes, build a smart grocery list, and order ingredients through Instacart in one tap.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+
+:root {
+  --green:       #2E7D32;
+  --green-mid:   #4CAF50;
+  --green-light: #E8F5E9;
+  --green-pale:  #F2FAF2;
+  --text:        #1A1A1A;
+  --text-mid:    #444444;
+  --text-muted:  #888888;
+  --border:      #E0E0E0;
+  --bg:          #FFFFFF;
+  --bg-soft:     #FAFAF8;
+  --linen:       #F8F3EC;
+  --moss:        #2E5438;
+}
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  overflow-x: hidden;
+}
+/* App icon */
+.app-icon {
+  width: 72px; height: 72px;
+  border-radius: 18px;
+  background: #F8F3EC;
+  border: 1px solid #E0D4C4;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 4px 16px rgba(46,84,56,0.10);
+  flex-shrink: 0;
+  overflow: hidden;
+}
+.app-icon-sm { width: 52px; height: 52px; border-radius: 13px; }
+.launch-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: #fff; border: 1px solid #E0E0E0;
+  border-radius: 999px; padding: 6px 14px 6px 8px;
+  font-size: 0.8rem; color: #444; margin-bottom: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+/* — NAV — */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 1rem 2.5rem;
+  background: rgba(255,255,255,0.92);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+}
+.nav-logo {
+  font-family: 'Playfair Display', serif;
+  font-style: italic;
+  font-size: 1.5rem;
+  font-weight: 400;
+  color: var(--green);
+  letter-spacing: -0.03em;
+  position: relative;
+  display: flex; align-items: center;
+}
+.nav-right { display: flex; align-items: center; gap: 1.5rem; }
+.nav-link { font-size: 0.875rem; color: var(--text-muted); text-decoration: none; transition: color 0.2s; }
+.nav-link:hover { color: var(--text); }
+.btn-primary {
+  background: var(--green); color: #fff;
+  border: none; padding: 0.6rem 1.4rem;
+  border-radius: 999px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.875rem; font-weight: 500;
+  cursor: pointer; text-decoration: none;
+  display: inline-block; transition: all 0.2s;
+}
+.btn-primary:hover { background: #236227; transform: translateY(-1px); }
+.btn-outline {
+  background: transparent; color: var(--green);
+  border: 1.5px solid var(--green);
+  padding: 0.55rem 1.3rem; border-radius: 999px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.875rem; font-weight: 500;
+  cursor: pointer; text-decoration: none;
+  display: inline-block; transition: all 0.2s;
+}
+.btn-outline:hover { background: var(--green-pale); }
+
+/* — HERO — */
+.hero {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  gap: 3rem;
+  padding: 8rem 6rem 4rem;
+  max-width: 1200px; margin: 0 auto;
+  background: linear-gradient(160deg, #F9FBF9 0%, #FFFFFF 50%, #FBF8F4 100%);
+}
+.hero-eyebrow {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--green-light); color: var(--green);
+  font-size: 0.75rem; font-weight: 500; letter-spacing: 0.12em;
+  text-transform: uppercase; padding: 6px 14px;
+  border-radius: 999px; margin-bottom: 1.5rem;
+  opacity: 0; animation: fadeUp 0.6s 0.1s forwards;
+}
+.eyebrow-dot {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--green);
+  animation: pulse 2s infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.7)} }
+
+.hero-title {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(2.8rem, 5vw, 5rem);
+  font-weight: 700; line-height: 1.08;
+  letter-spacing: -0.02em; color: var(--text);
+  margin-bottom: 1rem;
+  opacity: 0; animation: fadeUp 0.6s 0.25s forwards;
+}
+.hero-title em { font-style: italic; color: var(--green); }
+
+.hero-tagline {
+  font-size: 0.8rem; font-weight: 400;
+  color: var(--text-muted); letter-spacing: 0.25em;
+  text-transform: uppercase; margin-bottom: 1.5rem;
+  opacity: 0; animation: fadeUp 0.6s 0.38s forwards;
+}
+
+.hero-sub {
+  font-size: 1.05rem; font-weight: 300; line-height: 1.75;
+  color: var(--text-mid); max-width: 460px;
+  margin-bottom: 2.5rem;
+  opacity: 0; animation: fadeUp 0.6s 0.5s forwards;
+}
+
+.hero-form {
+  display: flex; gap: 8px; max-width: 400px;
+  opacity: 0; animation: fadeUp 0.6s 0.65s forwards;
+}
+.hero-input {
+  flex: 1; background: var(--bg-soft);
+  border: 1.5px solid var(--border);
+  border-radius: 999px; padding: 0.75rem 1.2rem;
+  font-family: 'DM Sans', sans-serif; font-size: 0.9rem;
+  color: var(--text); outline: none; transition: border-color 0.2s;
+}
+.hero-input::placeholder { color: var(--text-muted); }
+.hero-input:focus { border-color: var(--green); }
+.hero-note { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.75rem; }
+
+/* — PHONE STACK — */
+.hero-right {
+  position: relative; display: flex; justify-content: center;
+  opacity: 0; animation: fadeUp 0.8s 0.3s forwards;
+}
+.phone-stack { position: relative; width: 300px; height: 560px; }
+.phone-back {
+  position: absolute; left: -52px; top: 28px; width: 256px;
+  border-radius: 38px; overflow: hidden;
+  border: 2px solid #E0E0E0;
+  transform: rotate(-5deg);
+  box-shadow: -8px 16px 40px rgba(0,0,0,0.10);
+  opacity: 0.75;
+}
+.phone-back img { width: 100%; display: block; }
+.phone-front {
+  position: absolute; right: -12px; top: 0; width: 272px;
+  border-radius: 38px; overflow: hidden;
+  border: 2px solid #E0E0E0;
+  box-shadow: 16px 16px 60px rgba(0,0,0,0.13), 0 0 0 1px rgba(46,125,50,0.08);
+}
+.phone-front img { width: 100%; display: block; }
+
+/* — STATS BAR — */
+.stats-bar {
+  background: var(--green-pale);
+  border-top: 1px solid var(--green-light);
+  border-bottom: 1px solid var(--green-light);
+  padding: 1.5rem 2rem;
+}
+.stats-inner {
+  max-width: 900px; margin: 0 auto;
+  display: grid; grid-template-columns: repeat(3,1fr);
+  gap: 1rem; text-align: center;
+}
+.stat-num {
+  font-family: 'Playfair Display', serif;
+  font-size: 2rem; font-weight: 700; color: var(--green);
+  line-height: 1;
+}
+.stat-label { font-size: 0.8rem; color: var(--text-muted); margin-top: 4px; }
+
+/* — FEATURES — */
+.features {
+  padding: 5rem 2rem;
+  max-width: 1100px; margin: 0 auto;
+}
+.section-eyebrow {
+  display: inline-block; font-size: 0.72rem; font-weight: 500;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--green); margin-bottom: 0.75rem;
+}
+.section-title {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(2rem, 4vw, 2.8rem);
+  font-weight: 700; line-height: 1.15;
+  margin-bottom: 0.75rem; color: var(--text);
+}
+.section-title em { font-style: italic; color: var(--green); }
+.section-sub {
+  font-size: 1rem; font-weight: 300; color: var(--text-mid);
+  max-width: 520px; line-height: 1.7; margin-bottom: 3.5rem;
+}
+
+.features-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 1.25rem; }
+.feature-card {
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: 18px; padding: 1.75rem;
+  transition: all 0.25s;
+}
+.feature-card:hover {
+  border-color: var(--green-light);
+  background: var(--green-pale);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(46,125,50,0.08);
+}
+.feature-icon {
+  width: 40px; height: 40px; border-radius: 10px;
+  background: var(--green-light);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1rem; color: var(--green);
+  margin-bottom: 1rem; font-weight: 700;
+}
+.feature-title { font-size: 0.95rem; font-weight: 500; margin-bottom: 0.4rem; color: var(--text); }
+.feature-desc { font-size: 0.855rem; font-weight: 300; color: var(--text-mid); line-height: 1.65; }
+
+/* — SHOWCASE — */
+.showcase {
+  background: var(--bg-soft);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding: 5rem 2rem; overflow: hidden;
+}
+.showcase-inner { max-width: 1100px; margin: 0 auto; }
+.screens-row {
+  display: flex; gap: 1.25rem; justify-content: center;
+  align-items: flex-start; padding: 1rem 0;
+}
+.screen-item {
+  flex-shrink: 0; width: 200px;
+  border-radius: 28px; overflow: hidden;
+  border: 1.5px solid var(--border);
+  box-shadow: 0 12px 32px rgba(0,0,0,0.08);
+  transition: transform 0.3s;
+}
+.screen-item:hover { transform: translateY(-6px) scale(1.02); }
+.screen-item img { width: 100%; display: block; }
+.screen-item.offset-up { margin-top: -24px; }
+.screen-item.offset-down { margin-top: 24px; }
+.screen-caption {
+  text-align: center; margin-top: 0.6rem;
+  font-size: 0.72rem; color: var(--text-muted);
+}
+
+/* — HOW IT WORKS — */
+.how { padding: 5rem 2rem; max-width: 900px; margin: 0 auto; }
+.steps { display: grid; grid-template-columns: repeat(3,1fr); gap: 2rem; margin-top: 3rem; }
+.step { text-align: center; padding: 1.5rem 1rem; }
+.step-num {
+  width: 48px; height: 48px; border-radius: 50%;
+  background: var(--green-light); border: 1.5px solid var(--green);
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Playfair Display', serif;
+  font-size: 1.1rem; font-weight: 700; color: var(--green);
+  margin: 0 auto 1.25rem;
+}
+.step-title { font-size: 1rem; font-weight: 500; margin-bottom: 0.4rem; color: var(--text); }
+.step-desc { font-size: 0.855rem; font-weight: 300; color: var(--text-mid); line-height: 1.65; }
+
+/* — TASTE PROFILE HIGHLIGHT — */
+.profile-section {
+  background: var(--linen);
+  border-top: 1px solid #E8DDD0;
+  border-bottom: 1px solid #E8DDD0;
+  padding: 5rem 2rem;
+}
+.profile-inner {
+  max-width: 1000px; margin: 0 auto;
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 4rem; align-items: center;
+}
+.profile-quote {
+  background: #fff;
+  border: 1px solid #E8DDD0;
+  border-radius: 18px; padding: 2rem;
+  font-family: 'Playfair Display', serif;
+  font-style: italic; font-size: 1.05rem;
+  color: var(--moss); line-height: 1.7;
+  position: relative;
+}
+.profile-quote-mark {
+  font-size: 4rem; color: #E0EDD8; line-height: 0;
+  position: absolute; top: 24px; left: 20px;
+  font-family: Georgia, serif;
+}
+.profile-text { padding-top: 1rem; }
+.profile-text .section-sub { margin-bottom: 0; }
+
+/* — CTA — */
+.cta-section {
+  padding: 6rem 2rem; text-align: center;
+  background: var(--green);
+}
+.cta-title {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(2rem, 4.5vw, 3.5rem);
+  font-weight: 700; color: #fff; line-height: 1.1;
+  margin-bottom: 1rem;
+}
+.cta-title em { font-style: italic; color: #A5D6A7; }
+.cta-sub { font-size: 1rem; color: rgba(255,255,255,0.75); margin-bottom: 2.5rem; font-weight: 300; }
+.cta-form { display: flex; gap: 8px; max-width: 400px; margin: 0 auto; }
+.cta-input {
+  flex: 1; background: rgba(255,255,255,0.15);
+  border: 1.5px solid rgba(255,255,255,0.35);
+  border-radius: 999px; padding: 0.75rem 1.2rem;
+  font-family: 'DM Sans', sans-serif; font-size: 0.9rem;
+  color: #fff; outline: none; transition: all 0.2s;
+}
+.cta-input::placeholder { color: rgba(255,255,255,0.5); }
+.cta-input:focus { border-color: rgba(255,255,255,0.7); }
+.btn-white {
+  background: #fff; color: var(--green);
+  border: none; padding: 0.75rem 1.4rem;
+  border-radius: 999px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.875rem; font-weight: 500;
+  cursor: pointer; white-space: nowrap; transition: all 0.2s;
+}
+.btn-white:hover { background: #F1FBF1; }
+.cta-note { font-size: 0.75rem; color: rgba(255,255,255,0.5); margin-top: 0.75rem; }
+
+/* — FOOTER — */
+footer {
+  border-top: 1px solid var(--border);
+  padding: 2.5rem 2.5rem;
+  display: flex; align-items: center; justify-content: space-between;
+  max-width: 1100px; margin: 0 auto;
+}
+.footer-logo {
+  font-family: 'Playfair Display', serif;
+  font-style: italic; font-size: 1.25rem; font-weight: 400;
+  color: var(--green); letter-spacing: -0.02em;
+}
+.footer-links { display: flex; gap: 1.5rem; }
+.footer-link { font-size: 0.8rem; color: var(--text-muted); text-decoration: none; transition: color 0.2s; }
+.footer-link:hover { color: var(--text); }
+.footer-copy { font-size: 0.75rem; color: var(--text-muted); }
+
+/* — ANIMATIONS — */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.reveal { opacity: 0; transform: translateY(20px); transition: opacity 0.65s ease, transform 0.65s ease; }
+.reveal.visible { opacity: 1; transform: translateY(0); }
+
+/* — RESPONSIVE — */
+@media (max-width: 900px) {
+  .hero { grid-template-columns: 1fr; padding: 7rem 2rem 3rem; text-align: center; gap: 3rem; }
+  .hero-sub { margin: 0 auto 2.5rem; }
+  .hero-form { margin: 0 auto; }
+  .hero-note { text-align: center; }
+  .hero-right { justify-content: center; }
+  .phone-stack { width: 240px; height: 460px; }
+  .phone-back { left: -42px; top: 22px; width: 210px; }
+  .phone-front { right: -10px; width: 224px; }
+  .features-grid { grid-template-columns: 1fr 1fr; }
+  .steps { grid-template-columns: 1fr; gap: 1rem; }
+  .screens-row { gap: 0.75rem; }
+  .screen-item { width: 148px; }
+  .profile-inner { grid-template-columns: 1fr; gap: 2rem; }
+  footer { flex-direction: column; gap: 1rem; text-align: center; }
+  .footer-links { justify-content: center; }
+}
+@media (max-width: 560px) {
+  .features-grid { grid-template-columns: 1fr; }
+  nav { padding: 1rem 1.25rem; }
+  .nav-link { display: none; }
+  .screen-item { width: 120px; border-radius: 20px; }
+  .stats-inner { grid-template-columns: 1fr; gap: 1.5rem; }
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">mori</div>
+  <div class="nav-right">
+    <a href="#features" class="nav-link">Features</a>
+    <a href="#screens" class="nav-link">App</a>
+    <a href="#waitlist" class="btn-primary">Join waitlist</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-left">
+    <div class="launch-badge">
+      <div class="app-icon app-icon-sm">
+        <img src="mori_icon.png" width="40" height="40" alt="Mori" style="border-radius:10px;">
+      </div>
+      <span>Launching on iOS &middot; Summer 2026</span>
+    </div>
+    <h1 class="hero-title">
+      The recipe app<br>that <em>learns</em><br>your taste
+    </h1>
+    <p class="hero-tagline">Swipe. Cook. Order.</p>
+    <p class="hero-sub">
+      Swipe through recipes personalised to you, save the ones you love, and order every ingredient through Instacart in one tap. No more &ldquo;what should I make tonight?&rdquo;
+    </p>
+    <form class="hero-form" id="hero-form" onsubmit="handleSubmit(event,'hero')">
+      <input type="email" class="hero-input" placeholder="your@email.com" required>
+      <button type="submit" class="btn-primary">Join waitlist</button>
+    </form>
+    <p class="hero-note" id="hero-msg"></p>
+  </div>
+  <div class="hero-right">
+    <div class="phone-stack">
+      <div class="phone-back">
+        <img src="screen5.png" alt="Mori swipe mechanic">
+      </div>
+      <div class="phone-front">
+        <img src="screen1.png" alt="Mori discover screen">
+      </div>
+      <div style="position:absolute;bottom:-16px;right:8px;display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #E0E0E0;border-radius:16px;padding:10px 16px 10px 10px;box-shadow:0 8px 24px rgba(0,0,0,0.1);">
+        <div class="app-icon" style="width:48px;height:48px;border-radius:12px;">
+          <img src="mori_icon.png" width="48" height="48" alt="Mori" style="border-radius:12px;display:block;">
+        </div>
+        <div>
+          <div style="font-size:0.8rem;font-weight:500;color:#1A1A1A;font-family:'DM Sans',sans-serif;">Mori</div>
+          <div style="font-size:0.7rem;color:#888;font-family:'DM Sans',sans-serif;">Recipe discovery</div>
+        </div>
+        <div style="margin-left:8px;background:#2E7D32;color:#fff;font-size:0.65rem;font-weight:600;padding:4px 10px;border-radius:999px;font-family:'DM Sans',sans-serif;">GET</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- STATS -->
+<div class="stats-bar reveal">
+  <div class="stats-inner">
+    <div>
+      <div class="stat-num">1,600+</div>
+      <div class="stat-label">Curated recipes at launch</div>
+    </div>
+    <div>
+      <div class="stat-num">1 tap</div>
+      <div class="stat-label">From grocery list to Instacart</div>
+    </div>
+    <div>
+      <div class="stat-num">Day 1</div>
+      <div class="stat-label">Personal from your first swipe</div>
+    </div>
+  </div>
+</div>
+
+<!-- FEATURES -->
+<section class="features" id="features">
+  <div class="reveal">
+    <div style="display:flex;align-items:center;gap:16px;margin-bottom:1rem;">
+      <img src="mori_icon.png" width="48" height="48" alt="Mori" style="border-radius:12px;flex-shrink:0;box-shadow:0 2px 6px rgba(46,84,56,0.08);">
+      <span class="section-eyebrow" style="margin-bottom:0;">Why Mori</span>
+    </div>
+    <h2 class="section-title">Everything in<br><em>its place</em></h2>
+    <p class="section-sub">From first swipe to groceries ordered &mdash; Mori handles the whole thing.</p>
+  </div>
+  <div class="features-grid reveal">
+    <div class="feature-card">
+      <div class="feature-icon">✦</div>
+      <h3 class="feature-title">Personal from day one</h3>
+      <p class="feature-desc">Tell it your cuisines, dietary goals, and pantry. Your first deck feels like it was made for you &mdash; because it was.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">↕</div>
+      <h3 class="feature-title">Swipe to discover</h3>
+      <p class="feature-desc">Swipe right to save, left to pass. Mori learns from every interaction and gets sharper every session.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">◎</div>
+      <h3 class="feature-title">Macros that make sense</h3>
+      <p class="feature-desc">High protein? You see protein. Keto? You see net carbs. The right number, for your goal, every time.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">⊕</div>
+      <h3 class="feature-title">One-tap grocery list</h3>
+      <p class="feature-desc">Select your meals and Mori builds a deduplicated, category-sorted grocery list. Order through Instacart in one tap.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">▦</div>
+      <h3 class="feature-title">Meal Prep Mode</h3>
+      <p class="feature-desc">Plan your whole week. Swipe recipes into day and meal slots, set serving sizes, and get one consolidated grocery list.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">◈</div>
+      <h3 class="feature-title">Your taste profile</h3>
+      <p class="feature-desc">Mori reads your swipe history and tells you who you are in the kitchen. Updated every session.</p>
+    </div>
+  </div>
+</section>
+
+<!-- SCREENS -->
+<section class="showcase" id="screens">
+  <div class="showcase-inner">
+    <div class="reveal" style="text-align:center;margin-bottom:2.5rem;">
+      <span class="section-eyebrow">The app</span>
+      <h2 class="section-title" style="text-align:center;">Built for <em>real cooks</em></h2>
+      <p class="section-sub" style="margin:0 auto;">Every screen designed around the moment you&rsquo;re actually in.</p>
+    </div>
+    <div class="screens-row reveal">
+      <div>
+        <div class="screen-item offset-down">
+          <img src="screen2.png" alt="Recipe library">
+        </div>
+        <p class="screen-caption">Recipe library</p>
+      </div>
+      <div>
+        <div class="screen-item">
+          <img src="screen1.png" alt="Discover">
+        </div>
+        <p class="screen-caption">Discover</p>
+      </div>
+      <div>
+        <div class="screen-item offset-down">
+          <img src="screen3.png" alt="Grocery list">
+        </div>
+        <p class="screen-caption">Grocery list</p>
+      </div>
+      <div>
+        <div class="screen-item">
+          <img src="screen6.png" alt="Meal Prep">
+        </div>
+        <p class="screen-caption">Meal Prep mode</p>
+      </div>
+      <div>
+        <div class="screen-item offset-down">
+          <img src="screen4.png" alt="Taste profile">
+        </div>
+        <p class="screen-caption">Taste profile</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TASTE PROFILE HIGHLIGHT -->
+<section class="profile-section">
+  <div class="profile-inner reveal">
+    <div class="profile-text">
+      <span class="section-eyebrow">Your taste profile</span>
+      <h2 class="section-title">The app that<br><em>knows you</em></h2>
+      <p class="section-sub">After a few swipes, Mori reads your patterns and tells you exactly who you are in the kitchen &mdash; updated every session, getting sharper every time.</p>
+    </div>
+    <div class="profile-quote">
+      <div class="profile-quote-mark">&ldquo;</div>
+      <p style="position:relative;z-index:1;padding-top:0.5rem;">You&rsquo;re a confident cook who loves bold, savory flavors across global cuisines &mdash; from Asian umami to Mediterranean warmth. You gravitate toward protein-forward dishes that feel both satisfying and elegant.</p>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="how">
+  <div class="reveal" style="text-align:center;">
+    <span class="section-eyebrow">How it works</span>
+    <h2 class="section-title" style="text-align:center;">Three steps to<br><em>dinner sorted</em></h2>
+  </div>
+  <div class="steps reveal">
+    <div class="step">
+      <div class="step-num">1</div>
+      <h3 class="step-title">Swipe your taste</h3>
+      <p class="step-desc">Swipe through recipes personalised to your cuisines, dietary goals, and what&rsquo;s already in your kitchen.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <h3 class="step-title">Build your list</h3>
+      <p class="step-desc">Select the meals you want. Mori consolidates every ingredient, removes what you already have, and groups by category.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <h3 class="step-title">Order in one tap</h3>
+      <p class="step-desc">Send your list to Instacart with one tap. Ingredients delivered in as fast as an hour. You just cook.</p>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta-section" id="waitlist">
+  <h2 class="cta-title">Ready to cook<br><em>differently?</em></h2>
+  <p class="cta-sub">Join the waitlist &mdash; launching Q3 2026 on iOS.</p>
+  <form class="cta-form" id="cta-form" onsubmit="handleSubmit(event,'cta')">
+    <input type="email" class="cta-input" placeholder="your@email.com" required>
+    <button type="submit" class="btn-white">Join waitlist</button>
+  </form>
+  <p class="cta-note" id="cta-msg" style="margin-top:0.75rem;"></p>
+</section>
+
+<!-- FOOTER -->
+<div style="border-top:1px solid var(--border);">
+  <footer>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <img src="mori_icon.png" width="32" height="32" alt="Mori" style="border-radius:8px;">
+      <div class="footer-logo">mori</div>
+    </div>
+    <div class="footer-links">
+      <a href="/privacy" class="footer-link">Privacy Policy</a>
+      <a href="mailto:hello@getmori.app" class="footer-link">Contact</a>
+    </div>
+    <p class="footer-copy">&copy; 2026 Mori. The name means gathering.</p>
+  </footer>
+</div>
+
+<script>
+function handleSubmit(e, id) {
+  e.preventDefault();
+  const form = document.getElementById(id + '-form');
+  const input = form.querySelector('input[type="email"]');
+  const msg = document.getElementById(id + '-msg');
+  const emails = JSON.parse(localStorage.getItem('mori_waitlist') || '[]');
+  if (!emails.includes(input.value)) emails.push(input.value);
+  localStorage.setItem('mori_waitlist', JSON.stringify(emails));
+  input.value = '';
+  msg.style.color = id === 'cta' ? 'rgba(255,255,255,0.8)' : '#2E7D32';
+  msg.textContent = "You're on the list — we'll be in touch before launch.";
+  setTimeout(() => { msg.textContent = ''; }, 5000);
+}
+
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); observer.unobserve(e.target); } });
+}, { threshold: 0.1 });
+document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+document.querySelectorAll('a[href^="#"]').forEach(a => {
+  a.addEventListener('click', e => {
+    e.preventDefault();
+    const t = document.querySelector(a.getAttribute('href'));
+    if (t) t.scrollIntoView({ behavior: 'smooth' });
+  });
+});
+</script>
+</body>
+</html>
