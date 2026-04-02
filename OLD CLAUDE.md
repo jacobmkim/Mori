@@ -22,7 +22,7 @@ No competitor has a swipe-based discovery mechanic. Samsung Food (most formidabl
 
 ## 2. Current Build State
 
-> **Read this section first every session.** Phases 1, 2, 2.5, 2.6, 2.7, and most of Phase 3 are complete. TestFlight internal build live, external testing submitted for Beta App Review. Remaining Phase 3 items: Add Recipe wizard, profile dark mode, fish exclusion, data scripts, MoriLogo.tsx spatula update. Full spec in Section 18.
+> **Read this section first every session.** Phases 1, 2, 2.5, 2.6, 2.7, and most of Phase 3 are complete. Remaining Phase 3 items: Add Recipe wizard, TestFlight prep. Full spec in Section 18.
 
 ### ✅ Built and Working
 
@@ -189,15 +189,12 @@ No competitor has a swipe-based discovery mechanic. Samsung Food (most formidabl
 | ✅ | Recipe Detail redesign — full-screen scrollable, step cards, sticky footer, My Notes tab | Phase 3 |
 | ✅ | Cooking Mode — full-screen dark, step-by-step, per-step timer | Phase 3 |
 | ✅ | My Notes — recipe_notes table, free text, substitutions, tags, make-again, rating | Phase 3 |
-| ✅ | install expo-keep-awake and wire up `useKeepAwake()` in CookingMode | Phase 3 |
-| ✅ | App icon — italic m + spatula, linen background, built in Canva, 1024×1024 PNG | Phase 3 |
 | 1 | Add Recipe wizard — 4-step: basics → ingredients (autocomplete) → steps (timer hints) → review | Phase 3 |
-| 2 | Update `MoriLogo.tsx` — replace circle dot with spatula SVG to match icon | Phase 3 |
-| 3 | Update landing page `index.html` — replace circle dot in all inline SVGs with spatula | Phase 3 |
-| 4 | Clean generated recipes — run `clean-recipes.mjs` dedup before TestFlight | Phase 3 |
-| 5 | Strip prep instructions from ingredient fields — run `clean-ingredient-units.mjs` | Phase 3 |
-| 6 | Fix profile page dark mode — white card backgrounds → `colors.card` | Phase 3 |
-| 7 | Steamed/delicate fish hard-exclude from meal prep deck | Phase 3 |
+| 2 | install expo-keep-awake and wire up `useKeepAwake()` in CookingMode | Phase 3 |
+| 3 | Clean generated recipes — run `clean-recipes.mjs` dedup before TestFlight | Phase 3 |
+| 4 | Strip prep instructions from ingredient fields — run `clean-ingredient-units.mjs` | Phase 3 |
+| 5 | Fix profile page dark mode — white card backgrounds → `colors.card` | Phase 3 |
+| 6 | Steamed/delicate fish hard-exclude from meal prep deck | Phase 3 |
 | 13 | Walmart Recipes & Bundle API cart integration | Phase 4 |
 | 14 | Kroger API cart integration | Phase 4 |
 | 15 | Instacart Developer Platform cart integration | Phase 4 |
@@ -210,15 +207,11 @@ No competitor has a swipe-based discovery mechanic. Samsung Food (most formidabl
 | 22 | Grocery add scepticism scoring | Post-launch |
 
 ### ⚠️ Pre-Launch Required (Admin Tasks)
-- **Apple Developer account** ✅ — enrolled. Bundle ID: `app.getmori.mori` (com.mori.app was taken globally).
-- **Apple AI transparency disclosure** — required before App Store submission and external TestFlight. Not required for internal TestFlight.
-- **TestFlight internal testing** ✅ — build live, no crashes. External testing submitted for Beta App Review (1-2 day wait).
-- **External TestFlight public link** — `https://testflight.apple.com/join/5bpunX4k` — active once Beta App Review approves.
+- **Apple Developer account** ($99/year) — apply now, 24-48hrs to process. Required before any App Store or TestFlight submission.
+- **Apple AI transparency disclosure** — Apple requires explicit disclosure that user data is sent to Claude (Anthropic) for taste profile generation and macro estimation. Must be in privacy policy and surfaced in-app before submission.
+- **TestFlight internal testing** — test on real devices before any external beta. No placeholder content, no crashes.
 - **OpenAI API key** ✅ — `OPENAI_API_KEY` in .env, used by `generate-images.mjs` for gpt-image-1 food photography. All 622 images generated.
 - **`getmori.app`** ✅ — domain registered. Landing page, App Store support URL (`https://getmori.app/support`), privacy policy (`https://getmori.app/privacy`).
-- **Privacy policy** ✅ — published at `getmori.app/privacy`. Discloses: data collected, Claude/Anthropic AI usage, Instacart + Kroger (coming soon), no ads. Apple App Store privacy summary included.
-- **EAS environment variables** ✅ — `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`, `EXPO_PUBLIC_API_URL` added to EAS production environment.
-- **App icon** ✅ — italic `m` + spatula top-right, linen background `#F8F3EC`, moss green `#2E5438`. Built in Canva, 1024×1024 PNG. Stored at `assets/mori_icon` (app) and `mori_icon` (landing page).
 
 ---
 
@@ -369,15 +362,15 @@ mori/
 - Typeface: Georgia, serif — italic, weight 400
 - Letterforms: lowercase `mori` in italic serif
 - Letter spacing: −1 to −1.5 (tight, editorial)
-- Accent: spatula icon to the left of the wordmark — matches primary green of the current theme. Do NOT use a circle dot.
-- In-app nav: spatula + wordmark, no tagline, left-aligned top of Discover screen
-- Component: `components/ui/MoriLogo.tsx` — needs updating to replace circle dot with spatula SVG
+- Accent: single dot above the `i` — matches primary green of the current theme
+- In-app nav: wordmark only, no tagline, left-aligned top of Discover screen
+- Component: `components/ui/MoriLogo.tsx`
 
 ```
-Spontaneous Light:  text #2E7D32,  spatula #2E7D32
-Spontaneous Dark:   text #F0EDE6,  spatula #4CAF50
-Meal Prep Light:    text #2E5438,  spatula #2E5438
-Meal Prep Dark:     text #F0EDE6,  spatula #4CAF50
+Spontaneous Light:  text #2E7D32,  dot #2E7D32
+Spontaneous Dark:   text #F0EDE6,  dot #4CAF50
+Meal Prep Light:    text #2E5438,  dot #2E5438
+Meal Prep Dark:     text #F0EDE6,  dot #4CAF50
 ```
 
 #### App Icon — Linen Light (single version, all contexts)
@@ -385,11 +378,10 @@ The icon never changes between themes — always linen light. Consistent home sc
 
 - Background: `#F8F3EC` (warm linen)
 - Letter: italic Georgia lowercase `m`, fill `#2E5438` (deep moss)
-- Spatula: positioned top-right, head facing up, handle pointing down toward the `m`. Fill `#2E5438`. Do NOT use a circle dot — the spatula is the accent across all surfaces.
+- Dot: circle, fill `#2E5438`, positioned top-right above the `m`
 - Border: `0.5px solid #E0D4C4` — subtle warm edge, prevents blending into light wallpapers
 - Exception: in Meal Prep Light mode header, add `1.5px solid #2E5438` border so icon remains visible against linen background
 - Corner radius: iOS squircle — use Xcode automatic rounding, do not manually round in asset
-- Source files: `assets/mori_icon` (app), `mori_icon` (landing page) ✅ — 1024×1024 PNG, built in Canva. Final version approved.
 
 #### Typography — Direction A (locked)
 Recipe titles and headings use italic serif. Body, metadata, and UI elements use system sans-serif. Matches the editorial quality of the wordmark. Differentiates every recipe card from every competitor.
@@ -953,34 +945,29 @@ gpt-image-1 image generation replacing Unsplash. All 622 generated recipes have 
 - [x] Register `getmori.app` domain ✅
 - [x] Deploy landing page to `getmori.app` via Vercel ✅ — hero: "Mori. Swipe. Cook. Order."
 - [x] Email routing: hello@getmori.app → personal email via Cloudflare ✅
-- [x] Apple Developer Program ✅ — enrolled. Bundle ID: `app.getmori.mori` (com.mori.app was taken globally)
-- [x] Write privacy policy and publish at `getmori.app/privacy` ✅ — discloses data collected, Claude/Anthropic AI, Instacart + Kroger, no ads, Apple App Store privacy summary
-- [ ] Apple AI transparency disclosure — add in-app consent for Claude usage — required before external TestFlight / App Store, not internal
+- [ ] Apple Developer Program — set up App Store Connect listing (app name: Mori, bundle ID: com.mori.app)
+- [ ] Write privacy policy and publish at `getmori.app/privacy` — must disclose: data collected, Claude/Anthropic AI usage, Instacart integration, no ads
+- [ ] Apple AI transparency disclosure — add in-app consent for Claude usage (taste profile generation, macro estimation)
 
 #### 3b — UX Overhaul (full spec in Section 18)
 - [x] Navigation: AvatarButton replaces Profile tab, appears top-right on all screens ✅
-- [x] **Explore tab** (`app/(tabs)/explore.tsx`) ✅
-- [x] **Recipes tab redesign** (`app/(tabs)/recipes.tsx`) ✅
-- [x] **Recipe Detail redesign** ✅
-- [x] **Cooking Mode** (`components/CookingMode.tsx`) ✅
-- [x] **My Notes tab** ✅
-- [x] **expo-keep-awake** ✅ — installed, `useKeepAwake()` wired in CookingMode.tsx
-- [x] **App icon** ✅ — italic `m` + spatula, linen background, 1024×1024 PNG at `assets/mori_icon`
+- [x] **Explore tab** (`app/(tabs)/explore.tsx`) ✅ — Cook Again, Trending, Just Added, Browse by Cuisine, Under 30 min, High Protein; filter chips; Zustand infinite-loop fix
+- [x] **Recipes tab redesign** (`app/(tabs)/recipes.tsx`) ✅ — Saved/Cooked/Mine/Meal Prep sub-tabs; filter icon button; "+ My Recipe" button; Plan tab filter chips
+- [x] **Recipe Detail redesign** ✅ — full-screen modal, scrollable header, sticky tab bar, step cards (title+detail+timer), My Notes tab, sticky footer, CookingMode launch
+- [x] **Cooking Mode** (`components/CookingMode.tsx`) ✅ — full-screen dark, per-step timer, HighlightedText, step dots, All Steps list
+- [x] **My Notes tab** ✅ — `recipe_notes` table + full implementation (empty/filled/editing states, tags, make-again, rating)
 - [ ] **Add Recipe wizard** (`app/add-recipe/`) — 4-step wizard. Full spec in Section 18.7.
-- [ ] **Update `MoriLogo.tsx`** — replace circle dot with spatula SVG to match icon
-- [ ] **Update landing page** — replace circle dot in all inline SVGs with spatula
+- [ ] install expo-keep-awake and wire `useKeepAwake()` in CookingMode.tsx
 
 #### 3c — TestFlight
-- [x] EAS configured — `eas.json`, bundle ID `app.getmori.mori`, EXPO_PUBLIC_ env vars in EAS production ✅
-- [x] Internal TestFlight build live ✅ — no crashes, all screens working
-- [x] External TestFlight submitted for Beta App Review ✅ — public link `https://testflight.apple.com/join/5bpunX4k` (active once approved)
-- [ ] Beta App Review approval (1-2 days)
 - [ ] Run `clean-recipes.mjs` — dedup and validate all generated recipes
 - [ ] Fix profile page dark mode (white card backgrounds → `colors.card`)
 - [ ] Steamed/delicate fish hard-exclude from meal prep deck
 - [ ] Strip prep instructions from ingredient unit fields (`clean-ingredient-units.mjs`)
-- [ ] Test every flow end to end on real device
-- [ ] Fix any crashes or blank screens
+- [ ] No crashes on iPhone 12 (oldest commonly tested device)
+- [ ] All screens show real data — no placeholder content
+- [ ] Internal TestFlight build — test every flow end to end on real device
+- [ ] Fix any crashes or blank screens found in TestFlight
 
 ---
 
@@ -1477,4 +1464,4 @@ These rules override any existing spacing in the codebase. When in doubt, use MO
 - **Bottom sheets:** always have 20pt bottom padding below the last interactive element to clear the safe area. Never let buttons sit behind the home indicator.
 - **Button heights:** primary CTAs 52pt. Secondary buttons 44pt. Never under 36pt for any button.
 
-*Mori CLAUDE.md — v6.1 — TestFlight live (internal + external submitted). Spatula icon standardised. Phase 3 = UX overhaul + TestFlight. Phase 4 = Grocery APIs. Phase 5 = Community. Phase 6 = Social. Section 18 is the full Phase 3 build spec.
+*Mori CLAUDE.md — v5.9 — Phase restructure complete. Phase 3 = UX overhaul + TestFlight. Phase 4 = Grocery APIs. Phase 5 = Community. Phase 6 = Social. Section 18 is the full Phase 3 build spec.
