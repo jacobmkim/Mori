@@ -80,6 +80,8 @@ function RecipeSwipeCard({
 
   const isTopRef = useRef(isTop);
   isTopRef.current = isTop;
+
+
   const onSwipeRef = useRef(onSwipe);
   onSwipeRef.current = onSwipe;
   const onTapRef = useRef(onTap);
@@ -266,10 +268,21 @@ function RecipeSwipeCard({
         {/* Headline macro pill — only shown when macros + matching dietary goal exist */}
         <HeadlineMacroPill macros={macros ?? recipe.macros} dietaryGoals={dietaryGoals ?? []} />
 
-        {/* Ingredient pills — wrapped grid */}
-        {isTop && detail?.ingredients && detail.ingredients.length > 0 && (
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-            {detail.ingredients.slice(0, 8).map((ing, i) => (
+        {/* Ingredient pills — fade in as top card is dragged away */}
+        {detail?.ingredients && detail.ingredients.length > 0 && (
+          <Animated.View style={{
+            flexDirection: 'row', flexWrap: 'wrap', gap: 6, overflow: 'hidden', maxHeight: 64,
+            opacity: isTop
+              ? 1
+              : topDragX
+                ? topDragX.interpolate({
+                    inputRange: [-40, -10, 0, 10, 40],
+                    outputRange: [1, 1, 0, 1, 1],
+                    extrapolate: 'clamp',
+                  })
+                : 0,
+          }}>
+            {detail.ingredients.slice(0, 5).map((ing, i) => (
               <View
                 key={i}
                 style={{
@@ -282,7 +295,7 @@ function RecipeSwipeCard({
                 <Text style={{ color: colors.primary, fontSize: 12, fontWeight: '500' }}>{ing.name}</Text>
               </View>
             ))}
-          </View>
+          </Animated.View>
         )}
       </View>
     </Animated.View>
@@ -351,7 +364,20 @@ export default function Discover() {
     })
   ).current;
 
-  // Next card (stackIndex=1) scales up and slides up as you drag
+  // Button flash colors driven by topDragX
+  const heartFlash = useRef(topDragX.interpolate({
+    inputRange: [0, SWIPE_THRESHOLD, SCREEN_WIDTH],
+    outputRange: [colors.card, colors.swipeRight, colors.swipeRight],
+    extrapolate: 'clamp',
+  })).current;
+
+  const xFlash = useRef(topDragX.interpolate({
+    inputRange: [-SCREEN_WIDTH, -SWIPE_THRESHOLD, 0],
+    outputRange: [colors.error, colors.error, colors.card],
+    extrapolate: 'clamp',
+  })).current;
+
+  // Next card (stackIndex=1) scales up, slides up, and fades in as you drag
   const nextCardScale = useRef(
     swipeProgress.interpolate({
       inputRange: [0, 1],
@@ -365,6 +391,7 @@ export default function Discover() {
       outputRange: [8, 0],
     })
   ).current;
+
 
   // Load persisted mode and meal plan on mount
   useEffect(() => {
@@ -527,6 +554,8 @@ export default function Discover() {
   function handleSwipe(direction: 'left' | 'right', releaseX = 0, releaseY = 0) {
     const recipe = recipes[currentIndexRef.current];
     if (!recipe) return;
+    // Ensure topDragX is at the swipe direction value so button flash fires on button-tap swipes too
+    topDragX.setValue(direction === 'right' ? SCREEN_WIDTH : -SCREEN_WIDTH);
     if (direction === 'right') addRecipe(recipe, userId);
     setLastSwipe({ recipe, direction });
     logSwipeBackground(recipe, direction, mode as AppMode);
@@ -541,8 +570,9 @@ export default function Discover() {
     // overlay (above) handles the visual fly-off on a separate ValueXY.
     setCurrentIndex((prev) => prev + 1);
 
-    // Spring topDragX back so the background card settles smoothly (no pop).
-    Animated.spring(topDragX, { toValue: 0, friction: 6, tension: 40, useNativeDriver: true }).start();
+    // Quick linear reset — fast enough that pill flash is imperceptible,
+    // slow enough that the new second card settles without snapping.
+    Animated.timing(topDragX, { toValue: 0, duration: 80, useNativeDriver: true }).start();
 
     // Fly exit overlay off screen.
     Animated.spring(exitPos, {
@@ -768,6 +798,7 @@ export default function Discover() {
                       onSwipe={() => {}}
                       isTop={false}
                       detail={cardDetail}
+                      topDragX={topDragX}
                       dietaryGoals={dietaryGoals}
                       macros={nextMacros}
                     />
@@ -853,18 +884,19 @@ export default function Discover() {
       {!isLoading && !isEmpty && (
         <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 16, paddingBottom: 16 }}>
           {/* Pass */}
-          <Pressable
-            onPress={() => handleButtonSwipe('left')}
-            style={{
-              width: 60, height: 60, borderRadius: 30,
-              backgroundColor: colors.card, borderWidth: 1.5, borderColor: colors.error,
-              alignItems: 'center', justifyContent: 'center',
-              shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.08, shadowRadius: 4, elevation: 3,
-            }}
-          >
-            <Ionicons name="close" size={28} color={colors.error} />
-          </Pressable>
+          <Animated.View style={{
+            width: 60, height: 60, borderRadius: 30,
+            backgroundColor: xFlash, borderWidth: 1.5, borderColor: colors.error,
+            shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.08, shadowRadius: 4, elevation: 3,
+          }}>
+            <Pressable
+              onPress={() => handleButtonSwipe('left')}
+              style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+            >
+              <Ionicons name="close" size={28} color={colors.error} />
+            </Pressable>
+          </Animated.View>
 
           {/* Undo */}
           <Pressable
@@ -928,18 +960,19 @@ export default function Discover() {
           </Pressable>
 
           {/* Save */}
-          <Pressable
-            onPress={() => handleButtonSwipe('right')}
-            style={{
-              width: 60, height: 60, borderRadius: 30,
-              backgroundColor: colors.card, borderWidth: 1.5, borderColor: colors.primary,
-              alignItems: 'center', justifyContent: 'center',
-              shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.08, shadowRadius: 4, elevation: 3,
-            }}
-          >
-            <Ionicons name="heart" size={26} color={colors.primary} />
-          </Pressable>
+          <Animated.View style={{
+            width: 60, height: 60, borderRadius: 30,
+            backgroundColor: heartFlash, borderWidth: 1.5, borderColor: colors.primary,
+            shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.08, shadowRadius: 4, elevation: 3,
+          }}>
+            <Pressable
+              onPress={() => handleButtonSwipe('right')}
+              style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+            >
+              <Ionicons name="heart" size={26} color={colors.primary} />
+            </Pressable>
+          </Animated.View>
         </View>
       )}
 

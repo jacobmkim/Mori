@@ -249,9 +249,9 @@ export function RecipeDetailModal({
   const steps = (recipe.steps ?? []).slice().sort((a, b) => a.order - b.order);
 
   const TABS = [
-    { key: 'ingredients', label: `Ingredients (${ingredients.length})` },
+    { key: 'ingredients', label: 'Ingredients' },
     { key: 'steps', label: 'Steps' },
-    { key: 'notes', label: 'My Notes' },
+    { key: 'notes', label: 'Notes' },
   ] as const;
 
   return (
@@ -338,28 +338,26 @@ export function RecipeDetailModal({
           </View>{/* end scrollable header */}
 
           {/* 1: Tab bar — sticky */}
-          <View style={{
-            flexDirection: 'row', borderBottomWidth: 0.5, borderBottomColor: colors.border,
-            backgroundColor: colors.background,
-          }}>
-            {TABS.map((tab) => {
-              const active = activeTab === tab.key;
-              return (
-                <Pressable
-                  key={tab.key}
-                  onPress={() => setActiveTab(tab.key as any)}
-                  style={{
-                    flex: 1, alignItems: 'center', paddingVertical: 12,
-                    borderBottomWidth: active ? 2 : 0,
-                    borderBottomColor: active ? colors.primary : 'transparent',
-                  }}
-                >
-                  <Text style={{ fontSize: 13, fontWeight: active ? '600' : '400', color: active ? colors.primary : colors.textMuted }}>
-                    {tab.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
+          <View style={{ backgroundColor: colors.background, paddingHorizontal: 16, paddingVertical: 10 }}>
+            <View style={{ flexDirection: 'row', backgroundColor: colors.card, borderRadius: 10, padding: 3 }}>
+              {TABS.map((tab) => {
+                const active = activeTab === tab.key;
+                return (
+                  <Pressable
+                    key={tab.key}
+                    onPress={() => setActiveTab(tab.key as any)}
+                    style={{
+                      flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 8,
+                      backgroundColor: active ? colors.primary : 'transparent',
+                    }}
+                  >
+                    <Text style={{ fontSize: 13, fontWeight: active ? '600' : '400', color: active ? '#FFFFFF' : colors.textMuted }}>
+                      {tab.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
           </View>
 
           {/* 2: Tab content */}

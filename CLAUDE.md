@@ -49,11 +49,12 @@ Mori is a swipe-based recipe discovery app. Users swipe on recipe cards → save
 | 6 | Fix profile page dark mode — white card backgrounds → `colors.card` |
 | 7 | Steamed/delicate fish hard-exclude from meal prep deck |
 | 8 | Apple AI transparency in-app consent (required before App Store, not internal TF) |
+| 9 | App tutorial for new users. Show user key features.
 
 ### ❌ Phase 4 — Grocery APIs
-- Walmart Recipes & Bundle API (`walmart.io`)
-- Kroger API (`developer.kroger.com`) — 1–2 week approval
+- Kroger API (`developer.kroger.com`) — Done. Ask user for key.
 - Instacart Developer Platform — applied, waiting
+- User ability to add photos for ALL recipes. User created or current Mori recipes.
 - Grocery ordering bottom sheet in `grocery-list.tsx`
 - Vercel functions: `/api/walmart-cart`, `/api/kroger-cart`, `/api/instacart-cart`
 - Affiliate tracking via Impact
