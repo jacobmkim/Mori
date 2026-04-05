@@ -654,7 +654,7 @@ function NotesEmpty({ userRating, onRate, onAdd }: { userRating: number; onRate:
   const colors = useTheme();
   return (
     <View style={{ padding: 4, gap: 16 }}>
-      <View style={{ backgroundColor: '#FFFDE7', borderRadius: 14, borderWidth: 1, borderColor: '#FDD835', padding: 20, alignItems: 'center', gap: 8 }}>
+      <View style={{ backgroundColor: colors.card, borderRadius: 14, borderWidth: 1, borderColor: colors.border, padding: 20, alignItems: 'center', gap: 8 }}>
         <Text style={{ fontSize: 24 }}>✏️</Text>
         <Text style={{ fontSize: 15, fontWeight: '700', color: colors.text, textAlign: 'center' }}>Your personal notes on this recipe</Text>
         <Text style={{ fontSize: 12, color: colors.textMuted, textAlign: 'center', lineHeight: 19 }}>Tweaks, substitutions, what to do differently next time.</Text>
@@ -664,7 +664,7 @@ function NotesEmpty({ userRating, onRate, onAdd }: { userRating: number; onRate:
         <View style={{ flexDirection: 'row', gap: 8 }}>
           {[1, 2, 3, 4, 5].map((star) => (
             <Pressable key={star} onPress={() => onRate(star)} hitSlop={4}>
-              <Ionicons name={star <= userRating ? 'star' : 'star-outline'} size={28} color={star <= userRating ? '#FFC107' : '#DDDDDD'} />
+              <Ionicons name={star <= userRating ? 'star' : 'star-outline'} size={28} color={star <= userRating ? '#FFC107' : colors.border} />
             </Pressable>
           ))}
         </View>
@@ -688,7 +688,7 @@ function NotesFilled({ noteText, noteSubs, noteTags, noteMakeAgain, userRating, 
       <View style={{ flexDirection: 'row', gap: 6 }}>
         {[1, 2, 3, 4, 5].map((star) => (
           <Pressable key={star} onPress={() => onRate(star)} hitSlop={4}>
-            <Ionicons name={star <= userRating ? 'star' : 'star-outline'} size={24} color={star <= userRating ? '#FFC107' : '#DDDDDD'} />
+            <Ionicons name={star <= userRating ? 'star' : 'star-outline'} size={24} color={star <= userRating ? '#FFC107' : colors.border} />
           </Pressable>
         ))}
       </View>
@@ -696,22 +696,22 @@ function NotesFilled({ noteText, noteSubs, noteTags, noteMakeAgain, userRating, 
       {noteTags.length > 0 && (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
           {noteTags.map((tag) => (
-            <View key={tag} style={{ backgroundColor: '#E8F5E9', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 }}>
-              <Text style={{ fontSize: 11, fontWeight: '600', color: '#2E7D32' }}>{tag}</Text>
+            <View key={tag} style={{ backgroundColor: colors.primaryLight, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 }}>
+              <Text style={{ fontSize: 11, fontWeight: '600', color: colors.primary }}>{tag}</Text>
             </View>
           ))}
         </View>
       )}
       {/* Note card */}
       {noteText ? (
-        <View style={{ backgroundColor: '#FFFDE7', borderRadius: 12, borderWidth: 0.5, borderColor: '#F9A825', padding: 14 }}>
+        <View style={{ backgroundColor: colors.card, borderRadius: 12, borderWidth: 0.5, borderColor: colors.border, padding: 14 }}>
           <Text style={{ fontSize: 13, color: colors.text, lineHeight: 21 }}>{noteText}</Text>
         </View>
       ) : null}
       {/* Substitutions */}
       {noteSubs ? (
-        <View style={{ backgroundColor: '#E8F5E9', borderRadius: 12, padding: 12 }}>
-          <Text style={{ fontSize: 10, fontWeight: '700', color: '#2E7D32', marginBottom: 4 }}>SUBSTITUTIONS</Text>
+        <View style={{ backgroundColor: colors.primaryLight, borderRadius: 12, padding: 12 }}>
+          <Text style={{ fontSize: 10, fontWeight: '700', color: colors.primary, marginBottom: 4 }}>SUBSTITUTIONS</Text>
           <Text style={{ fontSize: 12, color: colors.text }}>{noteSubs}</Text>
         </View>
       ) : null}
@@ -751,7 +751,7 @@ function NotesEditor({ noteText, onNoteText, noteSubs, onNoteSubs, noteTags, onN
           value={noteText} onChangeText={onNoteText} multiline
           placeholder="Tweaks, substitutions, what to do differently next time..."
           placeholderTextColor={colors.textMuted}
-          style={{ backgroundColor: '#FFFDE7', borderRadius: 12, borderWidth: 1, borderColor: '#F9A825', padding: 12, fontSize: 13, color: colors.text, minHeight: 90, textAlignVertical: 'top', lineHeight: 21 }}
+          style={{ backgroundColor: colors.card, borderRadius: 12, borderWidth: 1, borderColor: colors.border, padding: 12, fontSize: 13, color: colors.text, minHeight: 90, textAlignVertical: 'top', lineHeight: 21 }}
         />
       </View>
       {/* Substitutions */}
@@ -761,7 +761,7 @@ function NotesEditor({ noteText, onNoteText, noteSubs, onNoteSubs, noteTags, onN
           value={noteSubs} onChangeText={onNoteSubs} multiline
           placeholder="e.g. chicken thighs instead of breast, oat milk instead of cream"
           placeholderTextColor={colors.textMuted}
-          style={{ backgroundColor: '#FFFDE7', borderRadius: 12, borderWidth: 1, borderColor: '#F9A825', padding: 12, fontSize: 13, color: colors.text, minHeight: 60, textAlignVertical: 'top' }}
+          style={{ backgroundColor: colors.card, borderRadius: 12, borderWidth: 1, borderColor: colors.border, padding: 12, fontSize: 13, color: colors.text, minHeight: 60, textAlignVertical: 'top' }}
         />
       </View>
       {/* Tags */}
@@ -771,8 +771,8 @@ function NotesEditor({ noteText, onNoteText, noteSubs, onNoteSubs, noteTags, onN
           {QUICK_TAGS.map((tag) => {
             const on = noteTags.includes(tag);
             return (
-              <Pressable key={tag} onPress={() => toggleTag(tag)} style={{ height: 36, paddingHorizontal: 14, borderRadius: 8, justifyContent: 'center', backgroundColor: on ? '#E8F5E9' : '#F5F5F5', borderWidth: on ? 1 : 0, borderColor: on ? '#2E7D32' : 'transparent' }}>
-                <Text style={{ fontSize: 12, color: on ? '#2E7D32' : '#555', fontWeight: on ? '600' : '400' }}>{on ? `✓ ${tag}` : tag}</Text>
+              <Pressable key={tag} onPress={() => toggleTag(tag)} style={{ height: 36, paddingHorizontal: 14, borderRadius: 8, justifyContent: 'center', backgroundColor: on ? colors.primaryLight : colors.toggleBg, borderWidth: on ? 1 : 0, borderColor: on ? colors.primary : 'transparent' }}>
+                <Text style={{ fontSize: 12, color: on ? colors.primary : colors.textMuted, fontWeight: on ? '600' : '400' }}>{on ? `✓ ${tag}` : tag}</Text>
               </Pressable>
             );
           })}
@@ -785,8 +785,8 @@ function NotesEditor({ noteText, onNoteText, noteSubs, onNoteSubs, noteTags, onN
           {MAKE_AGAIN_OPTIONS.map((opt) => {
             const on = noteMakeAgain === opt.key;
             return (
-              <Pressable key={opt.key} onPress={() => onNoteMakeAgain(on ? null : opt.key)} style={{ height: 44, borderRadius: 10, paddingHorizontal: 16, justifyContent: 'center', backgroundColor: on ? opt.bg : '#F5F5F5' }}>
-                <Text style={{ fontSize: 13, color: on ? opt.text : '#555', fontWeight: on ? '600' : '400' }}>{opt.label}</Text>
+              <Pressable key={opt.key} onPress={() => onNoteMakeAgain(on ? null : opt.key)} style={{ height: 44, borderRadius: 10, paddingHorizontal: 16, justifyContent: 'center', backgroundColor: on ? opt.bg : colors.toggleBg }}>
+                <Text style={{ fontSize: 13, color: on ? opt.text : colors.textMuted, fontWeight: on ? '600' : '400' }}>{opt.label}</Text>
               </Pressable>
             );
           })}
