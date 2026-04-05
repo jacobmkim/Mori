@@ -35,26 +35,10 @@ const FREQ_LABELS: Record<string, string> = {
   just_starting: 'Just starting out', few_times_week: 'A few times a week', most_days: 'Most days',
 };
 
-// Common pantry staples — user taps a handful in seconds on the payoff screen
-const PANTRY_STAPLES = [
-  'Olive oil', 'Garlic', 'Pasta', 'Rice', 'Canned tomatoes',
-  'Eggs', 'Onions', 'Butter', 'Soy sauce', 'Flour',
-  'Chicken stock', 'Lemon', 'Cumin', 'Paprika', 'Salt',
-  'Pepper', 'Balsamic vinegar', 'Parmesan', 'Chilli flakes', 'Honey',
-  'Mustard', 'Tinned chickpeas', 'Coconut milk', 'Bread', 'Potatoes',
-];
-
 export default function Payoff() {
   const colors = useTheme();
   const { onboarding, profile } = useUserStore();
-  const [selectedPantry, setSelectedPantry] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
-
-  function togglePantry(item: string) {
-    setSelectedPantry((prev) =>
-      prev.includes(item) ? prev.filter((i) => i !== item) : [...prev, item]
-    );
-  }
 
   async function handleStart() {
     setIsSaving(true);
@@ -63,9 +47,9 @@ export default function Payoff() {
         const cohortKey = computeCohortKey(onboarding);
         // Run in parallel — neither blocks navigation if it fails
         await Promise.allSettled([
-          // Save pantry staples — powers "you can make this tonight" on session one
-          selectedPantry.length > 0
-            ? addPantryItems(profile.id, selectedPantry, 'onboarding')
+          // Save pantry staples from the dedicated pantry onboarding screen
+          onboarding.pantry_staples.length > 0
+            ? addPantryItems(profile.id, onboarding.pantry_staples, 'onboarding')
             : Promise.resolve(),
           // Mark onboarding complete so the app knows not to re-run the flow
           upsertProfile({ id: profile.id, onboarding_complete: true }),
@@ -145,48 +129,6 @@ export default function Payoff() {
               <Text style={{ color: colors.textMuted, fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 4 }}>Budget</Text>
               <Text style={{ color: colors.text, fontSize: 16, fontWeight: '600' }}>{BUDGET_LABELS[onboarding.weekly_budget]}</Text>
             </View>
-          )}
-        </View>
-
-        {/* Pantry staple seed — powers the "you can make this tonight" magic moment on session one */}
-        <View style={{ backgroundColor: colors.card, borderRadius: 16, padding: 20, borderWidth: 1, borderColor: colors.border }}>
-          <Text style={{ fontSize: 18, fontWeight: '800', color: colors.text, marginBottom: 4 }}>
-            What's always in your kitchen?
-          </Text>
-          <Text style={{ fontSize: 14, color: colors.textMuted, marginBottom: 16, lineHeight: 20 }}>
-            Tap what you usually have. We'll find recipes you can make tonight.
-          </Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-            {PANTRY_STAPLES.map((item) => {
-              const isSelected = selectedPantry.includes(item);
-              return (
-                <Pressable
-                  key={item}
-                  onPress={() => togglePantry(item)}
-                  style={{
-                    backgroundColor: isSelected ? colors.primaryLight : colors.background,
-                    borderWidth: 1.5,
-                    borderColor: isSelected ? colors.primary : colors.border,
-                    borderRadius: 999,
-                    paddingHorizontal: 14,
-                    paddingVertical: 8,
-                  }}
-                >
-                  <Text style={{
-                    fontSize: 13,
-                    fontWeight: isSelected ? '600' : '400',
-                    color: isSelected ? colors.primary : colors.text,
-                  }}>
-                    {item}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-          {selectedPantry.length > 0 && (
-            <Text style={{ marginTop: 14, fontSize: 13, color: colors.textMuted }}>
-              {selectedPantry.length} item{selectedPantry.length !== 1 ? 's' : ''} in your pantry
-            </Text>
           )}
         </View>
       </ScrollView>

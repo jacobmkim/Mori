@@ -25,6 +25,7 @@ const defaultOnboarding: OnboardingState = {
   cooking_frequency: null,
   skill_level: null,
   weekly_budget: null,
+  pantry_staples: [],
 };
 
 export const useUserStore = create<UserStore>((set) => ({

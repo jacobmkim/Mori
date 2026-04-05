@@ -221,4 +221,5 @@ export interface OnboardingState {
   cooking_frequency: CookingFrequency | null;
   skill_level: SkillLevel | null;
   weekly_budget: string | null;
+  pantry_staples: string[];
 }

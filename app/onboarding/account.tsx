@@ -53,7 +53,7 @@ export default function Account() {
           });
           setProfile(profile);
         }
-        router.push('/onboarding/payoff');
+        router.push('/onboarding/pantry');
       } else {
         const { data: authData, error } = await supabase.auth.signInWithPassword({
           email: data.email,
