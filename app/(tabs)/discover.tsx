@@ -267,7 +267,7 @@ function RecipeSwipeCard({
         <HeadlineMacroPill macros={macros ?? recipe.macros} dietaryGoals={dietaryGoals ?? []} />
 
         {/* Ingredient pills — wrapped grid */}
-        {detail?.ingredients && detail.ingredients.length > 0 && (
+        {isTop && detail?.ingredients && detail.ingredients.length > 0 && (
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
             {detail.ingredients.slice(0, 8).map((ing, i) => (
               <View
@@ -433,7 +433,7 @@ export default function Discover() {
       if (recipe.ingredients && recipe.ingredients.length > 0) {
         const detail: MealDetail = {
           blurb: recipe.description ?? '',
-          ingredients: recipe.ingredients.map((ing) => ({ name: ing.name, measure: ing.quantity ?? '' })),
+          ingredients: recipe.ingredients.map((ing) => ({ name: ing.name, measure: `${ing.quantity ?? ''} ${ing.unit ?? ''}`.trim() })),
         };
         detailCache.current.set(recipe.id, detail);
         if (recipe.id === recipes[currentIndexRef.current]?.id) setTopDetail(detail);
@@ -468,7 +468,7 @@ export default function Discover() {
           if (recipe.ingredients && recipe.ingredients.length > 0) {
             detail = {
               blurb: recipe.description ?? '',
-              ingredients: recipe.ingredients.map((ing) => ({ name: ing.name, measure: ing.quantity ?? '' })),
+              ingredients: recipe.ingredients.map((ing) => ({ name: ing.name, measure: `${ing.quantity ?? ''} ${ing.unit ?? ''}`.trim() })),
             };
           } else {
             const fetched = await fetchMealDetail(recipe.id).catch(() => null);

@@ -43,16 +43,27 @@ function HighlightedText({ text, style }: { text: string; style?: object }) {
   );
 }
 
-// ── Extract a step title (first short phrase) ─────────────────────────────────
-function extractStepTitle(instruction: string): { title: string; detail: string } {
-  const match = instruction.match(/^([^.,;:]{4,40}[.,;:])\s*(.*)/s);
-  if (match) {
-    const title = match[1].replace(/[.,;:]$/, '').trim();
-    const detail = match[2].trim();
-    if (title.split(' ').length <= 8 && detail.length > 0) return { title, detail };
+// ── Extract a step title ──────────────────────────────────────────────────────
+// Uses AI-generated title if present, falls back to sentence extraction
+function extractStepTitle(step: RecipeStep): { title: string; detail: string } {
+  // Use AI-generated title if present
+  if (step.title) {
+    return { title: step.title, detail: step.instruction };
   }
+
+  // Fallback: extract first complete sentence as title
+  const instruction = step.instruction;
+  const match = instruction.match(/^([^.!?]+[.!?])\s+(.*)/s);
+  if (match && match[1].length <= 60) {
+    return { title: match[1].replace(/[.!?]$/, '').trim(), detail: match[2].trim() };
+  }
+
+  // Final fallback: first 8 words as title
   const words = instruction.split(' ');
-  if (words.length > 8) return { title: words.slice(0, 6).join(' '), detail: words.slice(6).join(' ') };
+  if (words.length > 10) {
+    return { title: words.slice(0, 8).join(' '), detail: words.slice(8).join(' ') };
+  }
+
   return { title: instruction, detail: '' };
 }
 
@@ -178,7 +189,7 @@ export function CookingMode({ recipe, steps, onClose, onMarkCooked }: CookingMod
   const isLast = currentStep === total - 1;
   const progress = (currentStep + 1) / total;
 
-  const { title, detail } = extractStepTitle(step?.instruction ?? '');
+  const { title, detail } = step ? extractStepTitle(step) : { title: '', detail: '' };
   const timerMins = step ? extractTimerMinutes(step.instruction) : null;
 
   function goNext() {
@@ -293,7 +304,7 @@ export function CookingMode({ recipe, steps, onClose, onMarkCooked }: CookingMod
               All Steps
             </Text>
             {sortedSteps.map((s, i) => {
-              const { title: t } = extractStepTitle(s.instruction);
+              const { title: t } = extractStepTitle(s);
               const done = i < currentStep;
               const active = i === currentStep;
               return (

@@ -19,7 +19,7 @@ import { fetchMacros, flagRecipe, getRecipeNote, saveRecipeNote } from '@/lib/ap
 import { MacroRow } from '@/components/ui/MacroRow';
 import { CookingMode } from '@/components/CookingMode';
 import { useUserStore } from '@/stores/userStore';
-import type { Recipe, Macros } from '@/types';
+import type { Recipe, Macros, RecipeStep } from '@/types';
 import type { MealDetail } from '@/lib/mealdb';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -65,23 +65,27 @@ function scaleMacros(macros: Macros, ratio: number): Macros {
   };
 }
 
-// ── Extract a title from a step instruction ───────────────────────────────────
-// First sentence or first verb phrase — max 5 words
-function extractStepTitle(instruction: string): { title: string; detail: string } {
-  // Try to split on first period or comma
-  const match = instruction.match(/^([^.,;:]{4,40}[.,;:])\s*(.*)/s);
-  if (match) {
-    const title = match[1].replace(/[.,;:]$/, '').trim();
-    const detail = match[2].trim();
-    if (title.split(' ').length <= 8 && detail.length > 0) {
-      return { title, detail };
-    }
+// ── Extract a title from a step ───────────────────────────────────────────────
+// Uses AI-generated title if present, falls back to sentence extraction
+function extractStepTitle(step: RecipeStep): { title: string; detail: string } {
+  // Use AI-generated title if present
+  if (step.title) {
+    return { title: step.title, detail: step.instruction };
   }
-  // Fallback: first 6 words as title
+
+  // Fallback: extract first complete sentence as title
+  const instruction = step.instruction;
+  const match = instruction.match(/^([^.!?]+[.!?])\s+(.*)/s);
+  if (match && match[1].length <= 60) {
+    return { title: match[1].replace(/[.!?]$/, '').trim(), detail: match[2].trim() };
+  }
+
+  // Final fallback: first 8 words as title
   const words = instruction.split(' ');
-  if (words.length > 8) {
-    return { title: words.slice(0, 6).join(' '), detail: words.slice(6).join(' ') };
+  if (words.length > 10) {
+    return { title: words.slice(0, 8).join(' '), detail: words.slice(8).join(' ') };
   }
+
   return { title: instruction, detail: '' };
 }
 
@@ -240,7 +244,7 @@ export function RecipeDetailModal({
 
   const ingredients = detail?.ingredients && detail.ingredients.length > 0
     ? detail.ingredients
-    : recipe.ingredients.map((i) => ({ name: i.name, measure: i.quantity ?? '' }));
+    : recipe.ingredients.map((i) => ({ name: i.name, measure: `${i.quantity ?? ''} ${i.unit ?? ''}`.trim() }));
 
   const steps = (recipe.steps ?? []).slice().sort((a, b) => a.order - b.order);
 
@@ -421,7 +425,7 @@ export function RecipeDetailModal({
                     {steps.map((step, idx) => {
                       const isActive = idx === activeStepIndex;
                       const isCompleted = idx < activeStepIndex;
-                      const { title, detail: detailText } = extractStepTitle(step.instruction);
+                      const { title, detail: detailText } = extractStepTitle(step);
                       const timerMins = extractTimerMinutes(step.instruction);
                       const isThisTimerActive = timerStepIndex === idx;
                       const timerDisplay = isThisTimerActive && timerSeconds !== null

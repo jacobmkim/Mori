@@ -557,11 +557,6 @@ function scoreRecipe(
       }
       const pantryRatio = totalWeight > 0 ? weightedMatches / totalWeight : 0;
       score += pantryRatio * 20;
-
-      // Bug 11 — first session pantry boost: "You can make this tonight" magic moment
-      if (profile && profile.total_sessions <= 1 && pantryRatio === 1.0) {
-        score += 50;
-      }
     }
   }
 
@@ -715,6 +710,30 @@ export async function fetchScoredDeck(
     ...s.recipe,
     isTrending: trendingIds.has(s.recipe.supabase_id ?? ''),
   }));
+
+  // First-session pantry priority — promote top 3 pantry-matched recipes to front
+  if (profile && profile.total_sessions <= 1 && pantrySet.size > 0) {
+    const withPantryRatio = result.map((r) => {
+      const ings = (r.ingredients ?? []) as { name: string }[];
+      if (ings.length === 0) return { recipe: r, pantryRatio: 0 };
+      let weightedMatches = 0;
+      let totalWeight = 0;
+      for (const ing of ings) {
+        if (!ing?.name) continue;
+        const name = ing.name.toLowerCase();
+        const weight = COMMON_STAPLES.has(name) ? 0.2 : 1.0;
+        totalWeight += weight;
+        if (pantrySet.has(name)) weightedMatches += weight;
+      }
+      return { recipe: r, pantryRatio: totalWeight > 0 ? weightedMatches / totalWeight : 0 };
+    });
+    const sorted = [...withPantryRatio].sort((a, b) => b.pantryRatio - a.pantryRatio);
+    const promoted = sorted.slice(0, 3).map((e) => e.recipe);
+    const promotedIds = new Set(promoted.map((r) => r.id));
+    const rest = result.filter((r) => !promotedIds.has(r.id));
+    result.splice(0, result.length, ...promoted, ...rest);
+    console.log(`[fetchScoredDeck] pantry priority: promoted ${promoted.map((r) => r.title).join(', ')}`);
+  }
 
   // Adventure card injection — surfaces a niche adjacent cuisine at position 6
   const adventureEnabled = userId ? await getAdventureCardsEnabled() : false;
