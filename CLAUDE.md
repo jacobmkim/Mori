@@ -132,6 +132,7 @@ scripts/ (all one-time or safe-to-resume, already ran)
 - **Name:** Mori. Bundle ID: `app.getmori.mori`.
 - **Logo accent:** spatula SVG (NOT a circle dot) — matches primary green of current theme.
 - **App icon:** always linen light (#F8F3EC bg, #2E5438 m + spatula). Never changes between themes.
+- **Logo banner bg:** `#fff8ef` (cream). `assets/mori banner white.png` (white bg) — use for app light mode and web nav. `assets/mori.png` (cream bg) — only when background matches `#fff8ef`.
 
 ### Typography (Direction A — locked)
 ```
