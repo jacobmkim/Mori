@@ -30,6 +30,13 @@ export default function Welcome() {
         {/* Logo */}
         <View style={{ paddingHorizontal: 28, paddingTop: 36 }}>
           <MoriLogo size="lg" showTagline />
+          <Text style={{
+            color: 'rgba(255,255,255,0.5)', fontSize: 11,
+            letterSpacing: 2.5, textTransform: 'uppercase', marginTop: 8,
+            fontFamily: 'Georgia', fontStyle: 'italic',
+          }}>
+            Rooted in your taste
+          </Text>
         </View>
 
         {/* Text block — vertically centred */}

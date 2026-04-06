@@ -5,7 +5,7 @@
  * keepScreenAwake: true to prevent screen sleep while cooking.
  */
 import {
-  View, Text, Modal, Pressable, ScrollView,
+  View, Text, Modal, Pressable, ScrollView, FlatList,
   Dimensions,
 } from 'react-native';
 import { useState, useEffect, useRef } from 'react';
@@ -166,21 +166,53 @@ function StepTimer({ minutes }: { minutes: number }) {
   );
 }
 
+// ── Serving-size scaling helpers (mirrors RecipeDetailModal) ─────────────────
+function parseLeadingNumber(str: string): { value: number; rest: string } | null {
+  const frac = str.match(/^(\d+)\/(\d+)(.*)/);
+  if (frac) return { value: parseInt(frac[1]) / parseInt(frac[2]), rest: frac[3] };
+  const dec = str.match(/^(\d+\.?\d*)(.*)/);
+  if (dec) return { value: parseFloat(dec[1]), rest: dec[2] };
+  return null;
+}
+
+function formatNumber(n: number): string {
+  const fractions: [number, string][] = [
+    [0.25, '¼'], [0.33, '⅓'], [0.5, '½'], [0.67, '⅔'], [0.75, '¾'],
+  ];
+  const whole = Math.floor(n);
+  const remainder = n - whole;
+  for (const [val, sym] of fractions) {
+    if (Math.abs(remainder - val) < 0.05) return whole > 0 ? `${whole}${sym}` : sym;
+  }
+  if (Number.isInteger(n) || Math.abs(n - Math.round(n)) < 0.05) return String(Math.round(n));
+  return n.toFixed(1);
+}
+
+function scaleMeasure(measure: string, ratio: number): string {
+  if (!measure || ratio === 1) return measure;
+  const parsed = parseLeadingNumber(measure.trim());
+  if (!parsed) return measure;
+  return `${formatNumber(parsed.value * ratio)}${parsed.rest}`;
+}
+
 // ── Props ──────────────────────────────────────────────────────────────────────
 interface CookingModeProps {
   recipe: Recipe;
   steps: RecipeStep[];
+  rawIngredients?: { name: string; measure: string }[];
+  ratio?: number;
   onClose: () => void;
   onMarkCooked?: () => void;
 }
 
 // ── Main component ─────────────────────────────────────────────────────────────
-export function CookingMode({ recipe, steps, onClose, onMarkCooked }: CookingModeProps) {
+export function CookingMode({ recipe, steps, rawIngredients, ratio = 1, onClose, onMarkCooked }: CookingModeProps) {
   useKeepAwake();
 
   const [currentStep, setCurrentStep] = useState(0);
   const [markedCooked, setMarkedCooked] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
+  const flatListRef = useRef<FlatList>(null);
 
   const sortedSteps = [...steps].sort((a, b) => a.order - b.order);
   const total = sortedSteps.length;
@@ -189,22 +221,14 @@ export function CookingMode({ recipe, steps, onClose, onMarkCooked }: CookingMod
   const isLast = currentStep === total - 1;
   const progress = (currentStep + 1) / total;
 
-  const { title, detail } = step ? extractStepTitle(step) : { title: '', detail: '' };
-  const timerMins = step ? extractTimerMinutes(step.instruction) : null;
-
-  function goNext() {
-    if (currentStep < total - 1) {
-      setCurrentStep(currentStep + 1);
-      scrollRef.current?.scrollTo({ y: 0, animated: false });
-    }
+  function goToStep(index: number) {
+    setCurrentStep(index);
+    flatListRef.current?.scrollToIndex({ index, animated: true });
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
   }
 
-  function goBack() {
-    if (currentStep > 0) {
-      setCurrentStep(currentStep - 1);
-      scrollRef.current?.scrollTo({ y: 0, animated: false });
-    }
-  }
+  function goNext() { if (currentStep < total - 1) goToStep(currentStep + 1); }
+  function goBack() { if (currentStep > 0) goToStep(currentStep - 1); }
 
   function handleMarkCooked() {
     setMarkedCooked(true);
@@ -256,41 +280,83 @@ export function CookingMode({ recipe, steps, onClose, onMarkCooked }: CookingMod
           </Text>
         </View>
 
-        {/* Step content */}
-        <ScrollView ref={scrollRef} style={{ flex: 1 }} contentContainerStyle={{ padding: 20, paddingBottom: 120 }}>
+        {/* Single outer scroll — FlatList (horizontal) sits inside vertical ScrollView; axes don't conflict */}
+        <ScrollView ref={scrollRef} style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 120 }}>
 
-          {/* Step card */}
-          <View style={{
-            backgroundColor: '#2A2A2A',
-            borderRadius: 20,
-            padding: 24,
-            borderWidth: 1,
-            borderColor: '#333',
-          }}>
-            <Text style={{ fontSize: 11, color: '#4CAF50', fontWeight: '700', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8 }}>
-              Step {currentStep + 1}
-            </Text>
-            <Text style={{ fontSize: 18, fontWeight: '700', color: '#FFFFFF', lineHeight: 26, marginBottom: detail ? 12 : 0 }}>
-              {title}
-            </Text>
-            {detail.length > 0 && (
-              <HighlightedText text={detail} />
-            )}
+          {/* Step cards — horizontal paged FlatList */}
+          <FlatList
+            ref={flatListRef}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            scrollEventThrottle={16}
+            data={sortedSteps}
+            keyExtractor={(_, i) => String(i)}
+            getItemLayout={(_, i) => ({ length: SCREEN_WIDTH, offset: SCREEN_WIDTH * i, index: i })}
+            style={{ marginTop: 16 }}
+            onMomentumScrollEnd={(e) => {
+              const page = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
+              if (page !== currentStep) {
+                setCurrentStep(page);
+              }
+            }}
+            renderItem={({ item: s, index: i }) => {
+              const { title: t, detail: d } = extractStepTitle(s);
+              const mins = extractTimerMinutes(s.instruction);
+              const chips = (rawIngredients ?? []).filter((ing) => {
+                const first = ing.name.toLowerCase().split(' ')[0];
+                return first.length > 2 && s.instruction.toLowerCase().includes(first);
+              }).map((ing) => ({ name: ing.name, measure: scaleMeasure(ing.measure, ratio) }))
+                .filter((c) => c.measure);
+              return (
+                <View style={{ width: SCREEN_WIDTH, paddingHorizontal: 20 }}>
+                  <View style={{
+                    backgroundColor: '#2A2A2A', borderRadius: 20, padding: 24,
+                    borderWidth: 1, borderColor: '#333',
+                  }}>
+                    <Text style={{ fontSize: 11, color: '#4CAF50', fontWeight: '700', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8 }}>
+                      Step {i + 1}
+                    </Text>
+                    <Text style={{ fontSize: 18, fontWeight: '700', color: '#FFFFFF', lineHeight: 26, marginBottom: d ? 12 : 0 }}>
+                      {t}
+                    </Text>
+                    {d.length > 0 && <HighlightedText text={d} />}
+                    {mins != null && <StepTimer key={`timer-${i}`} minutes={mins} />}
+                    {chips.length > 0 && (
+                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 14 }}>
+                        {chips.map((c, ci) => (
+                          <View key={ci} style={{
+                            backgroundColor: '#1A3A1A', borderRadius: 6,
+                            paddingHorizontal: 8, paddingVertical: 3,
+                            borderWidth: 1, borderColor: '#2E5438',
+                          }}>
+                            <Text style={{ fontSize: 11, color: '#4CAF50', fontWeight: '500' }}>
+                              {c.measure} {c.name}
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                    )}
+                  </View>
+                </View>
+              );
+            }}
+          />
 
-            {/* Timer block */}
-            {timerMins != null && <StepTimer key={`timer-${currentStep}`} minutes={timerMins} />}
-          </View>
+          {/* Swipe hint — tight under cards */}
+          <Text style={{ fontSize: 11, color: '#3A3A3A', textAlign: 'center', marginTop: 8, letterSpacing: 0.5 }}>
+            {!isFirst && !isLast ? '← swipe to navigate →' : isFirst ? 'swipe left for next →' : '← swipe right to go back'}
+          </Text>
 
-          {/* Step dots — overview */}
-          <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 24, flexWrap: 'wrap' }}>
+          {/* Step dots */}
+          <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 6, flexWrap: 'wrap', paddingHorizontal: 20 }}>
             {sortedSteps.map((_, i) => (
               <Pressable
                 key={i}
-                onPress={() => { setCurrentStep(i); scrollRef.current?.scrollTo({ y: 0, animated: false }); }}
+                onPress={() => goToStep(i)}
                 style={{
                   width: i === currentStep ? 20 : 8,
-                  height: 8,
-                  borderRadius: 4,
+                  height: 8, borderRadius: 4,
                   backgroundColor: i < currentStep ? '#4CAF50' : i === currentStep ? '#4CAF50' : '#3A3A3A',
                   opacity: i < currentStep ? 0.5 : 1,
                 }}
@@ -298,8 +364,8 @@ export function CookingMode({ recipe, steps, onClose, onMarkCooked }: CookingMod
             ))}
           </View>
 
-          {/* All steps list — collapsed, tap to jump */}
-          <View style={{ marginTop: 28, gap: 2 }}>
+          {/* All Steps list — plain View, outer ScrollView handles scrolling */}
+          <View style={{ padding: 20, paddingTop: 12, gap: 2 }}>
             <Text style={{ fontSize: 11, color: '#8AAB9E', fontWeight: '600', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 }}>
               All Steps
             </Text>
@@ -310,7 +376,7 @@ export function CookingMode({ recipe, steps, onClose, onMarkCooked }: CookingMod
               return (
                 <Pressable
                   key={i}
-                  onPress={() => { setCurrentStep(i); scrollRef.current?.scrollTo({ y: 0, animated: false }); }}
+                  onPress={() => goToStep(i)}
                   style={{
                     flexDirection: 'row', alignItems: 'center', gap: 12,
                     padding: 12, borderRadius: 12,
@@ -340,6 +406,7 @@ export function CookingMode({ recipe, steps, onClose, onMarkCooked }: CookingMod
               );
             })}
           </View>
+
         </ScrollView>
 
         {/* Navigation footer */}
