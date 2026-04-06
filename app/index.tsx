@@ -41,8 +41,10 @@ export default function Index() {
         } catch {
           // Profile fetch failed — app will work in degraded mode
         }
-        // Restore saved recipes from Supabase so they persist across sessions
-        loadSavedRecipes(userId);
+        // Restore saved recipes from Supabase — awaited so the deck fetch in
+        // discover.tsx always has a populated savedExternalIds set and never
+        // shows already-saved recipes in the swipe deck on relaunch.
+        await loadSavedRecipes(userId);
         // Increment session count — used for swipe event logging (non-blocking)
         incrementSessionCount(userId)
           .then(setSessionNumber)
