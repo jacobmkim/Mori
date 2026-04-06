@@ -141,6 +141,7 @@ export function RecipeDetailModal({
 
   // Active step index for steps tab
   const [activeStepIndex, setActiveStepIndex] = useState(0);
+  const [ingredRefExpanded, setIngredRefExpanded] = useState(false);
 
   // Active timer state
   const [timerSeconds, setTimerSeconds] = useState<number | null>(null);
@@ -445,6 +446,64 @@ export function RecipeDetailModal({
                   </View>
                 ) : (
                   <>
+                    {/* Start cooking — top of steps */}
+                    <Pressable
+                      onPress={() => setCookingModeVisible(true)}
+                      style={{
+                        paddingVertical: 14, borderRadius: 14, alignItems: 'center',
+                        backgroundColor: colors.primary, marginBottom: 14,
+                      }}
+                    >
+                      <Text style={{ fontSize: 15, fontWeight: '700', color: 'white' }}>Start cooking →</Text>
+                    </Pressable>
+
+                    {/* Ingredient quick-reference */}
+                    <Pressable
+                      onPress={() => setIngredRefExpanded((v) => !v)}
+                      style={{
+                        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+                        paddingVertical: 12, paddingHorizontal: 14,
+                        backgroundColor: colors.card,
+                        borderWidth: 1, borderColor: colors.border,
+                        borderRadius: ingredRefExpanded ? 0 : 12,
+                        borderTopLeftRadius: 12, borderTopRightRadius: 12,
+                        marginBottom: ingredRefExpanded ? 0 : 14,
+                      }}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <Ionicons name="list-outline" size={15} color={colors.textMuted} />
+                        <Text style={{ fontSize: 13, fontWeight: '600', color: colors.text }}>
+                          Ingredients ({ingredients.length})
+                        </Text>
+                      </View>
+                      <Ionicons name={ingredRefExpanded ? 'chevron-up' : 'chevron-down'} size={15} color={colors.textMuted} />
+                    </Pressable>
+                    {ingredRefExpanded && (
+                      <View style={{
+                        borderWidth: 1, borderTopWidth: 0, borderColor: colors.border,
+                        borderBottomLeftRadius: 12, borderBottomRightRadius: 12,
+                        backgroundColor: colors.card, marginBottom: 14, overflow: 'hidden',
+                      }}>
+                        {ingredients.map((ing, i) => {
+                          const measure = 'measure' in ing ? ing.measure : (ing as any).quantity;
+                          const scaledMeasure = scaleMeasure(measure ?? '', ratio);
+                          const isLast = i === ingredients.length - 1;
+                          return (
+                            <View key={i} style={{
+                              flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+                              paddingVertical: 10, paddingHorizontal: 14,
+                              borderBottomWidth: isLast ? 0 : 0.5, borderBottomColor: colors.border,
+                            }}>
+                              <Text style={{ fontSize: 13, color: colors.text }}>{ing.name}</Text>
+                              {scaledMeasure ? (
+                                <Text style={{ fontSize: 13, fontWeight: '600', color: colors.textMuted }}>{scaledMeasure}</Text>
+                              ) : null}
+                            </View>
+                          );
+                        })}
+                      </View>
+                    )}
+
                     {steps.map((step, idx) => {
                       const isActive = idx === activeStepIndex;
                       const isCompleted = idx < activeStepIndex;
@@ -523,9 +582,9 @@ export function RecipeDetailModal({
                       );
                     })}
 
-                    {/* Mark as cooked + Start cooking */}
-                    <View style={{ gap: 10, marginTop: 8 }}>
-                      {onMarkCooked && (
+                    {/* Mark as cooked */}
+                    {onMarkCooked && (
+                      <View style={{ marginTop: 8 }}>
                         <Pressable
                           onPress={onMarkCooked}
                           style={{
@@ -540,18 +599,8 @@ export function RecipeDetailModal({
                             {isCooked ? 'Cooked this!' : 'Mark as cooked'}
                           </Text>
                         </Pressable>
-                      )}
-
-                      <Pressable
-                        onPress={() => setCookingModeVisible(true)}
-                        style={{
-                          paddingVertical: 16, borderRadius: 14, alignItems: 'center',
-                          backgroundColor: colors.primary, marginTop: 4,
-                        }}
-                      >
-                        <Text style={{ fontSize: 16, fontWeight: '700', color: 'white' }}>Start cooking →</Text>
-                      </Pressable>
-                    </View>
+                      </View>
+                    )}
 
                     {/* Storage tips */}
                     {isCooked && (tipsLoading || storageTips) && (
