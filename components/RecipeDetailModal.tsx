@@ -510,6 +510,11 @@ export function RecipeDetailModal({
                       const { title, detail: detailText } = extractStepTitle(step);
                       const timerMins = extractTimerMinutes(step.instruction);
                       const isThisTimerActive = timerStepIndex === idx;
+                      // Ingredients mentioned in this step
+                      const mentionedIngreds = ingredients.filter((ing) => {
+                        const firstWord = ing.name.toLowerCase().split(' ')[0];
+                        return firstWord.length > 2 && step.instruction.toLowerCase().includes(firstWord);
+                      });
                       const timerDisplay = isThisTimerActive && timerSeconds !== null
                         ? `${Math.floor(timerSeconds / 60)}:${String(timerSeconds % 60).padStart(2, '0')}`
                         : timerMins ? `${timerMins}:00` : null;
@@ -575,6 +580,27 @@ export function RecipeDetailModal({
                                     {isThisTimerActive ? (timerRunning ? ' — Pause' : timerSeconds === 0 ? ' Done ✓' : ' — Resume') : ''}
                                   </Text>
                                 </Pressable>
+                              )}
+
+                              {/* Ingredient chips for this step */}
+                              {mentionedIngreds.length > 0 && (
+                                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 8 }}>
+                                  {mentionedIngreds.map((ing, mi) => {
+                                    const m = 'measure' in ing ? ing.measure : (ing as any).quantity;
+                                    const sm = scaleMeasure(m ?? '', ratio);
+                                    if (!sm) return null;
+                                    return (
+                                      <View key={mi} style={{
+                                        backgroundColor: colors.primaryLight, borderRadius: 6,
+                                        paddingHorizontal: 8, paddingVertical: 3,
+                                      }}>
+                                        <Text style={{ fontSize: 11, color: colors.primary, fontWeight: '500' }}>
+                                          {sm} {ing.name}
+                                        </Text>
+                                      </View>
+                                    );
+                                  })}
+                                </View>
                               )}
                             </View>
                           </View>
@@ -791,18 +817,17 @@ export function RecipeDetailModal({
               </Animated.View>
             </>
           )}
+          {/* CookingMode — inside Modal so iOS presents from correct UIViewController */}
+          {cookingModeVisible && (
+            <CookingMode
+              recipe={recipe}
+              steps={steps}
+              onClose={() => setCookingModeVisible(false)}
+              onMarkCooked={onMarkCooked}
+            />
+          )}
         </View>
       </Modal>
-
-      {/* Cooking Mode */}
-      {cookingModeVisible && (
-        <CookingMode
-          recipe={recipe}
-          steps={steps}
-          onClose={() => setCookingModeVisible(false)}
-          onMarkCooked={onMarkCooked}
-        />
-      )}
     </>
   );
 }
