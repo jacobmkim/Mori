@@ -14,7 +14,7 @@ import { useDiscoverStore } from '@/stores/discoverStore';
  * APP ICON:  linen #F8F3EC bg, italic Georgia "m" in moss #2E5438, spatula top-right
  */
 
-const BANNER = require('../../assets/mori transparent banner.png');
+const BANNER = require('../../assets/mori-transparent.png');
 
 // ─── Spatula ─────────────────────────────────────────────────────────────────
 // Natural bounding box ≈ 36w × 100h at scale(1). Use G transform to position.
