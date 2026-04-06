@@ -3,12 +3,20 @@
  * Extracted from profile.tsx — used by ProfileSheet.
  */
 import { View, Text, Modal, Pressable, ScrollView, TextInput, ActivityIndicator, Alert } from 'react-native';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks/useTheme';
 import { useUserStore } from '@/stores/userStore';
 import { getPantryItems, addPantryItem, deletePantryItem } from '@/lib/api';
 import type { PantryItem } from '@/types';
+
+const PANTRY_STAPLES = [
+  'Olive oil', 'Garlic', 'Pasta', 'Rice', 'Canned tomatoes',
+  'Eggs', 'Onions', 'Butter', 'Soy sauce', 'Flour',
+  'Chicken stock', 'Lemon', 'Cumin', 'Paprika', 'Salt',
+  'Pepper', 'Balsamic vinegar', 'Parmesan', 'Chilli flakes', 'Honey',
+  'Mustard', 'Tinned chickpeas', 'Coconut milk', 'Bread', 'Potatoes',
+];
 
 export function PantryModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const colors = useTheme();
@@ -24,12 +32,24 @@ export function PantryModal({ visible, onClose }: { visible: boolean; onClose: (
     getPantryItems(userId).then(setItems).catch(() => {}).finally(() => setLoading(false));
   }, [visible, userId]);
 
-  async function handleAdd() {
-    const name = newItem.trim();
-    if (!name || !userId) return;
+  const addedNames = useMemo(
+    () => new Set(items.map((i) => i.ingredient_name.toLowerCase())),
+    [items]
+  );
+
+  const suggestions = useMemo(() => {
+    const q = newItem.trim().toLowerCase();
+    if (!q) return [];
+    return PANTRY_STAPLES.filter((s) => s.toLowerCase().includes(q)).slice(0, 5);
+  }, [newItem]);
+
+  async function handleAdd(name?: string) {
+    const value = (name ?? newItem).trim();
+    if (!value || !userId) return;
+    if (addedNames.has(value.toLowerCase())) return;
     setAdding(true);
     try {
-      await addPantryItem({ user_id: userId, ingredient_name: name, quantity: null, unit: null, added_via: 'manual' });
+      await addPantryItem({ user_id: userId, ingredient_name: value, quantity: null, unit: null, added_via: 'manual' });
       const updated = await getPantryItems(userId);
       setItems(updated);
       setNewItem('');
@@ -49,6 +69,20 @@ export function PantryModal({ visible, onClose }: { visible: boolean; onClose: (
     }
   }
 
+  function renderHighlighted(text: string, query: string) {
+    const idx = text.toLowerCase().indexOf(query.toLowerCase());
+    if (idx === -1) return <Text style={{ fontSize: 15, color: colors.text }}>{text}</Text>;
+    return (
+      <Text style={{ fontSize: 15, color: colors.text }}>
+        {text.slice(0, idx)}
+        <Text style={{ fontWeight: '700' }}>{text.slice(idx, idx + query.length)}</Text>
+        {text.slice(idx + query.length)}
+      </Text>
+    );
+  }
+
+  const query = newItem.trim();
+
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -64,34 +98,101 @@ export function PantryModal({ visible, onClose }: { visible: boolean; onClose: (
           <View style={{ width: 40 }} />
         </View>
 
-        <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 48 }}>
+        <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 48 }} keyboardShouldPersistTaps="handled">
+          {/* Input card */}
           <View style={{
-            flexDirection: 'row', gap: 10, marginBottom: 20,
             backgroundColor: colors.card, borderRadius: 12,
-            borderWidth: 1, borderColor: colors.border, padding: 12,
+            borderWidth: 1, borderColor: colors.border, marginBottom: 12,
+            overflow: 'hidden',
           }}>
-            <TextInput
-              value={newItem} onChangeText={setNewItem}
-              placeholder="Add an ingredient..."
-              placeholderTextColor={colors.textMuted}
-              style={{ flex: 1, fontSize: 15, color: colors.text }}
-              onSubmitEditing={handleAdd}
-              returnKeyType="done"
-            />
-            <Pressable
-              onPress={handleAdd}
-              style={{
-                backgroundColor: newItem.trim() ? colors.primary : colors.border,
-                borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8,
-                alignItems: 'center', justifyContent: 'center',
-              }}
-            >
-              <Text style={{ color: 'white', fontWeight: '600', fontSize: 14 }}>
-                {adding ? '...' : 'Add'}
-              </Text>
-            </Pressable>
+            <View style={{ flexDirection: 'row', gap: 10, padding: 12 }}>
+              <TextInput
+                value={newItem} onChangeText={setNewItem}
+                placeholder="Add an ingredient..."
+                placeholderTextColor={colors.textMuted}
+                style={{ flex: 1, fontSize: 15, color: colors.text }}
+                onSubmitEditing={() => handleAdd()}
+                returnKeyType="done"
+              />
+              <Pressable
+                onPress={() => handleAdd()}
+                style={{
+                  backgroundColor: newItem.trim() ? colors.primary : colors.border,
+                  borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8,
+                  alignItems: 'center', justifyContent: 'center',
+                }}
+              >
+                <Text style={{ color: 'white', fontWeight: '600', fontSize: 14 }}>
+                  {adding ? '...' : 'Add'}
+                </Text>
+              </Pressable>
+            </View>
+
+            {/* Autocomplete suggestions */}
+            {suggestions.length > 0 && (
+              <View style={{ borderTopWidth: 1, borderTopColor: colors.border }}>
+                {suggestions.map((s, i) => {
+                  const alreadyAdded = addedNames.has(s.toLowerCase());
+                  return (
+                    <Pressable
+                      key={s}
+                      onPress={() => !alreadyAdded && handleAdd(s)}
+                      style={{
+                        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+                        paddingHorizontal: 14, paddingVertical: 11,
+                        borderTopWidth: i === 0 ? 0 : 1, borderTopColor: colors.border,
+                        backgroundColor: alreadyAdded ? colors.background : colors.card,
+                      }}
+                    >
+                      {renderHighlighted(s, query)}
+                      {alreadyAdded && (
+                        <Ionicons name="checkmark-circle" size={16} color={colors.primary} />
+                      )}
+                    </Pressable>
+                  );
+                })}
+              </View>
+            )}
           </View>
 
+          {/* Common staples chip strip (hidden while typing) */}
+          {!query && (
+            <View style={{ marginBottom: 20 }}>
+              <Text style={{ fontSize: 12, fontWeight: '600', color: colors.textMuted, letterSpacing: 0.08, textTransform: 'uppercase', marginBottom: 10 }}>
+                Common Staples
+              </Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -20 }} contentContainerStyle={{ paddingHorizontal: 20, gap: 8, flexDirection: 'row' }}>
+                {PANTRY_STAPLES.map((staple) => {
+                  const has = addedNames.has(staple.toLowerCase());
+                  return (
+                    <Pressable
+                      key={staple}
+                      onPress={() => !has && handleAdd(staple)}
+                      style={{
+                        flexDirection: 'row', alignItems: 'center', gap: 4,
+                        backgroundColor: has ? colors.primaryLight : colors.card,
+                        borderWidth: 1.5,
+                        borderColor: has ? colors.primary : colors.border,
+                        borderRadius: 999,
+                        paddingHorizontal: 14, paddingVertical: 8,
+                      }}
+                    >
+                      {has && <Ionicons name="checkmark" size={13} color={colors.primary} />}
+                      <Text style={{
+                        color: has ? colors.primary : colors.text,
+                        fontSize: 14,
+                        fontWeight: has ? '600' : '400',
+                      }}>
+                        {staple}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          )}
+
+          {/* Pantry items list */}
           {loading ? (
             <ActivityIndicator color={colors.primary} />
           ) : items.length === 0 ? (

@@ -155,8 +155,8 @@ export default function Explore() {
   const colors = useTheme();
   const userId = useUserStore((s) => s.profile?.id);
   const dietaryGoals = useUserStore((s) => s.profile?.dietary_goals) ?? [];
-  const savedRecipes = useSavedStore((s) => s.savedRecipes);
-  const { addFromDetail } = useGroceryStore();
+  const { savedRecipes, addRecipe, removeRecipe } = useSavedStore();
+  const { addFromDetail, selectedRecipes, removeRecipeFromList } = useGroceryStore();
 
   const [activeFilter, setActiveFilter] = useState('All');
   const [searchVisible, setSearchVisible] = useState(false);
@@ -526,16 +526,20 @@ export default function Explore() {
         recipe={selectedRecipe}
         detail={null}
         isSaved={selectedRecipe ? isSaved(selectedRecipe) : false}
-        isInCart={false}
+        isInCart={selectedRecipe ? selectedRecipes.some((r) => r.id === selectedRecipe.id) : false}
         onClose={() => setDetailVisible(false)}
-        onSaveToggle={() => {}}
-        onAddToCart={() => {
-          if (selectedRecipe) {
-            const ingredients = (selectedRecipe.ingredients ?? []).map((i) => ({ name: i.name, measure: `${i.quantity ?? ''} ${i.unit ?? ''}`.trim() }));
-            addFromDetail(selectedRecipe, ingredients);
-          }
+        onSaveToggle={() => {
+          if (!selectedRecipe) return;
+          if (isSaved(selectedRecipe)) removeRecipe(selectedRecipe, userId);
+          else addRecipe(selectedRecipe, userId);
         }}
+        onAddToCart={(scaledIngredients) => {
+          if (!selectedRecipe) return;
+          addFromDetail(selectedRecipe, scaledIngredients);
+        }}
+        onRemoveFromCart={() => { if (selectedRecipe) removeRecipeFromList(selectedRecipe.id); }}
       />
+
     </SafeAreaView>
   );
 }

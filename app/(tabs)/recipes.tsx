@@ -77,8 +77,8 @@ function RecipeCard({
 export default function Recipes() {
   const colors = useTheme();
   const userId = useUserStore((s) => s.profile?.id);
-  const savedRecipes = useSavedStore((s) => s.savedRecipes);
-  const { addFromDetail } = useGroceryStore();
+  const { savedRecipes, addRecipe, removeRecipe } = useSavedStore();
+  const { addFromDetail, selectedRecipes, removeRecipeFromList } = useGroceryStore();
 
   const [activeTab, setActiveTab] = useState<SubTab>('Saved');
   const [search, setSearch] = useState('');
@@ -199,10 +199,19 @@ export default function Recipes() {
     else if (recipeFilter === 'Vegetarian') list = list.filter((r) => r.dietary_tags?.includes('vegetarian') || r.dietary_tags?.includes('vegan'));
     else if (recipeFilter === 'Vegan') list = list.filter((r) => r.dietary_tags?.includes('vegan'));
     else if (recipeFilter === 'High Protein') list = list.filter((r) => r.dietary_tags?.includes('high_protein') || (r.macros as any)?.protein >= 25);
+    else if (recipeFilter === 'Gluten Free') list = list.filter((r) => r.dietary_tags?.includes('gluten_free'));
+    else if (recipeFilter === 'Dairy Free')  list = list.filter((r) => r.dietary_tags?.includes('dairy_free'));
+    else if (recipeFilter === 'Low Carb')    list = list.filter((r) => r.dietary_tags?.includes('low_carb') || (r.macros as any)?.carbohydrates <= 30);
+    else if (recipeFilter === 'Keto')        list = list.filter((r) => r.dietary_tags?.includes('keto'));
+    else if (recipeFilter === 'Paleo')       list = list.filter((r) => r.dietary_tags?.includes('paleo'));
     return list;
   }
 
-  const FILTER_OPTIONS = ['All', 'Quick', 'Meal Prep', 'Vegetarian', 'Vegan', 'High Protein'];
+  const FILTER_OPTIONS = [
+    'All', 'Quick', 'Meal Prep',
+    'Vegetarian', 'Vegan', 'High Protein',
+    'Gluten Free', 'Dairy Free', 'Low Carb', 'Keto', 'Paleo',
+  ];
 
   const savedList = useMemo(() => filtered(savedRecipes), [savedRecipes, search]); // eslint-disable-line react-hooks/exhaustive-deps
   const cookedList = useMemo(() => filtered(cookedRecipes), [cookedRecipes, search]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -231,6 +240,7 @@ export default function Recipes() {
     [savedRecipes]);
 
   const list = currentList();
+  const displayList: (Recipe | null)[] = list.length % 2 !== 0 ? [...list, null] : list;
 
   function renderEmpty() {
     const colors_inner = colors;
@@ -345,17 +355,21 @@ export default function Recipes() {
         renderEmpty()
       ) : (
         <FlatList
-          data={list}
-          keyExtractor={(item) => item.supabase_id ?? item.id}
+          data={displayList}
+          keyExtractor={(item) => item ? (item.supabase_id ?? item.id) : '__ghost'}
           numColumns={2}
           contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: 100 }}
-          renderItem={({ item }) => (
-            <RecipeCard
-              recipe={item}
-              cookedCount={cookedCounts.get(item.supabase_id ?? '')}
-              onPress={() => openRecipe(item)}
-            />
-          )}
+          renderItem={({ item }) =>
+            item ? (
+              <RecipeCard
+                recipe={item}
+                cookedCount={cookedCounts.get(item.supabase_id ?? '')}
+                onPress={() => openRecipe(item)}
+              />
+            ) : (
+              <View style={{ flex: 1, margin: 4 }} />
+            )
+          }
         />
       )}
 
@@ -399,21 +413,21 @@ export default function Recipes() {
         recipe={selectedRecipe}
         detail={null}
         isSaved={selectedRecipe ? isSaved(selectedRecipe) : false}
-        isInCart={false}
+        isInCart={selectedRecipe ? selectedRecipes.some((r) => r.id === selectedRecipe.id) : false}
         isCooked={isCooked}
         onClose={() => setDetailVisible(false)}
         onSaveToggle={() => {
           if (!selectedRecipe || !userId) return;
-          const id = selectedRecipe.supabase_id ?? selectedRecipe.id;
-          setRecipeLiked(userId, id, !isSaved(selectedRecipe)).catch(() => {});
+          if (isSaved(selectedRecipe)) removeRecipe(selectedRecipe, userId);
+          else addRecipe(selectedRecipe, userId);
         }}
-        onAddToCart={() => {
-          if (selectedRecipe) {
-            const ingredients = (selectedRecipe.ingredients ?? []).map((i) => ({ name: i.name, measure: `${i.quantity ?? ''} ${i.unit ?? ''}`.trim() }));
-            addFromDetail(selectedRecipe, ingredients);
-          }
+        onAddToCart={(scaledIngredients) => {
+          if (!selectedRecipe) return;
+          addFromDetail(selectedRecipe, scaledIngredients);
         }}
+        onRemoveFromCart={() => { if (selectedRecipe) removeRecipeFromList(selectedRecipe.id); }}
       />
+
     </SafeAreaView>
   );
 }

@@ -328,6 +328,8 @@ export default function Discover() {
   const [lastSwipe, setLastSwipe] = useState<{ recipe: Recipe; direction: 'left' | 'right' } | null>(null);
   const [showDetail, setShowDetail] = useState(false);
   const [cartToast, setCartToast] = useState(false);
+  const [deckServingsSheetVisible, setDeckServingsSheetVisible] = useState(false);
+  const [deckServings, setDeckServings] = useState(2);
   const cartToastOpacity = useRef(new Animated.Value(0)).current;
   const detailCache = useRef<Map<string, MealDetail>>(new Map());
   const macroCache = useRef<Map<string, Macros>>(new Map());
@@ -336,7 +338,7 @@ export default function Discover() {
   // Set before decrementing currentIndex so the new top card picks it up on mount
   const undoEntryXRef = useRef<number | null>(null);
   const { addRecipe, removeRecipe } = useSavedStore();
-  const { addFromDetail, selectedRecipes } = useGroceryStore();
+  const { addFromDetail, selectedRecipes, removeRecipeFromList } = useGroceryStore();
   const userId = useUserStore((s) => s.profile?.id);
   const sessionNumber = useUserStore((s) => s.sessionNumber);
   const profile = useUserStore((s) => s.profile ?? null);
@@ -604,13 +606,46 @@ export default function Discover() {
     handleSwipe(direction, 0, 0);
   }
 
+  // ── Ingredient scaling helpers (inline — avoids coupling to RecipeDetailModal internals) ──
+  function parseLeadingNumber(str: string): { value: number; rest: string } | null {
+    const frac = str.match(/^(\d+)\/(\d+)(.*)/);
+    if (frac) return { value: parseInt(frac[1]) / parseInt(frac[2]), rest: frac[3] };
+    const dec = str.match(/^(\d+\.?\d*)(.*)/);
+    if (dec) return { value: parseFloat(dec[1]), rest: dec[2] };
+    return null;
+  }
+  function formatDeckNumber(n: number): string {
+    const fractions: [number, string][] = [[0.25,'¼'],[0.33,'⅓'],[0.5,'½'],[0.67,'⅔'],[0.75,'¾']];
+    const whole = Math.floor(n);
+    const rem = n - whole;
+    for (const [val, sym] of fractions) if (Math.abs(rem - val) < 0.05) return whole > 0 ? `${whole}${sym}` : sym;
+    if (Number.isInteger(n) || Math.abs(n - Math.round(n)) < 0.05) return String(Math.round(n));
+    return n.toFixed(1);
+  }
+  function scaleDeckMeasure(measure: string, ratio: number): string {
+    if (!measure || ratio === 1) return measure;
+    const parsed = parseLeadingNumber(measure.trim());
+    if (!parsed) return measure;
+    return `${formatDeckNumber(parsed.value * ratio)}${parsed.rest}`;
+  }
+
   // Add current top card to grocery list, mark liked for Phase 2 AI signal,
   // flash a green toast, then auto-swipe right so the card flies off naturally.
-  function handleAddToCart() {
+  function handleAddToCart(servingsOverride?: number) {
     const recipe = recipes[currentIndexRef.current];
     if (!recipe) return;
     const detail = detailCache.current.get(recipe.id);
-    addFromDetail(recipe, detail?.ingredients ?? []);
+    const baseServings = recipe.servings ?? 2;
+    const ratio = servingsOverride !== undefined ? servingsOverride / baseServings : 1;
+    const rawIngs = detail?.ingredients ?? recipe.ingredients.map((i) => ({
+      name: i.name,
+      measure: `${i.quantity ?? ''} ${i.unit ?? ''}`.trim(),
+    }));
+    const scaledIngs = rawIngs.map((ing) => ({
+      name: ing.name,
+      measure: scaleDeckMeasure(ing.measure ?? '', ratio),
+    }));
+    addFromDetail(recipe, scaledIngs);
     // Mark liked = true + log grocery_add interaction — cart add is the strongest positive signal
     if (userId) {
       resolveSupabaseId(recipe)
@@ -947,7 +982,11 @@ export default function Discover() {
 
           {/* Add to Grocery List — filled green to stand out */}
           <Pressable
-            onPress={handleAddToCart}
+            onPress={() => {
+              if (!topRecipe) return;
+              setDeckServings(topRecipe.servings ?? 2);
+              setDeckServingsSheetVisible(true);
+            }}
             style={{
               width: 52, height: 52, borderRadius: 26,
               backgroundColor: colors.primary,
@@ -994,11 +1033,16 @@ export default function Discover() {
               if (isSaved(topRecipe.id)) removeRecipe(topRecipe, userId);
               else addRecipe(topRecipe, userId);
             }}
-            onAddToCart={() => {
+            onAddToCart={(scaledIngredients) => {
               if (!topRecipe) return;
-              handleAddToCart();
-              setShowDetail(false);
+              addFromDetail(topRecipe, scaledIngredients);
+              if (userId) {
+                resolveSupabaseId(topRecipe)
+                  .then((supabaseId) => logInteraction(userId, supabaseId, 'grocery_add', sessionNumber))
+                  .catch(() => {});
+              }
             }}
+            onRemoveFromCart={() => { if (topRecipe) removeRecipeFromList(topRecipe.id); }}
             onMarkCooked={() => {
               if (!topRecipe || !userId) return;
               if (topRecipe.supabase_id) setCookedRecipeIds((prev) => new Set([...prev, topRecipe.supabase_id!]));
@@ -1015,6 +1059,61 @@ export default function Discover() {
           />
         );
       })()}
+
+      {/* Deck Servings Sheet — quantity prompt for the swipe-deck green cart button */}
+      <Modal
+        visible={deckServingsSheetVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setDeckServingsSheetVisible(false)}
+      >
+        <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+          <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 28, gap: 24 }}>
+            <Text style={{ fontSize: 17, fontWeight: '700', color: colors.text }}>Add to grocery list</Text>
+            {topRecipe && (
+              <Text style={{ fontFamily: 'Georgia', fontStyle: 'italic', fontSize: 16, color: colors.text, lineHeight: 24 }}>
+                {topRecipe.title}
+              </Text>
+            )}
+            <View style={{ alignItems: 'center', gap: 8 }}>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 }}>Servings</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 28 }}>
+                <Pressable
+                  onPress={() => setDeckServings((s) => Math.max(1, s - 1))} hitSlop={8}
+                  style={{ width: 44, height: 44, borderRadius: 22, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <Ionicons name="remove" size={20} color={deckServings <= 1 ? colors.border : colors.text} />
+                </Pressable>
+                <Text style={{ fontSize: 36, fontWeight: '700', color: colors.text, minWidth: 40, textAlign: 'center' }}>{deckServings}</Text>
+                <Pressable
+                  onPress={() => setDeckServings((s) => Math.min(20, s + 1))} hitSlop={8}
+                  style={{ width: 44, height: 44, borderRadius: 22, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <Ionicons name="add" size={20} color={deckServings >= 20 ? colors.border : colors.text} />
+                </Pressable>
+              </View>
+              <Text style={{ fontSize: 14, color: colors.textMuted }}>serving{deckServings !== 1 ? 's' : ''}</Text>
+            </View>
+          </View>
+
+          <View style={{ paddingHorizontal: 20, paddingBottom: 16, gap: 10 }}>
+            <Pressable
+              onPress={() => {
+                setDeckServingsSheetVisible(false);
+                handleAddToCart(deckServings);
+              }}
+              style={{ backgroundColor: colors.primary, borderRadius: 14, height: 52, alignItems: 'center', justifyContent: 'center' }}
+            >
+              <Text style={{ color: 'white', fontWeight: '600', fontSize: 15 }}>
+                Add {deckServings} serving{deckServings !== 1 ? 's' : ''} to grocery list
+              </Text>
+            </Pressable>
+            <Pressable onPress={() => setDeckServingsSheetVisible(false)} style={{ alignItems: 'center', paddingVertical: 12 }}>
+              <Text style={{ color: colors.textMuted, fontSize: 15 }}>Cancel</Text>
+            </Pressable>
+          </View>
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }

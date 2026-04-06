@@ -17,7 +17,29 @@
       "Bash(npm show react-native-reanimated versions --json)",
       "Bash(npm show react-native-reanimated@4.0.3 peerDependencies)",
       "Bash(npm show react-native-worklets versions --json)",
-      "Bash(npm install react-native-worklets@0.5.1 react-native-reanimated@4.0.3 --legacy-peer-deps)"
+      "Bash(npm install react-native-worklets@0.5.1 react-native-reanimated@4.0.3 --legacy-peer-deps)",
+      "mcp__claude_ai_Supabase__list_projects",
+      "mcp__claude_ai_Supabase__execute_sql",
+      "Bash(claude --version)",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\({k:v for k,v in {**d.get\\('dependencies',{}\\), **d.get\\('devDependencies',{}\\)}.items\\(\\) if 'reanimated' in k or 'gesture' in k or 'screens' in k}, indent=2\\)\\)\")",
+      "Bash(npx expo-doctor:*)",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d.get\\('peerDependencies',{}\\), indent=2\\)\\)\")",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('version:', d.get\\('version'\\)\\); print\\('expo peer:', d.get\\('peerDependencies',{}\\).get\\('expo','none'\\)\\)\")",
+      "Bash(ls tailwind.config* global.css metro.config*)",
+      "Bash(ls:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(taskkill:*)",
+      "Bash(node:*)",
+      "Bash(tasklist)",
+      "Skill(update-config)",
+      "Skill(update-config:*)",
+      "Bash(node -e \"require\\(''./node_modules/dotenv/package.json''\\)\")",
+      "Bash(xargs grep:*)",
+      "Bash(grep -r \"RecipeNote\\\\|recipe_notes\" /c/Users/jkim2/projectX/types*)",
+      "Bash(grep -r \"notesStore\\\\|noteStore\" /c/Users/jkim2/projectX/stores*)",
+      "Bash(find /c/Users/jkim2/projectX -type f \\\\\\(-name *.sql -o -name schema* \\\\\\))",
+      "Bash(git add:*)"
     ]
   }
 }

@@ -8,11 +8,11 @@
  */
 import {
   View, Text, Modal, Pressable, ScrollView, Dimensions,
-  ActivityIndicator, Alert, TextInput,
+  ActivityIndicator, Alert, TextInput, Animated,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTheme } from '@/hooks/useTheme';
 import { formatTime, formatCost } from '@/lib/utils';
 import { fetchMacros, flagRecipe, getRecipeNote, saveRecipeNote } from '@/lib/api';
@@ -116,14 +116,15 @@ interface RecipeDetailModalProps {
   isCooked?: boolean;
   onClose: () => void;
   onSaveToggle: () => void;
-  onAddToCart: () => void;
+  onAddToCart: (scaledIngredients: { name: string; measure: string }[]) => void;
+  onRemoveFromCart?: () => void;
   onMarkCooked?: () => void;
   onRateRecipe?: (rating: number) => void;
 }
 
 export function RecipeDetailModal({
   visible, recipe, detail, isSaved, isInCart, isCooked = false,
-  onClose, onSaveToggle, onAddToCart, onMarkCooked, onRateRecipe,
+  onClose, onSaveToggle, onAddToCart, onRemoveFromCart, onMarkCooked, onRateRecipe,
 }: RecipeDetailModalProps) {
   const colors = useTheme();
   const userId = useUserStore((s) => s.profile?.id);
@@ -134,6 +135,9 @@ export function RecipeDetailModal({
   const [tipsLoading, setTipsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'ingredients' | 'steps' | 'notes'>('ingredients');
   const [cookingModeVisible, setCookingModeVisible] = useState(false);
+  const [showServingsSheet, setShowServingsSheet] = useState(false);
+  const [groceryToast, setGroceryToast] = useState(false);
+  const sheetAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
 
   // Active step index for steps tab
   const [activeStepIndex, setActiveStepIndex] = useState(0);
@@ -160,6 +164,7 @@ export function RecipeDetailModal({
       setStorageTips(null); setActiveTab('ingredients'); setActiveStepIndex(0);
       setTimerSeconds(null); setTimerRunning(false); setTimerStepIndex(null);
       setNoteEditing(false); setNoteSaved(false);
+      setShowServingsSheet(false); setGroceryToast(false);
       return;
     }
     setServings(baseServings);
@@ -238,6 +243,24 @@ export function RecipeDetailModal({
   if (!recipe) return null;
 
   const ratio = servings / baseServings;
+
+  function handleAddToCart() {
+    const scaled = ingredients.map((ing) => ({
+      name: ing.name,
+      measure: scaleMeasure('measure' in ing ? ing.measure : (ing as any).quantity ?? '', ratio),
+    }));
+    onAddToCart(scaled);
+  }
+
+  function openServingsSheet() {
+    setShowServingsSheet(true);
+    sheetAnim.setValue(SCREEN_HEIGHT);
+    Animated.spring(sheetAnim, { toValue: 0, useNativeDriver: true, bounciness: 4 }).start();
+  }
+
+  function closeServingsSheet() {
+    Animated.timing(sheetAnim, { toValue: SCREEN_HEIGHT, duration: 250, useNativeDriver: true }).start(() => setShowServingsSheet(false));
+  }
   const scaledMacros = baseMacros ? scaleMacros(baseMacros, ratio) : null;
   const timeStr = formatTime(recipe.prep_time_mins, recipe.cook_time_mins);
   const costStr = formatCost(recipe.cost_per_serving);
@@ -405,8 +428,10 @@ export function RecipeDetailModal({
                 })}
 
                 {/* Add all to grocery */}
-                <Pressable onPress={onAddToCart} style={{ alignItems: 'center', marginTop: 20 }}>
-                  <Text style={{ fontSize: 14, color: colors.primary, fontWeight: '600' }}>Add all to grocery list</Text>
+                <Pressable onPress={() => isInCart ? onRemoveFromCart?.() : openServingsSheet()} style={{ alignItems: 'center', marginTop: 20 }}>
+                  <Text style={{ fontSize: 14, color: isInCart ? colors.error : colors.primary, fontWeight: '600' }}>
+                    {isInCart ? 'Remove from grocery list' : 'Add all to grocery list'}
+                  </Text>
                 </Pressable>
               </>
             )}
@@ -603,6 +628,20 @@ export function RecipeDetailModal({
           </View>{/* end tab content */}
           </ScrollView>{/* end outer sticky ScrollView */}
 
+          {/* Grocery toast — inside modal so visible when modal stays open */}
+          {groceryToast && (
+            <View style={{
+              position: 'absolute', bottom: 100, left: 20, right: 20, zIndex: 200,
+              backgroundColor: colors.primary, borderRadius: 12,
+              paddingVertical: 14, paddingHorizontal: 20,
+              flexDirection: 'row', alignItems: 'center', gap: 10,
+              shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 8, shadowOffset: { width: 0, height: 2 },
+            }}>
+              <Ionicons name="checkmark-circle" size={20} color="white" />
+              <Text style={{ color: 'white', fontSize: 15, fontWeight: '600' }}>Added to grocery list</Text>
+            </View>
+          )}
+
           {/* Sticky footer */}
           <View style={{
             position: 'absolute', bottom: 0, left: 0, right: 0,
@@ -611,14 +650,14 @@ export function RecipeDetailModal({
             flexDirection: 'row', gap: 12,
           }}>
             <Pressable
-              onPress={onAddToCart}
+              onPress={() => isInCart ? onRemoveFromCart?.() : openServingsSheet()}
               style={{
                 flex: 1, height: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center',
-                borderWidth: 1.5, borderColor: colors.primary,
+                borderWidth: 1.5, borderColor: isInCart ? colors.error : colors.primary,
               }}
             >
-              <Text style={{ fontSize: 15, fontWeight: '600', color: colors.primary }}>
-                {isInCart ? 'In list ✓' : 'Add to grocery'}
+              <Text style={{ fontSize: 15, fontWeight: '600', color: isInCart ? colors.error : colors.primary }}>
+                {isInCart ? 'Remove from grocery' : 'Add to grocery'}
               </Text>
             </Pressable>
             <Pressable
@@ -633,6 +672,76 @@ export function RecipeDetailModal({
               </Text>
             </Pressable>
           </View>
+
+          {/* Servings sheet — inline animated overlay (avoids nested Modal iOS bug) */}
+          {showServingsSheet && (
+            <>
+              <Pressable
+                onPress={closeServingsSheet}
+                style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(0,0,0,0.45)', zIndex: 100 }}
+              />
+              <Animated.View style={{
+                position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 101,
+                backgroundColor: colors.background,
+                borderTopLeftRadius: 20, borderTopRightRadius: 20,
+                paddingBottom: 32,
+                transform: [{ translateY: sheetAnim }],
+              }}>
+                <View style={{ paddingHorizontal: 24, paddingTop: 28, paddingBottom: 24, gap: 24 }}>
+                  <Text style={{ fontSize: 17, fontWeight: '700', color: colors.text }}>Add to grocery list</Text>
+                  <Text style={{ fontFamily: 'Georgia', fontStyle: 'italic', fontSize: 16, color: colors.text, lineHeight: 24 }}>
+                    {recipe.title}
+                  </Text>
+
+                  <View style={{ alignItems: 'center', gap: 8 }}>
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 }}>Servings</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 28 }}>
+                      <Pressable
+                        onPress={() => adjustServings(-1)} hitSlop={8}
+                        style={{ width: 44, height: 44, borderRadius: 22, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }}
+                      >
+                        <Ionicons name="remove" size={20} color={servings <= 1 ? colors.border : colors.text} />
+                      </Pressable>
+                      <Text style={{ fontSize: 36, fontWeight: '700', color: colors.text, minWidth: 40, textAlign: 'center' }}>{servings}</Text>
+                      <Pressable
+                        onPress={() => adjustServings(1)} hitSlop={8}
+                        style={{ width: 44, height: 44, borderRadius: 22, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }}
+                      >
+                        <Ionicons name="add" size={20} color={servings >= 20 ? colors.border : colors.text} />
+                      </Pressable>
+                    </View>
+                    <Text style={{ fontSize: 14, color: colors.textMuted }}>serving{servings !== 1 ? 's' : ''}</Text>
+                  </View>
+                </View>
+
+                {scaledMacros && (
+                  <View style={{ paddingHorizontal: 24, paddingBottom: 16, alignItems: 'center', gap: 4 }}>
+                    <MacroRow macros={scaledMacros} compact />
+                    <Text style={{ fontSize: 11, color: colors.textMuted }}>Estimated · per serving</Text>
+                  </View>
+                )}
+
+                <View style={{ paddingHorizontal: 20, gap: 10 }}>
+                  <Pressable
+                    onPress={() => {
+                      handleAddToCart();
+                      closeServingsSheet();
+                      setGroceryToast(true);
+                      setTimeout(() => setGroceryToast(false), 2500);
+                    }}
+                    style={{ backgroundColor: colors.primary, borderRadius: 14, height: 52, alignItems: 'center', justifyContent: 'center' }}
+                  >
+                    <Text style={{ color: 'white', fontWeight: '600', fontSize: 15 }}>
+                      Add {servings} serving{servings !== 1 ? 's' : ''} to grocery list
+                    </Text>
+                  </Pressable>
+                  <Pressable onPress={closeServingsSheet} style={{ alignItems: 'center', paddingVertical: 12 }}>
+                    <Text style={{ color: colors.textMuted, fontSize: 15 }}>Cancel</Text>
+                  </Pressable>
+                </View>
+              </Animated.View>
+            </>
+          )}
         </View>
       </Modal>
 

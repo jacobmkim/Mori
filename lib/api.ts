@@ -1012,6 +1012,7 @@ export async function getSavedRecipesWithDetails(userId: string): Promise<Recipe
     .from('saved_recipes')
     .select(`
       recipe_id,
+      saved_at,
       recipes (
         id, title, description, cuisine, source_type,
         ingredients, steps, prep_time_mins, cook_time_mins,
@@ -1019,7 +1020,8 @@ export async function getSavedRecipesWithDetails(userId: string): Promise<Recipe
         external_id, badge, avg_rating, save_count, macros, meal_prep_friendly
       )
     `)
-    .eq('user_id', userId);
+    .eq('user_id', userId)
+    .order('saved_at', { ascending: true });
   if (error) throw error;
 
   return (data ?? [])

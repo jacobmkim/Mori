@@ -71,8 +71,9 @@ function buildClipboardText(items: GroceryItem[], recipes: Recipe[], date: strin
 
 const UNDO_DURATION = 5000; // ms
 
-function UndoBanner({ count, onUndo, onDismiss }: {
+function UndoBanner({ count, message, onUndo, onDismiss }: {
   count: number;
+  message?: string;
   onUndo: () => void;
   onDismiss: () => void;
 }) {
@@ -98,7 +99,7 @@ function UndoBanner({ count, onUndo, onDismiss }: {
       shadowOpacity: 0.2, shadowRadius: 8, elevation: 8,
     }}>
       <Text style={{ color: 'white', fontSize: 14 }}>
-        {count} item{count !== 1 ? 's' : ''} removed
+        {message ?? `${count} item${count !== 1 ? 's' : ''} removed`}
       </Text>
       <Pressable onPress={onUndo}>
         <Text style={{ color: colors.primaryLight, fontSize: 14, fontWeight: '700' }}>Undo</Text>
@@ -204,6 +205,8 @@ export default function GroceryList() {
   const [editMode, setEditMode] = useState(false);
   const [undoItems, setUndoItems] = useState<GroceryItem[] | null>(null);
   const [undoKey, setUndoKey] = useState(0);
+  const [checkUndoName, setCheckUndoName] = useState<string | null>(null);
+  const [checkUndoKey, setCheckUndoKey] = useState(0);
   const [mealsVisible, setMealsVisible] = useState(false);
   const [addingItem, setAddingItem] = useState(false);
   const [newItemName, setNewItemName] = useState('');
@@ -514,7 +517,11 @@ export default function GroceryList() {
                 item={item}
                 recipeMap={recipeMap}
                 editMode={editMode}
-                onToggle={() => toggleItem(item.ingredient_name)}
+                onToggle={() => {
+                  toggleItem(item.ingredient_name);
+                  setCheckUndoName(item.ingredient_name);
+                  setCheckUndoKey((k) => k + 1);
+                }}
                 onDelete={() => {
                   const deleted = deleteItem(item.ingredient_name);
                   if (deleted) triggerUndo([deleted]);
@@ -618,13 +625,24 @@ export default function GroceryList() {
         )}
       </ScrollView>
 
-      {/* Undo banner */}
+      {/* Undo banner — delete/clear */}
       {undoItems && (
         <UndoBanner
           key={undoKey}
           count={undoItems.length}
           onUndo={handleUndo}
           onDismiss={() => setUndoItems(null)}
+        />
+      )}
+
+      {/* Undo banner — accidental check */}
+      {checkUndoName && (
+        <UndoBanner
+          key={`check-${checkUndoKey}`}
+          count={1}
+          message="Moved to Done"
+          onUndo={() => { toggleItem(checkUndoName); setCheckUndoName(null); }}
+          onDismiss={() => setCheckUndoName(null)}
         />
       )}
 
