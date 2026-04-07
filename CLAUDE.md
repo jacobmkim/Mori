@@ -37,19 +37,22 @@ Mori is a swipe-based recipe discovery app. Users swipe on recipe cards → save
 - Landing page: getmori.app (Vercel), hello@getmori.app email routing
 - App icon: italic m + spatula, linen #F8F3EC, 1024×1024 ✅
 - TestFlight internal live; external submitted for Beta App Review
+- Add Recipe wizard (4-step): basics, ingredients w/ autocomplete, steps w/ timer hints, review + submit → community recipes in Supabase. Photo upload UI present but not wired (grayed-out "coming soon"). Public recipes appear in all users' Discover decks.
+- MoriLogo.tsx + getmori.app/index.html: circle dot removed from all spatula SVGs.
+- Steamed/delicate fish hard-excluded from meal prep deck (`MEAL_PREP_EXCLUDE_METHODS` + `MEAL_PREP_DELICATE_FISH` in `lib/api.ts`).
 
 ### ❌ Remaining — Phase 3
 | # | Item |
 |---|---|
-| 1 | Add Recipe wizard — 4-step: basics → ingredients (autocomplete) → steps (timer hints) → review (spec: Section 6) |
-| 2 | Update `MoriLogo.tsx` — replace circle dot with spatula SVG |
-| 3 | Update `getmori.app/index.html` — replace circle dot in inline SVGs with spatula |
-| 4 | Run `clean-recipes.mjs` — dedup before TestFlight |
-| 5 | Run `clean-ingredient-units.mjs` — strip prep instructions from ingredient fields |
-| 6 | Fix profile page dark mode — white card backgrounds → `colors.card` |
-| 7 | Steamed/delicate fish hard-exclude from meal prep deck |
-| 8 | Apple AI transparency in-app consent (required before App Store, not internal TF) |
-| 9 | App tutorial for new users. Show user key features.
+| 1 | ✅ Add Recipe wizard — 4-step modal. Photo upload grayed out ("coming soon") — not wired to storage. |
+| 2 | ✅ `MoriLogo.tsx` — circle dot removed, spatula SVG with slots. |
+| 3 | ✅ `getmori.app/index.html` — circle dots removed from both inline SVGs. |
+| 4 | ❓ Run `clean-recipes.mjs` — dedup before TestFlight (unverified). |
+| 5 | ❓ Run `clean-ingredient-units.mjs` — strip prep instructions from ingredient fields (unverified). |
+| 6 | ❌ Fix profile dark mode — 3 hardcoded hex colors in `profile.tsx` lines 172, 518, 528. |
+| 7 | ✅ Steamed/delicate fish hard-excluded from meal prep deck. |
+| 8 | ❌ Apple AI transparency in-app consent (required before App Store, not internal TF). |
+| 9 | ❌ App tutorial for new users.
 
 ### ❌ Phase 4 — Grocery APIs
 - Kroger API (`developer.kroger.com`) — Done. Ask user for key.
@@ -133,6 +136,9 @@ scripts/ (all one-time or safe-to-resume, already ran)
 - **Logo accent:** spatula SVG (NOT a circle dot) — matches primary green of current theme.
 - **App icon:** always linen light (#F8F3EC bg, #2E5438 m + spatula). Never changes between themes.
 - **Logo banner bg:** `#fff8ef` (cream). `assets/mori transparent banner.png` (transparent) — preferred for app + web nav (works on any bg). `assets/mori.png` (cream bg) only when background matches `#fff8ef`.
+- **PNG assets (do not use inline SVGs on web — two files only):**
+  - `mori_icon.png` — app icon: linen #F8F3EC bg, italic "m" + spatula in moss #2E5438, rounded square. Use for favicon-style icon placements.
+  - `mori-transparent.png` — wordmark: italic "mori" in forest green (#2E5438) with spatula on the left, transparent background. Use for nav bars, footers, any bg. Used in app via `MoriLogo.tsx`.
 
 ### Typography (Direction A — locked)
 ```

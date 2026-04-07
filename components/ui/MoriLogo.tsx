@@ -9,7 +9,7 @@ import { useDiscoverStore } from '@/stores/discoverStore';
  * Brand system locked March 2026.
  *
  * WORDMARK: upright spatula (left) + italic Georgia "mori" (right)
- *   - Light mode, no tagline → PNG banner (mori banner white.png)
+ *   - Light mode, no tagline → PNG (mori-transparent.png)
  *   - Dark mode or showTagline (welcome screen dark overlay) → SVG (theme-adaptive)
  * APP ICON:  linen #F8F3EC bg, italic Georgia "m" in moss #2E5438, spatula top-right
  */

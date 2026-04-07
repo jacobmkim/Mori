@@ -178,7 +178,7 @@ export function RecipeDetailModal({
     const ings = recipe.ingredients.length > 0
       ? recipe.ingredients
       : (detail?.ingredients ?? []).map((i) => ({ name: i.name, quantity: i.measure, unit: '' }));
-    fetchMacros(recipe.title, ings, { externalId: recipe.id }).then(setBaseMacros).catch(() => setBaseMacros(null));
+    fetchMacros(recipe.title, ings, { externalId: recipe.external_id ?? undefined, supabaseId: recipe.supabase_id }).then(setBaseMacros).catch(() => setBaseMacros(null));
 
     // Load existing note
     if (userId && recipe.supabase_id) {

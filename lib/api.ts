@@ -1202,8 +1202,12 @@ export async function getRecipesBySupabaseIds(ids: string[]): Promise<Recipe[]> 
 // Zero-API fallback used when Spoonacular and Claude are unavailable (rate limits,
 // dev environment, etc.). Estimates are keyword-based and always marked isEstimated.
 // Exported so callers can show an instant pill while the async fetch runs.
-export function estimateMacrosLocally(title: string): Macros {
-  const t = title.toLowerCase();
+export function estimateMacrosLocally(
+  title: string,
+  ingredients: { name: string }[] = [],
+): Macros {
+  // Combine title + all ingredient names so keyword matching uses full recipe context
+  const t = [title, ...ingredients.map((i) => i.name)].join(' ').toLowerCase();
   let calories = 420, protein = 25, carbohydrates = 38, fat = 16, fibre = 4;
 
   if (/chicken|poultry|turkey/.test(t))        { calories = 380; protein = 32; carbohydrates = 15; fat = 13; }
@@ -1228,7 +1232,7 @@ export function estimateMacrosLocally(title: string): Macros {
 export async function fetchMacros(
   recipeTitle: string,
   ingredients: { name: string; quantity: string; unit: string }[],
-  options?: { externalId?: string }
+  options?: { externalId?: string; supabaseId?: string }
 ): Promise<Macros | null> {
   // Check local AsyncStorage cache first (fastest, zero network)
   const cached = await getCachedMacros(recipeTitle);
@@ -1244,6 +1248,7 @@ export async function fetchMacros(
           recipeTitle,
           ingredients,
           externalId: options?.externalId,
+          supabaseId: options?.supabaseId,
         }),
       });
       if (res.ok) {
@@ -1260,7 +1265,7 @@ export async function fetchMacros(
   }
 
   // Local estimator — zero API calls, always works, marked isEstimated: true
-  const estimated = estimateMacrosLocally(recipeTitle);
+  const estimated = estimateMacrosLocally(recipeTitle, ingredients);
   persistMacros(recipeTitle, estimated); // cache so we don't re-estimate
   return estimated;
 }
@@ -1380,4 +1385,76 @@ export async function saveRecipeNote(
       { onConflict: 'user_id,recipe_id' }
     );
   if (error) throw error;
+}
+
+// ─── Community Recipe Creation ─────────────────────────────────────────────────
+
+const INGREDIENT_NAMES_CACHE_KEY = 'mori_ingredient_names_v1';
+
+export async function fetchIngredientNames(): Promise<string[]> {
+  try {
+    const cached = await AsyncStorage.getItem(INGREDIENT_NAMES_CACHE_KEY);
+    if (cached) return JSON.parse(cached) as string[];
+  } catch {
+    // cache miss — fall through to fetch
+  }
+  try {
+    const { data, error } = await supabase
+      .from('recipes')
+      .select('ingredients')
+      .limit(2000);
+    if (error) return [];
+    const seen = new Set<string>();
+    for (const row of data ?? []) {
+      const ings = (row.ingredients ?? []) as { name?: string }[];
+      for (const ing of ings) {
+        if (ing?.name) seen.add(ing.name);
+      }
+    }
+    const names = Array.from(seen).sort();
+    AsyncStorage.setItem(INGREDIENT_NAMES_CACHE_KEY, JSON.stringify(names)).catch(() => {});
+    return names;
+  } catch {
+    return [];
+  }
+}
+
+interface CommunityRecipeInput {
+  title: string;
+  description: string | null;
+  cuisine: string | null;
+  ingredients: { name: string; quantity: string; unit: string }[];
+  steps: { order: number; instruction: string; title?: string }[];
+  prep_time_mins: number | null;
+  cook_time_mins: number | null;
+  servings: number | null;
+  dietary_tags: string[];
+  submitted_by: string;
+  image_url: string | null;
+}
+
+export async function insertCommunityRecipe(input: CommunityRecipeInput): Promise<string> {
+  const { data, error } = await supabase
+    .from('recipes')
+    .insert({
+      title: input.title,
+      description: input.description,
+      cuisine: input.cuisine,
+      source_type: 'community',
+      ingredients: input.ingredients,
+      steps: input.steps,
+      prep_time_mins: input.prep_time_mins,
+      cook_time_mins: input.cook_time_mins,
+      servings: input.servings,
+      dietary_tags: input.dietary_tags,
+      submitted_by: input.submitted_by,
+      image_url: input.image_url,
+      badge: 'none',
+      avg_rating: 0,
+      save_count: 0,
+    })
+    .select('id')
+    .single();
+  if (error) throw error;
+  return data.id;
 }

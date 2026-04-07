@@ -5,8 +5,9 @@
  */
 import {
   View, Text, FlatList, Pressable, TextInput, ActivityIndicator, ScrollView, Modal, Alert,
+  Animated,
 } from 'react-native';
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -34,6 +35,7 @@ import { useUserStore } from '@/stores/userStore';
 import { supabase } from '@/lib/supabase';
 import { AvatarButton } from '@/components/AvatarButton';
 import { RecipeDetailModal } from '@/components/RecipeDetailModal';
+import { AddRecipeWizard } from '@/components/AddRecipeWizard';
 import type { Recipe } from '@/types';
 
 type SubTab = 'Saved' | 'Cooked' | 'Mine' | 'Meal Prep';
@@ -107,6 +109,19 @@ export default function Recipes() {
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [detailVisible, setDetailVisible] = useState(false);
   const [isCooked, setIsCooked] = useState(false);
+  const [wizardVisible, setWizardVisible] = useState(false);
+  const [savedToastVisible, setSavedToastVisible] = useState(false);
+  const savedToastOpacity = useRef(new Animated.Value(0)).current;
+
+  function showSavedToast() {
+    setSavedToastVisible(true);
+    savedToastOpacity.setValue(0);
+    Animated.sequence([
+      Animated.timing(savedToastOpacity, { toValue: 1, duration: 120, useNativeDriver: true }),
+      Animated.delay(1800),
+      Animated.timing(savedToastOpacity, { toValue: 0, duration: 200, useNativeDriver: true }),
+    ]).start(() => setSavedToastVisible(false));
+  }
 
   // ── Load cooked + mine data ────────────────────────────────────────────────
   useEffect(() => {
@@ -323,7 +338,7 @@ export default function Recipes() {
           <Text style={{ fontSize: 28, fontWeight: '700', color: colors.text }}>My Recipes</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <Pressable
-              onPress={() => Alert.alert('Coming soon', 'The recipe builder is coming in the next update.')}
+              onPress={() => setWizardVisible(true)}
               style={{
                 flexDirection: 'row', alignItems: 'center', gap: 5,
                 backgroundColor: colors.primary, borderRadius: 999,
@@ -548,6 +563,40 @@ export default function Recipes() {
         }}
         onRemoveFromCart={() => { if (selectedRecipe) removeRecipeFromList(selectedRecipe.id); }}
       />
+
+      {/* Add Recipe Wizard */}
+      <AddRecipeWizard
+        visible={wizardVisible}
+        userId={userId ?? ''}
+        onClose={() => setWizardVisible(false)}
+        onSuccess={(recipe) => {
+          setWizardVisible(false);
+          loadMineData();
+          showSavedToast();
+          setTimeout(() => {
+            setSelectedRecipe(recipe);
+            setIsCooked(false);
+            setDetailVisible(true);
+          }, 400);
+        }}
+      />
+
+      {/* "Recipe saved!" toast */}
+      {savedToastVisible && (
+        <Animated.View
+          pointerEvents="none"
+          style={{
+            position: 'absolute', bottom: 100, alignSelf: 'center',
+            opacity: savedToastOpacity,
+            backgroundColor: colors.primary, borderRadius: 999,
+            paddingHorizontal: 16, paddingVertical: 8,
+            flexDirection: 'row', alignItems: 'center', gap: 6, zIndex: 99,
+          }}
+        >
+          <Ionicons name="checkmark-circle" size={16} color="white" />
+          <Text style={{ color: 'white', fontSize: 14, fontWeight: '600' }}>Recipe saved!</Text>
+        </Animated.View>
+      )}
 
     </SafeAreaView>
   );

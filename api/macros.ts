@@ -5,7 +5,8 @@ import { createClient } from '@supabase/supabase-js';
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface MacroRequest {
-  externalId?: string; // TheMealDB ID — used to cache result in Supabase recipes table
+  externalId?: string;  // TheMealDB ID — used to cache result in Supabase recipes table
+  supabaseId?: string;  // Supabase UUID — used for community recipes (no external_id)
   recipeTitle: string;
   ingredients: { name: string; quantity: string; unit: string }[];
 }
@@ -29,26 +30,37 @@ function getSupabase() {
   return createClient(url, key);
 }
 
-async function getCachedMacrosFromDB(externalId: string): Promise<Macros | null> {
+async function getCachedMacrosFromDB(
+  externalId?: string,
+  supabaseId?: string,
+): Promise<Macros | null> {
   const sb = getSupabase();
-  if (!sb) return null;
+  if (!sb || (!externalId && !supabaseId)) return null;
   try {
-    const { data } = await sb
-      .from('recipes')
-      .select('macros')
-      .eq('external_id', externalId)
-      .single();
+    const query = sb.from('recipes').select('macros');
+    const { data } = externalId
+      ? await query.eq('external_id', externalId).single()
+      : await query.eq('id', supabaseId).single();
     return (data?.macros as Macros) ?? null;
   } catch {
     return null;
   }
 }
 
-async function saveMacrosToDB(externalId: string, macros: Macros): Promise<void> {
+async function saveMacrosToDB(
+  macros: Macros,
+  externalId?: string,
+  supabaseId?: string,
+): Promise<void> {
   const sb = getSupabase();
-  if (!sb) return;
+  if (!sb || (!externalId && !supabaseId)) return;
   try {
-    await sb.from('recipes').update({ macros }).eq('external_id', externalId);
+    const query = sb.from('recipes').update({ macros });
+    if (externalId) {
+      await query.eq('external_id', externalId);
+    } else {
+      await query.eq('id', supabaseId);
+    }
   } catch {
     // Non-critical — cache write failure is fine
   }
@@ -117,22 +129,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { externalId, recipeTitle, ingredients = [] }: MacroRequest = req.body ?? {};
+  const { externalId, supabaseId, recipeTitle, ingredients = [] }: MacroRequest = req.body ?? {};
 
   if (!recipeTitle) {
     return res.status(400).json({ error: 'recipeTitle is required' });
   }
 
   // 1. Check Supabase cache — avoids Claude call if already computed for this recipe
-  if (externalId) {
-    const cached = await getCachedMacrosFromDB(externalId);
+  if (externalId || supabaseId) {
+    const cached = await getCachedMacrosFromDB(externalId, supabaseId);
     if (cached) return res.json({ macros: cached });
   }
 
   // 2. Estimate with Claude Haiku — always labelled isEstimated: true
   const estimated = await estimateWithClaude(recipeTitle, ingredients);
   if (estimated) {
-    if (externalId) saveMacrosToDB(externalId, estimated);
+    saveMacrosToDB(estimated, externalId, supabaseId); // fire-and-forget
     return res.json({ macros: estimated });
   }
 
