@@ -12,6 +12,7 @@ import ProgressBar from '@/components/onboarding/ProgressBar';
 interface FormData {
   email: string;
   password: string;
+  confirmPassword?: string;
 }
 
 export default function Account() {
@@ -22,10 +23,10 @@ export default function Account() {
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<'signup' | 'signin'>(signin === '1' ? 'signin' : 'signup');
 
-  const { control, handleSubmit, formState: { errors } } = useForm<FormData>({
+  const { control, handleSubmit, formState: { errors }, getValues } = useForm<FormData>({
     defaultValues: __DEV__
-      ? { email: 'dev@mise.app', password: 'devpassword123' }
-      : { email: '', password: '' },
+      ? { email: 'dev@mise.app', password: 'devpassword123', confirmPassword: '' }
+      : { email: '', password: '', confirmPassword: '' },
   });
 
   async function onSubmit(data: FormData) {
@@ -166,6 +167,45 @@ export default function Account() {
               </Text>
             )}
           </View>
+
+          {mode === 'signup' && (
+            <View>
+              <Text style={{ color: colors.text, fontSize: 14, fontWeight: '500', marginBottom: 8 }}>
+                Confirm Password
+              </Text>
+              <Controller
+                control={control}
+                name="confirmPassword"
+                rules={{
+                  required: 'Please confirm your password',
+                  validate: (v) => v === getValues('password') || 'Passwords do not match',
+                }}
+                render={({ field: { onChange, value } }) => (
+                  <TextInput
+                    value={value}
+                    onChangeText={onChange}
+                    placeholder="Re-enter your password"
+                    secureTextEntry
+                    autoComplete="new-password"
+                    style={{
+                      backgroundColor: colors.card,
+                      borderColor: errors.confirmPassword ? colors.error : colors.border,
+                      borderWidth: 1.5,
+                      borderRadius: 14,
+                      padding: 16,
+                      fontSize: 16,
+                      color: colors.text,
+                    }}
+                  />
+                )}
+              />
+              {errors.confirmPassword && (
+                <Text style={{ color: colors.error, fontSize: 13, marginTop: 4 }}>
+                  {errors.confirmPassword.message}
+                </Text>
+              )}
+            </View>
+          )}
         </View>
       </View>
 
@@ -188,6 +228,17 @@ export default function Account() {
             </Text>
           )}
         </Pressable>
+
+        {mode === 'signin' && (
+          <Pressable
+            onPress={() => router.push('/onboarding/forgot-password')}
+            style={{ alignItems: 'center', paddingVertical: 8 }}
+          >
+            <Text style={{ color: colors.primary, fontSize: 14, fontWeight: '600' }}>
+              Forgot password?
+            </Text>
+          </Pressable>
+        )}
 
         <Pressable
           onPress={() => setMode(mode === 'signup' ? 'signin' : 'signup')}
