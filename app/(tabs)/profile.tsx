@@ -488,14 +488,14 @@ function DevToolsSection() {
   return (
     <View style={{ paddingHorizontal: 16, marginBottom: 24 }}>
       <Text style={{
-        fontSize: 13, fontWeight: '700', color: '#B00020',
+        fontSize: 13, fontWeight: '700', color: colors.error,
         textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 12,
       }}>
         Dev Tools
       </Text>
       <View style={{
         backgroundColor: colors.card, borderRadius: 12,
-        borderWidth: 1, borderColor: '#FFCDD2', overflow: 'hidden',
+        borderWidth: 1, borderColor: colors.errorBg, overflow: 'hidden',
       }}>
         <View style={{
           flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -855,6 +855,26 @@ export default function Profile() {
         {__DEV__ && (
           <DevToolsSection />
         )}
+
+        {/* Legal */}
+        <View style={{ paddingHorizontal: 16, marginBottom: 24 }}>
+          <View style={{
+            backgroundColor: colors.card, borderRadius: 12,
+            borderWidth: 1, borderColor: colors.border, overflow: 'hidden',
+          }}>
+            <Pressable
+              onPress={() => router.push('/privacy-policy')}
+              style={{
+                flexDirection: 'row', alignItems: 'center', gap: 12,
+                padding: 16,
+              }}
+            >
+              <Ionicons name="shield-checkmark-outline" size={20} color={colors.textMuted} />
+              <Text style={{ flex: 1, fontSize: 15, color: colors.text }}>Privacy Policy</Text>
+              <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+            </Pressable>
+          </View>
+        </View>
 
         {/* Sign Out */}
         <View style={{ paddingHorizontal: 16 }}>

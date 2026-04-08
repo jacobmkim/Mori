@@ -283,6 +283,12 @@ async function main() {
       if (toDelete.length > 0) {
         console.log(`  → ${toDelete.length} to delete`);
         if (!DRY_RUN) {
+          // Cascade-delete FK-dependent rows before deleting recipes
+          const fkTables = ['swipe_events', 'saved_recipes', 'recipe_interactions', 'recipe_cohort_affinities'];
+          for (const table of fkTables) {
+            const { error: fkErr } = await sb.from(table).delete().in('recipe_id', toDelete);
+            if (fkErr) console.log(`  ⚠ FK cleanup error (${table}): ${fkErr.message}`);
+          }
           const { error: delErr } = await sb.from('recipes').delete().in('id', toDelete);
           if (delErr) console.log(`  ⚠ Delete error: ${delErr.message}`);
           else {

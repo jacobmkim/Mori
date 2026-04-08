@@ -28,6 +28,7 @@ import { useGroceryStore } from '@/stores/groceryStore';
 import { useUserStore } from '@/stores/userStore';
 import { useDiscoverStore } from '@/stores/discoverStore';
 import { useMealPlanStore } from '@/stores/mealPlanStore';
+import { TutorialOverlay, shouldShowTutorial } from '@/components/TutorialOverlay';
 import type { Recipe, AppMode, Macros, MealType } from '@/types';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -329,6 +330,7 @@ export default function Discover() {
   const [showDetail, setShowDetail] = useState(false);
   const [cartToast, setCartToast] = useState(false);
   const [deckServingsSheetVisible, setDeckServingsSheetVisible] = useState(false);
+  const [showTutorial, setShowTutorial] = useState(false);
   const [deckServings, setDeckServings] = useState(2);
   const cartToastOpacity = useRef(new Animated.Value(0)).current;
   const detailCache = useRef<Map<string, MealDetail>>(new Map());
@@ -403,6 +405,14 @@ export default function Discover() {
       loadMealPlan(userId, weekStart);
     }
   }, [userId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Show tutorial on first launch after onboarding — only for new users with no saves
+  useEffect(() => {
+    if (!userId) return;
+    shouldShowTutorial(userId).then((show) => {
+      if (show && savedRecipes.length === 0) setShowTutorial(true);
+    });
+  }, [userId]);
 
   // Re-fetch when userId, mode, or dietary goals change.
   // If a deck is already visible (mode switch / prefs change), fetch silently
@@ -1114,6 +1124,12 @@ export default function Discover() {
           </View>
         </SafeAreaView>
       </Modal>
+
+      <TutorialOverlay
+        visible={showTutorial}
+        onDone={() => setShowTutorial(false)}
+        userId={userId ?? ''}
+      />
     </SafeAreaView>
   );
 }

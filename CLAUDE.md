@@ -3,7 +3,8 @@
 ## Commandments
 - Use subagents for any exploration requiring 3+ file analysis; have it return a summary.
 - Run long tasks (scripts, backfills, builds) via a background agent so the user can keep working.
-- Keep this file LEAN.
+- Keep this file LEAN. Any changes should be reflected here or updated on the respective .md files.
+- Compact at 60% of context usage.
 - Do not make changes unless 95% confident. Ask follow-up questions until that threshold is met.
 - Bug fix log lives at `.claude/bugfixes.md` — append an entry for every shipped fix batch.
 
@@ -50,20 +51,19 @@ Mori is a swipe-based recipe discovery app. Users swipe on recipe cards → save
 - Add Recipe wizard (4-step): basics, ingredients w/ autocomplete, steps w/ timer hints, review + submit → community recipes in Supabase. Photo upload UI present but not wired (grayed-out "coming soon"). Public recipes appear in all users' Discover decks.
 - MoriLogo.tsx + getmori.app/index.html: circle dot removed from all spatula SVGs.
 - Steamed/delicate fish hard-excluded from meal prep deck (`MEAL_PREP_EXCLUDE_METHODS` + `MEAL_PREP_DELICATE_FISH` in `lib/api.ts`).
+- Profile dark mode: all hardcoded hex replaced with `colors.error` / `colors.errorBg`.
+- Apple AI transparency: passive disclosure banner on payoff screen covers App Store requirement.
 
 ### ❌ Remaining — Phase 3
 | # | Item |
 |---|---|
-| 1 | ✅ Add Recipe wizard — 4-step modal. Photo upload grayed out ("coming soon") — not wired to storage. |
-| 2 | ✅ `MoriLogo.tsx` — circle dot removed, spatula SVG with slots. |
-| 3 | ✅ `getmori.app/index.html` — circle dots removed from both inline SVGs. |
-| 4 | ❓ Run `clean-recipes.mjs` — dedup before TestFlight (unverified). |
-| 5 | ❓ Run `clean-ingredient-units.mjs` — strip prep instructions from ingredient fields (unverified). |
-| 6 | ❌ Fix profile dark mode — 3 hardcoded hex colors in `profile.tsx` lines 172, 518, 528. |
-| 7 | ✅ Steamed/delicate fish hard-excluded from meal prep deck. |
-| 8 | ❌ Apple AI transparency in-app consent (required before App Store, not internal TF). |
-| 9 | ❌ App tutorial for new users.
-| 10 | Add Privacy policy on the app.
+| 1 | ✅ Run `clean-recipes.mjs` — 13 dupes deleted (Indian + Korean), 6 tags fixed. 609 curated recipes remain. FK cascade added to script. |
+| 2 | N/A `clean-ingredient-units.mjs` — app display layer handles ingredient formatting; DB data clean. |
+| 3 | ✅ App tutorial — `components/TutorialOverlay.tsx` coach-mark overlay, 4 steps, AsyncStorage `@mori_tutorial_seen` flag, shown once post-onboarding on Discover. |
+| 4 | ✅ Privacy policy in-app — `app/privacy-policy.tsx` modal, entry row in profile Settings. |
+| 5 | ❌ Logo — decide on transparent/color variants for different backgrounds. |
+| 6 | ❌ Fix logo on onboarding → main app screens. |
+| 7 | ❌ Fix screenshots on getmori.app website. |
 
 ### ❌ Phase 4 — Grocery APIs
 - Kroger API (`developer.kroger.com`) — Done. Ask user for key.

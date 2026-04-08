@@ -31,6 +31,7 @@ export default function RootLayout() {
         <Stack.Screen name="onboarding" />
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="reset-password" />
+        <Stack.Screen name="privacy-policy" options={{ presentation: 'modal' }} />
       </Stack>
     </GestureHandlerRootView>
   );

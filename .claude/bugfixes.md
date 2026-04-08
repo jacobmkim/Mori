@@ -1,5 +1,16 @@
 # Mori — Bug Fix Log
 
+## 2026-04-08
+- **Recipe dedup FK constraint** — `clean-recipes.mjs` failed deleting 10 Indian + 2 Korean dupes due to `swipe_events_recipe_id_fkey`; fixed by cascade-deleting `swipe_events`, `saved_recipes`, `recipe_interactions`, `recipe_cohort_affinities` rows before recipe delete; 13 dupes removed, 6 dietary tags corrected, 609 curated recipes remain
+
+
+- **Profile dark mode hardcoded hex** — Dev Tools section in `profile.tsx` had `#B00020` (text color) and `#FFCDD2` (border color) that broke dark mode; replaced with `colors.error` and `colors.errorBg` from theme
+
+## 2026-04-07
+- **NativeWind CSS interop crash on signin** — `babel.config.js` had `jsxImportSource: "nativewind"` and `_layout.tsx` imported `global.css`, activating `react-native-css-interop` for all JSX; it failed trying to wrap `SafeAreaProvider` (`displayName` undefined), throwing `TypeError` on every render of the account screen; fixed by removing both — project uses inline styles only
+- **Keyboard covers password inputs** — `account.tsx` had no `KeyboardAvoidingView`; wrapped screen in `KeyboardAvoidingView` + `ScrollView` (buttons moved inside scroll) so inputs stay visible above keyboard; added `TouchableWithoutFeedback` → `Keyboard.dismiss` so tapping outside any input collapses the keyboard
+- **Budget card clipped by AI notice on payoff screen** — absolute-positioned footer (AI disclosure + CTA button, ~184px tall) overlapped the last scroll card; `ScrollView` `paddingBottom` increased from 140 → 220 to clear it
+
 ## 2026-04-05 (TestFlight Round 5)
 - **No undo for accidentally checked grocery item** — checking an unchecked item in the active list now shows "Moved to Done" undo banner for 5s; tapping Undo calls `toggleItem` to restore it; reuses existing `UndoBanner` component (added optional `message` prop); Done-section toggle stays unchanged
 
