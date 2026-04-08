@@ -66,7 +66,7 @@ export function HeadlineMacroPill({
   let label: string | null = null;
 
   if (goals.some((g) => g === 'high protein' || g === 'paleo' || g === 'pescatarian')) {
-    label = `${macros.protein}g protein`;
+    label = `${macros.protein}g protein · ${macros.calories} cal`;
   } else if (goals.some((g) => g === 'keto')) {
     const netCarbs = macros.netCarbs ?? Math.max(0, macros.carbohydrates - macros.fibre);
     label = `${netCarbs}g net carbs`;

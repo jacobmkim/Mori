@@ -269,20 +269,9 @@ function RecipeSwipeCard({
         {/* Headline macro pill — only shown when macros + matching dietary goal exist */}
         <HeadlineMacroPill macros={macros ?? recipe.macros} dietaryGoals={dietaryGoals ?? []} />
 
-        {/* Ingredient pills — fade in as top card is dragged away */}
+        {/* Ingredient pills */}
         {detail?.ingredients && detail.ingredients.length > 0 && (
-          <Animated.View style={{
-            flexDirection: 'row', flexWrap: 'wrap', gap: 6, overflow: 'hidden', maxHeight: 64,
-            opacity: isTop
-              ? 1
-              : topDragX
-                ? topDragX.interpolate({
-                    inputRange: [-40, -10, 0, 10, 40],
-                    outputRange: [1, 1, 0, 1, 1],
-                    extrapolate: 'clamp',
-                  })
-                : 0,
-          }}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, overflow: 'hidden', maxHeight: 64 }}>
             {detail.ingredients.slice(0, 5).map((ing, i) => (
               <View
                 key={i}
@@ -296,7 +285,7 @@ function RecipeSwipeCard({
                 <Text style={{ color: colors.primary, fontSize: 12, fontWeight: '500' }}>{ing.name}</Text>
               </View>
             ))}
-          </Animated.View>
+          </View>
         )}
       </View>
     </Animated.View>
@@ -378,6 +367,44 @@ export default function Discover() {
   const xFlash = useRef(topDragX.interpolate({
     inputRange: [-SCREEN_WIDTH, -SWIPE_THRESHOLD, 0],
     outputRange: [colors.error, colors.error, colors.card],
+    extrapolate: 'clamp',
+  })).current;
+
+  // Shadow glow — direction-specific, scales with drag distance
+  const heartGlowOpacity = useRef(topDragX.interpolate({
+    inputRange: [0, SWIPE_THRESHOLD, SCREEN_WIDTH],
+    outputRange: [0, 0.55, 0.55],
+    extrapolate: 'clamp',
+  })).current;
+  const heartGlowRadius = useRef(topDragX.interpolate({
+    inputRange: [0, SWIPE_THRESHOLD, SCREEN_WIDTH],
+    outputRange: [4, 22, 22],
+    extrapolate: 'clamp',
+  })).current;
+  const xGlowOpacity = useRef(topDragX.interpolate({
+    inputRange: [-SCREEN_WIDTH, -SWIPE_THRESHOLD, 0],
+    outputRange: [0.55, 0.55, 0],
+    extrapolate: 'clamp',
+  })).current;
+  const xGlowRadius = useRef(topDragX.interpolate({
+    inputRange: [-SCREEN_WIDTH, -SWIPE_THRESHOLD, 0],
+    outputRange: [22, 22, 4],
+    extrapolate: 'clamp',
+  })).current;
+
+  // Post-swipe linger: hold then fade after card flies off
+  const heartPostGlow = useRef(new Animated.Value(0)).current;
+  const xPostGlow = useRef(new Animated.Value(0)).current;
+
+  // Icon white overlay during drag — native-driver safe (pure topDragX interpolation, no mixing)
+  const heartDragIconWhite = useRef(topDragX.interpolate({
+    inputRange: [0, SWIPE_THRESHOLD],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  })).current;
+  const xDragIconWhite = useRef(topDragX.interpolate({
+    inputRange: [-SWIPE_THRESHOLD, 0],
+    outputRange: [1, 0],
     extrapolate: 'clamp',
   })).current;
 
@@ -581,6 +608,15 @@ export default function Discover() {
     // position, so unmounting it won't cause a native-driver flash. The exit
     // overlay (above) handles the visual fly-off on a separate ValueXY.
     setCurrentIndex((prev) => prev + 1);
+
+    // Post-swipe button linger: hold color then fade over ~280ms
+    if (direction === 'right') {
+      heartPostGlow.setValue(1);
+      Animated.timing(heartPostGlow, { toValue: 0, duration: 280, delay: 180, useNativeDriver: false }).start();
+    } else {
+      xPostGlow.setValue(1);
+      Animated.timing(xPostGlow, { toValue: 0, duration: 280, delay: 180, useNativeDriver: false }).start();
+    }
 
     // Quick linear reset — fast enough that pill flash is imperceptible,
     // slow enough that the new second card settles without snapping.
@@ -932,14 +968,24 @@ export default function Discover() {
           <Animated.View style={{
             width: 60, height: 60, borderRadius: 30,
             backgroundColor: xFlash, borderWidth: 1.5, borderColor: colors.error,
-            shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.08, shadowRadius: 4, elevation: 3,
+            shadowColor: colors.error, shadowOffset: { width: 0, height: 0 },
+            shadowOpacity: xGlowOpacity, shadowRadius: xGlowRadius, elevation: 3,
           }}>
+            <Animated.View pointerEvents="none" style={{
+              position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+              borderRadius: 30, backgroundColor: colors.error, opacity: xPostGlow,
+            }} />
             <Pressable
               onPress={() => handleButtonSwipe('left')}
               style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
             >
               <Ionicons name="close" size={28} color={colors.error} />
+              <Animated.View pointerEvents="none" style={{ position: 'absolute', opacity: xDragIconWhite }}>
+                <Ionicons name="close" size={28} color="white" />
+              </Animated.View>
+              <Animated.View pointerEvents="none" style={{ position: 'absolute', opacity: xPostGlow }}>
+                <Ionicons name="close" size={28} color="white" />
+              </Animated.View>
             </Pressable>
           </Animated.View>
 
@@ -1012,14 +1058,24 @@ export default function Discover() {
           <Animated.View style={{
             width: 60, height: 60, borderRadius: 30,
             backgroundColor: heartFlash, borderWidth: 1.5, borderColor: colors.primary,
-            shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.08, shadowRadius: 4, elevation: 3,
+            shadowColor: colors.swipeRight, shadowOffset: { width: 0, height: 0 },
+            shadowOpacity: heartGlowOpacity, shadowRadius: heartGlowRadius, elevation: 3,
           }}>
+            <Animated.View pointerEvents="none" style={{
+              position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+              borderRadius: 30, backgroundColor: colors.swipeRight, opacity: heartPostGlow,
+            }} />
             <Pressable
               onPress={() => handleButtonSwipe('right')}
               style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
             >
               <Ionicons name="heart" size={26} color={colors.primary} />
+              <Animated.View pointerEvents="none" style={{ position: 'absolute', opacity: heartDragIconWhite }}>
+                <Ionicons name="heart" size={26} color="white" />
+              </Animated.View>
+              <Animated.View pointerEvents="none" style={{ position: 'absolute', opacity: heartPostGlow }}>
+                <Ionicons name="heart" size={26} color="white" />
+              </Animated.View>
             </Pressable>
           </Animated.View>
         </View>
