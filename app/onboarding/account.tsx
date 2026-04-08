@@ -53,6 +53,12 @@ export default function Account() {
             onboarding_complete: false,
           });
           setProfile(profile);
+
+          // Send confirmation email (optional — user can ignore)
+          supabase.auth.resendConfirmationEmail(data.email).catch((err) => {
+            console.error('Failed to send confirmation email:', err);
+            // Non-fatal — continue to app even if email fails
+          });
         }
         router.push('/onboarding/pantry');
       } else {
