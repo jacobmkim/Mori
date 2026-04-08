@@ -1,0 +1,582 @@
+title,cuisine,meal_prep_friendly,difficulty,approx_time_mins
+Classic Cheeseburger,American,false,beginner,20
+BBQ Baby Back Ribs,American,false,advanced,180
+Mac and Cheese,American,true,beginner,40
+Chicken and Waffles,American,false,intermediate,45
+New England Clam Chowder,American,true,intermediate,45
+Buffalo Chicken Wings,American,false,beginner,45
+Classic Meatloaf,American,true,beginner,70
+Pulled Pork Sandwich,American,true,intermediate,240
+Corn Chowder,American,true,beginner,40
+Southern Fried Chicken,American,false,intermediate,45
+Beef Chili,American,true,beginner,60
+Lobster Roll,American,false,intermediate,25
+Philly Cheesesteak,American,false,intermediate,25
+Club Sandwich,American,false,beginner,15
+Caesar Salad,American,false,beginner,15
+Cobb Salad,American,false,beginner,20
+Shrimp and Grits,American,false,intermediate,35
+Chicken Pot Pie,American,true,intermediate,75
+Biscuits and Gravy,American,false,intermediate,30
+Banana Pudding,American,true,beginner,20
+Jambalaya,American,true,intermediate,60
+Crab Cakes,American,false,intermediate,30
+Smash Burgers,American,false,beginner,20
+Nashville Hot Chicken,American,false,intermediate,45
+Texas BBQ Brisket,American,true,advanced,480
+Clam Bake,American,false,advanced,90
+Gumbo,American,true,advanced,90
+Macaroni Salad,American,true,beginner,25
+Potato Salad,American,true,beginner,30
+Deviled Eggs,American,true,beginner,20
+Creamed Spinach,American,true,beginner,20
+Honey Garlic Chicken,American,true,beginner,35
+Sloppy Joes,American,true,beginner,30
+Chicken Caesar Wrap,American,false,beginner,15
+BLT Sandwich,American,false,beginner,10
+French Dip Sandwich,American,false,beginner,25
+Loaded Baked Potato Soup,American,true,beginner,45
+Chicken Noodle Soup,American,true,beginner,50
+Turkey Meatballs,American,true,beginner,40
+One Pan Chicken and Vegetables,American,true,beginner,45
+Sheet Pan Salmon,American,true,beginner,25
+Grilled Corn on the Cob,American,false,beginner,20
+Coleslaw,American,true,beginner,15
+Hush Puppies,American,false,beginner,20
+Peach Cobbler,American,false,beginner,45
+Key Lime Pie,American,false,intermediate,45
+Apple Pie,American,false,intermediate,75
+Sweet Potato Casserole,American,true,beginner,55
+Green Bean Casserole,American,true,beginner,45
+Cornbread,American,false,beginner,30
+Mapo Tofu,Chinese,true,intermediate,30
+Kung Pao Chicken,Chinese,true,intermediate,30
+Beef and Broccoli Stir-Fry,Chinese,true,beginner,25
+Sweet and Sour Pork,Chinese,false,intermediate,40
+Dumplings,Chinese,true,intermediate,60
+Dan Dan Noodles,Chinese,true,intermediate,30
+Chow Mein,Chinese,true,beginner,25
+Egg Fried Rice,Chinese,true,beginner,20
+Hot and Sour Soup,Chinese,true,beginner,30
+General Tso's Chicken,Chinese,false,intermediate,40
+Char Siu Pork,Chinese,true,intermediate,90
+Wonton Soup,Chinese,true,intermediate,45
+Braised Pork Belly,Chinese,true,advanced,120
+Cold Sesame Noodles,Chinese,true,beginner,20
+Spring Rolls,Chinese,false,intermediate,45
+Steamed Fish with Ginger,Chinese,false,intermediate,25
+Three Cup Chicken,Chinese,true,intermediate,35
+Moo Shu Pork,Chinese,false,intermediate,35
+Salt and Pepper Tofu,Chinese,false,beginner,25
+Buddha's Delight,Chinese,true,beginner,40
+Scallion Pancakes,Chinese,false,intermediate,35
+Red Braised Pork,Chinese,true,advanced,150
+Ants Climbing a Tree,Chinese,true,beginner,25
+Twice Cooked Pork,Chinese,false,intermediate,35
+Steamed Egg Custard,Chinese,true,beginner,20
+Green Onion Beef,Chinese,false,intermediate,25
+Oyster Sauce Beef,Chinese,false,beginner,20
+Smashed Cucumber Salad,Chinese,true,beginner,10
+Stir-Fried Water Spinach,Chinese,false,beginner,15
+Szechuan Boiled Fish,Chinese,false,advanced,45
+Clay Pot Rice,Chinese,true,intermediate,50
+Sesame Chicken,Chinese,true,intermediate,35
+Lotus Root Soup,Chinese,true,beginner,60
+Chinese Braised Chicken Wings,Chinese,true,beginner,45
+Stir-Fried Tomato and Eggs,Chinese,false,beginner,15
+Pork and Cabbage Stir-Fry,Chinese,true,beginner,20
+Chinese Steamed Spare Ribs,Chinese,false,intermediate,40
+Black Bean Garlic Shrimp,Chinese,false,beginner,20
+Zha Jiang Mian,Chinese,true,intermediate,35
+Wontons in Chili Oil,Chinese,false,intermediate,30
+Red Bean Soup,Chinese,true,beginner,60
+Chicken Congee,Chinese,true,beginner,60
+Steamed Pork Meatballs,Chinese,true,intermediate,45
+Tiger Skin Green Peppers,Chinese,false,beginner,15
+Chinese Eggplant with Garlic Sauce,Chinese,true,beginner,20
+Pork Wontons,Chinese,true,intermediate,50
+Cantonese Roast Duck,Chinese,false,advanced,120
+Mushroom and Tofu Hot Pot,Chinese,true,beginner,35
+Shrimp Fried Rice,Chinese,true,beginner,20
+Cold Tofu with Century Egg,Chinese,false,beginner,10
+Coq au Vin,French,true,advanced,120
+Beef Bourguignon,French,true,advanced,180
+French Onion Soup,French,false,intermediate,60
+Ratatouille,French,true,beginner,60
+Quiche Lorraine,French,true,intermediate,60
+Bouillabaisse,French,false,advanced,90
+Duck Confit,French,true,advanced,180
+Croque Monsieur,French,false,beginner,20
+Niçoise Salad,French,false,beginner,30
+Poulet Rôti,French,true,beginner,90
+Sole Meunière,French,false,intermediate,20
+Beef Tartare,French,false,advanced,20
+Vichyssoise,French,true,intermediate,45
+Cassoulet,French,true,advanced,180
+Crêpes,French,false,beginner,30
+Gougères,French,false,intermediate,45
+Leek and Potato Soup,French,true,beginner,45
+Blanquette de Veau,French,true,advanced,120
+Pan Bagnat,French,false,beginner,20
+Moules Marinières,French,false,beginner,25
+Boeuf en Daube,French,true,advanced,180
+Pot-au-Feu,French,true,advanced,180
+Gratin Dauphinois,French,true,intermediate,75
+Steak Frites,French,false,intermediate,30
+Chicken Provençal,French,true,intermediate,55
+Salade Lyonnaise,French,false,intermediate,25
+Brandade de Morue,French,false,intermediate,45
+Flamiche,French,false,intermediate,55
+Tarte Flambée,French,false,intermediate,35
+Soupe au Pistou,French,true,beginner,60
+Chicken Fricassee,French,true,intermediate,60
+Endive Salad with Walnuts,French,false,beginner,15
+French Lentil Salad,French,true,beginner,35
+Jambon-Beurre,French,false,beginner,10
+Croque Madame,French,false,beginner,20
+Poulet à la Normande,French,true,intermediate,60
+Duck à l'Orange,French,false,advanced,90
+Daube Provençale,French,true,advanced,150
+French Tomato Tart,French,false,intermediate,50
+Poulet Basquaise,French,true,intermediate,65
+Soufflé au Fromage,French,false,advanced,45
+Pissaladière,French,false,intermediate,60
+Salade de Chèvre Chaud,French,false,beginner,20
+Gratin de Courgettes,French,true,beginner,45
+Provençal Stuffed Vegetables,French,true,intermediate,70
+Mussel Soup,French,false,intermediate,30
+Magret de Canard,French,false,advanced,35
+Watercress Soup,French,true,beginner,30
+Crème de Champignons,French,true,beginner,35
+Terrine de Campagne,French,true,advanced,120
+Butter Chicken,Indian,true,intermediate,55
+Chicken Tikka Masala,Indian,true,intermediate,60
+Dal Tadka,Indian,true,beginner,45
+Palak Paneer,Indian,true,intermediate,40
+Biryani,Indian,true,advanced,90
+Lamb Rogan Josh,Indian,true,advanced,90
+Chana Masala,Indian,true,beginner,45
+Aloo Gobi,Indian,true,beginner,40
+Samosas,Indian,false,intermediate,60
+Dosa with Sambar,Indian,false,advanced,90
+Rajma,Indian,true,beginner,60
+Chicken Korma,Indian,true,intermediate,55
+Matar Paneer,Indian,true,beginner,40
+Saag Aloo,Indian,true,beginner,35
+Tandoori Chicken,Indian,true,intermediate,60
+Aloo Paratha,Indian,false,intermediate,35
+Pav Bhaji,Indian,false,intermediate,40
+Chole Bhature,Indian,false,intermediate,60
+Egg Curry,Indian,true,beginner,35
+Keema Matar,Indian,true,beginner,40
+Fish Curry Goan Style,Indian,true,intermediate,45
+Malai Kofta,Indian,true,advanced,60
+Dal Makhani,Indian,true,intermediate,90
+Chicken Vindaloo,Indian,true,intermediate,60
+Aloo Matar,Indian,true,beginner,35
+Methi Chicken,Indian,true,intermediate,45
+Paneer Butter Masala,Indian,true,intermediate,45
+Vegetable Biryani,Indian,true,intermediate,75
+Kadai Paneer,Indian,true,intermediate,40
+Lamb Seekh Kebab,Indian,false,intermediate,35
+Raita,Indian,false,beginner,10
+Chicken Mulligatawny Soup,Indian,true,beginner,50
+Baingan Bharta,Indian,true,beginner,40
+Prawn Masala,Indian,true,intermediate,35
+Masoor Dal,Indian,true,beginner,40
+Chicken Chettinad,Indian,true,advanced,60
+Moong Dal Soup,Indian,true,beginner,40
+Aloo Bhindi,Indian,true,beginner,30
+Chicken Saag,Indian,true,intermediate,50
+Lamb Keema Curry,Indian,true,beginner,40
+Tarka Dal,Indian,true,beginner,35
+Paneer Tikka,Indian,false,intermediate,40
+Vegetable Sambar,Indian,true,beginner,50
+Chicken Bhuna,Indian,true,intermediate,50
+Prawn Biryani,Indian,true,advanced,90
+Lamb Biryani,Indian,true,advanced,100
+Murgh Makhani,Indian,true,intermediate,60
+Stuffed Bell Peppers Indian Style,Indian,true,intermediate,50
+Chickpea Spinach Curry,Indian,true,beginner,40
+Tandoori Salmon,Indian,true,intermediate,40
+Spaghetti Carbonara,Italian,false,intermediate,30
+Chicken Piccata,Italian,true,intermediate,35
+Beef Bolognese,Italian,true,intermediate,90
+Margherita Pizza,Italian,false,intermediate,45
+Penne Arrabbiata,Italian,true,beginner,25
+Chicken Parmigiana,Italian,true,intermediate,50
+Osso Buco,Italian,true,advanced,150
+Risotto ai Funghi,Italian,false,intermediate,45
+Gnocchi al Pesto,Italian,false,intermediate,40
+Lasagna Bolognese,Italian,true,intermediate,90
+Tiramisu,Italian,true,intermediate,30
+Caprese Salad,Italian,false,beginner,10
+Bruschetta al Pomodoro,Italian,false,beginner,15
+Minestrone Soup,Italian,true,beginner,50
+Ribollita,Italian,true,beginner,75
+Saltimbocca alla Romana,Italian,false,intermediate,25
+Pasta e Fagioli,Italian,true,beginner,60
+Cacio e Pepe,Italian,false,intermediate,25
+Amatriciana,Italian,true,intermediate,35
+Pasta Puttanesca,Italian,true,beginner,25
+Clam Linguine,Italian,false,intermediate,30
+Eggplant Parmigiana,Italian,true,intermediate,60
+Italian Wedding Soup,Italian,true,intermediate,50
+Focaccia Bread,Italian,true,intermediate,90
+Panzanella Salad,Italian,false,beginner,20
+Arancini,Italian,true,intermediate,60
+Polenta with Mushroom Ragu,Italian,true,beginner,45
+Chicken Cacciatore,Italian,true,intermediate,60
+Pasta Primavera,Italian,false,beginner,25
+Baked Ziti,Italian,true,beginner,55
+Fettuccine Alfredo,Italian,false,beginner,20
+Sausage and Peppers,Italian,true,beginner,40
+Cannelloni,Italian,true,intermediate,70
+Italian Sausage Soup,Italian,true,beginner,45
+Pesto Pasta with Green Beans,Italian,true,beginner,25
+Lemon Risotto,Italian,false,intermediate,40
+Pasta al Limone,Italian,false,beginner,20
+Braised Short Ribs Italian Style,Italian,true,advanced,180
+Vitello Tonnato,Italian,true,advanced,60
+Zucchini Frittata,Italian,true,beginner,25
+Sicilian Pasta with Sardines,Italian,false,intermediate,35
+Pasta with Nduja,Italian,true,beginner,25
+Grilled Branzino,Italian,false,intermediate,30
+Cannellini Bean Soup,Italian,true,beginner,50
+Mushroom Risotto,Italian,false,intermediate,45
+Prawn Linguine,Italian,false,intermediate,25
+Beef Involtini,Italian,true,intermediate,60
+Pappa al Pomodoro,Italian,true,beginner,40
+Italian Braised Chicken Thighs,Italian,true,beginner,55
+Chicken Ramen,Japanese,false,intermediate,60
+Tonkotsu Ramen,Japanese,false,advanced,240
+Teriyaki Salmon,Japanese,true,beginner,25
+Chicken Katsu Curry,Japanese,true,intermediate,50
+Miso Soup,Japanese,true,beginner,15
+Gyoza,Japanese,true,intermediate,45
+Sushi Rice Bowl,Japanese,true,beginner,30
+Yakitori,Japanese,false,beginner,25
+Beef Sukiyaki,Japanese,false,intermediate,40
+Oyakodon,Japanese,true,beginner,25
+Tonkatsu,Japanese,false,intermediate,35
+Takoyaki,Japanese,false,intermediate,40
+Okonomiyaki,Japanese,false,intermediate,30
+Tempura,Japanese,false,intermediate,40
+Japanese Curry,Japanese,true,beginner,50
+Karaage Chicken,Japanese,false,intermediate,35
+Agedashi Tofu,Japanese,false,intermediate,25
+Natto Bowl,Japanese,false,beginner,10
+Chawanmushi,Japanese,false,intermediate,30
+Hiyashi Chuka,Japanese,false,intermediate,25
+Tamagoyaki,Japanese,false,beginner,15
+Salmon Ochazuke,Japanese,false,beginner,15
+Gomae Spinach,Japanese,true,beginner,15
+Edamame with Sea Salt,Japanese,false,beginner,10
+Gyudon Beef Bowl,Japanese,true,beginner,25
+Katsu Don,Japanese,false,intermediate,35
+Miso Glazed Cod,Japanese,true,intermediate,30
+Japanese Potato Salad,Japanese,true,beginner,30
+Shoyu Chicken,Japanese,true,beginner,40
+Niku Jaga,Japanese,true,beginner,45
+Zaru Soba,Japanese,false,beginner,20
+Cold Tofu Hiyayakko,Japanese,false,beginner,5
+Japanese Ginger Pork,Japanese,false,beginner,20
+Ebi Chili Prawn,Japanese,false,intermediate,25
+Tamago Kake Gohan,Japanese,false,beginner,5
+Japanese Hamburg Steak,Japanese,true,intermediate,35
+Kinpira Gobo,Japanese,true,beginner,20
+Braised Daikon,Japanese,true,beginner,45
+Salmon Teriyaki,Japanese,true,beginner,25
+Japanese Tofu Steak,Japanese,false,beginner,20
+Takikomi Gohan,Japanese,true,beginner,50
+Onigiri,Japanese,true,beginner,20
+Japanese Clam Soup,Japanese,false,beginner,20
+Shio Ramen,Japanese,false,intermediate,60
+Udon Noodle Soup,Japanese,false,beginner,25
+Yaki Udon,Japanese,false,beginner,20
+Chicken Teriyaki Rice Bowl,Japanese,true,beginner,25
+Salmon Miso Soup,Japanese,false,beginner,15
+Butter Soy Sauce Corn,Japanese,false,beginner,15
+Kakiage Tempura,Japanese,false,intermediate,30
+Bibimbap,Korean,false,intermediate,45
+Korean Fried Chicken,Korean,false,intermediate,45
+Kimchi Jjigae,Korean,true,beginner,35
+Bulgogi,Korean,true,intermediate,30
+Japchae,Korean,true,intermediate,35
+Sundubu Jjigae,Korean,true,beginner,25
+Dakgalbi,Korean,false,intermediate,30
+Samgyeopsal Grilled Pork Belly,Korean,false,beginner,25
+Doenjang Jjigae,Korean,true,beginner,30
+Tteokbokki,Korean,false,beginner,25
+Korean Beef Stew Galbijjim,Korean,true,advanced,120
+Kimchi Fried Rice,Korean,true,beginner,20
+Korean Cold Noodles Naengmyeon,Korean,false,intermediate,30
+Haemul Pajeon Seafood Pancake,Korean,false,intermediate,30
+Korean Chicken Soup Samgyetang,Korean,true,advanced,120
+Yukgaejang Spicy Beef Soup,Korean,true,intermediate,60
+Gamjatang Pork Bone Soup,Korean,true,advanced,120
+Budae Jjigae Army Stew,Korean,true,beginner,35
+Korean Egg Roll Gyeranmari,Korean,false,beginner,15
+Kongnamul Bap,Korean,true,beginner,30
+Korean Braised Potatoes,Korean,true,beginner,30
+Dakjuk Chicken Rice Porridge,Korean,true,beginner,50
+Korean Spicy Pork Stir-Fry,Korean,true,beginner,25
+Ojingeo Bokkeum Spicy Squid,Korean,false,beginner,20
+Korean Braised Mackerel,Korean,true,intermediate,30
+Hobak Jeon Zucchini Pancake,Korean,false,beginner,20
+Spinach Namul,Korean,true,beginner,15
+Bean Sprout Soup,Korean,true,beginner,20
+Korean Braised Tofu,Korean,true,beginner,20
+Doenjang Soup,Korean,true,beginner,20
+Korean Seaweed Soup Miyeok Guk,Korean,true,beginner,25
+Korean Beef Short Ribs Galbi,Korean,false,intermediate,35
+Bossam Boiled Pork,Korean,true,intermediate,90
+Jjajangmyeon,Korean,false,intermediate,40
+Ramyeon with Egg,Korean,false,beginner,15
+Korean Style Soybean Sprout Rice,Korean,true,beginner,30
+Gimbap,Korean,true,intermediate,45
+Korean Dumpling Soup Mandu Guk,Korean,true,intermediate,40
+Braised Beef Short Ribs Korean,Korean,true,advanced,150
+Korean Spicy Cucumber Salad,Korean,true,beginner,10
+Japchae with Vegetables,Korean,true,intermediate,35
+Korean Steamed Egg,Korean,false,beginner,15
+Haemultang Spicy Seafood Stew,Korean,false,intermediate,40
+Korean BBQ Chicken Wings,Korean,false,intermediate,40
+Creamy Corn Cheese,Korean,false,beginner,15
+Korean Spicy Tofu Stew,Korean,true,beginner,30
+Korean Braised Chicken,Korean,true,beginner,45
+Greek Salad,Mediterranean,false,beginner,10
+Moussaka,Mediterranean,true,advanced,90
+Hummus,Mediterranean,true,beginner,10
+Spanakopita,Mediterranean,true,intermediate,60
+Falafel,Mediterranean,true,intermediate,45
+Shakshuka,Mediterranean,false,beginner,25
+Lamb Gyros,Mediterranean,false,intermediate,35
+Tabbouleh,Mediterranean,true,beginner,20
+Baba Ganoush,Mediterranean,true,beginner,30
+Greek Lemon Chicken Soup,Mediterranean,true,beginner,50
+Lamb Kofta,Mediterranean,false,intermediate,30
+Turkish Chicken Kebab,Mediterranean,false,intermediate,35
+Imam Bayildi,Mediterranean,true,beginner,55
+Fattoush Salad,Mediterranean,false,beginner,15
+Dolmades,Mediterranean,true,intermediate,60
+Lebanese Chicken and Rice,Mediterranean,true,beginner,55
+Taramasalata,Mediterranean,false,beginner,10
+Tzatziki,Mediterranean,false,beginner,10
+Pita Bread,Mediterranean,false,intermediate,30
+Roasted Red Pepper Soup,Mediterranean,true,beginner,40
+Greek Chicken Souvlaki,Mediterranean,false,beginner,25
+Grilled Octopus,Mediterranean,false,intermediate,40
+Saganaki,Mediterranean,false,beginner,10
+Pastitsio,Mediterranean,true,advanced,90
+Turkish Red Lentil Soup,Mediterranean,true,beginner,40
+Fasolada Bean Soup,Mediterranean,true,beginner,60
+Moroccan Spiced Chicken,Mediterranean,true,intermediate,50
+Roasted Cauliflower with Tahini,Mediterranean,true,beginner,35
+Mediterranean Stuffed Peppers,Mediterranean,true,intermediate,55
+Greek Roasted Lamb,Mediterranean,true,advanced,180
+White Bean Stew,Mediterranean,true,beginner,50
+Gigantes Plaki,Mediterranean,true,beginner,60
+Grilled Halloumi Salad,Mediterranean,false,beginner,20
+Chicken Shawarma,Mediterranean,true,intermediate,40
+Fatteh,Mediterranean,false,intermediate,35
+Moroccan Carrot Salad,Mediterranean,true,beginner,15
+Horta Greens,Mediterranean,false,beginner,15
+Lebanese Kafta,Mediterranean,false,beginner,25
+Grilled Swordfish Mediterranean,Mediterranean,false,intermediate,25
+Roasted Beet Salad with Feta,Mediterranean,true,beginner,50
+Shrimp Saganaki,Mediterranean,false,intermediate,25
+Lentil and Spinach Soup,Mediterranean,true,beginner,40
+Roasted Eggplant Dip,Mediterranean,true,beginner,35
+Fava Bean Dip,Mediterranean,true,beginner,20
+Freekeh Pilaf,Mediterranean,true,beginner,35
+Turkish Chicken Stew,Mediterranean,true,beginner,55
+Herb Roasted Chicken Thighs Mediterranean,Mediterranean,true,beginner,45
+Greek Baked Chicken,Mediterranean,true,beginner,55
+Tacos al Pastor,Mexican,false,intermediate,45
+Chicken Enchiladas,Mexican,true,intermediate,55
+Beef Birria Tacos,Mexican,true,advanced,180
+Guacamole,Mexican,false,beginner,10
+Chicken Quesadillas,Mexican,true,beginner,20
+Pozole Rojo,Mexican,true,intermediate,120
+Chiles Rellenos,Mexican,false,advanced,60
+Tamales,Mexican,true,advanced,180
+Carne Asada,Mexican,false,intermediate,30
+Mole Negro Chicken,Mexican,true,advanced,150
+Elote Street Corn,Mexican,false,beginner,20
+Shrimp Ceviche,Mexican,false,beginner,20
+Black Bean Soup,Mexican,true,beginner,45
+Chicken Tinga Tacos,Mexican,true,beginner,40
+Chilaquiles,Mexican,false,intermediate,35
+Huevos Rancheros,Mexican,false,beginner,25
+Arroz con Leche,Mexican,true,beginner,40
+Sopa de Lima,Mexican,true,beginner,45
+Camarones a la Diabla,Mexican,false,intermediate,30
+Picadillo,Mexican,true,beginner,40
+Refried Beans,Mexican,true,beginner,35
+Carnitas,Mexican,true,intermediate,120
+Molletes,Mexican,false,beginner,20
+Enfrijoladas,Mexican,false,intermediate,35
+Green Chile Chicken Soup,Mexican,true,beginner,50
+Cochinita Pibil,Mexican,true,advanced,180
+Alambre,Mexican,false,intermediate,25
+Mexican Stuffed Peppers,Mexican,true,intermediate,55
+Sopa de Fideo,Mexican,true,beginner,30
+Chicken Fajitas,Mexican,false,beginner,25
+Taco Soup,Mexican,true,beginner,40
+Enchilada Casserole,Mexican,true,beginner,55
+Rajas con Crema,Mexican,false,beginner,25
+Corn and Black Bean Salad,Mexican,true,beginner,15
+Albondigas Soup,Mexican,true,intermediate,60
+Pollo en Salsa Verde,Mexican,true,beginner,45
+Mexican Rice,Mexican,true,beginner,30
+Charro Beans,Mexican,true,beginner,60
+Tostadas de Tinga,Mexican,false,beginner,40
+Calabacitas,Mexican,true,beginner,25
+Flautas,Mexican,false,intermediate,40
+Sopes,Mexican,false,intermediate,50
+Chile Colorado,Mexican,true,intermediate,90
+Queso Fundido,Mexican,false,beginner,20
+Papas con Rajas,Mexican,true,beginner,30
+Pollo Asado,Mexican,true,intermediate,40
+Chicken Enchilada Soup,Mexican,true,beginner,40
+Chicken Shawarma,Middle Eastern,true,intermediate,40
+Lamb Kebab,Middle Eastern,false,intermediate,35
+Falafel Wrap,Middle Eastern,false,intermediate,40
+Kibbeh,Middle Eastern,true,intermediate,60
+Fattoush,Middle Eastern,false,beginner,15
+Mansaf,Middle Eastern,true,advanced,120
+Musakhan Chicken,Middle Eastern,true,intermediate,60
+Maqluba,Middle Eastern,true,advanced,90
+Mujaddara,Middle Eastern,true,beginner,45
+Kabsa,Middle Eastern,true,advanced,90
+Lebanese Rice with Vermicelli,Middle Eastern,true,beginner,30
+Lamb Ouzi,Middle Eastern,true,advanced,180
+Sambousek,Middle Eastern,false,intermediate,60
+Beef Kofta,Middle Eastern,false,beginner,25
+Shish Tawook,Middle Eastern,true,intermediate,35
+Harira Soup,Middle Eastern,true,beginner,60
+Lentil Soup Middle Eastern,Middle Eastern,true,beginner,40
+Macarona Bechamel,Middle Eastern,true,intermediate,70
+Molokhia Soup,Middle Eastern,true,beginner,35
+Palestinian Msakhan,Middle Eastern,true,intermediate,70
+Turkish Menemen,Middle Eastern,false,beginner,20
+Sfiha Lebanese Meat Pies,Middle Eastern,false,intermediate,60
+Beef Shawarma,Middle Eastern,true,intermediate,40
+Syrian Lentil Soup,Middle Eastern,true,beginner,40
+Iraqi Masgouf Grilled Fish,Middle Eastern,false,intermediate,45
+Egyptian Koshari,Middle Eastern,true,beginner,50
+Turkish Kuru Fasulye Beans,Middle Eastern,true,beginner,60
+Iraqi Chicken Rice Dish,Middle Eastern,true,intermediate,60
+Lamb Stuffed Grape Leaves,Middle Eastern,true,intermediate,90
+Turkish Ezogelin Soup,Middle Eastern,true,beginner,40
+Spiced Lamb Shoulder,Middle Eastern,true,advanced,150
+Spinach Fatayer,Middle Eastern,false,intermediate,55
+Za'atar Flatbread,Middle Eastern,false,beginner,30
+Lebanese Lemon Garlic Chicken,Middle Eastern,true,beginner,45
+Tahini Roasted Cauliflower,Middle Eastern,true,beginner,35
+Turkish Chicken Casserole,Middle Eastern,true,beginner,55
+Lamb Arayes,Middle Eastern,false,intermediate,30
+Middle Eastern Baked Fish,Middle Eastern,true,intermediate,35
+Iraqi Tashreeb,Middle Eastern,true,intermediate,60
+Lebanese Kafta bil Batata,Middle Eastern,true,beginner,45
+Chicken Ouzi,Middle Eastern,true,advanced,90
+Spiced Ground Beef Rice,Middle Eastern,true,beginner,40
+Middle Eastern Spiced Rice,Middle Eastern,true,beginner,30
+Spiced Lamb Meatballs,Middle Eastern,true,beginner,35
+Paella Valenciana,Spanish,false,advanced,60
+Tortilla Española,Spanish,true,beginner,35
+Gazpacho,Spanish,true,beginner,15
+Croquetas,Spanish,false,intermediate,45
+Patatas Bravas,Spanish,false,beginner,35
+Albondigas in Tomato Sauce,Spanish,true,beginner,45
+Pisto Manchego,Spanish,true,beginner,35
+Fabada Asturiana,Spanish,true,intermediate,120
+Cocido Madrileño,Spanish,true,advanced,180
+Pollo al Ajillo,Spanish,true,beginner,35
+Bacalao a la Vizcaína,Spanish,true,intermediate,60
+Espinacas con Garbanzos,Spanish,true,beginner,25
+Rabo de Toro,Spanish,true,advanced,180
+Pimientos de Padrón,Spanish,false,beginner,10
+Pulpo a la Gallega,Spanish,false,intermediate,60
+Gambas al Ajillo,Spanish,false,beginner,15
+Chorizo in Red Wine,Spanish,false,beginner,20
+Salmorejo,Spanish,true,beginner,15
+Spanish Roast Chicken,Spanish,true,beginner,75
+Lentejas Estofadas,Spanish,true,beginner,55
+Arroz con Pollo Spanish,Spanish,true,beginner,55
+Merluza a la Vasca,Spanish,false,intermediate,35
+Pork Tenderloin with Romesco,Spanish,false,intermediate,35
+Berenjenas con Miel,Spanish,false,beginner,25
+Spanish Chicken Stew,Spanish,true,beginner,55
+Revuelto de Gambas,Spanish,false,beginner,15
+Caldo Gallego,Spanish,true,beginner,60
+Sopa de Ajo,Spanish,false,beginner,25
+Dorada a la Sal,Spanish,false,intermediate,40
+Costillas a la Miel,Spanish,false,beginner,50
+Pisto with Fried Egg,Spanish,false,beginner,30
+Spanish Braised Lentils,Spanish,true,beginner,50
+Cazuela de Fideos,Spanish,true,beginner,35
+Pollo en Pepitoria,Spanish,true,intermediate,55
+Almejas a la Marinera,Spanish,false,intermediate,25
+Espárragos a la Plancha,Spanish,false,beginner,15
+Mejillones en Escabeche,Spanish,true,beginner,20
+Sardinas a la Plancha,Spanish,false,beginner,15
+Arroz Negro,Spanish,false,advanced,55
+Judías Verdes con Jamón,Spanish,true,beginner,25
+Berberechos al Vapor,Spanish,false,beginner,10
+Pollo a la Chilindrón,Spanish,true,intermediate,55
+Spanish Meatball Soup,Spanish,true,beginner,45
+Patatas a lo Pobre,Spanish,true,beginner,35
+Bacalao al Pil-Pil,Spanish,false,advanced,45
+Braised Oxtail Spanish Style,Spanish,true,advanced,180
+Salpicón de Marisco,Spanish,false,intermediate,25
+Arroz con Bogavante,Spanish,false,advanced,60
+Pollo Asado Spanish Style,Spanish,true,beginner,75
+Pad Thai,Thai,false,intermediate,30
+Green Curry Chicken,Thai,true,intermediate,35
+Tom Yum Soup,Thai,false,intermediate,30
+Massaman Curry,Thai,true,intermediate,60
+Som Tam Papaya Salad,Thai,false,beginner,20
+Red Curry with Vegetables,Thai,true,beginner,35
+Thai Basil Chicken,Thai,true,beginner,20
+Pineapple Fried Rice,Thai,false,beginner,25
+Tom Kha Gai,Thai,false,beginner,30
+Yellow Curry,Thai,true,beginner,40
+Thai Spring Rolls,Thai,false,intermediate,45
+Pad See Ew,Thai,false,intermediate,25
+Thai Larb,Thai,false,intermediate,25
+Mango Sticky Rice,Thai,false,intermediate,30
+Thai Fried Chicken,Thai,false,intermediate,40
+Drunken Noodles,Thai,false,intermediate,25
+Pad Krapow Moo,Thai,true,beginner,20
+Thai Peanut Noodles,Thai,true,beginner,20
+Satay with Peanut Sauce,Thai,false,intermediate,35
+Thai Cashew Chicken,Thai,true,beginner,25
+Thai Cucumber Salad,Thai,false,beginner,10
+Thai Lemongrass Soup,Thai,false,beginner,30
+Pad Woon Sen,Thai,false,intermediate,25
+Thai Minced Pork Salad,Thai,false,intermediate,25
+Panang Curry,Thai,true,intermediate,40
+Thai Beef Salad,Thai,false,intermediate,25
+Khao Soi,Thai,false,advanced,60
+Thai Steamed Fish,Thai,false,intermediate,30
+Coconut Lime Rice,Thai,true,beginner,30
+Thai Omelette,Thai,false,beginner,15
+Prawn Red Curry,Thai,true,intermediate,35
+Thai Chicken Soup,Thai,true,beginner,40
+Stir-Fried Morning Glory,Thai,false,beginner,15
+Thai Tofu Stir-Fry,Thai,true,beginner,20
+Massaman Lamb Curry,Thai,true,advanced,120
+Thai Basil Fried Rice,Thai,true,beginner,20
+Crying Tiger Beef,Thai,false,intermediate,30
+Thai Green Papaya Salad with Shrimp,Thai,false,beginner,20
+Thai Coconut Soup,Thai,false,beginner,25
+Pork Larb,Thai,false,intermediate,25
+Lemongrass Chicken,Thai,true,beginner,35
+Thai Pumpkin Curry,Thai,true,beginner,40
+Nam Tok Beef Salad,Thai,false,intermediate,30
+Thai Pork Belly Stir-Fry,Thai,false,intermediate,30
+Shrimp Pad Thai,Thai,false,intermediate,30
+Thai Egg Noodle Soup,Thai,false,beginner,30
+Chicken Satay,Thai,false,intermediate,35

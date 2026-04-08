@@ -62,6 +62,35 @@ export async function patchProfile(id: string, updates: Partial<Omit<Profile, 'i
   return data;
 }
 
+// Defensively creates or updates a profile after auth.signUp.
+// Handles race condition where the auth trigger may not have fired yet.
+// Tries UPDATE first (trigger fired), falls back to INSERT if no rows matched.
+export async function createOrUpdateProfile(
+  profile: Partial<Profile> & { id: string }
+): Promise<Profile> {
+  // Try UPDATE first (for when trigger has fired)
+  try {
+    const { data: updateData, error: updateError } = await supabase
+      .from('profiles')
+      .update(profile)
+      .eq('id', profile.id)
+      .select()
+      .single();
+    if (!updateError && updateData) return updateData;
+  } catch {
+    // No rows matched or other error — fall through to INSERT
+  }
+
+  // Fallback: INSERT if UPDATE affected no rows
+  const { data: insertData, error: insertError } = await supabase
+    .from('profiles')
+    .insert([profile])
+    .select()
+    .single();
+  if (insertError) throw insertError;
+  return insertData;
+}
+
 // ─── Recipes ─────────────────────────────────────────────────────────────────
 
 export async function getRecipes(limit = 20): Promise<Recipe[]> {

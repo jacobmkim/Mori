@@ -40,8 +40,6 @@ export default function ResetPassword() {
         const initialUrl = await Linking.getInitialURL();
         const urlToUse = initialUrl || (typeof params.token === 'string' ? params.token : null);
 
-        console.log('Reset password URL:', urlToUse);
-
         if (!urlToUse) {
           setTokenError(true);
           setLoading(false);
@@ -59,7 +57,6 @@ export default function ResetPassword() {
           const params = new URLSearchParams(hash);
           accessToken = params.get('access_token');
           refreshToken = params.get('refresh_token');
-          console.log('Parsed from hash:', { accessToken, refreshToken });
         }
 
         // Try query params as fallback (mori://reset-password?access_token=xxx&refresh_token=yyy)
@@ -70,7 +67,6 @@ export default function ResetPassword() {
             const params = new URLSearchParams(query);
             accessToken = params.get('access_token');
             refreshToken = params.get('refresh_token');
-            console.log('Parsed from query:', { accessToken, refreshToken });
           }
         }
 

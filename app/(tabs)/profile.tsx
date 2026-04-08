@@ -7,7 +7,7 @@ import type { ReactNode } from 'react';
 import { useUserStore } from '@/stores/userStore';
 import { useSavedStore } from '@/stores/savedStore';
 import { supabase } from '@/lib/supabase';
-import { upsertProfile, patchProfile, clearDiscoverCache, getPantryItems, addPantryItem, deletePantryItem, getAdventureCardsEnabled, setAdventureCardsEnabled, getFlaggedRecipes, clearFlaggedRecipes, type FlaggedRecipe } from '@/lib/api';
+import { patchProfile, clearDiscoverCache, getPantryItems, addPantryItem, deletePantryItem, getAdventureCardsEnabled, setAdventureCardsEnabled, getFlaggedRecipes, clearFlaggedRecipes, type FlaggedRecipe } from '@/lib/api';
 import { clearRecipeCache } from '@/lib/mealdb';
 import { useTheme } from '@/hooks/useTheme';
 import { useDiscoverStore, type AppearanceMode } from '@/stores/discoverStore';
@@ -169,13 +169,13 @@ function EditPreferencesModal({
             </View>
             {goalConflict && (
               <View style={{
-                marginTop: 10, backgroundColor: '#FFF8E1', borderRadius: 10,
+                marginTop: 10, backgroundColor: colors.warningBg, borderRadius: 10,
                 paddingHorizontal: 12, paddingVertical: 10,
-                borderWidth: 1, borderColor: '#FFD54F',
+                borderWidth: 1, borderColor: colors.warning,
                 flexDirection: 'row', gap: 8, alignItems: 'flex-start',
               }}>
                 <Text style={{ fontSize: 14 }}>⚠️</Text>
-                <Text style={{ fontSize: 13, color: '#795548', flex: 1, lineHeight: 18 }}>{goalConflict}</Text>
+                <Text style={{ fontSize: 13, color: colors.text, flex: 1, lineHeight: 18 }}>{goalConflict}</Text>
               </View>
             )}
             <TextInput
@@ -515,21 +515,21 @@ function DevToolsSection() {
             <Pressable
               onPress={handleView}
               style={{
-                backgroundColor: '#FFF3E0', borderRadius: 8,
+                backgroundColor: colors.infoBg, borderRadius: 8,
                 paddingHorizontal: 12, paddingVertical: 6,
               }}
             >
-              <Text style={{ fontSize: 13, color: '#E65100', fontWeight: '600' }}>View</Text>
+              <Text style={{ fontSize: 13, color: colors.info, fontWeight: '600' }}>View</Text>
             </Pressable>
             {flagged.length > 0 && (
               <Pressable
                 onPress={handleClear}
                 style={{
-                  backgroundColor: '#FFEBEE', borderRadius: 8,
+                  backgroundColor: colors.errorBg, borderRadius: 8,
                   paddingHorizontal: 12, paddingVertical: 6,
                 }}
               >
-                <Text style={{ fontSize: 13, color: '#B00020', fontWeight: '600' }}>Clear</Text>
+                <Text style={{ fontSize: 13, color: colors.error, fontWeight: '600' }}>Clear</Text>
               </Pressable>
             )}
           </View>

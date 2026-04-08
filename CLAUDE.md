@@ -7,6 +7,16 @@
 - Do not make changes unless 95% confident. Ask follow-up questions until that threshold is met.
 - Bug fix log lives at `.claude/bugfixes.md` — append an entry for every shipped fix batch.
 
+### Security Commandments (April 2026)
+- **Never add API endpoints without JWT auth** — use `requireAuth(req)` from `lib/apiAuth.ts` unless explicitly public (waitlist)
+- **Always validate inputs** — use Zod schemas from `lib/validation.ts`; create new schemas for new endpoints
+- **Always rate-limit user endpoints** — use `rateLimitUser()` from `lib/rateLimit.ts`; public endpoints use `rateLimitIP()`
+- **Never log sensitive data** — tokens, passwords, API keys, user IDs. Check for console.log of auth data; use development-only logging if needed
+- **Generic error responses only** — never return DB errors, stack traces, or internal details to client. Return { error: 'Failed to...' }
+- **Always check ownership** — if user requests data for another user (e.g., taste-profile for userId=abc), verify `userId === authUserId`
+- **Never hardcode secrets** — all API keys, SEED_SECRET, etc. go in Vercel environment variables only
+- **Never expose .env** — confirm it's in .gitignore; rotate keys if ever committed to git
+
 ## Applied Learning
 _(Add one-line bullets here only when a workaround is found or something fails repeatedly.)_
 
@@ -53,6 +63,7 @@ Mori is a swipe-based recipe discovery app. Users swipe on recipe cards → save
 | 7 | ✅ Steamed/delicate fish hard-excluded from meal prep deck. |
 | 8 | ❌ Apple AI transparency in-app consent (required before App Store, not internal TF). |
 | 9 | ❌ App tutorial for new users.
+| 10 | Add Privacy policy on the app.
 
 ### ❌ Phase 4 — Grocery APIs
 - Kroger API (`developer.kroger.com`) — Done. Ask user for key.
@@ -194,6 +205,19 @@ Full color values in `constants/theme.ts`.
 
 ---
 
+## 7b. API Security & Rate Limiting (April 2026)
+
+**All Vercel API endpoints have comprehensive security hardening: JWT auth, input validation, rate limiting, security headers.**
+
+See **`.claude/SECURITY_HARDENING_IMPLEMENTATION.md`** for full details:
+- Rate limits per endpoint
+- Authentication & validation schemas
+- Client integration requirements
+- Pre-deployment checklist
+- Testing recommendations
+
+---
+
 ## 8. Environment Variables
 
 ```bash
@@ -207,6 +231,7 @@ ANTHROPIC_API_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 OPENAI_API_KEY=           # gpt-image-1 for generate-images.mjs
 UNSPLASH_ACCESS_KEY=      # registered
+SEED_SECRET=              # Admin-only seed-recipes endpoint (generate: openssl rand -hex 32)
 INSTACART_PARTNER_ID=     # Phase 4
 INSTACART_API_KEY=        # Phase 4
 ```

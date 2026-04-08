@@ -120,10 +120,19 @@ function buildAffinityRows(
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  // Protect with a secret so this can't be called by anyone
+  // ── Authentication (Seed Secret Required) ────────────────────────────────
+  // This is an internal admin endpoint. Requires x-seed-secret header.
+  // Set SEED_SECRET in Vercel environment variables.
   const secret = req.headers['x-seed-secret'];
-  if (!secret || secret !== process.env.SEED_SECRET) {
-    return res.status(401).json({ error: 'Unauthorized' });
+  const expectedSecret = process.env.SEED_SECRET;
+
+  if (!expectedSecret) {
+    console.error('[seed-recipes] SEED_SECRET environment variable not configured');
+    return res.status(500).json({ error: 'Server misconfigured' });
+  }
+
+  if (!secret || secret !== expectedSecret) {
+    return res.status(401).json({ error: 'Unauthorized — invalid or missing seed secret' });
   }
 
   const sb = getSupabase();

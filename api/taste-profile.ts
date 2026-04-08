@@ -1,10 +1,16 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import Anthropic from '@anthropic-ai/sdk';
 import { createClient } from '@supabase/supabase-js';
+import { rateLimitUser } from '../lib/rateLimit';
+import { validate, TasteProfileRequestSchema, ValidationError, formatValidationError } from '../lib/validation';
+import { requireAuth } from '../lib/apiAuth';
 
 // POST /api/taste-profile
 // Reads a user's swipe + interaction history and generates a 2-3 sentence
 // taste profile paragraph. Saves the result to profiles.taste_profile.
+//
+// Auth: Required (JWT bearer token)
+// Rate limit: 5 requests per user per day
 //
 // Body: { userId: string }
 // Returns: { tasteProfile: string }
@@ -19,15 +25,34 @@ function getSupabase() {
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { userId } = req.body as { userId: string };
-  if (!userId) return res.status(400).json({ error: 'userId required' });
-
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return res.status(500).json({ error: 'ANTHROPIC_API_KEY not configured' });
-
-  const sb = getSupabase();
-
   try {
+    // ── Authentication ────────────────────────────────────────────────────
+    const authUserId = await requireAuth(req);
+
+    // ── Input Validation ──────────────────────────────────────────────────
+    const body = await validate(TasteProfileRequestSchema, req.body);
+    const { userId } = body;
+
+    // Ensure user can only request taste profile for themselves
+    if (userId !== authUserId) {
+      return res.status(403).json({ error: 'Cannot request taste profile for another user' });
+    }
+
+    // ── Rate Limiting (5 calls per user per day) ──────────────────────────
+    const rateLimitResult = await rateLimitUser(userId, 'taste-profile', 5, 86400);
+    if (!rateLimitResult.success) {
+      res.setHeader('Retry-After', rateLimitResult.retryAfter || 3600);
+      return res.status(429).json({
+        error: 'Rate limit exceeded',
+        retryAfter: rateLimitResult.retryAfter,
+      });
+    }
+
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) return res.status(500).json({ error: 'ANTHROPIC_API_KEY not configured' });
+
+    const sb = getSupabase();
+
     // Fetch signal data in parallel
     const [profileRes, swipesRes, interactionsRes] = await Promise.all([
       sb.from('profiles').select('dietary_goals, cuisine_preferences, eating_style, skill_level').eq('id', userId).single(),
@@ -107,8 +132,23 @@ Keep it under 60 words.`;
 
     return res.status(200).json({ tasteProfile });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Failed to generate taste profile';
-    console.error('[taste-profile]', message);
-    return res.status(500).json({ error: message });
+    // Handle validation errors
+    if (err instanceof ValidationError) {
+      return res.status(400).json(formatValidationError(err));
+    }
+
+    // Handle auth errors
+    if (err instanceof Error && err.name === 'AuthError') {
+      const statusCode = (err as any).statusCode || 401;
+      return res.status(statusCode).json({ error: err.message });
+    }
+
+    // Log to external service in production (not console)
+    if (process.env.NODE_ENV === 'development') {
+      const message = err instanceof Error ? err.message : 'Failed to generate taste profile';
+      console.error('[taste-profile]', message);
+    }
+
+    return res.status(500).json({ error: 'Failed to generate taste profile' });
   }
 }

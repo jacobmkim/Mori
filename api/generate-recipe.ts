@@ -1,6 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import Anthropic from '@anthropic-ai/sdk';
 import { createClient } from '@supabase/supabase-js';
+import { rateLimitUser } from '../lib/rateLimit';
+import { validate, GenerateRecipeRequestSchema, ValidationError, formatValidationError } from '../lib/validation';
+import { requireAuth } from '../lib/apiAuth';
 
 // POST /api/generate-recipe
 // Generates a complete original recipe using Claude Haiku (~$0.004 per recipe).
@@ -128,19 +131,52 @@ Rules:
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const body = req.body as GenerateRequest;
-  if (!body.cuisine) return res.status(400).json({ error: 'cuisine required' });
-
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return res.status(500).json({ error: 'ANTHROPIC_API_KEY not configured' });
-
-  const client = new Anthropic({ apiKey });
-
   try {
+    // ── Authentication (required for user-initiated generation) ───────────
+    // Allow unauthenticated calls for seed scripts (they'll use x-seed-secret)
+    let userId: string | null = null;
+    const authHeader = req.headers.authorization;
+    if (authHeader) {
+      try {
+        userId = await requireAuth(req);
+      } catch {
+        // Fall through — seed endpoint doesn't require auth
+      }
+    }
+
+    // ── Input Validation ──────────────────────────────────────────────────
+    const body = await validate(GenerateRecipeRequestSchema, req.body);
+    const { cuisine, dishName, avoidDishes, avoidIngredients } = body;
+
+    // ── Rate Limiting (5 user-initiated calls per day) ───────────────────
+    if (userId) {
+      const rateLimitResult = await rateLimitUser(userId, 'generate-recipe', 5, 86400);
+      if (!rateLimitResult.success) {
+        res.setHeader('Retry-After', rateLimitResult.retryAfter || 3600);
+        return res.status(429).json({
+          error: 'Rate limit exceeded',
+          retryAfter: rateLimitResult.retryAfter,
+        });
+      }
+    }
+
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) return res.status(500).json({ error: 'Service misconfigured' });
+
+    const client = new Anthropic({ apiKey });
+
+    // Build the request object with validated data
+    const generateRequest: GenerateRequest = {
+      cuisine,
+      dishName,
+      avoidDishes,
+      avoidIngredients,
+      ...body,
+    };
     const message = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 2048,
-      messages: [{ role: 'user', content: buildPrompt(body) }],
+      messages: [{ role: 'user', content: buildPrompt(generateRequest) }],
     });
 
     const raw = (message.content[0] as { text: string }).text.trim();
@@ -173,7 +209,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (hasGluten) recipe.dietary_tags = recipe.dietary_tags.filter(t => t !== 'gluten_free');
 
     // Server-side similarity guard — reject if too close to an existing dish
-    if (body.avoidDishes?.length) {
+    if (avoidDishes?.length) {
       const normalize = (s: string) => s.toLowerCase().replace(/\(.*?\)/g, '').replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim();
       const words = (s: string) => new Set(normalize(s).split(' ').filter(Boolean));
       const jaccard = (a: Set<string>, b: Set<string>) => {
@@ -182,7 +218,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return union === 0 ? 0 : inter / union;
       };
       const newWords = words(recipe.title);
-      const tooSimilar = body.avoidDishes.some(existing => jaccard(newWords, words(existing)) >= 0.6);
+      const tooSimilar = avoidDishes.some(existing => jaccard(newWords, words(existing)) >= 0.6);
       if (tooSimilar) {
         return res.status(409).json({ error: 'Generated recipe too similar to existing dish', title: recipe.title });
       }
@@ -221,7 +257,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     return res.status(200).json({ recipe });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Generation failed';
-    return res.status(500).json({ error: message });
+    // Handle validation errors
+    if (err instanceof ValidationError) {
+      return res.status(400).json(formatValidationError(err));
+    }
+
+    // Handle auth errors
+    if (err instanceof Error && err.name === 'AuthError') {
+      const statusCode = (err as any).statusCode || 401;
+      return res.status(statusCode).json({ error: err.message });
+    }
+
+    // Log to external service in production (not console)
+    if (process.env.NODE_ENV === 'development') {
+      const message = err instanceof Error ? err.message : 'Recipe generation failed';
+      console.error('[generate-recipe]', message);
+    }
+
+    return res.status(500).json({ error: 'Failed to generate recipe' });
   }
 }

@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { useUserStore } from '@/stores/userStore';
 import { useTheme } from '@/hooks/useTheme';
-import { addPantryItems, upsertProfile, computeCohortKey, upsertUserCohort } from '@/lib/api';
+import { addPantryItems, patchProfile, computeCohortKey, upsertUserCohort } from '@/lib/api';
 
 const GOAL_LABELS: Record<string, string> = {
   balanced: 'Balanced', high_protein: 'High Protein', low_carb: 'Low Carb',
@@ -52,7 +52,7 @@ export default function Payoff() {
             ? addPantryItems(profile.id, onboarding.pantry_staples, 'onboarding')
             : Promise.resolve(),
           // Mark onboarding complete so the app knows not to re-run the flow
-          upsertProfile({ id: profile.id, onboarding_complete: true }),
+          patchProfile(profile.id, { onboarding_complete: true }),
           // Map user to cohort — Phase 2 recommendation engine uses this to
           // serve a personalised first stack before any swipe history exists
           upsertUserCohort(profile.id, cohortKey),
@@ -66,7 +66,7 @@ export default function Payoff() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 60, paddingBottom: 140 }}>
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 60, paddingBottom: 220 }}>
         <Text style={{ fontSize: 28, fontWeight: '800', color: colors.text, marginBottom: 8 }}>
           You're all set! 🎉
         </Text>
@@ -134,6 +134,12 @@ export default function Payoff() {
       </ScrollView>
 
       <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, paddingHorizontal: 24, paddingBottom: 40, backgroundColor: colors.background }}>
+        <View style={{ backgroundColor: colors.infoBg, borderRadius: 10, padding: 12, marginBottom: 12 }}>
+          <Text style={{ fontSize: 12, color: colors.info, lineHeight: 16 }}>
+            Mori uses AI to personalize your recipe recommendations, analyze nutritional information, and provide recipe suggestions. Read our {' '}
+            <Text style={{ fontWeight: '600' }}>privacy policy</Text> for more details.
+          </Text>
+        </View>
         <Pressable
           onPress={handleStart}
           disabled={isSaving}

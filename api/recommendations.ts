@@ -1,20 +1,20 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import Anthropic from '@anthropic-ai/sdk';
 import { createClient } from '@supabase/supabase-js';
+import { rateLimitUser, getClientIP } from './rateLimit';
+import { validate, RecommendationsRequestSchema, ValidationError, formatValidationError } from '../lib/validation';
+import { requireAuth, handleAuthError } from './apiAuth';
 
 // POST /api/recommendations
 // Claude Sonnet ranks recipes for a user based on all available signals.
 // Called when the Discover screen needs a new deck.
 // Cold start (<10 swipes): uses cohort affinity scores instead of personal history.
 //
+// Auth: Required (JWT bearer token)
+// Rate limit: 10 requests per user per day
+//
 // Body: { userId: string, mode: 'meal_prep' | 'spontaneous', limit?: number }
 // Returns: { recipeIds: string[], source: 'personalised' | 'cohort' | 'default' }
-
-interface RecommendRequest {
-  userId: string;
-  mode: 'meal_prep' | 'spontaneous';
-  limit?: number;
-}
 
 function getSupabase() {
   const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
@@ -26,8 +26,29 @@ function getSupabase() {
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { userId, mode, limit = 40 } = req.body as RecommendRequest;
-  if (!userId) return res.status(400).json({ error: 'userId required' });
+  try {
+    // ── Authentication ────────────────────────────────────────────────────
+    const authUserId = await requireAuth(req);
+
+    // ── Input Validation ──────────────────────────────────────────────────
+    const body = await validate(RecommendationsRequestSchema, req.body);
+    const { userId, mode, limit } = body;
+
+    // Ensure user can only request recommendations for themselves
+    if (userId !== authUserId) {
+      return res.status(403).json({ error: 'Cannot request recommendations for another user' });
+    }
+
+    // ── Rate Limiting ─────────────────────────────────────────────────────
+    const rateLimitResult = await rateLimitUser(userId, 'recommendations', 10, 86400); // 10/day
+    if (!rateLimitResult.success) {
+      res.setHeader('Retry-After', rateLimitResult.retryAfter || 3600);
+      return res.status(429).json({
+        error: 'Rate limit exceeded',
+        retryAfter: rateLimitResult.retryAfter,
+        resetAt: rateLimitResult.resetAt,
+      });
+    }
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return res.status(500).json({ error: 'ANTHROPIC_API_KEY not configured' });
@@ -208,12 +229,28 @@ Respond with JSON only — no other text:
       valid: filtered.length,
     };
 
-    if (reasoning) console.log('[recommendations] reasoning:', reasoning);
+    if (reasoning && process.env.NODE_ENV === 'development') {
+      console.log('[recommendations] reasoning:', reasoning);
+    }
 
     return res.status(200).json({ recipeIds: filtered, source: 'personalised', reasoning, debug });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Recommendation failed';
-    console.error('[recommendations]', message);
-    return res.status(500).json({ error: message });
+    // Handle validation errors
+    if (err instanceof ValidationError) {
+      return res.status(400).json(formatValidationError(err));
+    }
+
+    // Handle auth errors (already formatted)
+    if (err instanceof Error && err.name === 'AuthError') {
+      return handleAuthError(err, res);
+    }
+
+    // Log to external service in production (not console)
+    if (process.env.NODE_ENV === 'development') {
+      const message = err instanceof Error ? err.message : 'Recommendation failed';
+      console.error('[recommendations]', message);
+    }
+
+    return res.status(500).json({ error: 'Failed to generate recommendations' });
   }
 }

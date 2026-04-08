@@ -2,7 +2,7 @@ import { Redirect } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { supabase } from '@/lib/supabase';
-import { getProfile, upsertProfile, incrementSessionCount } from '@/lib/api';
+import { getProfile, incrementSessionCount } from '@/lib/api';
 import { useUserStore } from '@/stores/userStore';
 import { useSavedStore } from '@/stores/savedStore';
 import { useTheme } from '@/hooks/useTheme';
@@ -19,24 +19,9 @@ export default function Index() {
       if (data.session?.user) {
         const userId = data.session.user.id;
         try {
-          let profile = await getProfile(userId);
-          if (!profile) {
-            // No profile row — try to create a minimal one
-            const email = data.session.user.email ?? '';
-            const name = email.split('@')[0] ?? 'Mori User';
-            try {
-              profile = await upsertProfile({
-                id: userId,
-                name,
-                dietary_goals: [],
-                ingredient_dislikes: [],
-                cuisine_preferences: [],
-                onboarding_complete: false,
-              });
-            } catch {
-              // Couldn't create profile — app will work in degraded mode
-            }
-          }
+          const profile = await getProfile(userId);
+          // Profile should always exist (auto-created by auth trigger)
+          // but handle gracefully if it doesn't — app works in degraded mode
           if (profile) setProfile(profile);
         } catch {
           // Profile fetch failed — app will work in degraded mode

@@ -1,6 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import Anthropic from '@anthropic-ai/sdk';
 import { createClient } from '@supabase/supabase-js';
+import { rateLimitUser } from './rateLimit';
+import { validate, MacrosRequestSchema, ValidationError, formatValidationError } from '../lib/validation';
+import { requireAuth } from './apiAuth';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -129,24 +132,56 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { externalId, supabaseId, recipeTitle, ingredients = [] }: MacroRequest = req.body ?? {};
+  try {
+    // ── Authentication ────────────────────────────────────────────────────
+    const userId = await requireAuth(req);
 
-  if (!recipeTitle) {
-    return res.status(400).json({ error: 'recipeTitle is required' });
+    // ── Input Validation ──────────────────────────────────────────────────
+    const body = await validate(MacrosRequestSchema, req.body);
+    const { externalId, supabaseId, recipeTitle, ingredients } = body;
+
+    // ── Rate Limiting (30 calls per user per day) ─────────────────────────
+    const rateLimitResult = await rateLimitUser(userId, 'macros', 30, 86400);
+    if (!rateLimitResult.success) {
+      res.setHeader('Retry-After', rateLimitResult.retryAfter || 3600);
+      return res.status(429).json({
+        error: 'Rate limit exceeded',
+        retryAfter: rateLimitResult.retryAfter,
+      });
+    }
+
+    // 1. Check Supabase cache — avoids Claude call if already computed for this recipe
+    if (externalId || supabaseId) {
+      const cached = await getCachedMacrosFromDB(externalId, supabaseId);
+      if (cached) return res.json({ macros: cached });
+    }
+
+    // 2. Estimate with Claude Haiku — always labelled isEstimated: true
+    const estimated = await estimateWithClaude(recipeTitle, ingredients);
+    if (estimated) {
+      saveMacrosToDB(estimated, externalId, supabaseId); // fire-and-forget
+      return res.json({ macros: estimated });
+    }
+
+    return res.status(500).json({ error: 'Could not estimate macros' });
+  } catch (err: unknown) {
+    // Handle validation errors
+    if (err instanceof ValidationError) {
+      return res.status(400).json(formatValidationError(err));
+    }
+
+    // Handle auth errors
+    if (err instanceof Error && err.name === 'AuthError') {
+      const statusCode = (err as any).statusCode || 401;
+      return res.status(statusCode).json({ error: err.message });
+    }
+
+    // Log to external service in production (not console)
+    if (process.env.NODE_ENV === 'development') {
+      const message = err instanceof Error ? err.message : 'Macros estimation failed';
+      console.error('[macros]', message);
+    }
+
+    return res.status(500).json({ error: 'Could not estimate macros' });
   }
-
-  // 1. Check Supabase cache — avoids Claude call if already computed for this recipe
-  if (externalId || supabaseId) {
-    const cached = await getCachedMacrosFromDB(externalId, supabaseId);
-    if (cached) return res.json({ macros: cached });
-  }
-
-  // 2. Estimate with Claude Haiku — always labelled isEstimated: true
-  const estimated = await estimateWithClaude(recipeTitle, ingredients);
-  if (estimated) {
-    saveMacrosToDB(estimated, externalId, supabaseId); // fire-and-forget
-    return res.json({ macros: estimated });
-  }
-
-  return res.status(500).json({ error: 'Could not estimate macros' });
 }

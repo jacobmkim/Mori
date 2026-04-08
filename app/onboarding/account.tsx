@@ -1,13 +1,14 @@
-import { View, Text, TextInput, Pressable, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, Pressable, Alert, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Keyboard, TouchableWithoutFeedback } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useForm, Controller } from 'react-hook-form';
 import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { upsertProfile, getProfile } from '@/lib/api';
+import { patchProfile, getProfile } from '@/lib/api';
 import { useUserStore } from '@/stores/userStore';
 import { useSavedStore } from '@/stores/savedStore';
 import { useTheme } from '@/hooks/useTheme';
 import ProgressBar from '@/components/onboarding/ProgressBar';
+import { MoriLogo } from '@/components/ui/MoriLogo';
 
 interface FormData {
   email: string;
@@ -24,9 +25,7 @@ export default function Account() {
   const [mode, setMode] = useState<'signup' | 'signin'>(signin === '1' ? 'signin' : 'signup');
 
   const { control, handleSubmit, formState: { errors }, getValues } = useForm<FormData>({
-    defaultValues: __DEV__
-      ? { email: 'dev@mise.app', password: 'devpassword123', confirmPassword: '' }
-      : { email: '', password: '', confirmPassword: '' },
+    defaultValues: { email: '', password: '', confirmPassword: '' },
   });
 
   async function onSubmit(data: FormData) {
@@ -40,8 +39,7 @@ export default function Account() {
         if (error) throw error;
 
         if (authData.user) {
-          const profile = await upsertProfile({
-            id: authData.user.id,
+          const profile = await patchProfile(authData.user.id, {
             dietary_goals: onboarding.dietary_goals,
             dietary_extra_preferences: onboarding.dietary_extra_preferences,
             ingredient_dislikes: onboarding.ingredient_dislikes,
@@ -55,7 +53,7 @@ export default function Account() {
           setProfile(profile);
 
           // Send confirmation email (optional — user can ignore)
-          supabase.auth.resendConfirmationEmail(data.email).catch((err) => {
+          supabase.auth.resend({ type: 'signup', email: data.email }).catch((err) => {
             console.error('Failed to send confirmation email:', err);
             // Non-fatal — continue to app even if email fails
           });
@@ -88,17 +86,31 @@ export default function Account() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
+    <KeyboardAvoidingView
+      style={{ flex: 1, backgroundColor: colors.background }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+        <View style={{ flex: 1 }}>
       <ProgressBar current={8} total={8} />
-      <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 24 }}>
+      <ScrollView
+        contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 40 }}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        {mode === 'signup' && (
+          <View style={{ marginBottom: 32, alignItems: 'center' }}>
+            <MoriLogo size="md" />
+          </View>
+        )}
         <Text style={{ fontSize: 28, fontWeight: '800', color: colors.text, marginBottom: 8 }}>
-          {mode === 'signup' ? 'Create your account' : 'Welcome back'}
+          {mode === 'signup' ? "Let's get cooking" : 'Welcome back, chef'}
         </Text>
         <Text style={{ fontSize: 15, color: colors.textMuted, marginBottom: 32 }}>
-          {mode === 'signup' ? "Your preferences are saved. Let's make it official." : 'Sign in to continue to Mori.'}
+          {mode === 'signup' ? 'Secure your account to save your favorites.' : 'Sign in to your recipe collection.'}
         </Text>
 
-        <View style={{ gap: 16 }}>
+        <View style={{ gap: 16, marginBottom: 32 }}>
           <View>
             <Text style={{ color: colors.text, fontSize: 14, fontWeight: '500', marginBottom: 8 }}>
               Email
@@ -213,51 +225,53 @@ export default function Account() {
             </View>
           )}
         </View>
-      </View>
 
-      <View style={{ paddingHorizontal: 24, paddingBottom: 40, gap: 12 }}>
-        <Pressable
-          onPress={handleSubmit(onSubmit)}
-          disabled={loading}
-          style={{
-            backgroundColor: colors.primary,
-            borderRadius: 14,
-            paddingVertical: 18,
-            alignItems: 'center',
-          }}
-        >
-          {loading ? (
-            <ActivityIndicator color={colors.white} />
-          ) : (
-            <Text style={{ color: 'white', fontSize: 17, fontWeight: '700' }}>
-              {mode === 'signup' ? 'Create Account' : 'Sign In'}
-            </Text>
-          )}
-        </Pressable>
-
-        {mode === 'signin' && (
+        <View style={{ gap: 12 }}>
           <Pressable
-            onPress={() => router.push('/onboarding/forgot-password')}
+            onPress={handleSubmit(onSubmit)}
+            disabled={loading}
+            style={{
+              backgroundColor: colors.primary,
+              borderRadius: 14,
+              paddingVertical: 18,
+              alignItems: 'center',
+            }}
+          >
+            {loading ? (
+              <ActivityIndicator color={colors.white} />
+            ) : (
+              <Text style={{ color: 'white', fontSize: 17, fontWeight: '700' }}>
+                {mode === 'signup' ? 'Create Account' : 'Sign In'}
+              </Text>
+            )}
+          </Pressable>
+
+          {mode === 'signin' && (
+            <Pressable
+              onPress={() => router.push('/onboarding/forgot-password')}
+              style={{ alignItems: 'center', paddingVertical: 8 }}
+            >
+              <Text style={{ color: colors.primary, fontSize: 14, fontWeight: '600' }}>
+                Forgot password?
+              </Text>
+            </Pressable>
+          )}
+
+          <Pressable
+            onPress={() => setMode(mode === 'signup' ? 'signin' : 'signup')}
             style={{ alignItems: 'center', paddingVertical: 8 }}
           >
-            <Text style={{ color: colors.primary, fontSize: 14, fontWeight: '600' }}>
-              Forgot password?
+            <Text style={{ color: colors.textMuted, fontSize: 14 }}>
+              {mode === 'signup' ? 'Already have an account? ' : "Don't have an account? "}
+              <Text style={{ color: colors.primary, fontWeight: '600' }}>
+                {mode === 'signup' ? 'Sign in' : 'Sign up'}
+              </Text>
             </Text>
           </Pressable>
-        )}
-
-        <Pressable
-          onPress={() => setMode(mode === 'signup' ? 'signin' : 'signup')}
-          style={{ alignItems: 'center', paddingVertical: 8 }}
-        >
-          <Text style={{ color: colors.textMuted, fontSize: 14 }}>
-            {mode === 'signup' ? 'Already have an account? ' : "Don't have an account? "}
-            <Text style={{ color: colors.primary, fontWeight: '600' }}>
-              {mode === 'signup' ? 'Sign in' : 'Sign up'}
-            </Text>
-          </Text>
-        </Pressable>
-      </View>
-    </View>
+        </View>
+      </ScrollView>
+        </View>
+      </TouchableWithoutFeedback>
+    </KeyboardAvoidingView>
   );
 }
