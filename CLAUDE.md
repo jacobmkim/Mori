@@ -61,9 +61,10 @@ Mori is a swipe-based recipe discovery app. Users swipe on recipe cards → save
 | 2 | N/A `clean-ingredient-units.mjs` — app display layer handles ingredient formatting; DB data clean. |
 | 3 | ✅ App tutorial — `components/TutorialOverlay.tsx` coach-mark overlay, 4 steps, AsyncStorage `@mori_tutorial_seen` flag, shown once post-onboarding on Discover. |
 | 4 | ✅ Privacy policy in-app — `app/privacy-policy.tsx` modal, entry row in profile Settings. |
-| 5 | ❌ Logo — decide on transparent/color variants for different backgrounds. |
-| 6 | ❌ Fix logo on onboarding → main app screens. |
+| 5 | ✅ Logo — 3 PNG variants: green-green (light), green-white (dark), white-white (overlay). |
+| 6 | ✅ Fix logo on onboarding → main app screens — MoriLogo.tsx uses Canva PNGs, SVG fallback removed. |
 | 7 | ❌ Fix screenshots on getmori.app website. |
+| 8 | Ingredient substitution optimization. Go through look at what can be substituted.
 
 ### ❌ Phase 4 — Grocery APIs
 - Kroger API (`developer.kroger.com`) — Done. Ask user for key.
@@ -144,12 +145,18 @@ scripts/ (all one-time or safe-to-resume, already ran)
 
 ### Brand
 - **Name:** Mori. Bundle ID: `app.getmori.mori`.
-- **Logo accent:** spatula SVG (NOT a circle dot) — matches primary green of current theme.
 - **App icon:** always linen light (#F8F3EC bg, #2E5438 m + spatula). Never changes between themes.
-- **Logo banner bg:** `#fff8ef` (cream). `assets/mori transparent banner.png` (transparent) — preferred for app + web nav (works on any bg). `assets/mori.png` (cream bg) only when background matches `#fff8ef`.
-- **PNG assets (do not use inline SVGs on web — two files only):**
-  - `mori_icon.png` — app icon: linen #F8F3EC bg, italic "m" + spatula in moss #2E5438, rounded square. Use for favicon-style icon placements.
-  - `mori-transparent.png` — wordmark: italic "mori" in forest green (#2E5438) with spatula on the left, transparent background. Use for nav bars, footers, any bg. Used in app via `MoriLogo.tsx`.
+- **PNG assets only — no SVGs. Never recreate these as inline SVG.**
+
+| File | Dimensions | Spatula | "mori" text | Background | Use when |
+|---|---|---|---|---|---|
+| `assets/mori-green.png` | 1200×300 (4:1) | Green #2E5438 | Green #2E5438 | Transparent | App light mode (Spontaneous Light, Meal Prep Light). HTML nav + footer. |
+| `assets/mori-dark.png` | 1200×300 (4:1) | Green #2E5438 | White #FFFFFF | Transparent | App dark mode (Spontaneous Dark, Meal Prep Dark). |
+| `assets/mori-white.png` | 1200×300 (4:1) | White #FFFFFF | White #FFFFFF | Transparent | Welcome overlay, any dark photo background. |
+| `assets/mori_icon.png` | 1024×1024 (1:1) | Moss #2E5438 | — (no text) | Linen #F8F3EC | App Store icon (app.json), HTML favicon, 32/40/48px icon badges. |
+
+**App sizes (MoriLogo.tsx):** `sm` 148×37 · `md` 208×52 · `lg` 268×67
+**HTML sizes:** nav 152×38 · footer 88×22
 
 ### Typography (Direction A — locked)
 ```
