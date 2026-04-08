@@ -65,6 +65,9 @@ Mori is a swipe-based recipe discovery app. Users swipe on recipe cards → save
 | 6 | ✅ Fix logo on onboarding → main app screens — MoriLogo.tsx uses Canva PNGs, SVG fallback removed. |
 | 7 | ❌ Fix screenshots on getmori.app website. |
 | 8 | Ingredient substitution optimization. Go through look at what can be substituted.
+| 9 | Changing servings in the grocery cart when on discover should show macro changes as well as ingredient changes.
+| 10 | meal prep mode tutorial i.e show were you can change it.
+| 11 | Profile shows more personalized name or user name?
 
 ### ❌ Phase 4 — Grocery APIs
 - Kroger API (`developer.kroger.com`) — Done. Ask user for key.
