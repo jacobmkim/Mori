@@ -20,7 +20,7 @@ import { formatTime, formatCost, getTimeOfDay, getWeekStart } from '@/lib/utils'
 import { fetchMealDetail, type MealDetail } from '@/lib/mealdb';
 import { logSwipe, upsertRecipeByExternalId, setRecipeLiked, fetchMacros, estimateMacrosLocally, fetchScoredDeck, updateRecipeDetail, updateRecipeMacros, logInteraction, recordSessionSwipe, cancelLeftSwipe, recordAdventureCardLeftSwipe, clearSessionState, getCookedRecipeIds, rateRecipe, flagRecipe } from '@/lib/api';
 import { RecipeDetailModal } from '@/components/RecipeDetailModal';
-import { HeadlineMacroPill } from '@/components/ui/MacroRow';
+import { HeadlineMacroPill, MacroRow } from '@/components/ui/MacroRow';
 import { MoriLogo } from '@/components/ui/MoriLogo';
 import { AvatarButton } from '@/components/AvatarButton';
 import { useSavedStore } from '@/stores/savedStore';
@@ -668,6 +668,18 @@ export default function Discover() {
     if (Number.isInteger(n) || Math.abs(n - Math.round(n)) < 0.05) return String(Math.round(n));
     return n.toFixed(1);
   }
+  function scaleDeckMacros(macros: Macros, ratio: number): Macros {
+    return {
+      calories: Math.round(macros.calories * ratio),
+      protein: Math.round(macros.protein * ratio * 10) / 10,
+      carbohydrates: Math.round(macros.carbohydrates * ratio * 10) / 10,
+      fat: Math.round(macros.fat * ratio * 10) / 10,
+      fibre: Math.round(macros.fibre * ratio * 10) / 10,
+      netCarbs: macros.netCarbs != null ? Math.round(macros.netCarbs * ratio * 10) / 10 : undefined,
+      isEstimated: macros.isEstimated,
+    };
+  }
+
   function scaleDeckMeasure(measure: string, ratio: number): string {
     if (!measure || ratio === 1) return measure;
     const parsed = parseLeadingNumber(measure.trim());
@@ -1134,13 +1146,15 @@ export default function Discover() {
         onRequestClose={() => setDeckServingsSheetVisible(false)}
       >
         <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-          <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 28, gap: 24 }}>
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 28, paddingBottom: 16, gap: 20 }} showsVerticalScrollIndicator={false}>
             <Text style={{ fontSize: 17, fontWeight: '700', color: colors.text }}>Add to grocery list</Text>
             {topRecipe && (
               <Text style={{ fontFamily: 'Georgia', fontStyle: 'italic', fontSize: 16, color: colors.text, lineHeight: 24 }}>
                 {topRecipe.title}
               </Text>
             )}
+
+            {/* Servings adjuster */}
             <View style={{ alignItems: 'center', gap: 8 }}>
               <Text style={{ fontSize: 13, fontWeight: '600', color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 }}>Servings</Text>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 28 }}>
@@ -1160,7 +1174,66 @@ export default function Discover() {
               </View>
               <Text style={{ fontSize: 14, color: colors.textMuted }}>serving{deckServings !== 1 ? 's' : ''}</Text>
             </View>
-          </View>
+
+            {/* Scaled macros + cost */}
+            {topRecipe && (() => {
+              const deckBaseServings = topRecipe.servings ?? 2;
+              const deckRatio = deckServings / deckBaseServings;
+              const scaledMacros = topMacros ? scaleDeckMacros(topMacros, deckRatio) : null;
+              const totalCost = topRecipe.cost_per_serving != null
+                ? formatCost(topRecipe.cost_per_serving * deckServings)
+                : null;
+              if (!scaledMacros && !totalCost) return null;
+              return (
+                <View style={{ backgroundColor: colors.card, borderRadius: 12, padding: 14, gap: 10 }}>
+                  {scaledMacros && <MacroRow macros={scaledMacros} />}
+                  {totalCost && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                      <Ionicons name="cart-outline" size={14} color={colors.textMuted} />
+                      <Text style={{ fontSize: 13, color: colors.textMuted }}>
+                        Est. <Text style={{ fontWeight: '600', color: colors.text }}>{totalCost}</Text> total
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              );
+            })()}
+
+            {/* Scaled ingredient list */}
+            {topRecipe && (() => {
+              const deckBaseServings = topRecipe.servings ?? 2;
+              const deckRatio = deckServings / deckBaseServings;
+              const detail = detailCache.current.get(topRecipe.id);
+              const ings = detail?.ingredients && detail.ingredients.length > 0
+                ? detail.ingredients
+                : topRecipe.ingredients.map((i) => ({ name: i.name, measure: `${i.quantity ?? ''} ${i.unit ?? ''}`.trim() }));
+              if (ings.length === 0) return null;
+              return (
+                <View style={{ backgroundColor: colors.card, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 4 }}>
+                  <Text style={{ fontSize: 12, fontWeight: '600', color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, paddingVertical: 10 }}>
+                    Ingredients
+                  </Text>
+                  {ings.map((ing, i) => {
+                    const scaledMeasure = scaleDeckMeasure(ing.measure ?? '', deckRatio);
+                    const isLast = i === ings.length - 1;
+                    return (
+                      <View key={i} style={{
+                        flexDirection: 'row', alignItems: 'center', paddingVertical: 10,
+                        borderBottomWidth: isLast ? 0 : 0.5, borderBottomColor: colors.border,
+                      }}>
+                        <Text style={{ flex: 1, fontSize: 13, color: colors.text }}>{ing.name}</Text>
+                        {scaledMeasure ? (
+                          <Text style={{ fontSize: 13, fontWeight: '600', color: deckRatio !== 1 ? colors.primary : colors.text }}>
+                            {scaledMeasure}
+                          </Text>
+                        ) : null}
+                      </View>
+                    );
+                  })}
+                </View>
+              );
+            })()}
+          </ScrollView>
 
           <View style={{ paddingHorizontal: 20, paddingBottom: 16, gap: 10 }}>
             <Pressable

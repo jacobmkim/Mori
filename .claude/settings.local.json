@@ -82,7 +82,10 @@
       "Bash(node -e \"const p = require\\(''./package.json''\\); console.log\\(p.dependencies[''react-native-svg''] || ''NOT INSTALLED''\\)\")",
       "Bash(npm install:*)",
       "Bash(node -e \"const p = require\\(''./package.json''\\); console.log\\(p.dependencies[''react-native-svg'']\\)\")",
-      "Bash(npx expo:*)"
+      "Bash(npx expo:*)",
+      "Bash(grep -n \"scaleMeasure\\\\|scaleMacros\" /c/Users/jkim2/projectX/lib/*.ts)",
+      "Bash(grep -r \"interface.*Recipe\\\\|measure.*string\\\\|unit.*string\\\\|quantity.*string\" c:/Users/jkim2/projectX/app --include=*.ts -l)",
+      "Bash(grep -r \"export.*interface Recipe\\\\|export.*type Recipe\\\\b\" c:/Users/jkim2/projectX --include=*.ts --include=*.tsx -l)"
     ]
   }
 }

@@ -7,7 +7,7 @@ import type { ReactNode } from 'react';
 import { useUserStore } from '@/stores/userStore';
 import { useSavedStore } from '@/stores/savedStore';
 import { supabase } from '@/lib/supabase';
-import { patchProfile, clearDiscoverCache, getPantryItems, addPantryItem, deletePantryItem, getAdventureCardsEnabled, setAdventureCardsEnabled, getFlaggedRecipes, clearFlaggedRecipes, type FlaggedRecipe } from '@/lib/api';
+import { patchProfile, clearDiscoverCache, getPantryItems, addPantryItem, deletePantryItem, getAdventureCardsEnabled, setAdventureCardsEnabled, getUnitSystem, setUnitSystem, getFlaggedRecipes, clearFlaggedRecipes, type FlaggedRecipe } from '@/lib/api';
 import { clearRecipeCache } from '@/lib/mealdb';
 import { useTheme } from '@/hooks/useTheme';
 import { useDiscoverStore, type AppearanceMode } from '@/stores/discoverStore';
@@ -554,6 +554,7 @@ export default function Profile() {
   const [editVisible, setEditVisible] = useState(false);
   const [pantryVisible, setPantryVisible] = useState(false);
   const [adventureCards, setAdventureCards] = useState(true);
+  const [unitSystem, setUnitSystemState] = useState<'us' | 'metric'>('us');
   const { appearanceMode, setAppearanceMode } = useDiscoverStore();
   const [tasteProfile, setTasteProfile] = useState<string | null>(
     (profile?.taste_profile as any)?.text ?? null
@@ -587,6 +588,7 @@ export default function Profile() {
       generateTasteProfile();
     }
     getAdventureCardsEnabled().then(setAdventureCards).catch(() => {});
+    getUnitSystem().then(setUnitSystemState).catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleSignOut() {
@@ -816,6 +818,40 @@ export default function Profile() {
                 trackColor={{ false: colors.border, true: colors.primary }}
                 thumbColor="white"
               />
+            </View>
+
+            {/* Measurement units */}
+            <View style={{
+              flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+              padding: 16, borderTopWidth: 1, borderTopColor: colors.border,
+            }}>
+              <View style={{ flex: 1, marginRight: 12 }}>
+                <Text style={{ fontSize: 15, fontWeight: '500', color: colors.text }}>
+                  Measurement units
+                </Text>
+                <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>
+                  {unitSystem === 'us' ? 'cups/tbsp for volume · oz for weight' : 'ml for volume · g for weight'}
+                </Text>
+              </View>
+              <View style={{ flexDirection: 'row', borderRadius: 8, borderWidth: 1, borderColor: colors.border, overflow: 'hidden' }}>
+                {(['us', 'metric'] as const).map((opt) => (
+                  <Pressable
+                    key={opt}
+                    onPress={() => {
+                      setUnitSystemState(opt);
+                      setUnitSystem(opt).catch(() => {});
+                    }}
+                    style={{
+                      paddingHorizontal: 14, paddingVertical: 7,
+                      backgroundColor: unitSystem === opt ? colors.primary : colors.background,
+                    }}
+                  >
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: unitSystem === opt ? 'white' : colors.textMuted }}>
+                      {opt === 'us' ? 'cups' : 'ml'}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
             </View>
 
             {/* Appearance */}

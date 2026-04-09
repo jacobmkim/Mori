@@ -412,6 +412,28 @@ export async function setAdventureCardsEnabled(enabled: boolean): Promise<void> 
   }
 }
 
+// ─── Unit system preference ────────────────────────────────────────────────────
+// 'us' = cups/tbsp/tsp/oz  |  'metric' = ml/g (default: 'us')
+
+const UNIT_SYSTEM_KEY = '@mori_unit_system';
+
+export async function getUnitSystem(): Promise<'us' | 'metric'> {
+  try {
+    const val = await AsyncStorage.getItem(UNIT_SYSTEM_KEY);
+    return val === 'metric' ? 'metric' : 'us';
+  } catch {
+    return 'us';
+  }
+}
+
+export async function setUnitSystem(system: 'us' | 'metric'): Promise<void> {
+  try {
+    await AsyncStorage.setItem(UNIT_SYSTEM_KEY, system);
+  } catch {
+    // non-critical
+  }
+}
+
 // ─── Session-level swipe tracking (Bug 7) ────────────────────────────────────
 // In-memory: resets on app close. Cross-session left-swipes persisted to AsyncStorage
 // with a 14-day TTL so recently-rejected recipes don't resurface immediately.

@@ -15,7 +15,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTheme } from '@/hooks/useTheme';
 import { formatTime, formatCost } from '@/lib/utils';
-import { fetchMacros, flagRecipe, getRecipeNote, saveRecipeNote } from '@/lib/api';
+import { fetchMacros, flagRecipe, getRecipeNote, saveRecipeNote, getUnitSystem } from '@/lib/api';
+import { getStaticSubs, getCachedSubs, fetchAndCacheSubs, type Swap } from '@/lib/substitutions';
+import { supabase } from '@/lib/supabase';
 import { MacroRow } from '@/components/ui/MacroRow';
 import { CookingMode } from '@/components/CookingMode';
 import { useUserStore } from '@/stores/userStore';
@@ -25,9 +27,29 @@ import type { MealDetail } from '@/lib/mealdb';
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 // ── Serving size helpers ───────────────────────────────────────────────────────
+const UNICODE_FRACS: [string, number][] = [
+  ['⅛', 1 / 8], ['¼', 1 / 4], ['⅓', 1 / 3],
+  ['½', 1 / 2], ['⅔', 2 / 3], ['¾', 3 / 4],
+];
+
 function parseLeadingNumber(str: string): { value: number; rest: string } | null {
+  // ASCII fraction: "1/2", "3/4"
   const frac = str.match(/^(\d+)\/(\d+)(.*)/);
   if (frac) return { value: parseInt(frac[1]) / parseInt(frac[2]), rest: frac[3] };
+  // Integer + unicode fraction: "1½", "2¼"
+  const intMatch = str.match(/^(\d+)/);
+  if (intMatch) {
+    const intVal = parseInt(intMatch[1]);
+    const after = str.slice(intMatch[1].length);
+    for (const [sym, val] of UNICODE_FRACS) {
+      if (after.startsWith(sym)) return { value: intVal + val, rest: after.slice(sym.length) };
+    }
+  }
+  // Standalone unicode fraction: "½", "¼"
+  for (const [sym, val] of UNICODE_FRACS) {
+    if (str.startsWith(sym)) return { value: val, rest: str.slice(sym.length) };
+  }
+  // Decimal or integer
   const dec = str.match(/^(\d+\.?\d*)(.*)/);
   if (dec) return { value: parseFloat(dec[1]), rest: dec[2] };
   return null;
@@ -51,6 +73,52 @@ function scaleMeasure(measure: string, ratio: number): string {
   const parsed = parseLeadingNumber(measure.trim());
   if (!parsed) return measure;
   return `${formatNumber(parsed.value * ratio)}${parsed.rest}`;
+}
+
+/** Snap a cup value to the nearest cooking-friendly fraction and format with symbols. */
+function formatCups(cups: number): string {
+  // Only use fractions cooks actually measure: ⅛ ¼ ⅓ ½ ⅔ ¾
+  const FRACS: [number, string][] = [
+    [0, ''], [0.125, '⅛'], [0.25, '¼'], [0.333, '⅓'],
+    [0.5, '½'], [0.667, '⅔'], [0.75, '¾'],
+  ];
+  const whole = Math.floor(cups);
+  const rem = cups - whole;
+  if (rem > 0.875) return `${whole + 1}`;
+  let best: [number, string] = FRACS[0];
+  for (const f of FRACS) {
+    if (Math.abs(rem - f[0]) < Math.abs(rem - best[0])) best = f;
+  }
+  const fracStr = best[1];
+  if (whole === 0) return fracStr || '⅛';
+  return fracStr ? `${whole}${fracStr}` : `${whole}`;
+}
+
+/** Convert metric units to US (cups/tbsp/tsp/oz/lbs) or pass through if system is 'metric'. */
+function normalizeMeasure(measure: string, system: 'us' | 'metric' = 'us'): string {
+  if (!measure || system === 'metric') return measure;
+  const parsed = parseLeadingNumber(measure.trim());
+  if (!parsed) return measure;
+  const v = parsed.value;
+  const tokens = parsed.rest.trim().split(/\s+/);
+  const unitRaw = (tokens[0] ?? '').replace(/\.$/, '').toLowerCase();
+  const trailing = tokens.slice(1).join(' ');
+
+  let converted: string | null = null;
+  if (unitRaw === 'ml') {
+    if (v >= 60)      converted = `${formatCups(v / 240)} cup`;
+    else if (v >= 15) converted = `${formatNumber(v / 15)} tbsp`;
+    else if (v >= 5)  converted = `${formatNumber(v / 5)} tsp`;
+  } else if (unitRaw === 'l') {
+    converted = `${formatCups((v * 1000) / 240)} cup`;
+  } else if (unitRaw === 'g' && v >= 14) {
+    converted = `${formatNumber(v / 28.35)} oz`;
+  } else if (unitRaw === 'kg') {
+    converted = `${formatNumber(v * 2.205)} lbs`;
+  }
+
+  if (converted === null) return measure;
+  return trailing ? `${converted} ${trailing}` : converted;
 }
 
 function scaleMacros(macros: Macros, ratio: number): Macros {
@@ -143,10 +211,13 @@ export function RecipeDetailModal({
   const [activeStepIndex, setActiveStepIndex] = useState(0);
   const [ingredRefExpanded, setIngredRefExpanded] = useState(false);
 
-  // Ingredient swaps (AI, lazy-loaded)
-  const [swaps, setSwaps] = useState<{ ingredient: string; substitute: string; reason: string }[] | null>(null);
-  const [swapsLoading, setSwapsLoading] = useState(false);
-  const [swapsExpanded, setSwapsExpanded] = useState(false);
+  // Per-ingredient swap state
+  type SwapState = Swap[] | 'loading' | 'no_subs' | 'unavailable';
+  const [swapData, setSwapData] = useState<Record<number, SwapState>>({});
+  const [expandedSwapIdx, setExpandedSwapIdx] = useState<number | null>(null);
+  // Applied swaps: index → substitute name (session-only override)
+  const [appliedSwaps, setAppliedSwaps] = useState<Record<number, string>>({});
+  const [unitSystem, setUnitSystem] = useState<'us' | 'metric'>('us');
 
   // Active timer state
   const [timerSeconds, setTimerSeconds] = useState<number | null>(null);
@@ -171,10 +242,11 @@ export function RecipeDetailModal({
       setTimerSeconds(null); setTimerRunning(false); setTimerStepIndex(null);
       setNoteEditing(false); setNoteSaved(false);
       setShowServingsSheet(false); setGroceryToast(false);
-      setSwaps(null); setSwapsLoading(false); setSwapsExpanded(false);
+      setSwapData({}); setExpandedSwapIdx(null); setAppliedSwaps({});
       return;
     }
     setServings(baseServings);
+    getUnitSystem().then(setUnitSystem).catch(() => {});
     const ings = recipe.ingredients.length > 0
       ? recipe.ingredients
       : (detail?.ingredients ?? []).map((i) => ({ name: i.name, quantity: i.measure, unit: '' }));
@@ -247,26 +319,44 @@ export function RecipeDetailModal({
     }
   }
 
-  async function loadSwaps() {
-    if (swaps !== null || swapsLoading) return;
+  async function handleSwapTap(idx: number, ingName: string) {
+    // Toggle collapse if already resolved
+    const current = swapData[idx];
+    if (current !== undefined && current !== 'loading') {
+      setExpandedSwapIdx((prev) => (prev === idx ? null : idx));
+      return;
+    }
+    if (current === 'loading') return;
+
+    setExpandedSwapIdx(idx);
+
+    // 1. Static table — instant
+    const staticSubs = getStaticSubs(ingName);
+    if (staticSubs) {
+      setSwapData((prev) => ({ ...prev, [idx]: staticSubs }));
+      return;
+    }
+
+    // 2. AsyncStorage cache — from a previous API call
+    const cached = await getCachedSubs(ingName);
+    if (cached) {
+      setSwapData((prev) => ({ ...prev, [idx]: cached }));
+      return;
+    }
+
+    // 3. API fallback — Claude Haiku, rate-limited, result saved to cache
+    setSwapData((prev) => ({ ...prev, [idx]: 'loading' }));
     const baseUrl = process.env.EXPO_PUBLIC_API_URL;
-    if (!baseUrl) return;
-    setSwapsLoading(true);
-    try {
-      const r = await fetch(`${baseUrl}/api/substitutions`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: recipe!.title, ingredients: ingredients.map((i) => i.name) }),
-      });
-      if (r.ok) {
-        const data = await r.json();
-        setSwaps(Array.isArray(data.swaps) ? data.swaps : []);
-      } else {
-        setSwaps([]);
-      }
-    } catch {
-      setSwaps([]);
-    } finally {
-      setSwapsLoading(false);
+    if (!baseUrl) { setSwapData((prev) => ({ ...prev, [idx]: 'no_subs' })); return; }
+
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) { setSwapData((prev) => ({ ...prev, [idx]: 'no_subs' })); return; }
+
+    const { swaps, rateLimited } = await fetchAndCacheSubs(ingName, session.access_token, baseUrl);
+    if (rateLimited) {
+      setSwapData((prev) => ({ ...prev, [idx]: 'unavailable' }));
+    } else {
+      setSwapData((prev) => ({ ...prev, [idx]: swaps.length > 0 ? swaps : 'no_subs' }));
     }
   }
 
@@ -437,82 +527,117 @@ export function RecipeDetailModal({
                 </View>
 
                 {ingredients.map((ing, i) => {
-                  const measure = 'measure' in ing ? ing.measure : (ing as any).quantity;
-                  const scaledMeasure = scaleMeasure(measure ?? '', ratio);
+                  const measure = normalizeMeasure('measure' in ing ? ing.measure : (ing as any).quantity ?? '', unitSystem);
+                  const scaledMeasure = scaleMeasure(measure, ratio);
                   const isLast = i === ingredients.length - 1;
+                  const swapState = swapData[i];
+                  const isSwapExpanded = expandedSwapIdx === i;
+                  const appliedSub = appliedSwaps[i];
+                  // Only show swap icon when a static substitution exists for this ingredient
+                  const hasSwap = getStaticSubs(ing.name) !== null;
                   return (
                     <View key={i} style={{
-                      flexDirection: 'row', alignItems: 'center',
-                      paddingVertical: 14, paddingHorizontal: 0,
                       borderBottomWidth: isLast ? 0 : 0.5, borderBottomColor: colors.border,
-                      minHeight: 44,
                     }}>
-                      <Text style={{ flex: 1, fontSize: 13, color: colors.text }}>{ing.name}</Text>
-                      {scaledMeasure ? (
-                        <Text style={{ fontSize: 13, fontWeight: '600', color: ratio !== 1 ? colors.primary : colors.text }}>
-                          {scaledMeasure}
-                        </Text>
-                      ) : null}
+                      {/* Ingredient row */}
+                      <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 14, minHeight: 44 }}>
+                        {/* Name / applied swap — takes remaining space */}
+                        {appliedSub ? (
+                          <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                            <Text style={{ fontSize: 13, fontWeight: '700', color: colors.primary }}>{appliedSub}</Text>
+                            <Text style={{ fontSize: 11, color: colors.textMuted }}>(was: {ing.name})</Text>
+                          </View>
+                        ) : (
+                          <Text style={{ flex: 1, fontSize: 13, color: colors.text }}>{ing.name}</Text>
+                        )}
+                        {/* Swap icon — sits between name and measurement */}
+                        {!appliedSub && hasSwap && (
+                          <Pressable onPress={() => handleSwapTap(i, ing.name)} hitSlop={8} style={{ marginRight: 8 }}>
+                            <Ionicons
+                              name="swap-horizontal-outline"
+                              size={15}
+                              color={isSwapExpanded ? colors.primary : colors.border}
+                            />
+                          </Pressable>
+                        )}
+                        {/* Measurement — right-aligned */}
+                        {scaledMeasure ? (
+                          <Text style={{ fontSize: 13, fontWeight: '600', color: ratio !== 1 ? colors.primary : colors.text }}>
+                            {scaledMeasure}
+                          </Text>
+                        ) : null}
+                        {/* Undo applied swap */}
+                        {appliedSub && (
+                          <Pressable onPress={() => setAppliedSwaps((prev) => { const n = { ...prev }; delete n[i]; return n; })} hitSlop={8} style={{ marginLeft: 8 }}>
+                            <Ionicons name="close-circle" size={16} color={colors.textMuted} />
+                          </Pressable>
+                        )}
+                      </View>
+                      {/* Swap panel */}
+                      {isSwapExpanded && !appliedSub && (
+                        <View style={{
+                          marginBottom: 10, marginTop: -4, paddingHorizontal: 10, paddingVertical: 10,
+                          backgroundColor: colors.card, borderRadius: 10,
+                        }}>
+                          {swapState === 'loading' && (
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                              <ActivityIndicator size="small" color={colors.primary} />
+                              <Text style={{ fontSize: 12, color: colors.textMuted }}>Finding substitutions...</Text>
+                            </View>
+                          )}
+                          {swapState === 'unavailable' && (
+                            <Text style={{ fontSize: 12, color: colors.textMuted, fontStyle: 'italic' }}>
+                              AI substitutions unavailable today — try again tomorrow.
+                            </Text>
+                          )}
+                          {swapState === 'no_subs' && (
+                            <Text style={{ fontSize: 12, color: colors.textMuted, fontStyle: 'italic' }}>
+                              No common substitutions found.
+                            </Text>
+                          )}
+                          {Array.isArray(swapState) && swapState.map((s, j) => {
+                            // Detect compound substitutes: parenthetical prep instructions or multi-ingredient mixes
+                            const parenMatch = s.substitute.match(/^(.+?)\s*\(([^)]+)\)$/);
+                            const displayName = parenMatch ? parenMatch[1].trim() : s.substitute;
+                            const prepNote = parenMatch
+                              ? `Combine: ${parenMatch[2]}`
+                              : s.substitute.includes(' + ')
+                                ? 'Mix ingredients together before adding'
+                                : null;
+                            return (
+                            <View key={j} style={{
+                              flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+                              marginBottom: j < swapState.length - 1 ? 10 : 0,
+                            }}>
+                              <View style={{ flex: 1 }}>
+                                <Text style={{ fontSize: 13, fontWeight: '600', color: colors.primary }}>{displayName}</Text>
+                                {prepNote && (
+                                  <Text style={{ fontSize: 11, color: colors.primary, opacity: 0.7, marginTop: 2 }}>
+                                    {prepNote}
+                                  </Text>
+                                )}
+                                <Text style={{ fontSize: 11, color: colors.textMuted, fontStyle: 'italic', marginTop: 1 }}>{s.reason}</Text>
+                              </View>
+                              <Pressable
+                                onPress={() => {
+                                  setAppliedSwaps((prev) => ({ ...prev, [i]: s.substitute }));
+                                  setExpandedSwapIdx(null);
+                                }}
+                                style={{
+                                  marginLeft: 10, paddingHorizontal: 12, paddingVertical: 6,
+                                  backgroundColor: colors.primary, borderRadius: 8,
+                                }}
+                              >
+                                <Text style={{ fontSize: 12, fontWeight: '600', color: 'white' }}>Use</Text>
+                              </Pressable>
+                            </View>
+                            );
+                          })}
+                        </View>
+                      )}
                     </View>
                   );
                 })}
-
-                {/* Ingredient swaps — collapsible, AI on demand */}
-                <Pressable
-                  onPress={() => {
-                    const next = !swapsExpanded;
-                    setSwapsExpanded(next);
-                    if (next) loadSwaps();
-                  }}
-                  style={{
-                    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-                    paddingVertical: 12, paddingHorizontal: 14, marginTop: 16,
-                    backgroundColor: colors.card,
-                    borderWidth: 1, borderColor: colors.border,
-                    borderRadius: swapsExpanded ? 0 : 12,
-                    borderTopLeftRadius: 12, borderTopRightRadius: 12,
-                    marginBottom: swapsExpanded ? 0 : 0,
-                  }}
-                >
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <Ionicons name="swap-horizontal-outline" size={15} color={colors.textMuted} />
-                    <Text style={{ fontSize: 13, fontWeight: '600', color: colors.text }}>Ingredient swaps</Text>
-                  </View>
-                  <Ionicons name={swapsExpanded ? 'chevron-up' : 'chevron-down'} size={15} color={colors.textMuted} />
-                </Pressable>
-                {swapsExpanded && (
-                  <View style={{
-                    borderWidth: 1, borderTopWidth: 0, borderColor: colors.border,
-                    borderBottomLeftRadius: 12, borderBottomRightRadius: 12,
-                    backgroundColor: colors.card, marginBottom: 0, overflow: 'hidden',
-                  }}>
-                    {swapsLoading ? (
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, padding: 14 }}>
-                        <ActivityIndicator size="small" color={colors.primary} />
-                        <Text style={{ fontSize: 13, color: colors.textMuted }}>Finding swaps...</Text>
-                      </View>
-                    ) : swaps && swaps.length > 0 ? (
-                      swaps.map((s, i) => (
-                        <View key={i} style={{
-                          paddingVertical: 12, paddingHorizontal: 14,
-                          borderBottomWidth: i < swaps.length - 1 ? 0.5 : 0,
-                          borderBottomColor: colors.border,
-                        }}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 3 }}>
-                            <Text style={{ fontSize: 13, fontWeight: '600', color: colors.text }}>{s.ingredient}</Text>
-                            <Ionicons name="arrow-forward" size={11} color={colors.textMuted} />
-                            <Text style={{ fontSize: 13, fontWeight: '600', color: colors.primary, flex: 1 }}>{s.substitute}</Text>
-                          </View>
-                          <Text style={{ fontSize: 11, color: colors.textMuted, fontStyle: 'italic' }}>{s.reason}</Text>
-                        </View>
-                      ))
-                    ) : (
-                      <View style={{ padding: 14 }}>
-                        <Text style={{ fontSize: 13, color: colors.textMuted }}>No substitutions needed for this recipe.</Text>
-                      </View>
-                    )}
-                  </View>
-                )}
 
                 {/* Add all to grocery */}
                 <Pressable onPress={() => isInCart ? onRemoveFromCart?.() : openServingsSheet()} style={{ alignItems: 'center', marginTop: 20 }}>
@@ -571,8 +696,8 @@ export function RecipeDetailModal({
                         backgroundColor: colors.card, marginBottom: 14, overflow: 'hidden',
                       }}>
                         {ingredients.map((ing, i) => {
-                          const measure = 'measure' in ing ? ing.measure : (ing as any).quantity;
-                          const scaledMeasure = scaleMeasure(measure ?? '', ratio);
+                          const measure = normalizeMeasure('measure' in ing ? ing.measure : (ing as any).quantity ?? '', unitSystem);
+                          const scaledMeasure = scaleMeasure(measure, ratio);
                           const isLast = i === ingredients.length - 1;
                           return (
                             <View key={i} style={{
@@ -672,16 +797,18 @@ export function RecipeDetailModal({
                               {mentionedIngreds.length > 0 && (
                                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 8 }}>
                                   {mentionedIngreds.map((ing, mi) => {
-                                    const m = 'measure' in ing ? ing.measure : (ing as any).quantity;
-                                    const sm = scaleMeasure(m ?? '', ratio);
+                                    const m = normalizeMeasure('measure' in ing ? ing.measure : (ing as any).quantity ?? '', unitSystem);
+                                    const sm = scaleMeasure(m, ratio);
                                     if (!sm) return null;
+                                    const ingIdx = ingredients.indexOf(ing);
+                                    const displayName = ingIdx >= 0 && appliedSwaps[ingIdx] ? appliedSwaps[ingIdx] : ing.name;
                                     return (
                                       <View key={mi} style={{
                                         backgroundColor: colors.primaryLight, borderRadius: 6,
                                         paddingHorizontal: 8, paddingVertical: 3,
                                       }}>
                                         <Text style={{ fontSize: 11, color: colors.primary, fontWeight: '500' }}>
-                                          {sm} {ing.name}
+                                          {sm} {displayName}
                                         </Text>
                                       </View>
                                     );
@@ -908,9 +1035,9 @@ export function RecipeDetailModal({
             <CookingMode
               recipe={recipe}
               steps={steps}
-              rawIngredients={ingredients.map((ing) => ({
-                name: ing.name,
-                measure: 'measure' in ing ? (ing as any).measure : (ing as any).quantity ?? '',
+              rawIngredients={ingredients.map((ing, i) => ({
+                name: appliedSwaps[i] ?? ing.name,
+                measure: normalizeMeasure('measure' in ing ? (ing as any).measure : (ing as any).quantity ?? '', unitSystem),
               }))}
               ratio={ratio}
               onClose={() => setCookingModeVisible(false)}
