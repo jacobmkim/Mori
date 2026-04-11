@@ -357,16 +357,18 @@ export default function Discover() {
     })
   ).current;
 
-  // Button flash colors driven by topDragX
-  const heartFlash = useRef(topDragX.interpolate({
+  // Button flash opacity overlays driven by topDragX.
+  // Using opacity (0→1) over a static colors.card background keeps the
+  // button color in sync with the current theme even after mode switches.
+  const heartFlashOpacity = useRef(topDragX.interpolate({
     inputRange: [0, SWIPE_THRESHOLD, SCREEN_WIDTH],
-    outputRange: [colors.card, colors.swipeRight, colors.swipeRight],
+    outputRange: [0, 1, 1],
     extrapolate: 'clamp',
   })).current;
 
-  const xFlash = useRef(topDragX.interpolate({
+  const xFlashOpacity = useRef(topDragX.interpolate({
     inputRange: [-SCREEN_WIDTH, -SWIPE_THRESHOLD, 0],
-    outputRange: [colors.error, colors.error, colors.card],
+    outputRange: [1, 1, 0],
     extrapolate: 'clamp',
   })).current;
 
@@ -979,10 +981,14 @@ export default function Discover() {
           {/* Pass */}
           <Animated.View style={{
             width: 60, height: 60, borderRadius: 30,
-            backgroundColor: xFlash, borderWidth: 1.5, borderColor: colors.error,
+            backgroundColor: colors.card, borderWidth: 1.5, borderColor: colors.error,
             shadowColor: colors.error, shadowOffset: { width: 0, height: 0 },
             shadowOpacity: xGlowOpacity, shadowRadius: xGlowRadius, elevation: 3,
           }}>
+            <Animated.View pointerEvents="none" style={{
+              position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+              borderRadius: 30, backgroundColor: colors.error, opacity: xFlashOpacity,
+            }} />
             <Animated.View pointerEvents="none" style={{
               position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
               borderRadius: 30, backgroundColor: colors.error, opacity: xPostGlow,
@@ -1069,10 +1075,14 @@ export default function Discover() {
           {/* Save */}
           <Animated.View style={{
             width: 60, height: 60, borderRadius: 30,
-            backgroundColor: heartFlash, borderWidth: 1.5, borderColor: colors.primary,
+            backgroundColor: colors.card, borderWidth: 1.5, borderColor: colors.primary,
             shadowColor: colors.swipeRight, shadowOffset: { width: 0, height: 0 },
             shadowOpacity: heartGlowOpacity, shadowRadius: heartGlowRadius, elevation: 3,
           }}>
+            <Animated.View pointerEvents="none" style={{
+              position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+              borderRadius: 30, backgroundColor: colors.swipeRight, opacity: heartFlashOpacity,
+            }} />
             <Animated.View pointerEvents="none" style={{
               position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
               borderRadius: 30, backgroundColor: colors.swipeRight, opacity: heartPostGlow,

@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet, useColorScheme } from 'react-native';
 import { Image } from 'expo-image';
 import { useTheme } from '@/hooks/useTheme';
+import { useDiscoverStore } from '@/stores/discoverStore';
 
 /**
  * MoriLogo — v3.0
@@ -22,15 +23,21 @@ interface MoriLogoProps {
 }
 
 export function MoriLogo({ showTagline = false, size = 'md' }: MoriLogoProps) {
-  const scheme = useColorScheme();
+  const systemScheme = useColorScheme();
+  const appearanceMode = useDiscoverStore((s) => s.appearanceMode);
   const colors = useTheme();
+
+  const isDark =
+    appearanceMode === 'dark' ? true :
+    appearanceMode === 'light' ? false :
+    systemScheme === 'dark';
 
   const widths  = { sm: 148, md: 208, lg: 268 };
   const heights = { sm: 37,  md: 52,  lg: 67  };
 
   const source = showTagline
     ? BANNER_WHITE
-    : scheme === 'dark'
+    : isDark
       ? BANNER_DARK
       : BANNER_GREEN;
 
