@@ -157,7 +157,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // 2. Estimate with Claude Haiku — always labelled isEstimated: true
-    const estimated = await estimateWithClaude(recipeTitle, ingredients);
+    const estimated = await estimateWithClaude(recipeTitle, (ingredients ?? []) as MacroRequest['ingredients']);
     if (estimated) {
       saveMacrosToDB(estimated, externalId, supabaseId); // fire-and-forget
       return res.json({ macros: estimated });

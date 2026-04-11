@@ -97,6 +97,10 @@ class KVStore implements RateLimitStore {
       return -1;
     }
   }
+
+  isConnected(): boolean {
+    return !!this.client;
+  }
 }
 
 // ─── Rate Limiter ─────────────────────────────────────────────────────────
@@ -108,7 +112,7 @@ function getStore(): RateLimitStore {
 
   // Try Vercel KV first (production)
   const kvStore = new KVStore();
-  if (kvStore.client) {
+  if (kvStore.isConnected()) {
     store = kvStore;
     return store;
   }

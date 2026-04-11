@@ -166,13 +166,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const client = new Anthropic({ apiKey });
 
     // Build the request object with validated data
-    const generateRequest: GenerateRequest = {
+    const generateRequest = {
       cuisine,
       dishName,
       avoidDishes,
       avoidIngredients,
       ...body,
-    };
+    } as GenerateRequest;
     const message = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 2048,

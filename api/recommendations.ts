@@ -55,7 +55,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const sb = getSupabase();
 
-  try {
     // ── 1. Fetch user context ──────────────────────────────────────────────────
 
     const [profileRes, swipesRes, interactionsRes, pantryRes, cohortRes] = await Promise.all([

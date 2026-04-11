@@ -140,10 +140,10 @@ export class ValidationError extends Error {
   }
 }
 
-export async function validate<T>(schema: z.ZodSchema, data: unknown): Promise<T> {
+export async function validate<T>(schema: z.ZodSchema<T>, data: unknown): Promise<T> {
   const result = schema.safeParse(data);
   if (!result.success) {
-    throw new ValidationError(result.error.issues);
+    throw new ValidationError((result as z.SafeParseError<unknown>).error.issues);
   }
   return result.data as T;
 }
