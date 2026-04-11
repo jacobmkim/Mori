@@ -53,6 +53,14 @@ Mori is a swipe-based recipe discovery app. Users swipe on recipe cards → save
 - Steamed/delicate fish hard-excluded from meal prep deck (`MEAL_PREP_EXCLUDE_METHODS` + `MEAL_PREP_DELICATE_FISH` in `lib/api.ts`).
 - Profile dark mode: all hardcoded hex replaced with `colors.error` / `colors.errorBg`.
 - Apple AI transparency: passive disclosure banner on payoff screen covers App Store requirement.
+- Unit system toggle (imperial/metric), measurement normalization, ingredient swap UI.
+- Ingredient pills, vibrant swipe button glow + linger, macro pill calories display.
+- Saved recipes sorted newest-first.
+- API security hardening: JWT auth, Zod validation, rate limiting on all endpoints. TS build errors resolved.
+- Forgot password + confirm password flow. Optional email confirmation on signup.
+- Taste profile: fixed generate button, monthly cron, in-app update modal.
+- Heart/X button theme sync fixed; Mori logo uses correct PNG per light/dark mode.
+- Landing page (getmori.app): updated with app screenshots, taste profile section, carousel.
 
 ### ❌ Remaining — Phase 3
 | # | Item |
@@ -63,18 +71,18 @@ Mori is a swipe-based recipe discovery app. Users swipe on recipe cards → save
 | 4 | ✅ Privacy policy in-app — `app/privacy-policy.tsx` modal, entry row in profile Settings. |
 | 5 | ✅ Logo — 3 PNG variants: green-green (light), green-white (dark), white-white (overlay). |
 | 6 | ✅ Fix logo on onboarding → main app screens — MoriLogo.tsx uses Canva PNGs, SVG fallback removed. |
-| 7 | ❌ Fix screenshots on getmori.app website. Go to 9 and 13 fix first and come back.
+| 7 | ✅ Fix screenshots on getmori.app — updated hero, carousel, and taste profile section with new app screens. |
 | 8 | Ingredient substitution optimization. Go through look at what can be substituted.
-| 9 | Mori logo not showing well on light mode meal prep and quick. The heart and x also show as dark on light mode. 
+| 9 | ✅ Mori logo theme sync fixed — correct PNG per light/dark mode. Heart/X buttons no longer flash dark on light mode. |
 | 10 | Changing servings in the grocery cart when on discover should show macro changes as well as ingredient changes.
 | 11 | meal prep mode tutorial i.e show were you can change it.
 | 12 | Profile shows more personalized name or user name?
-| 13 | Taste profile is not working. Generate button is not working either.
+| 13 | ✅ Taste profile fixed — generate button working, monthly cron added, in-app update modal added. |
 | 14 | Manual Dark/Light mode.
 | 15 | When in mealprep mode the mealprep tab should be opened initially when clicking recipes tab.
 | 16 | Swipe. Order. Cook. - Change in all places.
-| 17 | Forgot password
-| 18 | Meal prep 1 of 7 days passed. needs a little more space. It looks like it is smushed on top of the heart and x line. The plan week button should also take you to the plan tab not recipes. 
+| 17 | ✅ Forgot password — confirm password + forgot password flow added.
+| 18 | Meal prep 1 of 7 days passed. needs a little more space. It looks like it is smushed on top of the heart and x line. The plan week button should also take you to the plan tab not recipes.
 
 ### ❌ Phase 4 — Grocery APIs
 - Kroger API (`developer.kroger.com`) — Done. Ask user for key.
