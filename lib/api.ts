@@ -1484,6 +1484,14 @@ interface CommunityRecipeInput {
   image_url: string | null;
 }
 
+export async function updatePushToken(userId: string, token: string): Promise<void> {
+  const { error } = await supabase
+    .from('profiles')
+    .update({ push_token: token })
+    .eq('id', userId);
+  if (error) throw error;
+}
+
 export async function insertCommunityRecipe(input: CommunityRecipeInput): Promise<string> {
   const { data, error } = await supabase
     .from('recipes')

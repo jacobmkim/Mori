@@ -1,13 +1,22 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
 import { useSavedStore } from '@/stores/savedStore';
+import { useUserStore } from '@/stores/userStore';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { TasteProfileUpdateModal } from '@/components/TasteProfileUpdateModal';
+
+const TASTE_SEEN_KEY = '@mori_taste_profile_seen_at';
 
 export default function TabLayout() {
   const colors = useTheme();
   const loadSavedRecipes = useSavedStore((s) => s.loadSavedRecipes);
+  const profile = useUserStore((s) => s.profile);
+  const setProfileSheetOpen = useUserStore((s) => s.setProfileSheetOpen);
+  const [tasteUpdateVisible, setTasteUpdateVisible] = useState(false);
+  const [tasteUpdateText, setTasteUpdateText] = useState('');
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -17,7 +26,40 @@ export default function TabLayout() {
     });
   }, []);
 
+  // Show in-app popup when taste profile has been updated since last seen
+  useEffect(() => {
+    if (!profile?.taste_profile) return;
+    const tp = profile.taste_profile as any;
+    if (!tp?.text || !tp?.generated_at) return;
+
+    AsyncStorage.getItem(TASTE_SEEN_KEY).then((seenAt) => {
+      const generatedAt = new Date(tp.generated_at).getTime();
+      const lastSeen = seenAt ? new Date(seenAt).getTime() : 0;
+      if (generatedAt > lastSeen) {
+        setTasteUpdateText(tp.text);
+        setTasteUpdateVisible(true);
+      }
+    });
+  }, [profile?.taste_profile]);
+
+  function dismissTasteUpdate() {
+    setTasteUpdateVisible(false);
+    AsyncStorage.setItem(TASTE_SEEN_KEY, new Date().toISOString());
+  }
+
+  function viewProfile() {
+    dismissTasteUpdate();
+    setProfileSheetOpen(true);
+  }
+
   return (
+    <>
+    <TasteProfileUpdateModal
+      visible={tasteUpdateVisible}
+      profileText={tasteUpdateText}
+      onViewProfile={viewProfile}
+      onDismiss={dismissTasteUpdate}
+    />
     <Tabs
       screenOptions={{
         headerShown: false,
@@ -87,5 +129,6 @@ export default function TabLayout() {
         }}
       />
     </Tabs>
+    </>
   );
 }

@@ -98,30 +98,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const client = new Anthropic({ apiKey });
 
-    const prompt = `You are summarising a home cook's taste profile for a recipe discovery app called Mori.
+    const prompt = `You are writing a punchy taste profile for a recipe discovery app called Mori.
 
 User data:
-- Dietary goals: ${profile?.dietary_goals?.join(', ') || 'none set'}
-- Favourite cuisines: ${profile?.cuisine_preferences?.join(', ') || 'not specified'}
+- Cuisines they like: ${profile?.cuisine_preferences?.join(', ') || 'not specified'}
+- Dietary goals: ${profile?.dietary_goals?.join(', ') || 'none'}
 - Eating style: ${profile?.eating_style || 'not set'}
 - Skill level: ${profile?.skill_level || 'not set'}
-- Total swipes: ${swipes.length} (${rightSwipeIds.length} liked, ${swipes.length - rightSwipeIds.length} passed)
-- Recipes saved/liked: ${likedTitles.slice(0, 10).join(', ') || 'none yet'}
-- Recipes added to grocery list: ${groceryTitles.slice(0, 8).join(', ') || 'none yet'}
-- Recipes marked as cooked: ${cookedTitles.slice(0, 8).join(', ') || 'none yet'}
+- Liked recipes: ${likedTitles.slice(0, 8).join(', ') || 'none yet'}
+- Actually cooked: ${cookedTitles.slice(0, 5).join(', ') || 'none yet'}
+- Added to grocery list: ${groceryTitles.slice(0, 5).join(', ') || 'none yet'}
 
-Write a 2-3 sentence taste profile in second person ("You tend to...") that captures:
-1. What cuisines and flavour profiles they love
-2. Their cooking style (quick weeknight meals? weekend cook? comfort food fan?)
-3. Any pattern in what they actually cook vs just save
+Write 1-2 sentences (max 35 words) in second person. Be playful and specific — like a friend affectionately summing up their food personality. Focus on what makes them unique. No filler, no lists.
 
-Be warm, specific, and conversational — like a friend describing their cooking personality.
-Do NOT just list the data back. Synthesise it into a genuine description.
-Keep it under 60 words.`;
+Example tone: "You're a weeknight Asian food obsessive who actually follows through — your grocery list doesn't lie."
+Do NOT copy the example. Write something fresh based on their data.`;
 
     const message = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 200,
+      max_tokens: 100,
       messages: [{ role: 'user', content: prompt }],
     });
 
@@ -141,12 +136,6 @@ Keep it under 60 words.`;
     if (err instanceof Error && err.name === 'AuthError') {
       const statusCode = (err as any).statusCode || 401;
       return res.status(statusCode).json({ error: err.message });
-    }
-
-    // Log to external service in production (not console)
-    if (process.env.NODE_ENV === 'development') {
-      const message = err instanceof Error ? err.message : 'Failed to generate taste profile';
-      console.error('[taste-profile]', message);
     }
 
     return res.status(500).json({ error: 'Failed to generate taste profile' });

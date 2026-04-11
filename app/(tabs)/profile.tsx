@@ -1,8 +1,8 @@
-import { View, Text, Pressable, ScrollView, Alert, Modal, TextInput, ActivityIndicator, Switch } from 'react-native';
+import { View, Text, Pressable, ScrollView, Alert, Modal, TextInput, ActivityIndicator, Switch, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { useUserStore } from '@/stores/userStore';
 import { useSavedStore } from '@/stores/savedStore';
@@ -556,59 +556,55 @@ export default function Profile() {
   const [adventureCards, setAdventureCards] = useState(true);
   const [unitSystem, setUnitSystemState] = useState<'us' | 'metric'>('us');
   const { appearanceMode, setAppearanceMode } = useDiscoverStore();
-  const [tasteProfile, setTasteProfile] = useState<string | null>(
-    (profile?.taste_profile as any)?.text ?? null
-  );
+  const savedTasteProfile = (profile?.taste_profile as any);
+  const [tasteProfile, setTasteProfile] = useState<string | null>(savedTasteProfile?.text ?? null);
   const [tasteLoading, setTasteLoading] = useState(false);
 
-  const generateTasteProfile = useCallback(async () => {
-    if (!profile?.id) return;
+  async function runTasteProfileGeneration(userId: string) {
+    console.log('[taste] called, userId:', userId);
     const baseUrl = process.env.EXPO_PUBLIC_API_URL;
-    if (!baseUrl) return;
+    console.log('[taste] baseUrl:', baseUrl);
+    if (!baseUrl) { console.log('[taste] ABORT: no baseUrl'); return; }
     setTasteLoading(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) return;
+      let { data: { session } } = await supabase.auth.getSession();
+      console.log('[taste] session token?', !!session?.access_token);
+      if (!session?.access_token) {
+        const { data } = await supabase.auth.refreshSession();
+        session = data.session;
+        console.log('[taste] refreshed token?', !!session?.access_token);
+      }
+      if (!session?.access_token) { console.log('[taste] ABORT: no token'); return; }
+
+      console.log('[taste] fetching', `${baseUrl}/api/taste-profile`);
       const res = await fetch(`${baseUrl}/api/taste-profile`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ userId: profile.id }),
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ userId }),
       });
       const json = await res.json();
-      if (!res.ok) {
-        if (res.status === 429) {
-          setTasteProfile('Rate limit reached — try again tomorrow.');
-        } else {
-          setTasteProfile('Something went wrong — please try again.');
-        }
-        return;
-      }
-      const { tasteProfile: text, reason } = json;
-      if (text) {
-        setTasteProfile(text);
-      } else if (reason === 'not_enough_data') {
-        setTasteProfile('Swipe on a few more recipes and come back — we need at least 5 swipes to build your profile.');
-      } else {
-        setTasteProfile('Something went wrong — please try again.');
+      console.log('[taste] response status:', res.status, 'body:', JSON.stringify(json).slice(0, 200));
+      if (res.ok && json.tasteProfile) {
+        setTasteProfile(json.tasteProfile);
       }
     } catch (err) {
-      setTasteProfile('Could not connect — check your internet and try again.');
+      console.log('[taste] ERROR:', err);
     } finally {
       setTasteLoading(false);
     }
-  }, [profile?.id]);
+  }
 
-  // Auto-generate on first load if not already set
+  // Auto-generate on load: if no profile yet, or last generated > 14 days ago
   useEffect(() => {
-    if (!tasteProfile && !tasteLoading) {
-      generateTasteProfile();
+    if (!profile?.id) return;
+    const generatedAt = savedTasteProfile?.generated_at ? new Date(savedTasteProfile.generated_at) : null;
+    const stale = !generatedAt || generatedAt < new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
+    if (!tasteProfile || stale) {
+      runTasteProfileGeneration(profile.id);
     }
     getAdventureCardsEnabled().then(setAdventureCards).catch(() => {});
     getUnitSystem().then(setUnitSystemState).catch(() => {});
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [profile?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleSignOut() {
     Alert.alert('Sign out', 'Are you sure you want to sign out?', [
@@ -644,6 +640,8 @@ export default function Profile() {
     { label: 'Recipes Saved', value: savedCount, icon: 'heart' },
     { label: 'Submitted', value: profile?.recipes_submitted_count ?? 0, icon: 'create' },
   ];
+
+  console.log('[PROFILE RENDER] apiUrl:', process.env.EXPO_PUBLIC_API_URL, 'profileId:', profile?.id, 'tasteLoading:', tasteLoading, 'tasteProfile:', tasteProfile?.slice(0, 30));
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
@@ -684,13 +682,22 @@ export default function Profile() {
         {profile && (
           <View style={{ paddingHorizontal: 16, marginBottom: 24 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-              <Text style={{ fontSize: 16, fontWeight: '600', color: colors.text }}>Your Taste Profile</Text>
+              <Text style={{ fontSize: 16, fontWeight: '600', color: colors.text }}>Your Taste Profile v2</Text>
               {!tasteLoading && (
-                <Pressable onPress={generateTasteProfile} hitSlop={8}>
+                <TouchableOpacity
+                  activeOpacity={0.5}
+                  onPress={() => {
+                    console.log('[taste] BUTTON PRESSED');
+                    Alert.alert('Taste', 'Button pressed! id=' + (profile?.id ?? 'NULL'));
+                    if (profile?.id) runTasteProfileGeneration(profile.id);
+                  }}
+                  hitSlop={{ top: 10, left: 10, bottom: 10, right: 10 }}
+                  style={{ padding: 8 }}
+                >
                   <Text style={{ color: colors.primary, fontSize: 14, fontWeight: '500' }}>
                     {tasteProfile ? 'Refresh' : 'Generate'}
                   </Text>
-                </Pressable>
+                </TouchableOpacity>
               )}
             </View>
             <View style={{

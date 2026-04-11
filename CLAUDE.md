@@ -74,6 +74,7 @@ Mori is a swipe-based recipe discovery app. Users swipe on recipe cards → save
 | 15 | When in mealprep mode the mealprep tab should be opened initially when clicking recipes tab.
 | 16 | Swipe. Order. Cook. - Change in all places.
 | 17 | Forgot password
+| 18 | Meal prep 1 of 7 days passed. needs a little more space. It looks like it is smushed on top of the heart and x line. The plan week button should also take you to the plan tab not recipes. 
 
 ### ❌ Phase 4 — Grocery APIs
 - Kroger API (`developer.kroger.com`) — Done. Ask user for key.

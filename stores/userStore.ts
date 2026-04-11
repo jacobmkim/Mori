@@ -7,6 +7,7 @@ interface UserStore {
   onboarding: OnboardingState;
   isLoading: boolean;
   error: string | null;
+  profileSheetOpen: boolean;
 
   setProfile: (profile: Profile | null) => void;
   setSessionNumber: (n: number) => void;
@@ -14,6 +15,7 @@ interface UserStore {
   resetOnboarding: () => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
+  setProfileSheetOpen: (open: boolean) => void;
 }
 
 const defaultOnboarding: OnboardingState = {
@@ -34,6 +36,7 @@ export const useUserStore = create<UserStore>((set) => ({
   onboarding: defaultOnboarding,
   isLoading: false,
   error: null,
+  profileSheetOpen: false,
 
   setProfile: (profile) => set({ profile }),
   setSessionNumber: (sessionNumber) => set({ sessionNumber }),
@@ -48,4 +51,6 @@ export const useUserStore = create<UserStore>((set) => ({
   setLoading: (isLoading) => set({ isLoading }),
 
   setError: (error) => set({ error }),
+
+  setProfileSheetOpen: (profileSheetOpen) => set({ profileSheetOpen }),
 }));

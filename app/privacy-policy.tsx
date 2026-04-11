@@ -26,7 +26,7 @@ export default function PrivacyPolicyScreen() {
         showsVerticalScrollIndicator={false}
       >
         <Text style={{ fontSize: 12, color: colors.textMuted, marginBottom: 20 }}>
-          Last updated: April 2026
+          Last updated: April 2026 (v2 — Taste Profile automation)
         </Text>
 
         <Section title="Overview" colors={colors}>
@@ -46,7 +46,12 @@ export default function PrivacyPolicyScreen() {
           </BulletItem>
           <BulletItem colors={colors} label="Recipe interactions">
             Swipes, saves, cooks, grocery adds, and notes. Used to improve your personal
-            recommendations.
+            recommendations and to generate your AI Taste Profile.
+          </BulletItem>
+          <BulletItem colors={colors} label="AI Taste Profile">
+            A short AI-generated description of your food personality, derived from your swipe
+            history and preferences. Stored in your account and refreshed automatically once a
+            month. You can regenerate or view it at any time in your profile.
           </BulletItem>
           <BulletItem colors={colors} label="Recipes you create">
             If you submit a community recipe, it is stored in our database and may be shown to
@@ -69,6 +74,11 @@ export default function PrivacyPolicyScreen() {
           {'\n\n'}AI-generated content (taste profiles, macro estimates) is produced by Anthropic's
           Claude. Your recipe interactions are sent to our server to generate these insights but are
           not stored by Anthropic.
+
+          {'\n\n'}Your Taste Profile is refreshed automatically once a month using your latest
+          activity. If it has changed since you last opened the app, a brief in-app notice will show
+          you the update. No personal data leaves our servers for this feature — the profile is
+          generated server-side and stored in your account only.
         </Section>
 
         <Section title="Data Storage" colors={colors}>

@@ -7,7 +7,7 @@ import {
   View, Text, Modal, Pressable, ScrollView, Alert, ActivityIndicator, Switch,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { router } from 'expo-router';
 import { useTheme } from '@/hooks/useTheme';
 import { useUserStore } from '@/stores/userStore';
@@ -38,6 +38,42 @@ const GOAL_LABELS: Record<string, string> = {
   dairy_free: 'Dairy Free', keto: 'Keto', paleo: 'Paleo', nut_free: 'Nut Free',
 };
 
+const CUISINE_CHIPS: Record<string, string> = {
+  italian: '🍝 Italian', japanese: '🍱 Japanese', mexican: '🌮 Mexican',
+  indian: '🍛 Indian', chinese: '🥢 Chinese', korean: '🥩 Korean',
+  thai: '🍜 Thai', mediterranean: '🫒 Mediterranean', american: '🍔 American',
+  french: '🥐 French', greek: '🫙 Greek', spanish: '🥘 Spanish',
+};
+const GOAL_CHIPS: Record<string, string> = {
+  high_protein: '💪 High Protein', vegetarian: '🌱 Vegetarian', vegan: '🌿 Vegan',
+  low_carb: '🔥 Low Carb', keto: '🥑 Keto', gluten_free: '🌾 Gluten Free',
+  dairy_free: '🥛 Dairy Free', nut_free: '🥜 Nut Free',
+};
+const STYLE_CHIPS: Record<string, string> = {
+  quick_simple: '⚡ Quick Cook', variety: '🌍 Always Exploring', favourites_rotation: '♻️ Comfort Cook',
+};
+
+function getPersonalityChips(profile: Profile): string[] {
+  const chips: string[] = [];
+  if (profile.eating_style && STYLE_CHIPS[profile.eating_style]) {
+    chips.push(STYLE_CHIPS[profile.eating_style]);
+  }
+  (profile.cuisine_preferences ?? []).slice(0, 2).forEach((c) => {
+    if (CUISINE_CHIPS[c]) chips.push(CUISINE_CHIPS[c]);
+  });
+  (profile.dietary_goals ?? []).slice(0, 2).forEach((g) => {
+    if (GOAL_CHIPS[g]) chips.push(GOAL_CHIPS[g]);
+  });
+  return chips.slice(0, 4);
+}
+
+function daysAgoText(dateStr: string): string {
+  const days = Math.floor((Date.now() - new Date(dateStr).getTime()) / (1000 * 60 * 60 * 24));
+  if (days === 0) return 'Updated today';
+  if (days === 1) return 'Updated yesterday';
+  return `Updated ${days}d ago`;
+}
+
 export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const colors = useTheme();
   const { profile, setProfile } = useUserStore();
@@ -46,34 +82,59 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
   const [editVisible, setEditVisible] = useState(false);
   const [pantryVisible, setPantryVisible] = useState(false);
   const [adventureCards, setAdventureCards] = useState(true);
-  const [tasteProfile, setTasteProfile] = useState<string | null>(
-    (profile?.taste_profile as any)?.text ?? null
-  );
+  const savedTasteProfile = (profile?.taste_profile as any);
+  const [tasteProfile, setTasteProfile] = useState<string | null>(savedTasteProfile?.text ?? null);
   const [tasteLoading, setTasteLoading] = useState(false);
 
-  const generateTasteProfile = useCallback(async () => {
-    if (!profile?.id) return;
+  async function runTasteProfileGeneration(userId: string) {
     const baseUrl = process.env.EXPO_PUBLIC_API_URL;
-    if (!baseUrl) return;
+    if (!baseUrl) { console.log('[taste] no baseUrl'); return; }
     setTasteLoading(true);
     try {
+      let { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        const { data } = await supabase.auth.refreshSession();
+        session = data.session;
+      }
+      if (!session?.access_token) {
+        console.log('[taste] no auth token');
+        return;
+      }
+
       const res = await fetch(`${baseUrl}/api/taste-profile`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: profile.id }),
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ userId }),
       });
-      if (!res.ok) return;
-      const { tasteProfile: text } = await res.json();
-      if (text) setTasteProfile(text);
-    } catch { } finally { setTasteLoading(false); }
-  }, [profile?.id]);
+      const json = await res.json();
+      console.log('[taste] response:', res.status);
+      if (res.ok && json.tasteProfile) {
+        setTasteProfile(json.tasteProfile);
+      } else if (json.reason === 'not_enough_data') {
+        setTasteProfile('Swipe on a few more recipes — we need at least 5 swipes to build your profile.');
+      } else if (res.status === 429) {
+        setTasteProfile('Rate limit reached — try again tomorrow.');
+      }
+    } catch (err) {
+      console.log('[taste] error:', err);
+    } finally {
+      setTasteLoading(false);
+    }
+  }
 
   useEffect(() => {
-    if (visible) {
-      if (!tasteProfile && !tasteLoading) generateTasteProfile();
+    if (visible && profile?.id) {
+      const generatedAt = savedTasteProfile?.generated_at ? new Date(savedTasteProfile.generated_at) : null;
+      const stale = !generatedAt || generatedAt < new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
+      if (!tasteProfile || stale) {
+        runTasteProfileGeneration(profile.id);
+      }
       getAdventureCardsEnabled().then(setAdventureCards).catch(() => {});
     }
-  }, [visible]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [visible, profile?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleSignOut() {
     onClose();
@@ -162,32 +223,74 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
             {profile && (
               <View style={{ paddingHorizontal: 16, paddingTop: 20, marginBottom: 20 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                  <Text style={{ fontSize: 14, fontWeight: '700', color: colors.text }}>Your Taste Profile</Text>
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: colors.text }}>Taste Profile</Text>
                   {!tasteLoading && (
-                    <Pressable onPress={generateTasteProfile} hitSlop={8}>
+                    <Pressable onPress={() => profile?.id && runTasteProfileGeneration(profile.id)} hitSlop={8}>
                       <Text style={{ color: colors.primary, fontSize: 13, fontWeight: '500' }}>
                         {tasteProfile ? 'Refresh' : 'Generate'}
                       </Text>
                     </Pressable>
                   )}
                 </View>
+
                 <View style={{
-                  backgroundColor: colors.card, borderRadius: 12,
-                  borderWidth: 1, borderColor: colors.border, padding: 14,
+                  backgroundColor: colors.card, borderRadius: 16,
+                  borderWidth: 1, borderColor: colors.border, overflow: 'hidden',
                 }}>
                   {tasteLoading ? (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 18 }}>
                       <ActivityIndicator size="small" color={colors.primary} />
                       <Text style={{ fontSize: 13, color: colors.textMuted }}>Building your taste profile...</Text>
                     </View>
                   ) : tasteProfile ? (
-                    <Text style={{ fontSize: 13, color: colors.text, lineHeight: 20, fontStyle: 'italic' }}>
-                      "{tasteProfile}"
-                    </Text>
+                    <>
+                      {/* Quote */}
+                      <View style={{ padding: 18, paddingBottom: 14 }}>
+                        <Text style={{
+                          fontFamily: 'Georgia', fontStyle: 'italic',
+                          fontSize: 16, color: colors.text, lineHeight: 24,
+                        }}>
+                          "{tasteProfile}"
+                        </Text>
+                      </View>
+
+                      {/* Personality chips */}
+                      {getPersonalityChips(profile).length > 0 && (
+                        <View style={{
+                          flexDirection: 'row', flexWrap: 'wrap', gap: 6,
+                          paddingHorizontal: 18, paddingBottom: 14,
+                        }}>
+                          {getPersonalityChips(profile).map((chip) => (
+                            <View key={chip} style={{
+                              backgroundColor: colors.primaryLight, borderRadius: 20,
+                              paddingHorizontal: 10, paddingVertical: 4,
+                            }}>
+                              <Text style={{ fontSize: 12, color: colors.primary, fontWeight: '500' }}>{chip}</Text>
+                            </View>
+                          ))}
+                        </View>
+                      )}
+
+                      {/* Footer: timestamp + saved count */}
+                      <View style={{
+                        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+                        borderTopWidth: 1, borderTopColor: colors.border,
+                        paddingHorizontal: 18, paddingVertical: 10,
+                      }}>
+                        <Text style={{ fontSize: 11, color: colors.textMuted }}>
+                          {savedTasteProfile?.generated_at ? daysAgoText(savedTasteProfile.generated_at) : ''}
+                        </Text>
+                        <Text style={{ fontSize: 11, color: colors.textMuted }}>
+                          {savedCount} recipe{savedCount !== 1 ? 's' : ''} saved
+                        </Text>
+                      </View>
+                    </>
                   ) : (
-                    <Text style={{ fontSize: 13, color: colors.textMuted, lineHeight: 20 }}>
-                      Swipe on a few recipes in Discover and we'll learn your taste.
-                    </Text>
+                    <View style={{ padding: 18 }}>
+                      <Text style={{ fontSize: 13, color: colors.textMuted, lineHeight: 20 }}>
+                        Swipe on a few recipes in Discover and we'll learn your taste.
+                      </Text>
+                    </View>
                   )}
                 </View>
               </View>

@@ -4,7 +4,7 @@
  * Tapping opens the ProfileSheet bottom sheet.
  */
 import { View, Text, Pressable } from 'react-native';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks/useTheme';
 import { useUserStore } from '@/stores/userStore';
@@ -13,7 +13,15 @@ import { ProfileSheet } from '@/components/ProfileSheet';
 export function AvatarButton() {
   const colors = useTheme();
   const profile = useUserStore((s) => s.profile);
+  const { profileSheetOpen, setProfileSheetOpen } = useUserStore();
   const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (profileSheetOpen) {
+      setOpen(true);
+      setProfileSheetOpen(false);
+    }
+  }, [profileSheetOpen]);
 
   const initials = profile?.name
     ? profile.name.split(' ').map((p) => p[0]).join('').toUpperCase().slice(0, 2)
