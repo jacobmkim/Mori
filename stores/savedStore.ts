@@ -27,7 +27,7 @@ export const useSavedStore = create<SavedStore>((set, get) => ({
       const pos = state._removedPositions[recipe.id];
       const newList = pos !== undefined
         ? [...state.savedRecipes.slice(0, pos), recipe, ...state.savedRecipes.slice(pos)]
-        : [...state.savedRecipes, recipe];
+        : [recipe, ...state.savedRecipes];
       const newPositions = { ...state._removedPositions };
       delete newPositions[recipe.id];
       return { savedRecipes: newList, _removedPositions: newPositions };

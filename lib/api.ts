@@ -1072,7 +1072,7 @@ export async function getSavedRecipesWithDetails(userId: string): Promise<Recipe
       )
     `)
     .eq('user_id', userId)
-    .order('saved_at', { ascending: true });
+    .order('saved_at', { ascending: false });
   if (error) throw error;
 
   return (data ?? [])
