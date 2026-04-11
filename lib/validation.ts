@@ -74,6 +74,18 @@ export const GenerateRecipeRequestSchema = z.object({
   dishName: SafeStringSchema.optional(),
   avoidDishes: z.array(SafeStringSchema).max(10).optional().default([]),
   avoidIngredients: z.array(SafeStringSchema).max(20).optional().default([]),
+  skillLevel: z.enum(['beginner', 'home_cook', 'confident_chef']).optional(),
+  meal_prep_friendly: z.boolean().optional(),
+  save: z.boolean().optional().default(false),
+  maxMins: z.number().int().min(1).max(480).optional(),
+});
+
+export const DescribeRecipeRequestSchema = z.object({
+  externalId: z.string().max(100),
+  title: SafeStringSchema,
+  cuisine: SafeStringSchema.optional(),
+  category: SafeStringSchema.optional(),
+  ingredients: z.array(SafeStringSchema).max(30).optional().default([]),
 });
 
 export const WaitlistRequestSchema = z.object({

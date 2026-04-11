@@ -124,33 +124,38 @@ export async function rateLimitUser(
   limit: number,
   windowSeconds: number = 3600
 ): Promise<RateLimitResult> {
-  const key = `rl:${endpoint}:${userId}`;
-  const s = getStore();
+  try {
+    const key = `rl:${endpoint}:${userId}`;
+    const s = getStore();
 
-  const current = await s.get(key);
-  if (current === null) {
-    // First request in window
-    await s.set(key, 1, windowSeconds);
+    const current = await s.get(key);
+    if (current === null) {
+      // First request in window
+      await s.set(key, 1, windowSeconds);
+      return { success: true, remaining: limit - 1, resetAt: Date.now() + windowSeconds * 1000 };
+    }
+
+    const count = (current ?? 0) + 1;
+    if (count > limit) {
+      const resetAt = Math.ceil((Date.now() + windowSeconds * 1000) / 1000);
+      return {
+        success: false,
+        remaining: 0,
+        resetAt,
+        retryAfter: windowSeconds,
+      };
+    }
+
+    await s.set(key, count, windowSeconds);
+    return {
+      success: true,
+      remaining: limit - count,
+      resetAt: Math.ceil((Date.now() + windowSeconds * 1000) / 1000),
+    };
+  } catch {
+    // Rate store failure — fail open so users aren't blocked by infra issues
     return { success: true, remaining: limit - 1, resetAt: Date.now() + windowSeconds * 1000 };
   }
-
-  const count = (current ?? 0) + 1;
-  if (count > limit) {
-    const resetAt = Math.ceil((Date.now() + windowSeconds * 1000) / 1000);
-    return {
-      success: false,
-      remaining: 0,
-      resetAt,
-      retryAfter: windowSeconds,
-    };
-  }
-
-  await s.set(key, count, windowSeconds);
-  return {
-    success: true,
-    remaining: limit - count,
-    resetAt: Math.ceil((Date.now() + windowSeconds * 1000) / 1000),
-  };
 }
 
 export async function rateLimitIP(
@@ -159,32 +164,37 @@ export async function rateLimitIP(
   limit: number,
   windowSeconds: number = 3600
 ): Promise<RateLimitResult> {
-  const key = `rl:${endpoint}:ip:${ip}`;
-  const s = getStore();
+  try {
+    const key = `rl:${endpoint}:ip:${ip}`;
+    const s = getStore();
 
-  const current = await s.get(key);
-  if (current === null) {
-    await s.set(key, 1, windowSeconds);
+    const current = await s.get(key);
+    if (current === null) {
+      await s.set(key, 1, windowSeconds);
+      return { success: true, remaining: limit - 1, resetAt: Date.now() + windowSeconds * 1000 };
+    }
+
+    const count = (current ?? 0) + 1;
+    if (count > limit) {
+      const resetAt = Math.ceil((Date.now() + windowSeconds * 1000) / 1000);
+      return {
+        success: false,
+        remaining: 0,
+        resetAt,
+        retryAfter: windowSeconds,
+      };
+    }
+
+    await s.set(key, count, windowSeconds);
+    return {
+      success: true,
+      remaining: limit - count,
+      resetAt: Math.ceil((Date.now() + windowSeconds * 1000) / 1000),
+    };
+  } catch {
+    // Rate store failure — fail open so users aren't blocked by infra issues
     return { success: true, remaining: limit - 1, resetAt: Date.now() + windowSeconds * 1000 };
   }
-
-  const count = (current ?? 0) + 1;
-  if (count > limit) {
-    const resetAt = Math.ceil((Date.now() + windowSeconds * 1000) / 1000);
-    return {
-      success: false,
-      remaining: 0,
-      resetAt,
-      retryAfter: windowSeconds,
-    };
-  }
-
-  await s.set(key, count, windowSeconds);
-  return {
-    success: true,
-    remaining: limit - count,
-    resetAt: Math.ceil((Date.now() + windowSeconds * 1000) / 1000),
-  };
 }
 
 // Helper to extract IP from request (works behind Vercel proxy)

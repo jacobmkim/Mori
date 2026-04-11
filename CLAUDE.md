@@ -63,24 +63,28 @@ Mori is a swipe-based recipe discovery app. Users swipe on recipe cards → save
 | 4 | ✅ Privacy policy in-app — `app/privacy-policy.tsx` modal, entry row in profile Settings. |
 | 5 | ✅ Logo — 3 PNG variants: green-green (light), green-white (dark), white-white (overlay). |
 | 6 | ✅ Fix logo on onboarding → main app screens — MoriLogo.tsx uses Canva PNGs, SVG fallback removed. |
-| 7 | ❌ Fix screenshots on getmori.app website. |
+| 7 | ❌ Fix screenshots on getmori.app website. Go to 9 and 13 fix first and come back.
 | 8 | Ingredient substitution optimization. Go through look at what can be substituted.
 | 9 | Mori logo not showing well on light mode meal prep and quick. The heart and x also show as dark on light mode. 
-| 9 | Changing servings in the grocery cart when on discover should show macro changes as well as ingredient changes.
-| 10 | meal prep mode tutorial i.e show were you can change it.
-| 11 | Profile shows more personalized name or user name?
-| 12 | Taste profile is not working. Generate button is not working either.
-| 13 | Manual Dark/Light mode.
-| 14 | When in mealprep mode the mealprep tab should be opened initially when clicking recipes tab.
+| 10 | Changing servings in the grocery cart when on discover should show macro changes as well as ingredient changes.
+| 11 | meal prep mode tutorial i.e show were you can change it.
+| 12 | Profile shows more personalized name or user name?
+| 13 | Taste profile is not working. Generate button is not working either.
+| 14 | Manual Dark/Light mode.
+| 15 | When in mealprep mode the mealprep tab should be opened initially when clicking recipes tab.
+| 16 | Swipe. Order. Cook. - Change in all places.
+| 17 | Forgot password
 
 ### ❌ Phase 4 — Grocery APIs
 - Kroger API (`developer.kroger.com`) — Done. Ask user for key.
 - Instacart Developer Platform — applied, waiting
+- Payment wall take cut of grocery?
 - User ability to add photos for ALL recipes. User created or current Mori recipes.
 - Grocery ordering bottom sheet in `grocery-list.tsx`
 - Vercel functions: `/api/walmart-cart`, `/api/kroger-cart`, `/api/instacart-cart`
 - Affiliate tracking via Impact
 - Grocery list history view
+- Profile picture and user names 
 
 ### ❌ Phase 5+ — Community, Social
 Out of scope until Phase 4 ships.

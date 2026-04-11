@@ -567,16 +567,35 @@ export default function Profile() {
     if (!baseUrl) return;
     setTasteLoading(true);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) return;
       const res = await fetch(`${baseUrl}/api/taste-profile`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
         body: JSON.stringify({ userId: profile.id }),
       });
-      if (!res.ok) return;
-      const { tasteProfile: text } = await res.json();
-      if (text) setTasteProfile(text);
-    } catch {
-      // non-critical
+      const json = await res.json();
+      if (!res.ok) {
+        if (res.status === 429) {
+          setTasteProfile('Rate limit reached — try again tomorrow.');
+        } else {
+          setTasteProfile('Something went wrong — please try again.');
+        }
+        return;
+      }
+      const { tasteProfile: text, reason } = json;
+      if (text) {
+        setTasteProfile(text);
+      } else if (reason === 'not_enough_data') {
+        setTasteProfile('Swipe on a few more recipes and come back — we need at least 5 swipes to build your profile.');
+      } else {
+        setTasteProfile('Something went wrong — please try again.');
+      }
+    } catch (err) {
+      setTasteProfile('Could not connect — check your internet and try again.');
     } finally {
       setTasteLoading(false);
     }
