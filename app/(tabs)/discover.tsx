@@ -29,6 +29,7 @@ import { useUserStore } from '@/stores/userStore';
 import { useDiscoverStore } from '@/stores/discoverStore';
 import { useMealPlanStore } from '@/stores/mealPlanStore';
 import { TutorialOverlay, shouldShowTutorial } from '@/components/TutorialOverlay';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Recipe, AppMode, Macros, MealType } from '@/types';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -320,6 +321,7 @@ export default function Discover() {
   const [cartToast, setCartToast] = useState(false);
   const [deckServingsSheetVisible, setDeckServingsSheetVisible] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
+  const [showMealPrepTip, setShowMealPrepTip] = useState(false);
   const [deckServings, setDeckServings] = useState(2);
   const cartToastOpacity = useRef(new Animated.Value(0)).current;
   const detailCache = useRef<Map<string, MealDetail>>(new Map());
@@ -442,6 +444,15 @@ export default function Discover() {
       if (show && savedRecipes.length === 0) setShowTutorial(true);
     });
   }, [userId]);
+
+  // Show one-time meal prep tip when user first switches to meal prep mode
+  useEffect(() => {
+    if (mode !== 'meal_prep' || !userId) return;
+    const key = `@mori_mealprep_tip_seen_${userId}`;
+    AsyncStorage.getItem(key).then((seen) => {
+      if (!seen) setShowMealPrepTip(true);
+    });
+  }, [mode, userId]);
 
   // Re-fetch when userId, mode, or dietary goals change.
   // If a deck is already visible (mode switch / prefs change), fetch silently
@@ -953,8 +964,8 @@ export default function Discover() {
       {/* Week progress indicator — Meal Prep mode only. Tap → Plan tab */}
       {mode === 'meal_prep' && !isLoading && (
         <Pressable
-          onPress={() => router.push('/(tabs)/recipes?tab=plan')}
-          style={{ alignItems: 'center', paddingBottom: 4, paddingVertical: 6 }}
+          onPress={() => router.push('/(tabs)/plan')}
+          style={{ alignItems: 'center', paddingBottom: 4, paddingVertical: 10, marginTop: 8 }}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <View style={{ flexDirection: 'row', gap: 4 }}>
@@ -1269,6 +1280,48 @@ export default function Discover() {
         onDone={() => setShowTutorial(false)}
         userId={userId ?? ''}
       />
+
+      {/* Meal Prep mode one-time tip */}
+      {showMealPrepTip && (
+        <View style={{
+          position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.6)',
+          alignItems: 'center',
+          justifyContent: 'flex-start',
+          paddingTop: 80,
+        }}>
+          <View style={{
+            backgroundColor: colors.card, borderRadius: 16,
+            padding: 20, marginHorizontal: 24,
+            borderWidth: 1, borderColor: colors.border,
+            shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.18, shadowRadius: 12, elevation: 8,
+          }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+              <Ionicons name="flash-outline" size={22} color={colors.primary} />
+              <Text style={{ fontSize: 16, fontWeight: '700', color: colors.text }}>
+                Meal Prep mode
+              </Text>
+            </View>
+            <Text style={{ fontSize: 14, color: colors.textMuted, lineHeight: 21, marginBottom: 16 }}>
+              You're now in Meal Prep mode — recipes are optimised for batch cooking and weekly planning.
+              {'\n\n'}Tap the <Text style={{ fontWeight: '700', color: colors.text }}>Quick / Meal Prep</Text> toggle at the top anytime to switch modes.
+            </Text>
+            <Pressable
+              onPress={() => {
+                AsyncStorage.setItem(`@mori_mealprep_tip_seen_${userId}`, 'true').catch(() => {});
+                setShowMealPrepTip(false);
+              }}
+              style={{
+                backgroundColor: colors.primary, borderRadius: 10,
+                paddingVertical: 10, alignItems: 'center',
+              }}
+            >
+              <Text style={{ color: 'white', fontWeight: '700', fontSize: 14 }}>Got it</Text>
+            </Pressable>
+          </View>
+        </View>
+      )}
     </SafeAreaView>
   );
 }

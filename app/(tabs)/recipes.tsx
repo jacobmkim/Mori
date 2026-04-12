@@ -32,6 +32,7 @@ const FILTER_SECTIONS = [
 import { useSavedStore } from '@/stores/savedStore';
 import { useGroceryStore } from '@/stores/groceryStore';
 import { useUserStore } from '@/stores/userStore';
+import { useDiscoverStore } from '@/stores/discoverStore';
 import { supabase } from '@/lib/supabase';
 import { AvatarButton } from '@/components/AvatarButton';
 import { RecipeDetailModal } from '@/components/RecipeDetailModal';
@@ -96,8 +97,9 @@ export default function Recipes() {
   const userId = useUserStore((s) => s.profile?.id);
   const { savedRecipes, addRecipe, removeRecipe } = useSavedStore();
   const { addFromDetail, selectedRecipes, removeRecipeFromList } = useGroceryStore();
+  const mode = useDiscoverStore((s) => s.mode);
 
-  const [activeTab, setActiveTab] = useState<SubTab>('Saved');
+  const [activeTab, setActiveTab] = useState<SubTab>(mode === 'meal_prep' ? 'Meal Prep' : 'Saved');
   const [search, setSearch] = useState('');
   const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
   const [filterSheetVisible, setFilterSheetVisible] = useState(false);

@@ -75,14 +75,14 @@ Mori is a swipe-based recipe discovery app. Users swipe on recipe cards → save
 | 8 | Ingredient substitution optimization. Go through look at what can be substituted.
 | 9 | ✅ Mori logo theme sync fixed — correct PNG per light/dark mode. Heart/X buttons no longer flash dark on light mode. |
 | 10 | Changing servings in the grocery cart when on discover should show macro changes as well as ingredient changes.
-| 11 | meal prep mode tutorial i.e show were you can change it.
-| 12 | Profile shows more personalized name or user name?
+| 11 | ✅ Meal prep mode tutorial — one-time coach card appears on first switch to Meal Prep, points to Quick/Meal Prep toggle. AsyncStorage `@mori_mealprep_tip_seen_{userId}`. |
+| 12 | ✅ Profile editable display name — pencil icon on profile header, inline TextInput to set/change name, saved via `patchProfile`. Falls back to "Set display name" prompt. |
 | 13 | ✅ Taste profile fixed — generate button working, monthly cron added, in-app update modal added. |
-| 14 | Manual Dark/Light mode.
-| 15 | When in mealprep mode the mealprep tab should be opened initially when clicking recipes tab.
-| 16 | Swipe. Order. Cook. - Change in all places.
+| 14 | ✅ Appearance toggle — moved to its own "Appearance" section in profile (was buried in Discover Settings card). Light/System/Dark buttons now clearly visible. |
+| 15 | ✅ Meal Prep mode → Recipes tab opens on "Meal Prep" sub-tab — reads `mode` from `discoverStore` on mount. |
+| 16 | ✅ "Swipe. Order. Cook." — updated in hero + footer of `landing/index.html` and `public/index.html`. |
 | 17 | ✅ Forgot password — confirm password + forgot password flow added.
-| 18 | Meal prep 1 of 7 days passed. needs a little more space. It looks like it is smushed on top of the heart and x line. The plan week button should also take you to the plan tab not recipes.
+| 18 | ✅ Meal prep bar spacing fixed (paddingVertical 10, marginTop 8). Plan Week button now routes to `/(tabs)/plan`. |
 
 ### ❌ Phase 4 — Grocery APIs
 - Kroger API (`developer.kroger.com`) — Done. Ask user for key.

@@ -554,6 +554,8 @@ export default function Profile() {
   const [editVisible, setEditVisible] = useState(false);
   const [pantryVisible, setPantryVisible] = useState(false);
   const [adventureCards, setAdventureCards] = useState(true);
+  const [editingName, setEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState('');
   const [unitSystem, setUnitSystemState] = useState<'us' | 'metric'>('us');
   const { appearanceMode, setAppearanceMode } = useDiscoverStore();
   const savedTasteProfile = (profile?.taste_profile as any);
@@ -635,6 +637,20 @@ export default function Profile() {
     }
   }
 
+  async function handleSaveName() {
+    if (!profile) return;
+    const trimmed = nameInput.trim();
+    if (!trimmed) return;
+    try {
+      const updated = await patchProfile(profile.id, { name: trimmed });
+      setProfile(updated);
+    } catch {
+      Alert.alert('Could not save name', 'Please try again.');
+    } finally {
+      setEditingName(false);
+    }
+  }
+
   const stats = [
     { label: 'Meals Cooked', value: profile?.meals_cooked_count ?? 0, icon: 'restaurant' },
     { label: 'Recipes Saved', value: savedCount, icon: 'heart' },
@@ -655,9 +671,39 @@ export default function Profile() {
           }}>
             <Ionicons name="person" size={40} color={colors.primary} />
           </View>
-          <Text style={{ fontSize: 20, fontWeight: '700', color: colors.text }}>
-            {profile?.name ?? 'Mori User'}
-          </Text>
+          {editingName ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
+              <TextInput
+                value={nameInput}
+                onChangeText={setNameInput}
+                placeholder="Your name"
+                placeholderTextColor={colors.textMuted}
+                autoFocus
+                maxLength={40}
+                style={{
+                  fontSize: 18, fontWeight: '700', color: colors.text,
+                  borderBottomWidth: 2, borderBottomColor: colors.primary,
+                  paddingVertical: 2, paddingHorizontal: 4, minWidth: 120,
+                }}
+              />
+              <Pressable onPress={handleSaveName} hitSlop={8}>
+                <Ionicons name="checkmark-circle" size={28} color={colors.primary} />
+              </Pressable>
+              <Pressable onPress={() => setEditingName(false)} hitSlop={8}>
+                <Ionicons name="close-circle" size={28} color={colors.textMuted} />
+              </Pressable>
+            </View>
+          ) : (
+            <Pressable
+              onPress={() => { setNameInput(profile?.name ?? ''); setEditingName(true); }}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}
+            >
+              <Text style={{ fontSize: 20, fontWeight: '700', color: profile?.name ? colors.text : colors.textMuted, fontStyle: profile?.name ? 'normal' : 'italic' }}>
+                {profile?.name ?? 'Set display name'}
+              </Text>
+              <Ionicons name="pencil-outline" size={16} color={colors.textMuted} />
+            </Pressable>
+          )}
           <Text style={{ fontSize: 14, color: colors.textMuted, marginTop: 4 }}>
             {profile ? 'Member since ' + new Date(profile.created_at).getFullYear() : 'Welcome!'}
           </Text>
@@ -880,35 +926,44 @@ export default function Profile() {
               </View>
             </View>
 
-            {/* Appearance */}
-            <View style={{ padding: 16 }}>
-              <Text style={{ fontSize: 15, fontWeight: '500', color: colors.text, marginBottom: 10 }}>
-                Appearance
-              </Text>
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                {(['light', 'system', 'dark'] as AppearanceMode[]).map((opt) => (
-                  <Pressable
-                    key={opt}
-                    onPress={() => setAppearanceMode(opt)}
-                    style={{
-                      flex: 1, paddingVertical: 8, borderRadius: 10, alignItems: 'center',
-                      backgroundColor: appearanceMode === opt ? colors.primary : colors.background,
-                      borderWidth: 1.5,
-                      borderColor: appearanceMode === opt ? colors.primary : colors.border,
-                    }}
-                  >
-                    <Text style={{ fontSize: 18, marginBottom: 2 }}>
-                      {opt === 'light' ? '☀️' : opt === 'dark' ? '🌙' : '⚙️'}
-                    </Text>
-                    <Text style={{
-                      fontSize: 11, fontWeight: '600', textTransform: 'capitalize',
-                      color: appearanceMode === opt ? 'white' : colors.textMuted,
-                    }}>
-                      {opt}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
+          </View>
+        </View>
+
+        {/* Appearance */}
+        <View style={{ paddingHorizontal: 16, marginBottom: 24 }}>
+          <Text style={{
+            fontSize: 13, fontWeight: '700', color: colors.textMuted,
+            textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 12,
+          }}>
+            Appearance
+          </Text>
+          <View style={{
+            backgroundColor: colors.card, borderRadius: 12,
+            borderWidth: 1, borderColor: colors.border, padding: 16,
+          }}>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              {(['light', 'system', 'dark'] as AppearanceMode[]).map((opt) => (
+                <Pressable
+                  key={opt}
+                  onPress={() => setAppearanceMode(opt)}
+                  style={{
+                    flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center',
+                    backgroundColor: appearanceMode === opt ? colors.primary : colors.background,
+                    borderWidth: 1.5,
+                    borderColor: appearanceMode === opt ? colors.primary : colors.border,
+                  }}
+                >
+                  <Text style={{ fontSize: 20, marginBottom: 4 }}>
+                    {opt === 'light' ? '☀️' : opt === 'dark' ? '🌙' : '⚙️'}
+                  </Text>
+                  <Text style={{
+                    fontSize: 12, fontWeight: '600', textTransform: 'capitalize',
+                    color: appearanceMode === opt ? 'white' : colors.textMuted,
+                  }}>
+                    {opt}
+                  </Text>
+                </Pressable>
+              ))}
             </View>
           </View>
         </View>

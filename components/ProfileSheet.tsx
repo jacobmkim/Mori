@@ -4,7 +4,7 @@
  * Opened by tapping the AvatarButton on any screen.
  */
 import {
-  View, Text, Modal, Pressable, ScrollView, Alert, ActivityIndicator, Switch,
+  View, Text, Modal, Pressable, ScrollView, Alert, ActivityIndicator, Switch, TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useState, useEffect } from 'react';
@@ -12,7 +12,7 @@ import { router } from 'expo-router';
 import { useTheme } from '@/hooks/useTheme';
 import { useUserStore } from '@/stores/userStore';
 import { useSavedStore } from '@/stores/savedStore';
-import { useDiscoverStore } from '@/stores/discoverStore';
+import { useDiscoverStore, type AppearanceMode } from '@/stores/discoverStore';
 import { supabase } from '@/lib/supabase';
 import {
   patchProfile, clearDiscoverCache,
@@ -82,6 +82,8 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
   const [editVisible, setEditVisible] = useState(false);
   const [pantryVisible, setPantryVisible] = useState(false);
   const [adventureCards, setAdventureCards] = useState(true);
+  const [editingName, setEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState('');
   const savedTasteProfile = (profile?.taste_profile as any);
   const [tasteProfile, setTasteProfile] = useState<string | null>(savedTasteProfile?.text ?? null);
   const [tasteLoading, setTasteLoading] = useState(false);
@@ -163,6 +165,20 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
     }
   }
 
+  async function handleSaveName() {
+    if (!profile) return;
+    const trimmed = nameInput.trim();
+    if (!trimmed) return;
+    try {
+      const updated = await patchProfile(profile.id, { name: trimmed });
+      setProfile(updated);
+    } catch {
+      Alert.alert('Could not save name', 'Please try again.');
+    } finally {
+      setEditingName(false);
+    }
+  }
+
   const initials = profile?.name
     ? profile.name.split(' ').map((p) => p[0]).join('').toUpperCase().slice(0, 2)
     : null;
@@ -201,7 +217,7 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
                 </View>
                 <View>
                   <Text style={{ fontSize: 17, fontWeight: '700', color: colors.text }}>
-                    {profile?.name ?? 'Mori User'}
+                    {profile?.name ?? profile?.email?.split('@')[0] ?? 'Mori User'}
                   </Text>
                   <Text style={{ fontSize: 13, color: colors.textMuted }}>
                     {savedCount} recipe{savedCount !== 1 ? 's' : ''} saved
@@ -296,6 +312,66 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
               </View>
             )}
 
+            {/* Account */}
+            <View style={{ paddingHorizontal: 16, marginBottom: 20 }}>
+              <Text style={{
+                fontSize: 11, fontWeight: '700', color: colors.textMuted,
+                textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10,
+              }}>
+                Account
+              </Text>
+              <View style={{
+                backgroundColor: colors.card, borderRadius: 12,
+                borderWidth: 1, borderColor: colors.border, overflow: 'hidden',
+              }}>
+                {editingName ? (
+                  <View style={{
+                    flexDirection: 'row', alignItems: 'center',
+                    paddingHorizontal: 16, paddingVertical: 12,
+                    borderBottomWidth: 0,
+                  }}>
+                    <Ionicons name="person-outline" size={20} color={colors.primary} />
+                    <TextInput
+                      value={nameInput}
+                      onChangeText={setNameInput}
+                      placeholder="Display name"
+                      placeholderTextColor={colors.textMuted}
+                      autoFocus
+                      maxLength={40}
+                      style={{
+                        flex: 1, marginLeft: 12, fontSize: 15, color: colors.text,
+                        borderBottomWidth: 1.5, borderBottomColor: colors.primary,
+                        paddingVertical: 2,
+                      }}
+                    />
+                    <Pressable onPress={handleSaveName} hitSlop={8} style={{ marginLeft: 10 }}>
+                      <Ionicons name="checkmark-circle" size={24} color={colors.primary} />
+                    </Pressable>
+                    <Pressable onPress={() => setEditingName(false)} hitSlop={8} style={{ marginLeft: 6 }}>
+                      <Ionicons name="close-circle" size={24} color={colors.textMuted} />
+                    </Pressable>
+                  </View>
+                ) : (
+                  <Pressable
+                    onPress={() => { setNameInput(profile?.name ?? ''); setEditingName(true); }}
+                    style={{
+                      flexDirection: 'row', alignItems: 'center',
+                      paddingHorizontal: 16, paddingVertical: 14, minHeight: 52,
+                    }}
+                  >
+                    <Ionicons name="person-outline" size={20} color={colors.primary} />
+                    <Text style={{ flex: 1, marginLeft: 12, fontSize: 15, color: colors.text, fontWeight: '500' }}>
+                      Display Name
+                    </Text>
+                    <Text style={{ fontSize: 14, color: profile?.name ? colors.textMuted : colors.primary, fontStyle: profile?.name ? 'normal' : 'italic' }}>
+                      {profile?.name ?? 'Set name'}
+                    </Text>
+                    <Ionicons name="chevron-forward" size={16} color={colors.textMuted} style={{ marginLeft: 6 }} />
+                  </Pressable>
+                )}
+              </View>
+            </View>
+
             {/* Quick links */}
             <View style={{ paddingHorizontal: 16, marginBottom: 20 }}>
               <View style={{
@@ -335,6 +411,45 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
                   onPress={handleSignOut}
                   last
                 />
+              </View>
+            </View>
+
+            {/* Appearance */}
+            <View style={{ paddingHorizontal: 16, marginBottom: 20 }}>
+              <Text style={{
+                fontSize: 11, fontWeight: '700', color: colors.textMuted,
+                textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10,
+              }}>
+                Appearance
+              </Text>
+              <View style={{
+                backgroundColor: colors.card, borderRadius: 12,
+                borderWidth: 1, borderColor: colors.border, padding: 14,
+              }}>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  {(['light', 'system', 'dark'] as AppearanceMode[]).map((opt) => (
+                    <Pressable
+                      key={opt}
+                      onPress={() => setAppearanceMode(opt)}
+                      style={{
+                        flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center',
+                        backgroundColor: appearanceMode === opt ? colors.primary : colors.background,
+                        borderWidth: 1.5,
+                        borderColor: appearanceMode === opt ? colors.primary : colors.border,
+                      }}
+                    >
+                      <Text style={{ fontSize: 20, marginBottom: 4 }}>
+                        {opt === 'light' ? '☀️' : opt === 'dark' ? '🌙' : '⚙️'}
+                      </Text>
+                      <Text style={{
+                        fontSize: 12, fontWeight: '600', textTransform: 'capitalize',
+                        color: appearanceMode === opt ? 'white' : colors.textMuted,
+                      }}>
+                        {opt}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
               </View>
             </View>
 
