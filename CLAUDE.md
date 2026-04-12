@@ -56,7 +56,7 @@ Mori is a swipe-based recipe discovery app. Users swipe on recipe cards → save
 - Mori logo: 3 PNG variants, correct per light/dark mode; heart/X buttons theme-synced
 
 ### ❌ Phase 4 — Grocery APIs
-- ✅ Kroger OAuth + Cart: full PKCE flow, tokens in Supabase, direct cart add (`api/kroger-auth.ts`, `api/kroger-cart.ts`, KrogerSheet in `grocery-list.tsx`)
+- ✅ Kroger OAuth + Cart: full PKCE flow using Web Crypto API (Expo Go compatible), tokens in Supabase (`kroger_tokens` table, RLS service-role only), direct cart add. `api/kroger-auth.ts`, `api/kroger-cart.ts`, `KrogerSheet` in `grocery-list.tsx`. `cleanForSearch()` strips quantities/prep words before search; not-found items shown in results instead of silently dropped. Branch: `feat/kroger-integration`.
 - Instacart Developer Platform — applied, waiting
 - Payment wall take cut of grocery?
 - saved recipes in meal prep are not showing in meal prep saved
@@ -215,4 +215,43 @@ INSTACART_API_KEY=        # Phase 4
 DoorDash, Uber Eats, Amazon Fresh, push notifications, Android, web app, barcode scanning, fridge vision, baking tab, weather-aware recs, budget tracking, Pexels/Unsplash for generated images (replaced by gpt-image-1).
 
 ---
-*v8.0 — Phases 1–3 complete. Phase 4 = Grocery APIs.*
+
+## 9. Audit Findings (April 2026)
+Full audit run across security, bugs, and edge cases. Items below are **unresolved**. Mark off as fixed.
+
+### 🔴 Security
+- [ ] `/api/generate-recipe` allows unauthenticated calls — auth header is optional; seed scripts bypass rate limiting entirely. Require auth OR `x-seed-secret`.
+- [ ] Rate limiting fails **open** (`rateLimit.ts:159`) — infra error returns `success: true`. Should fail closed.
+- [ ] Kroger `access_token` / `refresh_token` stored as plaintext `TEXT` in Supabase (`kroger_tokens` table). Encrypt with `pgsodium`.
+- [ ] No production error logging — all errors swallowed silently in prod. Add Sentry or equivalent.
+- [ ] No CSRF protection on public endpoints (`/api/waitlist`).
+- [ ] Timing-attack risk on seed secret string comparison — use `crypto.timingSafeEqual()`.
+- [ ] Missing security headers (X-Content-Type-Options, X-Frame-Options) on Vercel functions.
+
+### 🔴 Bugs
+- [ ] `scoreRecipe` (`lib/api.ts:555`) accesses `m.protein` without null-checking macros — crashes on recipes with null macros.
+- [ ] `RecipeDetailModal` crashes if `recipe.ingredients` is null (`RecipeDetailModal.tsx:250`) — use `?.length`.
+- [ ] Race condition in `savedStore.addRecipe` — optimistic update followed by `loadSavedRecipes()` reload; rapid saves can create duplicates or lost saves.
+- [ ] `EditPreferencesModal` save button stuck in loading if `onSave` throws — `setSaving(false)` only runs in `finally` but `onClose()` inside `try` may not get called.
+- [ ] `detailCache` and `macroCache` refs on Discover grow unbounded — never cleared on deck reload (memory leak over long sessions).
+- [ ] `mealPlanStore` error state never cleared on successful reload — stale error banner persists.
+- [ ] `AsyncStorage` JSON.parse in `discoverStore.loadMode` not in try-catch — corrupted storage crashes preference load.
+- [ ] Empty `image_url` (`""`) passed to `expo-image` (`grocery-list.tsx:205`) — causes silent render failure; use `undefined` or a placeholder.
+
+### 🟡 Edge Cases
+- [ ] **Offline** — no network detection anywhere. All API failures are silent; Discover deck goes blank with no message.
+- [ ] **Deck exhaustion** — no empty state when all recipes are swiped. Screen goes blank or crashes.
+- [ ] **Timezone bug** — `toDateStr()` in `plan.tsx:41` uses `toISOString()` which converts to UTC before splitting. Users near midnight get wrong week. Use local date formatting instead.
+- [ ] **Grocery quantity dedup** — same ingredient from two recipes only keeps first recipe's quantity (`groceryStore.ts:42`). User buys insufficient ingredients.
+- [ ] **Meal plan deleted recipes** — `slotRecipes[slot.recipe_id]` returns `undefined` if recipe was deleted. Show "Recipe removed" instead of crashing.
+- [ ] **Kroger token refresh silent failure** — tokens deleted from DB on revocation with no re-auth prompt to user.
+- [ ] **Dislike filter not retroactive** — editing dislikes mid-session doesn't refresh the active deck until tab switch.
+- [ ] **Rapid swiping** — concurrent `logSwipeBackground()` calls can log swipes out of order; recommendation signal degrades.
+- [ ] **Search + filter don't compose** in Recipes tab — applying a filter resets active search query.
+- [ ] **Substitution partial matching** — `"buttermilk".includes("butter")` → wrong substitutions returned. Use word-boundary matching.
+- [ ] **Macro float precision** — combined macros in grocery list display unrounded floats (e.g. `45.333333g`). Round to 1 decimal.
+- [ ] **Budget field unused** — collected in onboarding, stored in profile, never used for filtering anywhere.
+- [ ] **Adventure card pause not persisted** — session-only; resets on app relaunch.
+
+---
+*v8.1 — Phases 1–3 complete. Phase 4 in progress: Kroger integration on `feat/kroger-integration`.*
