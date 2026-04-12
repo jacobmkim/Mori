@@ -12,7 +12,7 @@ import { router } from 'expo-router';
 import { useTheme } from '@/hooks/useTheme';
 import { useUserStore } from '@/stores/userStore';
 import { useSavedStore } from '@/stores/savedStore';
-import { useDiscoverStore, type AppearanceMode } from '@/stores/discoverStore';
+import { useDiscoverStore, type AppearanceMode, type UnitSystem } from '@/stores/discoverStore';
 import { supabase } from '@/lib/supabase';
 import {
   patchProfile, clearDiscoverCache,
@@ -78,7 +78,7 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
   const colors = useTheme();
   const { profile, setProfile } = useUserStore();
   const savedCount = useSavedStore((s) => s.savedRecipes.length);
-  const { appearanceMode, setAppearanceMode } = useDiscoverStore();
+  const { appearanceMode, setAppearanceMode, unitSystem, setUnitSystem } = useDiscoverStore();
   const [editVisible, setEditVisible] = useState(false);
   const [pantryVisible, setPantryVisible] = useState(false);
   const [adventureCards, setAdventureCards] = useState(true);
@@ -446,6 +446,49 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
                         color: appearanceMode === opt ? 'white' : colors.textMuted,
                       }}>
                         {opt}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+            </View>
+
+            {/* Measurement */}
+            <View style={{ paddingHorizontal: 16, marginBottom: 20 }}>
+              <Text style={{
+                fontSize: 11, fontWeight: '700', color: colors.textMuted,
+                textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10,
+              }}>
+                Measurement
+              </Text>
+              <View style={{
+                backgroundColor: colors.card, borderRadius: 12,
+                borderWidth: 1, borderColor: colors.border, padding: 14,
+              }}>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  {([['us', 'US', 'cups / oz / lb'], ['metric', 'Metric', 'ml / g / kg']] as [UnitSystem, string, string][]).map(([opt, label, sub]) => (
+                    <Pressable
+                      key={opt}
+                      onPress={() => setUnitSystem(opt)}
+                      style={{
+                        flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center',
+                        backgroundColor: unitSystem === opt ? colors.primary : colors.background,
+                        borderWidth: 1.5,
+                        borderColor: unitSystem === opt ? colors.primary : colors.border,
+                      }}
+                    >
+                      <Text style={{
+                        fontSize: 14, fontWeight: '700',
+                        color: unitSystem === opt ? 'white' : colors.text,
+                        marginBottom: 2,
+                      }}>
+                        {label}
+                      </Text>
+                      <Text style={{
+                        fontSize: 11,
+                        color: unitSystem === opt ? 'rgba(255,255,255,0.8)' : colors.textMuted,
+                      }}>
+                        {sub}
                       </Text>
                     </Pressable>
                   ))}

@@ -628,16 +628,64 @@ function normalise(name: string): string {
   return name.toLowerCase().trim().replace(/\s+/g, ' ');
 }
 
+// ── Unit conversion for substitution reasons ──────────────────────────────────
+const VULGAR: Record<string, number> = {
+  '¼': 0.25, '⅓': 0.333, '½': 0.5, '⅔': 0.667, '¾': 0.75,
+  '⅛': 0.125, '⅜': 0.375, '⅝': 0.625, '⅞': 0.875,
+};
+
+function parseNum(raw: string): number {
+  if (VULGAR[raw]) return VULGAR[raw];
+  return parseFloat(raw);
+}
+
+/**
+ * Convert US volume/weight measurements in a reason string to metric.
+ * tsp and tbsp are left as-is (universally understood in cooking).
+ */
+export function applyUnitSystem(reason: string, system: 'us' | 'metric'): string {
+  if (system === 'us') return reason;
+
+  const fraction = Object.keys(VULGAR).join('|');
+  const numPat = `(${fraction}|\\d+(?:\\.\\d+)?)`;
+
+  // cups → ml (1 cup = 240ml)
+  reason = reason.replace(
+    new RegExp(`${numPat}\\s*cups?`, 'g'),
+    (_, n) => `${Math.round(parseNum(n) * 240)}ml`,
+  );
+  // oz → g (1 oz = 28g)
+  reason = reason.replace(
+    new RegExp(`${numPat}\\s*oz`, 'g'),
+    (_, n) => `${Math.round(parseNum(n) * 28)}g`,
+  );
+  // lb/lbs → g (1 lb = 450g)
+  reason = reason.replace(
+    new RegExp(`${numPat}\\s*lbs?`, 'g'),
+    (_, n) => {
+      const grams = Math.round(parseNum(n) * 450);
+      return grams >= 1000 ? `${(grams / 1000).toFixed(1)}kg` : `${grams}g`;
+    },
+  );
+  return reason;
+}
+
 /** Instant static lookup — returns subs or null if not in table. */
-export function getStaticSubs(name: string): Swap[] | null {
+export function getStaticSubs(name: string, system: 'us' | 'metric' = 'us'): Swap[] | null {
   const n = normalise(name);
-  if (STATIC_SUBS[n]) return STATIC_SUBS[n];
-  // Partial match — sort longest keys first so "chicken stock" beats "chicken"
-  const sortedKeys = Object.keys(STATIC_SUBS).sort((a, b) => b.length - a.length);
-  for (const key of sortedKeys) {
-    if (n.includes(key) || key.includes(n)) return STATIC_SUBS[key];
+  let swaps: Swap[] | undefined;
+  if (STATIC_SUBS[n]) {
+    swaps = STATIC_SUBS[n];
+  } else {
+    // Partial match — sort longest keys first so "chicken stock" beats "chicken"
+    const sortedKeys = Object.keys(STATIC_SUBS).sort((a, b) => b.length - a.length);
+    for (const key of sortedKeys) {
+      if (n.includes(key) || key.includes(n)) { swaps = STATIC_SUBS[key]; break; }
+    }
   }
-  return null;
+  if (!swaps) return null;
+  if (system === 'us') return swaps;
+  return swaps.map((s) => ({ ...s, reason: applyUnitSystem(s.reason, system) }));
 }
 
 /** AsyncStorage lookup — returns cached API result or null. */

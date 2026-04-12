@@ -15,7 +15,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTheme } from '@/hooks/useTheme';
 import { formatTime, formatCost } from '@/lib/utils';
-import { fetchMacros, flagRecipe, getRecipeNote, saveRecipeNote, getUnitSystem } from '@/lib/api';
+import { fetchMacros, flagRecipe, getRecipeNote, saveRecipeNote } from '@/lib/api';
+import { useDiscoverStore } from '@/stores/discoverStore';
 import { getStaticSubs, getCachedSubs, fetchAndCacheSubs, type Swap } from '@/lib/substitutions';
 import { supabase } from '@/lib/supabase';
 import { MacroRow } from '@/components/ui/MacroRow';
@@ -217,7 +218,7 @@ export function RecipeDetailModal({
   const [expandedSwapIdx, setExpandedSwapIdx] = useState<number | null>(null);
   // Applied swaps: index → substitute name (session-only override)
   const [appliedSwaps, setAppliedSwaps] = useState<Record<number, string>>({});
-  const [unitSystem, setUnitSystem] = useState<'us' | 'metric'>('us');
+  const unitSystem = useDiscoverStore((s) => s.unitSystem);
 
   // Active timer state
   const [timerSeconds, setTimerSeconds] = useState<number | null>(null);
@@ -246,7 +247,6 @@ export function RecipeDetailModal({
       return;
     }
     setServings(baseServings);
-    getUnitSystem().then(setUnitSystem).catch(() => {});
     const ings = recipe.ingredients.length > 0
       ? recipe.ingredients
       : (detail?.ingredients ?? []).map((i) => ({ name: i.name, quantity: i.measure, unit: '' }));
@@ -331,7 +331,7 @@ export function RecipeDetailModal({
     setExpandedSwapIdx(idx);
 
     // 1. Static table — instant
-    const staticSubs = getStaticSubs(ingName);
+    const staticSubs = getStaticSubs(ingName, unitSystem);
     if (staticSubs) {
       setSwapData((prev) => ({ ...prev, [idx]: staticSubs }));
       return;
@@ -534,7 +534,7 @@ export function RecipeDetailModal({
                   const isSwapExpanded = expandedSwapIdx === i;
                   const appliedSub = appliedSwaps[i];
                   // Only show swap icon when a static substitution exists for this ingredient
-                  const hasSwap = getStaticSubs(ing.name) !== null;
+                  const hasSwap = getStaticSubs(ing.name, unitSystem) !== null;
                   return (
                     <View key={i} style={{
                       borderBottomWidth: isLast ? 0 : 0.5, borderBottomColor: colors.border,
