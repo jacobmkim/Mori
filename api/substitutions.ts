@@ -1,8 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import Anthropic from '@anthropic-ai/sdk';
-import { rateLimitUser } from './rateLimit';
+import { rateLimitUser } from './_rateLimit';
 import { validate, SubstitutionsRequestSchema, ValidationError, formatValidationError } from '../lib/validation';
-import { requireAuth } from './apiAuth';
+import { requireAuth } from './_apiAuth';
 
 // POST /api/substitutions
 // Given a recipe title and ingredient, returns practical ingredient swaps.

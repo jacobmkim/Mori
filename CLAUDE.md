@@ -30,70 +30,42 @@ Mori is a swipe-based recipe discovery app. Users swipe on recipe cards → save
 
 ## 2. Current Build State
 
-### ✅ Complete
+### ✅ Complete (Phases 1–3)
 - Expo SDK 54 / RN 0.81.5 / Expo Router / Supabase auth + schema
 - Onboarding (10 screens), all fields persisted
 - Discover: swipe mechanic, local scorer, dietary/dislike/skill filters, adventure cards, macro pills, interaction logging
 - Explore tab: editorial sections, filter chips
 - Recipes tab: Saved/Cooked/Mine/Meal Prep, search + filter
-- Recipe Detail: full-screen modal, step cards, sticky footer, My Notes tab
-- Cooking Mode: full-screen dark, per-step timer
+- Recipe Detail: full-screen modal, step cards, My Notes tab, cooking mode
 - Plan tab: weekly meal grid, Supabase-backed
 - Grocery List: grouped categories, checkboxes, copy-to-clipboard
-- Profile: AvatarButton → ProfileSheet, taste profile, pantry, preferences
-- recipe_notes table + RLS + updated_at trigger
-- 419 TheMealDB + 622 generated recipes seeded; all have steps, macros, gpt-image-1 images
+- Profile: AvatarButton → ProfileSheet, taste profile (monthly cron + update modal), pantry, preferences, editable display name, appearance toggle
+- 609 curated recipes (419 TheMealDB + generated); all have steps, macros, gpt-image-1 images
 - Vercel functions: /api/macros, /api/taste-profile, /api/generate-recipe, /api/storage-tip
 - app.json: name Mori, bundle ID app.getmori.mori
-- Landing page: getmori.app (Vercel), hello@getmori.app email routing
-- App icon: italic m + spatula, linen #F8F3EC, 1024×1024 ✅
+- Landing page: getmori.app (Vercel), hello@getmori.app email routing. Screenshots + taste profile section updated.
+- App icon: italic m + spatula, linen #F8F3EC, 1024×1024
 - TestFlight internal live; external submitted for Beta App Review
-- Add Recipe wizard (4-step): basics, ingredients w/ autocomplete, steps w/ timer hints, review + submit → community recipes in Supabase. Photo upload UI present but not wired (grayed-out "coming soon"). Public recipes appear in all users' Discover decks.
-- MoriLogo.tsx + getmori.app/index.html: circle dot removed from all spatula SVGs.
-- Steamed/delicate fish hard-excluded from meal prep deck (`MEAL_PREP_EXCLUDE_METHODS` + `MEAL_PREP_DELICATE_FISH` in `lib/api.ts`).
-- Profile dark mode: all hardcoded hex replaced with `colors.error` / `colors.errorBg`.
-- Apple AI transparency: passive disclosure banner on payoff screen covers App Store requirement.
-- Unit system toggle (imperial/metric), measurement normalization, ingredient swap UI.
-- Ingredient pills, vibrant swipe button glow + linger, macro pill calories display.
-- Saved recipes sorted newest-first.
-- API security hardening: JWT auth, Zod validation, rate limiting on all endpoints. TS build errors resolved.
-- Forgot password + confirm password flow. Optional email confirmation on signup.
-- Taste profile: fixed generate button, monthly cron, in-app update modal.
-- Heart/X button theme sync fixed; Mori logo uses correct PNG per light/dark mode.
-- Landing page (getmori.app): updated with app screenshots, taste profile section, carousel.
-
-### ❌ Remaining — Phase 3
-| # | Item |
-|---|---|
-| 1 | ✅ Run `clean-recipes.mjs` — 13 dupes deleted (Indian + Korean), 6 tags fixed. 609 curated recipes remain. FK cascade added to script. |
-| 2 | N/A `clean-ingredient-units.mjs` — app display layer handles ingredient formatting; DB data clean. |
-| 3 | ✅ App tutorial — `components/TutorialOverlay.tsx` coach-mark overlay, 4 steps, AsyncStorage `@mori_tutorial_seen` flag, shown once post-onboarding on Discover. |
-| 4 | ✅ Privacy policy in-app — `app/privacy-policy.tsx` modal, entry row in profile Settings. |
-| 5 | ✅ Logo — 3 PNG variants: green-green (light), green-white (dark), white-white (overlay). |
-| 6 | ✅ Fix logo on onboarding → main app screens — MoriLogo.tsx uses Canva PNGs, SVG fallback removed. |
-| 7 | ✅ Fix screenshots on getmori.app — updated hero, carousel, and taste profile section with new app screens. |
-| 8 | ✅ Ingredient substitution optimization — ~125-entry static table, all with explicit measurements/ratios. `applyUnitSystem()` in `lib/substitutions.ts` converts cups/oz/lb → ml/g/kg. `getStaticSubs(name, system)` wired into RecipeDetailModal reactively via discoverStore. |
-| 9 | ✅ Mori logo theme sync fixed — correct PNG per light/dark mode. Heart/X buttons no longer flash dark on light mode. |
-| 10 | Changing servings in the grocery cart when on discover should show macro changes as well as ingredient changes.
-| 11 | ✅ Meal prep mode tutorial — one-time coach card appears on first switch to Meal Prep, points to Quick/Meal Prep toggle. AsyncStorage `@mori_mealprep_tip_seen_{userId}`. |
-| 12 | ✅ Profile editable display name — "Account" section in ProfileSheet with Display Name row; tap to edit inline, saved via `patchProfile`. Header shows name statically. |
-| 13 | ✅ Taste profile fixed — generate button working, monthly cron added, in-app update modal added. |
-| 14 | ✅ Appearance toggle — moved to its own "Appearance" section in profile (was buried in Discover Settings card). Light/System/Dark buttons now clearly visible. |
-| 15 | ✅ Meal Prep mode → Recipes tab opens on "Meal Prep" sub-tab — reads `mode` from `discoverStore` on mount. |
-| 16 | ✅ "Swipe. Order. Cook." — updated in hero (nobr keeps Swipe+Order on one line), footer, and `<title>` tag of `landing/index.html` and `public/index.html`. |
-| 17 | ✅ Forgot password — confirm password + forgot password flow added.
-| 18 | ✅ Meal prep bar spacing fixed (paddingVertical 10, marginTop 8). Plan Week button now routes to `/(tabs)/plan`. |
+- Add Recipe wizard (4-step): basics, ingredients w/ autocomplete, steps w/ timer hints, review + submit → community recipes. Public recipes appear in all Discover decks.
+- Unit system toggle (imperial/metric); ingredient substitutions (`lib/substitutions.ts`, ~125 entries)
+- Deck Servings Sheet on Discover: scaled macros + ingredients reactively (`scaleDeckMacros()`)
+- Tutorial overlays: first-launch coach marks (`TutorialOverlay.tsx`) + meal prep tip
+- Privacy policy in-app (`app/privacy-policy.tsx`)
+- API security hardening: JWT auth, Zod validation, rate limiting on all endpoints
+- Forgot password + confirm password flow
+- Mori logo: 3 PNG variants, correct per light/dark mode; heart/X buttons theme-synced
 
 ### ❌ Phase 4 — Grocery APIs
-- Kroger API (`developer.kroger.com`) — Done. Ask user for key.
+- ✅ Kroger OAuth + Cart: full PKCE flow, tokens in Supabase, direct cart add (`api/kroger-auth.ts`, `api/kroger-cart.ts`, KrogerSheet in `grocery-list.tsx`)
 - Instacart Developer Platform — applied, waiting
 - Payment wall take cut of grocery?
+- saved recipes in meal prep are not showing in meal prep saved
+- the grocery do not stay in there when the user exits and reopens
 - User ability to add photos for ALL recipes. User created or current Mori recipes.
-- Grocery ordering bottom sheet in `grocery-list.tsx`
-- Vercel functions: `/api/walmart-cart`, `/api/kroger-cart`, `/api/instacart-cart`
+- Vercel functions: `/api/walmart-cart`, `/api/instacart-cart`
 - Affiliate tracking via Impact
 - Grocery list history view
-- Profile picture and user names 
+- Profile picture and user names
 
 ### ❌ Phase 5+ — Community, Social
 Out of scope until Phase 4 ships.
@@ -115,7 +87,7 @@ Out of scope until Phase 4 ships.
 | Recommendation | **Local weighted scorer** (lib/api.ts) | ⚠️ Do NOT replace with API call |
 | Serverless | Vercel | |
 | AI | Claude Haiku — taste profile, macros, recipe gen, storage tips | |
-| Recipe images | gpt-image-1 via scripts/generate-images.mjs → Supabase Storage | All 622 done |
+| Recipe images | gpt-image-1 via scripts/generate-images.mjs → Supabase Storage | All done |
 
 ---
 
@@ -141,10 +113,10 @@ components/
   cards/RecipeGridCard.tsx ✅
   grocery/InstacartButton.tsx  🔲 Phase 4
   ui/MacroRow.tsx         ✅
-  ui/MoriLogo.tsx         ⚠️ needs spatula update
+  ui/MoriLogo.tsx         ✅
 
 lib/
-  supabase.ts, api.ts (scorer here), mealdb.ts, utils.ts
+  supabase.ts, api.ts (scorer here), mealdb.ts, utils.ts, substitutions.ts
 
 stores/
   userStore, savedStore, groceryStore, collectionsStore,
@@ -194,23 +166,7 @@ Full color values in `constants/theme.ts`.
 
 ---
 
-## 6. Add Recipe Wizard — Spec (Phase 3, item #1)
-
-4-step full-screen modal. Progress bar (4 pills) at top. Back arrow with "Discard recipe?" confirm dialog.
-
-**Step 1 — Basics:** recipe name, one-line description, cuisine (12 pill chips), prep time, cook time, servings, public/private toggle (default public).
-
-**Step 2 — Ingredients:** Qty / Unit / Ingredient columns. Ingredient field has inline autocomplete powered by local index of all distinct ingredient names from Supabase (cached in AsyncStorage on load — no API call). Dropdown appears below active row, max 4 suggestions, shows category emoji + name with matched chars bold + category label. Unit field opens picker (whole, g, kg, ml, l, tsp, tbsp, cup, handful, pinch, slice). "+" Add ingredient row. Max 30. Delete ✕ on each row.
-
-**Step 3 — Steps:** One action per step. Hint: "Start with a verb." Current step input is a highlighted card. Timer suggestion bar appears when user types a number + "min" — quick-tap pills (2/5/10/15/custom) attach a timer to the step. Filled steps render as preview cards (same style as RecipeDetailModal). Max 15 steps.
-
-**Step 4 — Review:** Read-only preview. Optional photo upload (Supabase Storage `recipe-images/user/{userId}/{recipeId}.jpg`). If no photo + public → gpt-image-1 generates one server-side. AI review notice for public recipes ("checking accuracy…"). Submit runs two-prompt Claude validation via `/api/check-recipe` (Phase 5 for public; for now save directly). On success → navigate to recipe detail + toast "Recipe saved!".
-
-**DB write:** `recipes` table, `submitted_by = current user id`, `source_type = 'community'`.
-
----
-
-## 7. Coding Rules
+## 6. Coding Rules
 
 1. TypeScript everywhere, strict mode
 2. Never call Claude or Instacart from client — Vercel functions only
@@ -230,22 +186,12 @@ Full color values in `constants/theme.ts`.
 16. Scorer signal caps: grocery_add and cooked capped at Math.min(count, 2)
 17. Recipe card titles use Georgia italic — never sans-serif
 
----
-
-## 7b. API Security & Rate Limiting (April 2026)
-
-**All Vercel API endpoints have comprehensive security hardening: JWT auth, input validation, rate limiting, security headers.**
-
-See **`.claude/SECURITY_HARDENING_IMPLEMENTATION.md`** for full details:
-- Rate limits per endpoint
-- Authentication & validation schemas
-- Client integration requirements
-- Pre-deployment checklist
-- Testing recommendations
+### API Security & Rate Limiting
+See **`.claude/SECURITY_HARDENING_IMPLEMENTATION.md`** for full details (rate limits, auth schemas, pre-deploy checklist).
 
 ---
 
-## 8. Environment Variables
+## 7. Environment Variables
 
 ```bash
 # Client (EXPO_PUBLIC_ only)
@@ -265,8 +211,8 @@ INSTACART_API_KEY=        # Phase 4
 
 ---
 
-## 9. Out of Scope
+## 8. Out of Scope
 DoorDash, Uber Eats, Amazon Fresh, push notifications, Android, web app, barcode scanning, fridge vision, baking tab, weather-aware recs, budget tracking, Pexels/Unsplash for generated images (replaced by gpt-image-1).
 
 ---
-*v7.0 — Lean rewrite. Phase 3 in progress: logo/website update, Apple feedback fixes, Add Recipe wizard. Phase 4 = Grocery APIs.*
+*v8.0 — Phases 1–3 complete. Phase 4 = Grocery APIs.*

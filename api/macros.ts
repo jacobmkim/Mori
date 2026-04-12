@@ -1,9 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import Anthropic from '@anthropic-ai/sdk';
 import { createClient } from '@supabase/supabase-js';
-import { rateLimitUser } from './rateLimit';
+import { rateLimitUser } from './_rateLimit';
 import { validate, MacrosRequestSchema, ValidationError, formatValidationError } from '../lib/validation';
-import { requireAuth } from './apiAuth';
+import { requireAuth } from './_apiAuth';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

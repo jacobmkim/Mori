@@ -1,8 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import Anthropic from '@anthropic-ai/sdk';
-import { rateLimitUser, getClientIP } from './rateLimit';
+import { rateLimitUser, getClientIP } from './_rateLimit';
 import { validate, StorageTipRequestSchema, ValidationError, formatValidationError } from '../lib/validation';
-import { requireAuth } from './apiAuth';
+import { requireAuth } from './_apiAuth';
 
 // POST /api/storage-tip
 // Given a leftover ingredient, returns storage and usage tips from Claude Haiku.

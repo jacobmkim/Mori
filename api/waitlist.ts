@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
-import { rateLimitIP, getClientIP } from './rateLimit';
+import { rateLimitIP, getClientIP } from './_rateLimit';
 import { validate, WaitlistRequestSchema, ValidationError, formatValidationError } from '../lib/validation';
 
 // POST /api/waitlist

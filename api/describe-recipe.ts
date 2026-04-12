@@ -1,9 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import Anthropic from '@anthropic-ai/sdk';
 import { createClient } from '@supabase/supabase-js';
-import { rateLimitUser } from './rateLimit';
+import { rateLimitUser } from './_rateLimit';
 import { validate, DescribeRecipeRequestSchema, ValidationError, formatValidationError } from '../lib/validation';
-import { requireAuth } from './apiAuth';
+import { requireAuth } from './_apiAuth';
 
 // POST /api/describe-recipe
 // Generates a one-sentence recipe description using Claude Haiku.

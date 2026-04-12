@@ -1,9 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import Anthropic from '@anthropic-ai/sdk';
 import { createClient } from '@supabase/supabase-js';
-import { rateLimitUser, getClientIP } from './rateLimit';
+import { rateLimitUser, getClientIP } from './_rateLimit';
 import { validate, RecommendationsRequestSchema, ValidationError, formatValidationError } from '../lib/validation';
-import { requireAuth, handleAuthError } from './apiAuth';
+import { requireAuth, handleAuthError } from './_apiAuth';
 
 // POST /api/recommendations
 // Claude Sonnet ranks recipes for a user based on all available signals.
