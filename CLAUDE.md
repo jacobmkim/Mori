@@ -76,11 +76,11 @@ Mori is a swipe-based recipe discovery app. Users swipe on recipe cards → save
 | 9 | ✅ Mori logo theme sync fixed — correct PNG per light/dark mode. Heart/X buttons no longer flash dark on light mode. |
 | 10 | Changing servings in the grocery cart when on discover should show macro changes as well as ingredient changes.
 | 11 | ✅ Meal prep mode tutorial — one-time coach card appears on first switch to Meal Prep, points to Quick/Meal Prep toggle. AsyncStorage `@mori_mealprep_tip_seen_{userId}`. |
-| 12 | ✅ Profile editable display name — pencil icon on profile header, inline TextInput to set/change name, saved via `patchProfile`. Falls back to "Set display name" prompt. |
+| 12 | ✅ Profile editable display name — "Account" section in ProfileSheet with Display Name row; tap to edit inline, saved via `patchProfile`. Header shows name statically. |
 | 13 | ✅ Taste profile fixed — generate button working, monthly cron added, in-app update modal added. |
 | 14 | ✅ Appearance toggle — moved to its own "Appearance" section in profile (was buried in Discover Settings card). Light/System/Dark buttons now clearly visible. |
 | 15 | ✅ Meal Prep mode → Recipes tab opens on "Meal Prep" sub-tab — reads `mode` from `discoverStore` on mount. |
-| 16 | ✅ "Swipe. Order. Cook." — updated in hero + footer of `landing/index.html` and `public/index.html`. |
+| 16 | ✅ "Swipe. Order. Cook." — updated in hero (nobr keeps Swipe+Order on one line), footer, and `<title>` tag of `landing/index.html` and `public/index.html`. |
 | 17 | ✅ Forgot password — confirm password + forgot password flow added.
 | 18 | ✅ Meal prep bar spacing fixed (paddingVertical 10, marginTop 8). Plan Week button now routes to `/(tabs)/plan`. |
 
