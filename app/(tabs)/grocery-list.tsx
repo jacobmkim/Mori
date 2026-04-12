@@ -8,20 +8,66 @@ import {
   Animated,
   Modal,
   StyleSheet,
+  ActivityIndicator,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import * as Clipboard from 'expo-clipboard';
+import * as WebBrowser from 'expo-web-browser';
+import * as ExpoLinking from 'expo-linking';
 import { useState, useRef, useEffect } from 'react';
 import { useGroceryStore } from '@/stores/groceryStore';
 import { useDiscoverStore } from '@/stores/discoverStore';
 import { fetchMacros } from '@/lib/api';
 import { fetchMealDetail } from '@/lib/mealdb';
+import { supabase } from '@/lib/supabase';
 import { MacroRow } from '@/components/ui/MacroRow';
 import { AvatarButton } from '@/components/AvatarButton';
 import { useTheme } from '@/hooks/useTheme';
 import type { GroceryItem, Recipe, Macros } from '@/types';
+
+interface KrogerProduct {
+  query:     string;
+  found:     boolean;
+  name:      string | null;
+  upc:       string | null;
+  productId: string | null;
+  price:     number | null;
+  size:      string | null;
+}
+
+type KrogerStatus = 'idle' | 'searching' | 'results' | 'oauth' | 'adding' | 'success' | 'error';
+
+// ── PKCE helpers ─────────────────────────────────────────────────────────────
+
+function base64UrlEncode(bytes: Uint8Array): string {
+  let str = '';
+  bytes.forEach((b) => { str += String.fromCharCode(b); });
+  return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+}
+
+function getRandomBytes(n: number): Uint8Array {
+  const buf = new Uint8Array(n);
+  globalThis.crypto.getRandomValues(buf);
+  return buf;
+}
+
+async function sha256Base64(input: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(input);
+  const hash = await globalThis.crypto.subtle.digest('SHA-256', data);
+  return base64UrlEncode(new Uint8Array(hash));
+}
+
+async function generatePKCE(): Promise<{ codeVerifier: string; codeChallenge: string }> {
+  const codeVerifier = base64UrlEncode(getRandomBytes(32));
+  const codeChallenge = await sha256Base64(codeVerifier);
+  return { codeVerifier, codeChallenge };
+}
+
+const KROGER_REDIRECT_URI = 'mori://kroger-callback';
 
 // ── Category helpers ────────────────────────────────────────────────────────
 
@@ -211,6 +257,13 @@ export default function GroceryList() {
   const [addingItem, setAddingItem] = useState(false);
   const [newItemName, setNewItemName] = useState('');
   const [combinedMacros, setCombinedMacros] = useState<Macros | null>(null);
+  const [krogerSheetVisible, setKrogerSheetVisible] = useState(false);
+  const [krogerStatus, setKrogerStatus] = useState<KrogerStatus>('idle');
+  const [krogerProducts, setKrogerProducts] = useState<KrogerProduct[]>([]);
+  const [krogerTotal, setKrogerTotal] = useState<number | null>(null);
+  const [krogerConnected, setKrogerConnected] = useState(false);
+  const [krogerItemsAdded, setKrogerItemsAdded] = useState(0);
+  const [krogerError, setKrogerError] = useState<string | null>(null);
 
   // Fetch and aggregate macros for all selected recipes whenever the meal selection changes.
   // TheMealDB recipes have empty ingredients[] — fetch detail first to get real ingredient data.
@@ -288,6 +341,163 @@ export default function GroceryList() {
     const text = buildClipboardText(items, selectedRecipes, date);
     await Clipboard.setStringAsync(text);
     Alert.alert('Copied!', 'Your grocery list has been copied to the clipboard.');
+  }
+
+  function cleanForSearch(name: string): string {
+    return name
+      .replace(/\(.*?\)/g, '')
+      // strip leading quantity + optional unit (e.g. "2 cups", "1/2 lb", "500g", "3")
+      .replace(/^\d[\d\s/]*\s*(tsp|tbsp|teaspoon|tablespoon|cup|cups|oz|lb|lbs|g|kg|ml|l|clove|cloves|bunch|bunches|head|heads|piece|pieces|can|cans|stalk|stalks|sprig|sprigs|slice|slices)?\s*/i, '')
+      // strip prep words after a comma ("onion, diced" → "onion")
+      .replace(/,\s*(diced|minced|chopped|sliced|grated|crushed|julienned|peeled|deveined|trimmed|cubed|shredded|melted|softened|beaten|divided|optional|to taste|for garnish|for serving|as needed).*/i, '')
+      // strip prep words not after a comma ("diced onion" → "onion")
+      .replace(/\b(diced|minced|chopped|sliced|grated|crushed|julienned|peeled|deveined|trimmed|cubed|shredded|melted|softened|beaten|divided)\b/gi, '')
+      // strip common descriptor words
+      .replace(/\b(fresh|dried|ground|large|medium|small|whole|boneless|skinless|extra-virgin|raw|cooked|canned|frozen|organic|finely|roughly|thinly)\b/gi, '')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
+  }
+
+  function getUncheckedItemNames() {
+    return items.filter((i) => !i.checked).map((i) => cleanForSearch(i.ingredient_name));
+  }
+
+  async function krogerFetch(action: 'search' | 'add_to_cart', itemNames: string[]) {
+    const { data: { session } } = await supabase.auth.getSession();
+    const baseUrl = process.env.EXPO_PUBLIC_API_URL;
+    const res = await fetch(`${baseUrl}/api/kroger-cart`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+      },
+      body: JSON.stringify({ items: itemNames, action }),
+    });
+    if (!res.ok) {
+      const errBody = await res.text().catch(() => '');
+      console.error(`[krogerFetch] ${res.status}`, errBody);
+      throw new Error(`kroger-cart ${res.status}`);
+    }
+    return res.json();
+  }
+
+  async function handleKrogerOrder() {
+    const itemNames = getUncheckedItemNames();
+    if (itemNames.length === 0) {
+      Alert.alert('No items', 'All items are already checked off.');
+      return;
+    }
+
+    setKrogerSheetVisible(true);
+    setKrogerStatus('searching');
+    setKrogerError(null);
+    setKrogerProducts([]);
+    setKrogerTotal(null);
+
+    try {
+      const data = await krogerFetch('search', itemNames);
+      setKrogerProducts(data.products ?? []);
+      setKrogerTotal(data.estimatedTotal ?? null);
+      setKrogerConnected(data.krogerConnected ?? false);
+      setKrogerStatus('results');
+    } catch {
+      setKrogerError('Could not load Kroger products. Please try again.');
+      setKrogerStatus('error');
+    }
+  }
+
+  async function handleKrogerAddToCart() {
+    const itemNames = getUncheckedItemNames();
+    setKrogerStatus('adding');
+    try {
+      const data = await krogerFetch('add_to_cart', itemNames);
+
+      if (data.needsReconnect) {
+        // Token was revoked — kick off OAuth again
+        setKrogerConnected(false);
+        setKrogerStatus('results');
+        return;
+      }
+
+      setKrogerItemsAdded(data.itemsAdded ?? 0);
+      setKrogerTotal(data.estimatedTotal ?? krogerTotal);
+      setKrogerStatus('success');
+    } catch {
+      setKrogerError('Could not add items to Kroger cart. Please try again.');
+      setKrogerStatus('error');
+    }
+  }
+
+  async function handleKrogerConnect() {
+    try {
+      setKrogerStatus('oauth');
+
+      // 1. Generate PKCE + CSRF state
+      const { codeVerifier, codeChallenge } = await generatePKCE();
+      const state = base64UrlEncode(getRandomBytes(16));
+
+      const clientId = process.env.EXPO_PUBLIC_KROGER_CLIENT_ID ?? '';
+      const krogerBase = process.env.EXPO_PUBLIC_KROGER_ENVIRONMENT === 'production'
+        ? 'https://api.kroger.com/v1'
+        : 'https://api-ce.kroger.com/v1';
+      const params = new URLSearchParams({
+        response_type:         'code',
+        client_id:             clientId,
+        redirect_uri:          KROGER_REDIRECT_URI,
+        scope:                 'product.compact cart.basic:write',
+        state,
+        code_challenge:        codeChallenge,
+        code_challenge_method: 'S256',
+      });
+      const authUrl = `${krogerBase}/connect/oauth2/authorize?${params.toString()}`;
+
+      // 2. Open Kroger login in browser — intercepts the mori:// redirect automatically
+      const result = await WebBrowser.openAuthSessionAsync(authUrl, KROGER_REDIRECT_URI);
+
+      if (result.type !== 'success') {
+        // User cancelled — go back to results
+        setKrogerStatus('results');
+        return;
+      }
+
+      // 3. Parse the callback URL
+      const parsed = ExpoLinking.parse(result.url);
+      const code          = parsed.queryParams?.code as string | undefined;
+      const returnedState = parsed.queryParams?.state as string | undefined;
+
+      if (!code || returnedState !== state) {
+        // Invalid callback — possible CSRF attempt or stale redirect
+        setKrogerError('OAuth validation failed. Please try again.');
+        setKrogerStatus('error');
+        return;
+      }
+
+      // 4. Exchange code for tokens server-side (client_secret never touches the client)
+      const { data: { session } } = await supabase.auth.getSession();
+      const baseUrl = process.env.EXPO_PUBLIC_API_URL;
+      const res = await fetch(`${baseUrl}/api/kroger-auth`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({ code, codeVerifier, redirectUri: KROGER_REDIRECT_URI }),
+      });
+
+      if (!res.ok) {
+        setKrogerError('Failed to connect Kroger account. Please try again.');
+        setKrogerStatus('error');
+        return;
+      }
+
+      // 5. Connected — immediately add to cart
+      setKrogerConnected(true);
+      await handleKrogerAddToCart();
+
+    } catch {
+      setKrogerError('Something went wrong connecting to Kroger.');
+      setKrogerStatus('error');
+    }
   }
 
   function handleClearAll() {
@@ -485,10 +695,11 @@ export default function GroceryList() {
           </>
         )}
         <TallyDivider />
-        {/* Cost — placeholder until Instacart API */}
         <View style={{ flex: 1, alignItems: 'center', gap: 2 }}>
           <Ionicons name="pricetag-outline" size={18} color={colors.primary} />
-          <Text style={{ fontSize: 18, fontWeight: '700', color: colors.primary }}>—</Text>
+          <Text style={{ fontSize: 18, fontWeight: '700', color: colors.primary }}>
+            {krogerTotal != null ? `$${krogerTotal.toFixed(0)}` : '—'}
+          </Text>
           <Text style={{ fontSize: 11, color: colors.primary, opacity: 0.75 }}>est. cost</Text>
         </View>
       </View>
@@ -497,9 +708,11 @@ export default function GroceryList() {
           <MacroRow macros={combinedMacros} compact />
         </View>
       )}
-      <Text style={{ fontSize: 11, color: colors.textMuted, textAlign: 'center', marginBottom: 12, paddingHorizontal: 16 }}>
-        Cost estimates available once Instacart is connected
-      </Text>
+      {krogerTotal == null && (
+        <Text style={{ fontSize: 11, color: colors.textMuted, textAlign: 'center', marginBottom: 12, paddingHorizontal: 16 }}>
+          Tap "Order on Kroger" to see estimated cost
+        </Text>
+      )}
 
       {/* Item list */}
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 160 }}>
@@ -625,6 +838,26 @@ export default function GroceryList() {
         )}
       </ScrollView>
 
+      <KrogerSheet
+        visible={krogerSheetVisible}
+        status={krogerStatus}
+        products={krogerProducts}
+        total={krogerTotal}
+        connected={krogerConnected}
+        itemsAdded={krogerItemsAdded}
+        error={krogerError}
+        onConnect={handleKrogerConnect}
+        onAddToCart={handleKrogerAddToCart}
+        onClose={() => {
+          setKrogerSheetVisible(false);
+          setKrogerStatus('idle');
+          setKrogerProducts([]);
+          setKrogerTotal(null);
+          setKrogerItemsAdded(0);
+          setKrogerError(null);
+        }}
+      />
+
       {/* Undo banner — delete/clear */}
       {undoItems && (
         <UndoBanner
@@ -666,15 +899,15 @@ export default function GroceryList() {
         </Pressable>
 
         <Pressable
-          onPress={() => Alert.alert('Coming soon', 'Instacart integration ships in Phase 3. Cost estimates will also appear here once connected.')}
+          onPress={handleKrogerOrder}
           style={{
             backgroundColor: colors.card, borderRadius: 12, borderWidth: 1.5,
-            borderColor: colors.border, paddingVertical: 13, alignItems: 'center',
+            borderColor: colors.primary, paddingVertical: 13, alignItems: 'center',
             flexDirection: 'row', justifyContent: 'center', gap: 8,
           }}
         >
-          <Ionicons name="cart-outline" size={18} color={colors.textMuted} />
-          <Text style={{ color: colors.textMuted, fontSize: 15, fontWeight: '500' }}>Order on Instacart</Text>
+          <Ionicons name="cart-outline" size={18} color={colors.primary} />
+          <Text style={{ color: colors.primary, fontSize: 15, fontWeight: '600' }}>Order on Kroger</Text>
         </Pressable>
       </View>
     </SafeAreaView>
@@ -682,6 +915,205 @@ export default function GroceryList() {
 }
 
 // ── Sub-components ───────────────────────────────────────────────────────────
+
+function KrogerSheet({
+  visible, status, products, total, connected, itemsAdded, error,
+  onConnect, onAddToCart, onClose,
+}: {
+  visible: boolean;
+  status: KrogerStatus;
+  products: KrogerProduct[];
+  total: number | null;
+  connected: boolean;
+  itemsAdded: number;
+  error: string | null;
+  onConnect: () => void;
+  onAddToCart: () => void;
+  onClose: () => void;
+}) {
+  const colors = useTheme();
+  const isLoading = status === 'searching' || status === 'adding' || status === 'oauth';
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent presentationStyle="overFullScreen">
+      <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }}>
+        <Pressable style={{ ...StyleSheet.absoluteFillObject }} onPress={isLoading ? undefined : onClose} />
+        <View style={{
+          backgroundColor: colors.card,
+          borderTopLeftRadius: 20, borderTopRightRadius: 20,
+          paddingBottom: 36, maxHeight: '85%',
+        }}>
+          {/* Handle */}
+          <View style={{
+            width: 36, height: 4, borderRadius: 2, backgroundColor: colors.border,
+            alignSelf: 'center', marginTop: 12, marginBottom: 4,
+          }} />
+
+          {/* Header */}
+          <View style={{
+            flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+            paddingHorizontal: 20, paddingVertical: 14,
+          }}>
+            <Text style={{ fontSize: 18, fontWeight: '700', color: colors.text }}>Order on Kroger</Text>
+            {!isLoading && (
+              <Pressable onPress={onClose} hitSlop={12}>
+                <Ionicons name="close" size={22} color={colors.textMuted} />
+              </Pressable>
+            )}
+          </View>
+
+          {/* Loading */}
+          {isLoading && (
+            <View style={{ paddingVertical: 48, alignItems: 'center', gap: 16 }}>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text style={{ color: colors.textMuted, fontSize: 15 }}>
+                {status === 'searching' ? 'Searching Kroger...'
+                  : status === 'oauth'    ? 'Waiting for Kroger login...'
+                  : 'Adding to your cart...'}
+              </Text>
+            </View>
+          )}
+
+          {/* Error */}
+          {status === 'error' && (
+            <View style={{ paddingVertical: 32, paddingHorizontal: 20, alignItems: 'center', gap: 12 }}>
+              <Ionicons name="alert-circle-outline" size={40} color={colors.error} />
+              <Text style={{ color: colors.text, fontSize: 15, textAlign: 'center' }}>{error}</Text>
+              <Pressable onPress={onClose} style={{
+                borderRadius: 10, borderWidth: 1, borderColor: colors.border,
+                paddingVertical: 10, paddingHorizontal: 24,
+              }}>
+                <Text style={{ color: colors.textMuted, fontSize: 14 }}>Dismiss</Text>
+              </Pressable>
+            </View>
+          )}
+
+          {/* Success */}
+          {status === 'success' && (
+            <View style={{ paddingVertical: 32, paddingHorizontal: 20, alignItems: 'center', gap: 14 }}>
+              <View style={{
+                width: 64, height: 64, borderRadius: 32,
+                backgroundColor: colors.primaryLight,
+                alignItems: 'center', justifyContent: 'center',
+              }}>
+                <Ionicons name="checkmark-circle" size={40} color={colors.primary} />
+              </View>
+              <Text style={{ fontSize: 20, fontWeight: '700', color: colors.text }}>
+                {itemsAdded} item{itemsAdded !== 1 ? 's' : ''} added!
+              </Text>
+              {total != null && (
+                <Text style={{ fontSize: 15, color: colors.textMuted }}>
+                  Estimated total: ${total.toFixed(2)}
+                </Text>
+              )}
+              <Pressable
+                onPress={() => Linking.openURL('https://www.kroger.com/cart')}
+                style={{
+                  backgroundColor: colors.primary, borderRadius: 12,
+                  paddingVertical: 14, paddingHorizontal: 32,
+                  flexDirection: 'row', alignItems: 'center', gap: 8,
+                }}
+              >
+                <Ionicons name="open-outline" size={18} color="white" />
+                <Text style={{ color: 'white', fontSize: 16, fontWeight: '600' }}>Open Kroger Cart</Text>
+              </Pressable>
+            </View>
+          )}
+
+          {/* Results */}
+          {status === 'results' && (
+            <>
+              <ScrollView
+                contentContainerStyle={{ paddingHorizontal: 16, gap: 8, paddingBottom: 8 }}
+                showsVerticalScrollIndicator={false}
+              >
+                {products.map((p, i) => (
+                  <View key={i} style={{
+                    flexDirection: 'row', alignItems: 'center',
+                    backgroundColor: colors.background, borderRadius: 10,
+                    paddingHorizontal: 14, paddingVertical: 12,
+                    opacity: p.found ? 1 : 0.5,
+                  }}>
+                    <View style={{ flex: 1, marginRight: 12 }}>
+                      <Text style={{ fontSize: 12, color: colors.textMuted, marginBottom: 2 }} numberOfLines={1}>
+                        {p.query}
+                      </Text>
+                      {p.found ? (
+                        <>
+                          <Text style={{ fontSize: 15, fontWeight: '500', color: colors.text }} numberOfLines={2}>
+                            {p.name}
+                          </Text>
+                          {p.size ? (
+                            <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>{p.size}</Text>
+                          ) : null}
+                        </>
+                      ) : (
+                        <Text style={{ fontSize: 13, color: colors.textMuted, fontStyle: 'italic' }}>
+                          Not found on Kroger
+                        </Text>
+                      )}
+                    </View>
+                    {p.found && (
+                      <Text style={{ fontSize: 16, fontWeight: '700', color: colors.primary }}>
+                        {p.price != null ? `$${p.price.toFixed(2)}` : '—'}
+                      </Text>
+                    )}
+                  </View>
+                ))}
+              </ScrollView>
+
+              <View style={{
+                paddingHorizontal: 16, paddingTop: 14, gap: 10,
+                borderTopWidth: 1, borderTopColor: colors.border, marginTop: 8,
+              }}>
+                {total != null && (
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text style={{ fontSize: 15, color: colors.textMuted }}>Estimated total</Text>
+                    <Text style={{ fontSize: 18, fontWeight: '700', color: colors.text }}>${total.toFixed(2)}</Text>
+                  </View>
+                )}
+
+                {connected ? (
+                  <Pressable
+                    onPress={onAddToCart}
+                    style={{
+                      backgroundColor: colors.primary, borderRadius: 12,
+                      paddingVertical: 15, alignItems: 'center',
+                      flexDirection: 'row', justifyContent: 'center', gap: 8,
+                    }}
+                  >
+                    <Ionicons name="cart" size={18} color="white" />
+                    <Text style={{ color: 'white', fontSize: 16, fontWeight: '600' }}>
+                      Add {products.filter((p) => p.found).length} Items to Kroger Cart
+                    </Text>
+                  </Pressable>
+                ) : (
+                  <Pressable
+                    onPress={onConnect}
+                    style={{
+                      backgroundColor: colors.primary, borderRadius: 12,
+                      paddingVertical: 15, alignItems: 'center',
+                      flexDirection: 'row', justifyContent: 'center', gap: 8,
+                    }}
+                  >
+                    <Ionicons name="log-in-outline" size={18} color="white" />
+                    <Text style={{ color: 'white', fontSize: 16, fontWeight: '600' }}>Connect Kroger Account</Text>
+                  </Pressable>
+                )}
+
+                {!connected && (
+                  <Text style={{ fontSize: 11, color: colors.textMuted, textAlign: 'center' }}>
+                    Sign in once — items go straight to your Kroger cart
+                  </Text>
+                )}
+              </View>
+            </>
+          )}
+        </View>
+      </View>
+    </Modal>
+  );
+}
 
 function GroceryRow({
   item,
