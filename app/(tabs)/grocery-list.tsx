@@ -209,7 +209,7 @@ function MealsModal({
                 padding: 12,
               }}>
                 <Image
-                  source={{ uri: recipe.image_url ?? '' }}
+                  source={recipe.image_url ? { uri: recipe.image_url } : undefined}
                   style={{ width: 60, height: 60, borderRadius: 10 }}
                   contentFit="cover"
                 />

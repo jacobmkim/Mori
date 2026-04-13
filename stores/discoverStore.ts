@@ -40,19 +40,23 @@ export const useDiscoverStore = create<DiscoverStore>((set) => ({
   },
 
   loadMode: async () => {
-    const [storedMode, storedAppearance, storedUnit] = await Promise.all([
-      AsyncStorage.getItem(MODE_KEY),
-      AsyncStorage.getItem(APPEARANCE_KEY),
-      AsyncStorage.getItem(UNIT_KEY),
-    ]);
-    if (storedMode === 'spontaneous' || storedMode === 'meal_prep') {
-      set({ mode: storedMode });
-    }
-    if (storedAppearance === 'light' || storedAppearance === 'dark' || storedAppearance === 'system') {
-      set({ appearanceMode: storedAppearance });
-    }
-    if (storedUnit === 'us' || storedUnit === 'metric') {
-      set({ unitSystem: storedUnit });
+    try {
+      const [storedMode, storedAppearance, storedUnit] = await Promise.all([
+        AsyncStorage.getItem(MODE_KEY),
+        AsyncStorage.getItem(APPEARANCE_KEY),
+        AsyncStorage.getItem(UNIT_KEY),
+      ]);
+      if (storedMode === 'spontaneous' || storedMode === 'meal_prep') {
+        set({ mode: storedMode });
+      }
+      if (storedAppearance === 'light' || storedAppearance === 'dark' || storedAppearance === 'system') {
+        set({ appearanceMode: storedAppearance });
+      }
+      if (storedUnit === 'us' || storedUnit === 'metric') {
+        set({ unitSystem: storedUnit });
+      }
+    } catch {
+      // Corrupted or unavailable storage — keep defaults
     }
   },
 }));

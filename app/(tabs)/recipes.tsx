@@ -1,6 +1,6 @@
 /**
  * recipes.tsx — My Recipes (personal library)
- * 4 sub-tabs: Saved | Cooked | Mine | Meal Prep
+ * 3 sub-tabs: Saved | Cooked | Mine
  * Section 18.3 spec
  */
 import {
@@ -32,15 +32,15 @@ const FILTER_SECTIONS = [
 import { useSavedStore } from '@/stores/savedStore';
 import { useGroceryStore } from '@/stores/groceryStore';
 import { useUserStore } from '@/stores/userStore';
-import { useDiscoverStore } from '@/stores/discoverStore';
+
 import { supabase } from '@/lib/supabase';
 import { AvatarButton } from '@/components/AvatarButton';
 import { RecipeDetailModal } from '@/components/RecipeDetailModal';
 import { AddRecipeWizard } from '@/components/AddRecipeWizard';
 import type { Recipe } from '@/types';
 
-type SubTab = 'Saved' | 'Cooked' | 'Mine' | 'Meal Prep';
-const SUB_TABS: SubTab[] = ['Saved', 'Cooked', 'Mine', 'Meal Prep'];
+type SubTab = 'Saved' | 'Cooked' | 'Mine';
+const SUB_TABS: SubTab[] = ['Saved', 'Cooked', 'Mine'];
 
 // ── Grid card ─────────────────────────────────────────────────────────────────
 function RecipeCard({
@@ -53,6 +53,11 @@ function RecipeCard({
   onPress: () => void;
 }) {
   const colors = useTheme();
+  const totalMins = (recipe.prep_time_mins ?? 0) + (recipe.cook_time_mins ?? 0);
+  const isQuick = totalMins > 0 && totalMins <= 30;
+  const isMealPrep = recipe.meal_prep_friendly === true;
+  const isHighProtein = !!(recipe.dietary_tags?.includes('high_protein') || (recipe.macros as any)?.protein >= 25);
+  const isLowCarb = !!(recipe.dietary_tags?.includes('low_carb') || (recipe.macros as any)?.carbohydrates <= 30);
   return (
     <Pressable
       onPress={onPress}
@@ -63,7 +68,7 @@ function RecipeCard({
       }}
     >
       <Image
-        source={{ uri: recipe.image_url ?? '' }}
+        source={{ uri: recipe.image_url || undefined }}
         style={{ width: '100%', height: 100 }}
         contentFit="cover"
       />
@@ -83,10 +88,32 @@ function RecipeCard({
           {recipe.title}
         </Text>
         <Text style={{ fontSize: 9, color: colors.textMuted, marginTop: 3, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-          {recipe.meal_prep_friendly
-            ? 'Meal prep ✓'
-            : [recipe.cuisine, formatTime(recipe.prep_time_mins, recipe.cook_time_mins)].filter(Boolean).join(' · ')}
+          {[recipe.cuisine, formatTime(recipe.prep_time_mins, recipe.cook_time_mins)].filter(Boolean).join(' · ')}
         </Text>
+        {(isMealPrep || isQuick || isHighProtein || isLowCarb) && (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 5 }}>
+            {isMealPrep && (
+              <View style={{ backgroundColor: '#2E5438', borderRadius: 999, paddingHorizontal: 6, paddingVertical: 2, marginRight: 4, marginBottom: 2 }}>
+                <Text style={{ fontSize: 8, fontWeight: '700', color: '#fff' }}>Meal Prep</Text>
+              </View>
+            )}
+            {isQuick && (
+              <View style={{ backgroundColor: '#FFF3E0', borderRadius: 999, paddingHorizontal: 6, paddingVertical: 2, marginRight: 4, marginBottom: 2 }}>
+                <Text style={{ fontSize: 8, fontWeight: '700', color: '#E65100' }}>Quick</Text>
+              </View>
+            )}
+            {isHighProtein && (
+              <View style={{ backgroundColor: '#E3F2FD', borderRadius: 999, paddingHorizontal: 6, paddingVertical: 2, marginRight: 4, marginBottom: 2 }}>
+                <Text style={{ fontSize: 8, fontWeight: '700', color: '#1565C0' }}>High Protein</Text>
+              </View>
+            )}
+            {isLowCarb && (
+              <View style={{ backgroundColor: '#F3E5F5', borderRadius: 999, paddingHorizontal: 6, paddingVertical: 2, marginBottom: 2 }}>
+                <Text style={{ fontSize: 8, fontWeight: '700', color: '#6A1B9A' }}>Low Carb</Text>
+              </View>
+            )}
+          </View>
+        )}
       </View>
     </Pressable>
   );
@@ -95,11 +122,11 @@ function RecipeCard({
 export default function Recipes() {
   const colors = useTheme();
   const userId = useUserStore((s) => s.profile?.id);
-  const { savedRecipes, addRecipe, removeRecipe } = useSavedStore();
+  const { savedRecipes, addRecipe, removeRecipe, mealPrepIds } = useSavedStore();
   const { addFromDetail, selectedRecipes, removeRecipeFromList } = useGroceryStore();
-  const mode = useDiscoverStore((s) => s.mode);
 
-  const [activeTab, setActiveTab] = useState<SubTab>(mode === 'meal_prep' ? 'Meal Prep' : 'Saved');
+
+  const [activeTab, setActiveTab] = useState<SubTab>('Saved');
   const [search, setSearch] = useState('');
   const [activeFilters, setActiveFilters] = useState<Set<string>>(new Set());
   const [filterSheetVisible, setFilterSheetVisible] = useState(false);
@@ -262,10 +289,10 @@ export default function Recipes() {
         });
       });
 
-    // Time & Prep (OR within section)
+    // Time & Prep (AND — every selected filter must match)
     const timeSel = TIME_OPTIONS.filter((t) => activeFilters.has(t));
     if (timeSel.length > 0)
-      list = list.filter((r) => timeSel.some((t) => {
+      list = list.filter((r) => timeSel.every((t) => {
         if (t === 'Quick (≤30 min)')    return ((r.prep_time_mins ?? 99) + (r.cook_time_mins ?? 99)) <= 30;
         if (t === 'Meal Prep Friendly') return r.meal_prep_friendly === true;
         if (t === 'High Protein')       return r.dietary_tags?.includes('high_protein') || (r.macros as any)?.protein >= 25;
@@ -288,13 +315,11 @@ export default function Recipes() {
   const savedList = useMemo(() => filtered(savedRecipes), [savedRecipes, search, activeFilters]);
   const cookedList = useMemo(() => filtered(cookedRecipes), [cookedRecipes, search, activeFilters]);
   const mineList = useMemo(() => filtered(mineRecipes), [mineRecipes, search, activeFilters]);
-  const mealPrepList = useMemo(() => filtered(savedRecipes.filter((r) => r.meal_prep_friendly)), [savedRecipes, search, activeFilters]);
 
   function currentList(): Recipe[] {
     if (activeTab === 'Saved') return savedList;
     if (activeTab === 'Cooked') return cookedList;
-    if (activeTab === 'Mine') return mineList;
-    return mealPrepList;
+    return mineList;
   }
 
   function openRecipe(recipe: Recipe) {
@@ -320,7 +345,6 @@ export default function Recipes() {
       Saved: { icon: 'bookmark-outline', title: 'No saved recipes yet', sub: 'Swipe right on recipes in Discover to save them here.' },
       Cooked: { icon: 'restaurant-outline', title: 'Nothing cooked yet', sub: 'Mark a recipe as cooked to see it here.' },
       Mine: { icon: 'create-outline', title: 'No recipes submitted yet', sub: 'Use the + button to add your first recipe.' },
-      'Meal Prep': { icon: 'flash-outline', title: 'No meal prep recipes saved', sub: 'Save meal-prep-friendly recipes from Discover.' },
     };
     const m = messages[activeTab];
     return (
@@ -335,7 +359,7 @@ export default function Recipes() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       {/* Header */}
-      <View style={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 8 }}>
+      <View style={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 12 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
           <Text style={{ fontSize: 28, fontWeight: '700', color: colors.text }}>My Recipes</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
@@ -426,6 +450,41 @@ export default function Recipes() {
             );
           })}
         </View>
+
+        {/* Quick-filter chips */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={{ height: 36, marginTop: 10, marginHorizontal: -16 }}
+          contentContainerStyle={{ paddingHorizontal: 16, alignItems: 'center' }}
+        >
+          {([
+            { label: 'Meal Prep', key: 'Meal Prep Friendly' },
+            { label: 'Quick ≤30 min', key: 'Quick (≤30 min)' },
+            { label: 'High Protein', key: 'High Protein' },
+            { label: 'Low Carb', key: 'Low Carb' },
+          ] as { label: string; key: string }[]).map(({ label, key }) => {
+            const active = activeFilters.has(key);
+            return (
+              <Pressable
+                key={key}
+                onPress={() => toggleFilter(key)}
+                style={{
+                  borderRadius: 999,
+                  paddingHorizontal: 12, paddingVertical: 5,
+                  marginRight: 8,
+                  backgroundColor: active ? colors.primary : colors.card,
+                  borderWidth: 1,
+                  borderColor: active ? colors.primary : colors.border,
+                }}
+              >
+                <Text style={{ fontSize: 12, fontWeight: '600', color: active ? '#fff' : colors.textMuted }}>
+                  {label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
       </View>
 
       {/* Content */}

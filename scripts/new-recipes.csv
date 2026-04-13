@@ -1,0 +1,314 @@
+title,cuisine,meal_prep_friendly,difficulty,approx_time_mins
+Shrimp Pasta with Tomato Cream Sauce,italian,false,intermediate,35
+Chicken Piccata with Lemon Caper Sauce,italian,false,intermediate,30
+Roasted Garlic Chicken with Smashed Potatoes and Greens,american,true,intermediate,50
+Beans and Greens with Dill Cream Sauce,mediterranean,true,intermediate,30
+Peanut Roasted Cauliflower Skillet,asian,true,intermediate,35
+Mini Meatloaves with Sheet Pan Vegetables,american,true,intermediate,45
+One-Pan Pasta with Ground Turkey and Zucchini,italian,true,intermediate,30
+Easy Pad Thai with Shrimp,thai,false,intermediate,30
+Easy Chimichangas with Meat and Chiles,mexican,false,intermediate,40
+Slow Cooker Pot Roast with Root Vegetables,american,true,intermediate,480
+BBQ Pulled Pork with Baked Beans,american,true,intermediate,240
+Sheet Pan Grilled Chicken with Watermelon Salad,american,true,intermediate,40
+Cheesy Pasta with Shrimp and Tomato,italian,false,intermediate,30
+Chicken Nachos with Romaine and Cheese,mexican,false,intermediate,25
+Spiralized Butternut Squash Noodles with Sweet Sauce,vegetarian,false,intermediate,30
+Pepperoni Fried Rice with Bell Peppers,"italian,asian",true,intermediate,25
+Pappardelle Pasta with Snap Peas and Ricotta,italian,false,intermediate,30
+Linguine with Garlic Oil and Sauteed Shrimp,italian,false,intermediate,25
+Crispy Chicken Cutlets with Everything Bagel Seasoning,american,false,intermediate,30
+Unstuffed Cabbage Roll Skillet with Tomato Sauce,american,true,intermediate,40
+Garlic Marinated Grilled Chicken with Watermelon Salad,american,true,intermediate,40
+Caprese Panini Sandwich with Pesto and Balsamic,italian,false,intermediate,15
+BBQ Chicken Flatbread,american,false,intermediate,25
+One-Pot Cheesy Mushroom Beef Pasta,american,true,intermediate,35
+Cauliflower Gnocchi with Lemon Cream Sauce,italian,false,intermediate,30
+Sheet Pan Chicken Fajitas with Peppers and Onions,mexican,true,intermediate,40
+Fragrant Coconut Chicken with Sweet Potatoes,thai,true,intermediate,45
+Spicy Ground Turkey with Snap Peas and Thai Herbs,thai,true,intermediate,30
+Pan-Seared Pork Chops with Feta and Mint,mediterranean,false,intermediate,25
+Steak with Ginger Butter Sauce,asian,false,intermediate,20
+Baked Salmon with Garlic Butter and Asparagus,american,true,intermediate,30
+Turkey Meatballs in Tomato Sauce with Pasta,italian,true,intermediate,45
+Korean Ground Beef Bowl with Rice and Egg,korean,true,intermediate,25
+Chicken Stir Fry with Broccoli and Rice,chinese,true,intermediate,25
+Beef Tacos with Seasoning and Toppings,mexican,false,intermediate,25
+Spaghetti Bolognese with Meat Sauce,italian,true,intermediate,50
+Creamy Cajun Pasta with Shrimp,"cajun,italian",false,intermediate,30
+Harissa Orange Chicken with Roasted Broccoli,"middle eastern,american",true,intermediate,45
+Slow Cooker Pulled Chicken Sandwiches,american,true,intermediate,480
+Teriyaki Chicken Skewers with Vegetables,japanese,true,intermediate,35
+Beef and Broccoli with Soy Sauce,asian,true,intermediate,25
+Pork Carnitas with Tortillas and Toppings,mexican,false,intermediate,120
+Stuffed Bell Peppers with Ground Beef and Rice,american,true,intermediate,50
+Baked Tilapia with Lemon and Herbs,mediterranean,true,intermediate,30
+Meatloaf with Tomato Glaze and Vegetables,american,true,intermediate,60
+Chicken Marsala with Mushroom Sauce,italian,false,intermediate,35
+Baked Cod with Olive Tapenade,mediterranean,true,intermediate,25
+Tater Tot Casserole with Ground Beef,american,true,intermediate,45
+Thai Green Curry Chicken with Rice,thai,true,intermediate,35
+Beef Chili with Beans and Cornbread,american,true,intermediate,50
+Chicken Enchiladas with Red Sauce and Cheese,mexican,true,intermediate,50
+Roasted Lemon Herb Salmon with Potatoes,mediterranean,true,intermediate,45
+Ground Beef and Rice Skillet Dinner,american,true,intermediate,25
+Shrimp Scampi with Pasta and Garlic,italian,false,intermediate,25
+Grilled Chicken with BBQ Sauce and Coleslaw,american,true,intermediate,30
+Beef Fried Rice with Eggs and Vegetables,asian,true,intermediate,25
+Pork Chops with Apple and Onion Sauce,american,false,intermediate,30
+Baked Lemon Chicken with Green Beans,american,true,intermediate,35
+Spaghetti and Meatballs with Marinara,italian,true,intermediate,45
+Slow Cooker Beef Stew,american,true,intermediate,480
+Chicken Quesadillas with Cheese and Peppers,mexican,false,intermediate,20
+Turkey Chili with Beans,american,true,intermediate,40
+Fish Tacos with Cabbage Slaw and Lime Crema,mexican,false,intermediate,30
+Baked Pork Tenderloin with Garlic and Herbs,american,true,intermediate,40
+Creamy Mushroom Chicken,european,false,intermediate,30
+Beef Fajita Skillet with Peppers,mexican,true,intermediate,25
+Lemon Butter Chicken with Rice,mediterranean,true,intermediate,30
+Roasted Chicken Thighs with Root Vegetables,american,true,intermediate,50
+Shrimp and Grits,american,false,intermediate,30
+BBQ Chicken Pizza,american,false,intermediate,25
+Blackened Salmon with Cajun Spices,cajun,true,intermediate,25
+Beef Stroganoff with Egg Noodles,russian,true,intermediate,35
+Chicken Tikka Masala with Rice,indian,true,intermediate,45
+Pork Tenderloin with Mushroom Sauce,european,false,intermediate,40
+Shrimp Fried Rice,asian,true,intermediate,25
+Beef and Vegetable Skillet,american,true,intermediate,25
+Lemon Garlic Pasta with Vegetables,italian,false,intermediate,25
+Teriyaki Beef Bowl,japanese,true,intermediate,25
+Chicken Curry with Rice,indian,true,intermediate,45
+Ground Turkey Tacos,mexican,false,intermediate,20
+Baked Salmon Fillets with Dill,scandinavian,true,intermediate,25
+Steak and Potato Skillet,american,true,intermediate,30
+Chicken Parmesan with Marinara,italian,false,intermediate,40
+Shrimp Pad Thai,thai,false,intermediate,30
+Pork Chops with Sage Butter,italian,false,intermediate,25
+Beef Burrito Bowls,mexican,true,intermediate,30
+Roasted Chicken with Garlic and Lemon,mediterranean,true,intermediate,40
+Turkey Meatloaf with Vegetables,american,true,intermediate,60
+Cajun Chicken Pasta,"cajun,italian",false,intermediate,30
+Baked White Fish with Herbs,mediterranean,true,intermediate,25
+Chicken and Rice Skillet,american,true,intermediate,25
+Ground Beef and Vegetable Casserole,american,true,intermediate,45
+Pan-Seared Scallops with Garlic,mediterranean,false,intermediate,20
+Slow Cooker Chicken Tacos,mexican,true,intermediate,480
+Beef and Mushroom Pasta,italian,false,intermediate,35
+Honey Garlic Chicken,asian,true,intermediate,25
+Pork Schnitzel with Lemon,german,false,intermediate,30
+Shrimp and Vegetable Skillet,asian,true,intermediate,25
+Chicken Fried Rice,asian,true,intermediate,25
+Beef Taco Skillet,mexican,true,intermediate,25
+Roasted Chicken Breast with Vegetables,american,true,intermediate,45
+Pasta with Meat Sauce,italian,true,intermediate,45
+Thai Basil Chicken,thai,true,intermediate,20
+Grilled Pork Chops with Garlic,american,true,intermediate,25
+Baked Tilapia with Tomato,mediterranean,true,intermediate,30
+Chicken Teriyaki with Rice,japanese,true,intermediate,25
+Ground Beef Enchiladas,mexican,true,intermediate,45
+Sauteed Shrimp with Garlic Butter,italian,false,intermediate,20
+Chicken and Broccoli,chinese,true,intermediate,20
+Beef Chow Mein,chinese,false,intermediate,30
+Pork Stir Fry with Vegetables,asian,true,intermediate,25
+Turkey Burgers with Toppings,american,false,intermediate,20
+Chicken Fajitas,mexican,false,intermediate,25
+Beef Burgundy with Potatoes,french,true,intermediate,90
+Shrimp Lo Mein,chinese,true,intermediate,25
+Grilled Chicken Sandwich,american,false,intermediate,20
+Pork Carnitas Tacos,mexican,false,intermediate,30
+Chicken Alfredo Pasta,italian,true,intermediate,30
+Beef and Vegetable Stir Fry,chinese,true,intermediate,25
+Roasted Turkey Breast with Stuffing,american,true,intermediate,90
+Chicken Souvlaki with Rice,greek,true,intermediate,40
+Beef Meatballs in Tomato Sauce,italian,true,intermediate,45
+Pork Ribs with BBQ Sauce,american,false,intermediate,180
+Pan-Seared Halibut with Asparagus,mediterranean,false,intermediate,25
+Ground Turkey Meatballs,american,true,intermediate,35
+Beef Taco Salad,mexican,false,intermediate,20
+Roasted Vegetables with Chicken,mediterranean,true,intermediate,45
+Shrimp Curry with Rice,indian,true,intermediate,35
+Pork Tenderloin with Herbs,american,true,intermediate,45
+Chicken Soup with Noodles,american,true,intermediate,45
+Baked Tilapia with Garlic Butter,mediterranean,true,intermediate,25
+Beef and Broccoli Rice Bowl,asian,true,intermediate,25
+Chicken Tenders with Sweet Potato Fries,american,false,intermediate,35
+Turkey Chili with Corn,american,true,intermediate,40
+Spaghetti with Clam Sauce,italian,false,intermediate,30
+Grilled Fish Fillets,mediterranean,true,intermediate,20
+Pork Chops with Mushroom Gravy,american,false,intermediate,30
+Chicken and Vegetable Skillet,american,true,intermediate,25
+Beef Stew with Potatoes,american,true,intermediate,60
+Shrimp Tacos,mexican,false,intermediate,25
+Ground Chicken Tacos,mexican,false,intermediate,20
+Pasta Carbonara,italian,false,intermediate,25
+Teriyaki Pork,japanese,true,intermediate,25
+Baked White Fish with Dill,scandinavian,true,intermediate,25
+Chicken Spaghetti Casserole,"italian,american",true,intermediate,50
+Shrimp Bisque Soup,french,false,intermediate,45
+Grilled Chicken with Salsa,mexican,true,intermediate,20
+Baked Cod with Herbs,mediterranean,true,intermediate,25
+Beef and Vegetable Soup,american,true,intermediate,45
+Chicken Cacciatore,italian,true,intermediate,60
+Pork Ribs with Dry Rub,american,false,intermediate,180
+Shrimp with Garlic Sauce,asian,false,intermediate,20
+Roasted Chicken with Potatoes,american,true,intermediate,55
+Ground Turkey Pasta Sauce,italian,true,intermediate,35
+Beef Taco Filling,mexican,true,intermediate,20
+Pan-Fried Fish Fillets,mediterranean,true,intermediate,20
+Chicken with Mushroom Sauce,european,false,intermediate,30
+Pork Tenderloin with Gravy,american,false,intermediate,45
+Shrimp and Rice Skillet,asian,true,intermediate,25
+Grilled Steak with Vegetables,american,true,intermediate,25
+Baked Salmon with Potatoes,american,true,intermediate,40
+Beef and Cabbage Skillet,american,true,intermediate,25
+Turkey Burrito Bowls,mexican,true,intermediate,30
+Roasted Fish with Lemon,mediterranean,true,intermediate,25
+Pork Chops with Apple Sauce,american,false,intermediate,25
+Chicken and Rice Casserole,american,true,intermediate,45
+Beef Chop Suey,"chinese,american",true,intermediate,30
+Shrimp and Vegetable Fried Rice,asian,true,intermediate,25
+Grilled Pork Steaks,american,true,intermediate,25
+Baked Tilapia Fillets with Lemon,mediterranean,true,intermediate,25
+Ground Beef and Potato Casserole,american,true,intermediate,50
+Shrimp Fried Rice with Peas,asian,true,intermediate,25
+Roasted Chicken Thighs with Herbs,american,true,intermediate,50
+Beef and Bean Tacos,mexican,false,intermediate,25
+Pasta with Seafood Sauce,italian,false,intermediate,35
+Pork Tenderloin Medallions,american,false,intermediate,35
+Chicken Noodle Casserole,american,true,intermediate,45
+Baked Cod with Tomato,mediterranean,true,intermediate,30
+Beef and Onion Rice Bowl,asian,true,intermediate,25
+Roasted Salmon with Dill,scandinavian,true,intermediate,25
+Chicken with Garlic Sauce,asian,false,intermediate,25
+Turkey Chili Bowl,american,true,intermediate,40
+Grilled Fish with Salsa,mexican,true,intermediate,20
+Shrimp and Vegetable Skillet Dinner,asian,true,intermediate,25
+Chicken Piccata Pasta,italian,false,intermediate,30
+Beef Fajita Filling,mexican,true,intermediate,20
+Baked Tilapia with Vegetables,mediterranean,true,intermediate,30
+Beef and Mushroom Sauce,european,false,intermediate,30
+Shrimp Saute with Garlic,mediterranean,false,intermediate,20
+Fish and Chips,british,false,intermediate,35
+Pasta Marinara,italian,true,intermediate,25
+Turkey Sausage Pasta,"italian,american",true,intermediate,30
+Beef Stir Fry,chinese,true,intermediate,20
+Shrimp with Noodles,asian,false,intermediate,25
+Ground Beef Skillet,american,true,intermediate,20
+Chicken Soup,american,true,intermediate,40
+Creamy Tomato Shrimp Pasta,italian,false,intermediate,30
+Garlic Butter Salmon with Green Beans,american,true,intermediate,25
+Honey Soy Ground Chicken Bowls,"asian,american",true,intermediate,25
+Black Bean Beef Enchiladas,mexican,true,intermediate,45
+Pan-Roasted Pork Chops with Cherries,american,false,intermediate,30
+Spicy Sausage Pasta Primavera,italian,false,intermediate,30
+Thai Green Curry with Rice,thai,true,intermediate,35
+Grilled Fish Tacos with Slaw,mexican,false,intermediate,30
+Sheet Pan Sausage and Vegetables,american,true,intermediate,40
+Beef Ragu with Polenta,italian,true,intermediate,60
+Creamy Garlic Chicken with Spinach,mediterranean,false,intermediate,30
+Shrimp and Avocado Rice Bowls,asian,true,intermediate,25
+Ground Turkey Taco Skillet,mexican,true,intermediate,30
+Lemon Herb Roasted Salmon Fillets,scandinavian,true,intermediate,30
+Baked Cod with Capers and Olives,mediterranean,true,intermediate,30
+Beef Birria Tacos,mexican,false,intermediate,120
+Chicken Katsu with Rice,japanese,true,intermediate,40
+Creamy Garlic Mushroom Pork,european,false,intermediate,35
+Shrimp Pad See Ew,thai,false,intermediate,30
+Turkey Meatball Sub Sandwiches,"italian,american",false,intermediate,40
+Baked Salmon with Dill Sauce,american,true,intermediate,30
+Ground Beef Picadillo,cuban,true,intermediate,35
+Chicken Fajita Rice Bowls,mexican,true,intermediate,30
+Pork Tenderloin with Pomegranate Glaze,american,false,intermediate,45
+Seafood Paella,spanish,false,intermediate,60
+Beef and Vegetable Lo Mein,chinese,true,intermediate,25
+Creamy Tuscan Chicken Pasta,italian,false,intermediate,30
+Thai Basil Beef with Rice,thai,true,intermediate,25
+Lemon Garlic Shrimp Pasta,italian,false,intermediate,25
+Pork Schnitzel with Lemon Caper Sauce,german,false,intermediate,35
+Chicken Shawarma Rice Bowls,middle eastern,true,intermediate,45
+Baked Tilapia with Tomato and Olive,mediterranean,true,intermediate,30
+Ground Turkey Lettuce Wraps with Sauce,asian,false,intermediate,20
+Garlic Butter Steak with Potatoes,american,true,intermediate,30
+Shrimp and Vegetable Tempura,japanese,false,intermediate,45
+Beef Enchilada Skillet,mexican,true,intermediate,30
+Roasted Chicken with Root Vegetables,american,true,intermediate,55
+Creamy Dill Salmon,scandinavian,false,intermediate,25
+Ground Beef Taco Salad,mexican,false,intermediate,20
+Pan-Seared Cod with Lemon Butter,mediterranean,false,intermediate,20
+Turkey Spaghetti Marinara,italian,true,intermediate,35
+Spicy Shrimp Stir Fry,asian,true,intermediate,20
+Pork Chops with Mushroom Sauce,european,false,intermediate,30
+Beef Fajita Bowls,mexican,true,intermediate,25
+Lemon Herb Chicken Pasta,italian,true,intermediate,30
+Garlic Shrimp Risotto,italian,false,intermediate,35
+Ground Turkey Bolognese,italian,true,intermediate,40
+Baked Salmon with Asparagus,american,true,intermediate,30
+Chicken Teriyaki Noodles,japanese,true,intermediate,30
+Creamy Cajun Chicken Pasta,"cajun,italian",false,intermediate,30
+Shrimp Ceviche Bowls,latin american,false,intermediate,20
+Ground Beef Enchiladas Verde,mexican,true,intermediate,50
+Pan-Roasted Halibut with Capers,mediterranean,false,intermediate,30
+Beef and Barley Stew,american,true,intermediate,60
+Thai Coconut Curry Chicken,thai,true,intermediate,40
+Turkey Meatballs in Marinara,italian,true,intermediate,40
+Garlic Butter Shrimp Pasta,italian,false,intermediate,25
+Pork Chops with Cherry Sauce,american,false,intermediate,30
+Beef Tacos with Cilantro Lime Rice,mexican,true,intermediate,30
+Creamy Garlic Chicken Alfredo,italian,false,intermediate,30
+Baked Cod with Herb Crust,mediterranean,true,intermediate,30
+Ground Turkey Taco Bowls,mexican,true,intermediate,30
+Shrimp Saute with White Wine,mediterranean,false,intermediate,25
+Beef Ragu Pasta,italian,true,intermediate,50
+Roasted Salmon with Lemon Dill,american,true,intermediate,30
+Ground Beef Picadillo with Rice,cuban,true,intermediate,35
+Chicken with Sun-Dried Tomatoes,mediterranean,false,intermediate,30
+Pork Tenderloin Medallions with Sauce,american,false,intermediate,40
+Thai Red Curry with Vegetables,thai,true,intermediate,35
+Shrimp Linguine with Garlic,italian,false,intermediate,25
+Baked Salmon with Mustard Glaze,american,true,intermediate,30
+Chicken Enchiladas with Mole,mexican,false,intermediate,60
+Pork Chops with Apple Compote,american,false,intermediate,30
+Creamy Tomato Basil Chicken,italian,false,intermediate,30
+Garlic Butter Fish,mediterranean,false,intermediate,20
+Ground Beef Lettuce Wraps,asian,false,intermediate,20
+Beef Fajita Lettuce Wraps,mexican,false,intermediate,20
+Roasted Chicken with Herbs,mediterranean,true,intermediate,45
+Pan-Seared Tilapia with Lemon,mediterranean,false,intermediate,20
+Chicken Thighs with Root Vegetables,american,true,intermediate,55
+Ground Turkey Chili,american,true,intermediate,40
+Beef and Mushroom Skillet,american,true,intermediate,30
+Lemon Garlic Shrimp Scampi,italian,false,intermediate,20
+Pork Tenderloin with Rosemary,mediterranean,true,intermediate,45
+Chicken Fried Rice with Peas,asian,true,intermediate,25
+Baked Cod with Tomato Sauce,mediterranean,true,intermediate,30
+Ground Beef Nachos Skillet,"mexican,american",false,intermediate,25
+Roasted Salmon Fillets with Herbs,american,true,intermediate,30
+Chicken Parmigiana with Pasta,italian,false,intermediate,45
+Shrimp with Black Garlic Sauce,asian,false,intermediate,25
+Creamy Mushroom Chicken Pasta,italian,false,intermediate,35
+Baked Tilapia with Salsa,mexican,true,intermediate,30
+Turkey Sausage with Peppers and Onions,"italian,american",true,intermediate,25
+Garlic Herb Salmon,mediterranean,true,intermediate,25
+Ground Beef Chili,american,true,intermediate,40
+Chicken with Olives and Capers,mediterranean,true,intermediate,35
+Shrimp and Rice Pilaf,mediterranean,true,intermediate,35
+Pork Chops with Sage,italian,false,intermediate,25
+Baked Salmon with Herbs,american,true,intermediate,25
+Creamy Garlic Shrimp,mediterranean,false,intermediate,20
+Chicken Stir Fry with Sauce,asian,true,intermediate,25
+Roasted Fish with Vegetables,mediterranean,true,intermediate,35
+Ground Turkey Rice Bowl,american,true,intermediate,20
+Salmon with Lemon Butter,american,true,intermediate,20
+Creamy Tomato Shrimp,italian,false,intermediate,25
+Grilled Chicken with Vegetables,american,true,intermediate,25
+Chicken Rice Bowl,asian,true,intermediate,20
+Beef Curry Rice,indian,true,intermediate,40
+Fish and Vegetables,mediterranean,true,intermediate,25
+Pork Chops Rice,american,false,intermediate,25
+Ground Chicken Rice,american,true,intermediate,20
+Fish Rice,asian,true,intermediate,20
+Shrimp Noodles,asian,false,intermediate,25
+Beef and Rice,asian,true,intermediate,20
+Turkey and Vegetables,american,true,intermediate,25
+Salmon with Vegetables,american,true,intermediate,25
+Pork with Sauce,american,false,intermediate,25

@@ -150,7 +150,7 @@ async function searchProduct(token: string, term: string): Promise<KrogerProduct
 
   const url = new URL(`${KROGER_BASE}/products`);
   url.searchParams.set('filter.term', term);
-  url.searchParams.set('filter.limit', '1');
+  url.searchParams.set('filter.limit', '5');
 
   const res = await fetch(url.toString(), {
     headers: { Authorization: `Bearer ${token}` },
@@ -158,8 +158,14 @@ async function searchProduct(token: string, term: string): Promise<KrogerProduct
 
   if (!res.ok) return notFound;
   const data = await res.json() as any;
-  const product = data.data?.[0];
-  if (!product) return notFound;
+  const results: any[] = data.data ?? [];
+  if (results.length === 0) return notFound;
+
+  // Prefer the result whose description most closely matches the search term
+  const termLower = term.toLowerCase();
+  const product = results.find((p: any) =>
+    (p.description as string)?.toLowerCase().includes(termLower)
+  ) ?? results[0];
 
   return {
     query:     term,

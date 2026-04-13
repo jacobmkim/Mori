@@ -2,6 +2,7 @@
 
 ## Commandments
 - Use subagents for any exploration requiring 3+ file analysis; have it return a summary.
+- Use relevant models for best purposes. Opus for deep planning and tasks. Sonnet for most of the work. Haiku for easy tasks and large amounts of writing.
 - Run long tasks (scripts, backfills, builds) via a background agent so the user can keep working.
 - Keep this file LEAN. Any changes should be reflected here or updated on the respective .md files.
 - Compact at 60% of context usage.
@@ -35,7 +36,7 @@ Mori is a swipe-based recipe discovery app. Users swipe on recipe cards → save
 - Onboarding (10 screens), all fields persisted
 - Discover: swipe mechanic, local scorer, dietary/dislike/skill filters, adventure cards, macro pills, interaction logging
 - Explore tab: editorial sections, filter chips
-- Recipes tab: Saved/Cooked/Mine/Meal Prep, search + filter
+- Recipes tab: Saved/Cooked/Mine sub-tabs; Saved has inline quick-filter chips (Meal Prep, Quick, High Protein, Low Carb); recipe cards show Meal Prep + Quick tags
 - Recipe Detail: full-screen modal, step cards, My Notes tab, cooking mode
 - Plan tab: weekly meal grid, Supabase-backed
 - Grocery List: grouped categories, checkboxes, copy-to-clipboard
@@ -56,11 +57,19 @@ Mori is a swipe-based recipe discovery app. Users swipe on recipe cards → save
 - Mori logo: 3 PNG variants, correct per light/dark mode; heart/X buttons theme-synced
 
 ### ❌ Phase 4 — Grocery APIs
-- ✅ Kroger OAuth + Cart: full PKCE flow using Web Crypto API (Expo Go compatible), tokens in Supabase (`kroger_tokens` table, RLS service-role only), direct cart add. `api/kroger-auth.ts`, `api/kroger-cart.ts`, `KrogerSheet` in `grocery-list.tsx`. `cleanForSearch()` strips quantities/prep words before search; not-found items shown in results instead of silently dropped. Branch: `feat/kroger-integration`.
-- Instacart Developer Platform — applied, waiting
+- ✅ Kroger OAuth + Cart: full PKCE flow using Web Crypto API (Expo Go compatible), tokens in Supabase (`kroger_tokens` table, RLS service-role only), direct cart add. `api/kroger-auth.ts`, `api/kroger-cart.ts`, `KrogerSheet` in `grocery-list.tsx`. `cleanForSearch()` strips quantities/prep words before search; not-found items shown in results instead of silently dropped.
+- ⏳ **Waiting on Kroger production API approval** — Partner Request submitted via `developer.kroger.com` contact form (Jacob Kim, jkim2002@gmail.com, April 2026). Sandbox (`api-ce.kroger.com`) has limited catalog so most ingredients won't be found. Once approved: add `KROGER_ENVIRONMENT=production` + production credentials to Vercel env vars. Code is ready; `filter.limit` bumped to 5 with best-match fallback already in `api/kroger-cart.ts`.
+- ⏳ **Waiting on Instacart Developer Platform approval** — applied, waiting.
+- ✅ Grocery list persists across restarts — `groceryStore` now uses Zustand `persist` + `createJSONStorage(() => AsyncStorage)`, partializing `list` + `selectedRecipes`
+- ✅ Meal Prep sub-tab shows all saved recipes when `mode === 'meal_prep'` — previously filtered by `meal_prep_friendly` which is `null` for most DB recipes
+- ✅ **New Recipe Backfill (1000+ recipes)** — two-phase workflow for bulk additions:
+  - **Phase 1:** `node scripts/generate-new-recipes.mjs` reads CSV (`scripts/new-recipes.csv`), calls `/api/generate-recipe` with `save: false`, writes JSONL output to `scripts/new-recipes-draft.json` (one recipe per line). Resume-safe: skips titles already in Supabase + already in draft file.
+  - **Phase 2:** `node scripts/upload-new-recipes.mjs` — ❌ **NOT YET BUILT**. Needs to: read JSONL draft, batch-insert (50 rows/batch) to Supabase with deduplication. Photos added via `generate-images.mjs` after upload. Fields: `cuisine` stored as-is (e.g. `"cajun,italian"` for fusions), `skill_level: 'home_cook'`, `meal_prep_friendly` from recipe response, `image_url: null` until photos ready.
+  - **CSV format:** `title,cuisine,meal_prep_friendly,difficulty,approx_time_mins`. Fusion cuisines quoted (e.g., `"cajun,italian"`). ~330 unique recipes.
+  - **Cuisine handling:** Comma-separated for fusions (both parent cuisines kept); passed to API as `"cuisine1 and cuisine2"` for Claude context.
+  - **Parser:** RFC 4180 quoted-CSV in `generate-new-recipes.mjs:loadDishes()` handles embedded commas.
+- Check ALL tags for all recipes and categories. Make sure that we are scoring properly for all of these categories and tags.
 - Payment wall take cut of grocery?
-- saved recipes in meal prep are not showing in meal prep saved
-- the grocery do not stay in there when the user exits and reopens
 - User ability to add photos for ALL recipes. User created or current Mori recipes.
 - Vercel functions: `/api/walmart-cart`, `/api/instacart-cart`
 - Affiliate tracking via Impact
@@ -128,7 +137,21 @@ api/ (Vercel functions)
 
 scripts/ (all one-time or safe-to-resume, already ran)
   seed-recipes, backfill-*, rewrite-steps, generate-recipes,
-  generate-images, clean-recipes, clean-ingredient-units
+  generate-images, clean-recipes, clean-ingredient-units,
+  new-recipes.csv (source list for bulk backfill),
+  generate-new-recipes.mjs (Phase 1: generate → JSONL),
+  upload-new-recipes.mjs (Phase 2: JSONL → Supabase)
+
+__tests__/                 ✅ Jest 29 + jest-expo@54 — 101 tests, 9 suites
+  api/_apiAuth.test.ts     AuthError, extractBearerToken, handleAuthError
+  api/_rateLimit.test.ts   rateLimitUser, rateLimitIP, getClientIP
+  lib/utils.test.ts        formatTime, formatCost, capitalize, getWeekStart, getTimeOfDay
+  stores/collectionsStore.test.ts
+  stores/mealPlanStore.test.ts
+  stores/groceryStore.test.ts     (includes test.failing() for quantity-dedup bug)
+  stores/savedStore.test.ts
+  stores/discoverStore.test.ts
+  lib/substitutions.test.ts       (includes test.failing() for word-boundary bug)
 ```
 
 ---
@@ -234,7 +257,7 @@ Full audit run across security, bugs, and edge cases. Items below are **unresolv
 - [ ] Race condition in `savedStore.addRecipe` — optimistic update followed by `loadSavedRecipes()` reload; rapid saves can create duplicates or lost saves.
 - [ ] `EditPreferencesModal` save button stuck in loading if `onSave` throws — `setSaving(false)` only runs in `finally` but `onClose()` inside `try` may not get called.
 - [ ] `detailCache` and `macroCache` refs on Discover grow unbounded — never cleared on deck reload (memory leak over long sessions).
-- [ ] `mealPlanStore` error state never cleared on successful reload — stale error banner persists.
+- [x] `mealPlanStore` error state never cleared on successful reload — confirmed fixed by test suite (`loadPlan` clears error on success).
 - [ ] `AsyncStorage` JSON.parse in `discoverStore.loadMode` not in try-catch — corrupted storage crashes preference load.
 - [ ] Empty `image_url` (`""`) passed to `expo-image` (`grocery-list.tsx:205`) — causes silent render failure; use `undefined` or a placeholder.
 
@@ -254,4 +277,4 @@ Full audit run across security, bugs, and edge cases. Items below are **unresolv
 - [ ] **Adventure card pause not persisted** — session-only; resets on app relaunch.
 
 ---
-*v8.1 — Phases 1–3 complete. Phase 4 in progress: Kroger integration on `feat/kroger-integration`.*
+*v8.3 — Phases 1–3 complete. Phase 4 in progress. Grocery persistence + Meal Prep tab fixed. New recipe backfill workflow (2-phase: generate → JSONL → Supabase) ready. Jest test suite live (101 tests, 9 suites).*

@@ -683,23 +683,9 @@ export async function fetchScoredDeck(
     score: scoreRecipe(r, profile, swipeMap, savedExternalIds, affinityMap, interactionMap, pantrySet),
   }));
 
-  // Phase 2.5 — Meal Prep mode: hard-exclude shellfish + scoring boost
+  // Phase 2.5 — Meal Prep mode: only show explicitly flagged recipes
   if (mode === 'meal_prep') {
-    scored = scored.filter(({ recipe }) => {
-      const ingredientNames = (recipe.ingredients ?? [])
-        .map((i: any) => (i.name ?? i).toLowerCase())
-        .join(' ');
-      if (MEAL_PREP_SHELLFISH.some((kw) => ingredientNames.includes(kw))) return false;
-      const titleLower = (recipe.title ?? '').toLowerCase();
-      if (MEAL_PREP_EXCLUDE_METHODS.some((kw) => titleLower.includes(kw))) return false;
-      // Exclude delicate fish that don't reheat well
-      if (MEAL_PREP_DELICATE_FISH.some((kw) => ingredientNames.includes(kw))) return false;
-      return true;
-    });
-    for (const entry of scored) {
-      if (entry.recipe.meal_prep_friendly === true)  entry.score += 8;
-      if (entry.recipe.meal_prep_friendly === false) entry.score -= 10;
-    }
+    scored = scored.filter(({ recipe }) => recipe.meal_prep_friendly === true);
   }
 
   scored.sort((a, b) => b.score - a.score);

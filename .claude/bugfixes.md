@@ -1,5 +1,17 @@
 # Mori — Bug Fix Log
 
+## 2026-04-12 (Phase 4 Bugs)
+- **Grocery list not persisting across restarts** — `groceryStore` was plain Zustand with no persistence; added `persist` middleware with `createJSONStorage(() => AsyncStorage)`, partializing `list` and `selectedRecipes` only (`groceryStore.ts`)
+- **Meal Prep sub-tab empty when in meal_prep mode** — `mealPrepList` filtered by `r.meal_prep_friendly` which is `null` for most recipes in DB; changed to show all saved recipes when `mode === 'meal_prep'`, and filter by `meal_prep_friendly` only in spontaneous mode (`recipes.tsx:291`)
+
+## 2026-04-12 (Audit Bug Batch)
+- **RecipeDetailModal crash on null ingredients** — `recipe.ingredients.length` threw when ingredients was null; changed to `(recipe.ingredients?.length ?? 0) > 0` (`RecipeDetailModal.tsx:250`)
+- **mealPlanStore stale error banner** — `savePlan` set `error` on failure but never cleared it on success; added `error: null` to the success `set()` call (`mealPlanStore.ts`)
+- **grocery-list silent image failure** — `recipe.image_url ?? ''` passed empty string to `expo-image` causing silent render failure; changed to `recipe.image_url ? { uri: recipe.image_url } : undefined` (`grocery-list.tsx:212`)
+- **detailCache/macroCache memory leak** — both `useRef` Maps on Discover grew unbounded across deck reloads; added `clear()` calls at the top of the deck-load `useEffect` before `fetchScoredDeck` (`discover.tsx`)
+- **savedStore race condition on rapid save/unsave** — `addRecipe` called `loadSavedRecipes()` after Supabase persist, which could overwrite in-flight `removeRecipe` optimistic updates; removed the reload, trusting the optimistic update (`savedStore.ts`)
+- **discoverStore loadMode unhandled rejection** — `AsyncStorage.getItem` calls in `loadMode` had no try-catch; corrupted/unavailable storage would crash preference load; wrapped entire function in try-catch with silent fallback to defaults (`discoverStore.ts`)
+
 ## 2026-04-08
 - **Recipe dedup FK constraint** — `clean-recipes.mjs` failed deleting 10 Indian + 2 Korean dupes due to `swipe_events_recipe_id_fkey`; fixed by cascade-deleting `swipe_events`, `saved_recipes`, `recipe_interactions`, `recipe_cohort_affinities` rows before recipe delete; 13 dupes removed, 6 dietary tags corrected, 609 curated recipes remain
 

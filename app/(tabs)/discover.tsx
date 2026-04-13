@@ -330,7 +330,7 @@ export default function Discover() {
   currentIndexRef.current = currentIndex;
   // Set before decrementing currentIndex so the new top card picks it up on mount
   const undoEntryXRef = useRef<number | null>(null);
-  const { addRecipe, removeRecipe } = useSavedStore();
+  const { addRecipe, removeRecipe, addMealPrepId } = useSavedStore();
   const { addFromDetail, selectedRecipes, removeRecipeFromList } = useGroceryStore();
   const userId = useUserStore((s) => s.profile?.id);
   const sessionNumber = useUserStore((s) => s.sessionNumber);
@@ -465,6 +465,10 @@ export default function Discover() {
       setCurrentIndex(0);
       clearSessionState();
     }
+
+    // Clear caches on every deck reload to prevent unbounded memory growth
+    detailCache.current.clear();
+    macroCache.current.clear();
 
     const savedExternalIds = new Set(savedRecipes.map((r) => r.id));
     fetchScoredDeck(userId, dietaryGoals, profile, savedExternalIds, mode)
@@ -608,7 +612,10 @@ export default function Discover() {
     if (!recipe) return;
     // Ensure topDragX is at the swipe direction value so button flash fires on button-tap swipes too
     topDragX.setValue(direction === 'right' ? SCREEN_WIDTH : -SCREEN_WIDTH);
-    if (direction === 'right') addRecipe(recipe, userId);
+    if (direction === 'right') {
+      addRecipe(recipe, userId);
+      if (mode === 'meal_prep') addMealPrepId(recipe.id);
+    }
     setLastSwipe({ recipe, direction });
     logSwipeBackground(recipe, direction, mode as AppMode);
 
@@ -1130,7 +1137,7 @@ export default function Discover() {
             onSaveToggle={() => {
               if (!topRecipe) return;
               if (isSaved(topRecipe.id)) removeRecipe(topRecipe, userId);
-              else addRecipe(topRecipe, userId);
+              else { addRecipe(topRecipe, userId); if (mode === 'meal_prep') addMealPrepId(topRecipe.id); }
             }}
             onAddToCart={(scaledIngredients) => {
               if (!topRecipe) return;

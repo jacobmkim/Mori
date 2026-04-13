@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { GroceryList, GroceryItem, Recipe } from '@/types';
 
 interface GroceryStore {
@@ -23,7 +25,9 @@ interface GroceryStore {
   setError: (error: string | null) => void;
 }
 
-export const useGroceryStore = create<GroceryStore>((set, get) => ({
+export const useGroceryStore = create<GroceryStore>()(
+  persist(
+    (set, get) => ({
   list: null,
   selectedRecipes: [],
   isLoading: false,
@@ -221,4 +225,11 @@ export const useGroceryStore = create<GroceryStore>((set, get) => ({
 
   setLoading: (isLoading) => set({ isLoading }),
   setError: (error) => set({ error }),
-}));
+    }),
+    {
+      name: 'mori-grocery-store',
+      storage: createJSONStorage(() => AsyncStorage),
+      partialize: (state) => ({ list: state.list, selectedRecipes: state.selectedRecipes }),
+    }
+  )
+);

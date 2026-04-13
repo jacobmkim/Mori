@@ -71,7 +71,7 @@ export const useMealPlanStore = create<MealPlanStore>((set, get) => ({
     const { plan } = get();
     try {
       const saved = await saveMealPlanApi(userId, weekStart, plan?.slots ?? [], plan?.id);
-      set({ plan: saved });
+      set({ plan: saved, error: null });
     } catch {
       set({ error: 'Failed to save meal plan' });
     }
