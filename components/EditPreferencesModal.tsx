@@ -84,9 +84,11 @@ export function EditPreferencesModal({
         cooking_frequency: (cookingFrequency as Profile['cooking_frequency']) || null,
         weekly_budget: budget || null,
       });
-      onClose();
+    } catch (err) {
+      console.error('Failed to save preferences:', err);
     } finally {
       setSaving(false);
+      onClose();
     }
   }
 

@@ -49,11 +49,17 @@ export const useGroceryStore = create<GroceryStore>()(
         if (existing) {
           if (!existing.recipe_ids.includes(recipe.id)) {
             existing.recipe_ids.push(recipe.id);
+            const newQty = measure.trim();
+            if (newQty && existing.quantity) {
+              existing.quantity = `${existing.quantity} + ${newQty}`;
+            } else if (newQty) {
+              existing.quantity = newQty;
+            }
           }
         } else {
           newItems.push({
             ingredient_name: trimmed,
-            quantity: measure.trim(),  // e.g. "1 cup", "500g", "2 tbsp"
+            quantity: measure.trim(),
             unit: '',
             checked: false,
             recipe_ids: [recipe.id],
@@ -126,6 +132,12 @@ export const useGroceryStore = create<GroceryStore>()(
         if (existing) {
           if (!existing.recipe_ids.includes(recipe.id)) {
             existing.recipe_ids.push(recipe.id);
+            const newQty = ingredient.quantity;
+            if (newQty && existing.quantity) {
+              existing.quantity = `${existing.quantity} + ${newQty}`;
+            } else if (newQty) {
+              existing.quantity = newQty;
+            }
           }
         } else {
           newItems.push({

@@ -46,10 +46,7 @@ describe('groceryStore.addFromDetail', () => {
     expect(items).toHaveLength(1);
   });
 
-  // BUG: same ingredient from two recipes — second recipe's quantity is silently dropped.
-  // The item's recipe_ids gets the second recipe added, but quantity stays at first recipe's value.
-  // Fix: quantities should be combined (e.g. "1 cup" + "2 cups" → "1 cup + 2 cups").
-  test.failing('combines quantities when same ingredient comes from two recipes', () => {
+  it('combines quantities when same ingredient comes from two recipes', () => {
     const r1 = makeRecipe('r1');
     const r2 = makeRecipe('r2');
 
@@ -59,8 +56,7 @@ describe('groceryStore.addFromDetail', () => {
     const items = useGroceryStore.getState().list?.items ?? [];
     const flour = items.find((i) => i.ingredient_name.toLowerCase() === 'flour');
 
-    // Quantity should reflect BOTH recipes — not just the first
-    expect(flour?.quantity).not.toBe('1 cup');
+    expect(flour?.quantity).toBe('1 cup + 2 cups');
     expect(flour?.recipe_ids).toHaveLength(2);
   });
 
@@ -99,8 +95,7 @@ describe('groceryStore.addRecipeIngredients', () => {
     expect(items[0].ingredient_name).toBe('eggs');
   });
 
-  // BUG: same as addFromDetail — second recipe's quantity dropped for shared ingredients.
-  test.failing('combines quantities when same ingredient comes from two recipes', () => {
+  it('combines quantities when same ingredient comes from two recipes', () => {
     const r1 = makeRecipeWithIngredients('r1', [{ name: 'eggs', quantity: '2', unit: 'large' }]);
     const r2 = makeRecipeWithIngredients('r2', [{ name: 'eggs', quantity: '4', unit: 'large' }]);
 
@@ -110,8 +105,7 @@ describe('groceryStore.addRecipeIngredients', () => {
     const eggs = useGroceryStore.getState().list?.items.find(
       (i) => i.ingredient_name.toLowerCase() === 'eggs'
     );
-    // Should reflect both recipes' quantities
-    expect(eggs?.quantity).not.toBe('2');
+    expect(eggs?.quantity).toBe('2 + 4');
     expect(eggs?.recipe_ids).toHaveLength(2);
   });
 });

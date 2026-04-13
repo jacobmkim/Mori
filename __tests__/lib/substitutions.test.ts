@@ -38,32 +38,26 @@ describe('getStaticSubs — partial match', () => {
     expect(result).not.toBeNull();
   });
 
-  // BUG: key.includes(n) — a short term like "cream" that is a substring of a table key
-  // ("cream cheese") incorrectly returns subs for that key.
-  // Fix: use word-boundary matching (e.g. split into tokens and check full words).
-  test.failing('does not match "cream" to "cream cheese" subs (word boundary bug)', () => {
-    // "cream" is not in the table, but "cream cheese" is.
-    // key.includes("cream") → "cream cheese".includes("cream") → true → WRONG match
-    const result = getStaticSubs('cream');
-    // If the bug is present, result will be the cream cheese subs instead of null
+  it('does not match bare "oil" to compound key like "coconut oil" (word boundary)', () => {
+    // "oil" is not in the table, but "coconut oil", "olive oil", "vegetable oil" are.
+    // Old code: "coconut oil".includes("oil") → true → WRONG match
+    // Fixed code: keyWords ["coconut", "oil"] not all in nWords ["oil"] → no match
+    const result = getStaticSubs('oil');
     expect(result).toBeNull();
   });
 
-  // BUG: same issue — "egg" is a substring of "egg white" or similar table keys.
-  // Searching for a short base word can pull in subs for a more specific compound.
-  test.failing('does not match short base word to longer compound key subs', () => {
-    // "egg" by itself should either return its own subs (if in table) or null —
-    // not the subs for "egg white" / "egg yolk" if those are in the table
+  it('does not match bare "sauce" to compound key like "soy sauce" (word boundary)', () => {
+    // "sauce" is not in the table, but "soy sauce", "fish sauce", etc. are.
+    const result = getStaticSubs('sauce');
+    expect(result).toBeNull();
+  });
+
+  it('matches "egg white" to base "egg" subs (correct fallback)', () => {
+    // "egg" is in the table; "egg white" is not.
+    // keyWords ["egg"] all in nWords ["egg", "white"] → correct fallback match.
     const eggResult = getStaticSubs('egg');
     const eggWhiteResult = getStaticSubs('egg white');
-
-    if (eggResult !== null && eggWhiteResult !== null) {
-      // If both exist, they should be different entries
-      expect(eggResult).not.toEqual(eggWhiteResult);
-    }
-    // If egg is not in table, it should not accidentally return egg white subs
-    if (eggWhiteResult !== null) {
-      expect(eggResult).toBeNull();
-    }
+    expect(eggResult).not.toBeNull();
+    expect(eggWhiteResult).not.toBeNull();
   });
 });

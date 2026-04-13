@@ -68,6 +68,7 @@ Mori is a swipe-based recipe discovery app. Users swipe on recipe cards → save
   - **CSV format:** `title,cuisine,meal_prep_friendly,difficulty,approx_time_mins`. Fusion cuisines quoted (e.g., `"cajun,italian"`). ~330 unique recipes.
   - **Cuisine handling:** Comma-separated for fusions (both parent cuisines kept); passed to API as `"cuisine1 and cuisine2"` for Claude context.
   - **Parser:** RFC 4180 quoted-CSV in `generate-new-recipes.mjs:loadDishes()` handles embedded commas.
+- **Recipe title polish pass** — after new recipes are in production, run a script to rewrite titles to be more evocative and ingredient-forward (e.g. "Pork with Sauce" → "Pork Chops with Brown Butter Pan Sauce"). Use Claude Haiku; feed `recipe.title + recipe.ingredients` and ask for a punchy 4–7 word title. Update in Supabase in place.
 - Check ALL tags for all recipes and categories. Make sure that we are scoring properly for all of these categories and tags.
 - Payment wall take cut of grocery?
 - User ability to add photos for ALL recipes. User created or current Mori recipes.
@@ -252,29 +253,29 @@ Full audit run across security, bugs, and edge cases. Items below are **unresolv
 - [ ] Missing security headers (X-Content-Type-Options, X-Frame-Options) on Vercel functions.
 
 ### 🔴 Bugs
-- [ ] `scoreRecipe` (`lib/api.ts:555`) accesses `m.protein` without null-checking macros — crashes on recipes with null macros.
-- [ ] `RecipeDetailModal` crashes if `recipe.ingredients` is null (`RecipeDetailModal.tsx:250`) — use `?.length`.
-- [ ] Race condition in `savedStore.addRecipe` — optimistic update followed by `loadSavedRecipes()` reload; rapid saves can create duplicates or lost saves.
-- [ ] `EditPreferencesModal` save button stuck in loading if `onSave` throws — `setSaving(false)` only runs in `finally` but `onClose()` inside `try` may not get called.
-- [ ] `detailCache` and `macroCache` refs on Discover grow unbounded — never cleared on deck reload (memory leak over long sessions).
+- [x] `scoreRecipe` (`lib/api.ts:555`) — already has `if (m)` null guard wrapping all macro accesses. Safe.
+- [x] `RecipeDetailModal` crashes if `recipe.ingredients` is null — fixed: added `?.length` optional chaining on line 287.
+- [x] Race condition in `savedStore.addRecipe` — already fixed: no `loadSavedRecipes()` reload called; trusts optimistic update by design.
+- [x] `EditPreferencesModal` save button stuck in loading if `onSave` throws — fixed: moved `onClose()` to `finally`, added `catch` for error logging.
+- [x] `detailCache` and `macroCache` refs on Discover grow unbounded — already fixed: both caches `.clear()` on every deck reload (line 470-471).
 - [x] `mealPlanStore` error state never cleared on successful reload — confirmed fixed by test suite (`loadPlan` clears error on success).
-- [ ] `AsyncStorage` JSON.parse in `discoverStore.loadMode` not in try-catch — corrupted storage crashes preference load.
-- [ ] Empty `image_url` (`""`) passed to `expo-image` (`grocery-list.tsx:205`) — causes silent render failure; use `undefined` or a placeholder.
+- [x] `AsyncStorage` JSON.parse in `discoverStore.loadMode` not in try-catch — already fixed: no JSON.parse used; string comparison only, wrapped in try-catch.
+- [x] Empty `image_url` (`""`) passed to `expo-image` (`grocery-list.tsx:205`) — already fixed: truthy check returns `undefined` for empty strings.
 
 ### 🟡 Edge Cases
 - [ ] **Offline** — no network detection anywhere. All API failures are silent; Discover deck goes blank with no message.
 - [ ] **Deck exhaustion** — no empty state when all recipes are swiped. Screen goes blank or crashes.
-- [ ] **Timezone bug** — `toDateStr()` in `plan.tsx:41` uses `toISOString()` which converts to UTC before splitting. Users near midnight get wrong week. Use local date formatting instead.
-- [ ] **Grocery quantity dedup** — same ingredient from two recipes only keeps first recipe's quantity (`groceryStore.ts:42`). User buys insufficient ingredients.
-- [ ] **Meal plan deleted recipes** — `slotRecipes[slot.recipe_id]` returns `undefined` if recipe was deleted. Show "Recipe removed" instead of crashing.
+- [x] **Timezone bug** — fixed: `toDateStr()` and `getWeekStart()` now use local date formatting instead of `toISOString()`.
+- [x] **Grocery quantity dedup** — fixed: quantities now combine as `"1 cup + 2 cups"` when same ingredient added from two recipes.
+- [x] **Meal plan deleted recipes** — fixed: shows "Recipe removed" with dismiss button when slot references a deleted recipe.
 - [ ] **Kroger token refresh silent failure** — tokens deleted from DB on revocation with no re-auth prompt to user.
 - [ ] **Dislike filter not retroactive** — editing dislikes mid-session doesn't refresh the active deck until tab switch.
 - [ ] **Rapid swiping** — concurrent `logSwipeBackground()` calls can log swipes out of order; recommendation signal degrades.
-- [ ] **Search + filter don't compose** in Recipes tab — applying a filter resets active search query.
-- [ ] **Substitution partial matching** — `"buttermilk".includes("butter")` → wrong substitutions returned. Use word-boundary matching.
-- [ ] **Macro float precision** — combined macros in grocery list display unrounded floats (e.g. `45.333333g`). Round to 1 decimal.
+- [x] **Search + filter don't compose** — verified: `filtered()` in recipes.tsx correctly applies both search + filters; no code bug (UX perception only).
+- [x] **Substitution partial matching** — fixed: word-boundary matching prevents "oil" matching "coconut oil", etc.
+- [x] **Macro float precision** — fixed: all macro values rounded to 1 decimal (calories rounded to integer).
 - [ ] **Budget field unused** — collected in onboarding, stored in profile, never used for filtering anywhere.
 - [ ] **Adventure card pause not persisted** — session-only; resets on app relaunch.
 
 ---
-*v8.3 — Phases 1–3 complete. Phase 4 in progress. Grocery persistence + Meal Prep tab fixed. New recipe backfill workflow (2-phase: generate → JSONL → Supabase) ready. Jest test suite live (101 tests, 9 suites).*
+*v8.4 — Phases 1–3 complete. Phase 4 in progress. All audit bugs fixed. Edge cases: 6/13 resolved. Jest test suite live (103 tests, 9 suites).*

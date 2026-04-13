@@ -678,9 +678,14 @@ export function getStaticSubs(name: string, system: 'us' | 'metric' = 'us'): Swa
     swaps = STATIC_SUBS[n];
   } else {
     // Partial match — sort longest keys first so "chicken stock" beats "chicken"
+    // Use word-boundary matching to avoid "butter" matching "buttermilk"
     const sortedKeys = Object.keys(STATIC_SUBS).sort((a, b) => b.length - a.length);
     for (const key of sortedKeys) {
-      if (n.includes(key) || key.includes(n)) { swaps = STATIC_SUBS[key]; break; }
+      const keyWords = key.split(/\s+/);
+      const nWords = n.split(/\s+/);
+      // All words in key must appear as whole words in n (e.g. "unsalted butter" matches key "butter")
+      // Do NOT match the reverse — "cream" should not match key "cream cheese"
+      if (keyWords.every(w => nWords.includes(w))) { swaps = STATIC_SUBS[key]; break; }
     }
   }
   if (!swaps) return null;

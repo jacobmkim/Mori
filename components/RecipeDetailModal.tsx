@@ -284,7 +284,7 @@ export function RecipeDetailModal({
     if (!isCooked || !recipe || storageTips !== null || tipsLoading) return;
     const baseUrl = process.env.EXPO_PUBLIC_API_URL;
     if (!baseUrl) return;
-    const ingredientNames = (recipe.ingredients.length > 0
+    const ingredientNames = ((recipe.ingredients?.length ?? 0) > 0
       ? recipe.ingredients.map((i) => i.name)
       : (detail?.ingredients ?? []).map((i) => i.name)).slice(0, 8);
     if (ingredientNames.length === 0) return;

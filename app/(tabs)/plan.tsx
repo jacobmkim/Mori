@@ -38,7 +38,10 @@ function formatWeekRange(start: Date): string {
 }
 
 function toDateStr(d: Date): string {
-  return d.toISOString().split('T')[0];
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 export default function Plan() {
@@ -219,11 +222,13 @@ export default function Plan() {
             {MEAL_TYPES.map((mealType) => {
               const slot = getSlot(dayIndex, mealType);
               const recipe = slot ? slotRecipes[slot.recipe_id] : null;
+              const isDeleted = slot && !recipe;
               return (
                 <Pressable
                   key={mealType}
                   onPress={() => {
                     if (recipe) return;
+                    if (isDeleted) { handleRemove(dayIndex, mealType); return; }
                     setPickerOpen({ day: dayIndex, mealType });
                   }}
                   onLongPress={() => { if (slot) handleRemove(dayIndex, mealType); }}
@@ -237,7 +242,15 @@ export default function Plan() {
                   <Text style={{ width: 78, fontSize: 12, color: colors.textMuted, fontWeight: '500' }}>
                     {MEAL_LABELS[mealType]}
                   </Text>
-                  {recipe ? (
+                  {isDeleted ? (
+                    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Ionicons name="alert-circle-outline" size={18} color={colors.textMuted} />
+                      <Text style={{ flex: 1, fontSize: 13, color: colors.textMuted, fontStyle: 'italic' }}>Recipe removed</Text>
+                      <Pressable onPress={() => handleRemove(dayIndex, mealType)} hitSlop={8}>
+                        <Ionicons name="close-circle-outline" size={20} color={colors.textMuted} />
+                      </Pressable>
+                    </View>
+                  ) : recipe ? (
                     <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                       {recipe.image_url && (
                         <Image

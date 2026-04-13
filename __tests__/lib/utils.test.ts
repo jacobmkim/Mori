@@ -92,6 +92,14 @@ describe('getWeekStart', () => {
     const result = getWeekStart();
     expect(isNaN(new Date(result).getTime())).toBe(false);
   });
+
+  it('uses local date, not UTC (timezone safety)', () => {
+    // 11:30 PM on Wednesday April 9 in UTC-5 = Thursday April 10 in UTC
+    // getWeekStart should return Monday April 7, not April 8
+    const lateWednesday = new Date(2026, 3, 9, 23, 30); // April 9, 11:30 PM local
+    const result = getWeekStart(lateWednesday);
+    expect(result).toBe('2026-04-06'); // Monday April 6
+  });
 });
 
 // ─── getTimeOfDay ─────────────────────────────────────────────────────────────

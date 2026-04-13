@@ -13,10 +13,10 @@ export function MacroRow({ macros, compact = false }: MacroRowProps) {
     // Single-line summary used in grocery tally etc.
     return (
       <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
-        <MacroCell label="Cal" value={`${macros.calories}`} />
-        <MacroCell label="Pro" value={`${macros.protein}g`} />
-        <MacroCell label="Carb" value={`${macros.carbohydrates}g`} />
-        <MacroCell label="Fat" value={`${macros.fat}g`} />
+        <MacroCell label="Cal" value={`${Math.round(macros.calories)}`} />
+        <MacroCell label="Pro" value={`${+macros.protein.toFixed(1)}g`} />
+        <MacroCell label="Carb" value={`${+macros.carbohydrates.toFixed(1)}g`} />
+        <MacroCell label="Fat" value={`${+macros.fat.toFixed(1)}g`} />
       </View>
     );
   }
@@ -30,13 +30,13 @@ export function MacroRow({ macros, compact = false }: MacroRowProps) {
         padding: 12,
         gap: 0,
       }}>
-        <MacroColumn label="Calories" value={`${macros.calories}`} />
+        <MacroColumn label="Calories" value={`${Math.round(macros.calories)}`} />
         <ColumnDivider />
-        <MacroColumn label="Protein" value={`${macros.protein}g`} />
+        <MacroColumn label="Protein" value={`${+macros.protein.toFixed(1)}g`} />
         <ColumnDivider />
-        <MacroColumn label="Carbs" value={`${macros.carbohydrates}g`} />
+        <MacroColumn label="Carbs" value={`${+macros.carbohydrates.toFixed(1)}g`} />
         <ColumnDivider />
-        <MacroColumn label="Fat" value={`${macros.fat}g`} />
+        <MacroColumn label="Fat" value={`${+macros.fat.toFixed(1)}g`} />
       </View>
       <Text style={{ fontSize: 11, color: colors.textMuted, marginTop: 4, textAlign: 'center' }}>
         {macros.isEstimated ? 'Estimated values · may vary' : 'Values may vary · per serving'}
