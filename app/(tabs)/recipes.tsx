@@ -49,14 +49,16 @@ function RecipeCard({
   onPress,
   onLongPress,
   deleteMode,
-  onDelete,
+  selected,
+  onToggleSelect,
 }: {
   recipe: Recipe;
   cookedCount?: number;
   onPress: () => void;
   onLongPress?: () => void;
   deleteMode?: boolean;
-  onDelete?: () => void;
+  selected?: boolean;
+  onToggleSelect?: () => void;
 }) {
   const colors = useTheme();
   const totalMins = (recipe.prep_time_mins ?? 0) + (recipe.cook_time_mins ?? 0);
@@ -66,30 +68,38 @@ function RecipeCard({
   const isLowCarb = !!(recipe.dietary_tags?.includes('low_carb') || (recipe.macros as any)?.carbohydrates <= 30);
   return (
     <Pressable
-      onPress={deleteMode ? undefined : onPress}
+      onPress={deleteMode ? onToggleSelect : onPress}
       onLongPress={onLongPress}
       delayLongPress={400}
       style={{
-        flex: 1, borderRadius: 14, backgroundColor: colors.card,
-        borderWidth: deleteMode ? 1.5 : 0.5,
-        borderColor: deleteMode ? '#FF3B30' + '60' : colors.border,
+        flex: 1, borderRadius: 14,
+        backgroundColor: colors.card,
+        borderWidth: selected ? 2 : 0.5,
+        borderColor: selected ? colors.primary : colors.border,
         overflow: 'hidden', margin: 4,
+        opacity: deleteMode && !selected ? 0.55 : 1,
       }}
     >
+      {/* Selection checkmark */}
       {deleteMode && (
-        <Pressable
-          onPress={onDelete}
-          hitSlop={6}
-          style={{
-            position: 'absolute', top: 6, right: 6, zIndex: 10,
-            width: 22, height: 22, borderRadius: 11,
-            backgroundColor: '#FF3B30',
-            alignItems: 'center', justifyContent: 'center',
-            shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 3, shadowOffset: { width: 0, height: 1 },
-          }}
-        >
-          <Ionicons name="close" size={13} color="white" />
-        </Pressable>
+        <View style={{
+          position: 'absolute', top: 6, right: 6, zIndex: 10,
+          shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 3, shadowOffset: { width: 0, height: 1 },
+        }}>
+          <Ionicons
+            name={selected ? 'checkmark-circle' : 'circle-outline'}
+            size={22}
+            color={selected ? colors.primary : 'rgba(255,255,255,0.9)'}
+          />
+        </View>
+      )}
+      {/* Selected tint overlay */}
+      {selected && (
+        <View style={{
+          position: 'absolute', inset: 0, zIndex: 1,
+          backgroundColor: colors.primary + '18',
+          borderRadius: 12,
+        }} pointerEvents="none" />
       )}
       <Image
         source={{ uri: recipe.image_url || undefined }}
@@ -160,24 +170,42 @@ export default function Recipes() {
   const [loading, setLoading] = useState(false);
 
   const [deleteMode, setDeleteMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   // Exit delete mode when switching tabs
-  useEffect(() => { setDeleteMode(false); }, [activeTab]);
+  useEffect(() => { setDeleteMode(false); setSelectedIds(new Set()); }, [activeTab]);
 
-  async function handleDeleteRecipe(recipe: Recipe) {
+  function exitDeleteMode() { setDeleteMode(false); setSelectedIds(new Set()); }
+
+  function toggleSelect(recipe: Recipe) {
+    const key = recipe.supabase_id ?? recipe.id;
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }
+
+  async function handleDeleteSelected() {
+    if (selectedIds.size === 0) return;
     if (activeTab === 'Saved') {
-      if (userId) removeRecipe(recipe, userId);
+      const toRemove = savedRecipes.filter((r) => selectedIds.has(r.supabase_id ?? r.id));
+      for (const r of toRemove) { if (userId) removeRecipe(r, userId); }
+      exitDeleteMode();
     } else if (activeTab === 'Mine') {
       Alert.alert(
-        'Delete Recipe',
-        `Delete "${recipe.title}"? This cannot be undone.`,
+        `Delete ${selectedIds.size} recipe${selectedIds.size > 1 ? 's' : ''}?`,
+        'This cannot be undone.',
         [
           { text: 'Cancel', style: 'cancel' },
           {
             text: 'Delete', style: 'destructive',
             onPress: async () => {
-              await supabase.from('recipes').delete().eq('id', recipe.supabase_id);
+              for (const id of selectedIds) {
+                await supabase.from('recipes').delete().eq('id', id);
+              }
               loadMineData();
+              exitDeleteMode();
             },
           },
         ]
@@ -414,16 +442,30 @@ export default function Recipes() {
           <Text style={{ fontSize: 28, fontWeight: '700', color: colors.text }}>My Recipes</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             {deleteMode ? (
-              <Pressable
-                onPress={() => setDeleteMode(false)}
-                style={{
-                  backgroundColor: colors.card, borderRadius: 999,
-                  paddingHorizontal: 14, paddingVertical: 7,
-                  borderWidth: 1, borderColor: colors.border,
-                }}
-              >
-                <Text style={{ color: colors.primary, fontSize: 13, fontWeight: '700' }}>Done</Text>
-              </Pressable>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Pressable
+                  onPress={handleDeleteSelected}
+                  disabled={selectedIds.size === 0}
+                  style={{
+                    backgroundColor: selectedIds.size > 0 ? '#FF3B30' : colors.border,
+                    borderRadius: 999, paddingHorizontal: 11, paddingVertical: 5,
+                  }}
+                >
+                  <Text style={{ color: 'white', fontSize: 12, fontWeight: '700' }}>
+                    {selectedIds.size > 0 ? `Delete (${selectedIds.size})` : 'Delete'}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={exitDeleteMode}
+                  style={{
+                    backgroundColor: colors.card, borderRadius: 999,
+                    paddingHorizontal: 11, paddingVertical: 5,
+                    borderWidth: 1, borderColor: colors.border,
+                  }}
+                >
+                  <Text style={{ color: colors.primary, fontSize: 12, fontWeight: '700' }}>Done</Text>
+                </Pressable>
+              </View>
             ) : (
               <Pressable
                 onPress={() => setWizardVisible(true)}
@@ -569,9 +611,14 @@ export default function Recipes() {
                 recipe={item}
                 cookedCount={cookedCounts.get(item.supabase_id ?? '')}
                 onPress={() => openRecipe(item)}
-                onLongPress={() => activeTab !== 'Cooked' && setDeleteMode(true)}
+                onLongPress={() => {
+                  if (activeTab === 'Cooked') return;
+                  setDeleteMode(true);
+                  setSelectedIds(new Set([item.supabase_id ?? item.id]));
+                }}
                 deleteMode={deleteMode && activeTab !== 'Cooked'}
-                onDelete={() => handleDeleteRecipe(item)}
+                selected={selectedIds.has(item.supabase_id ?? item.id)}
+                onToggleSelect={() => toggleSelect(item)}
               />
             ) : (
               <View style={{ flex: 1, margin: 4 }} />
