@@ -4,6 +4,7 @@ import {
   Pressable,
   Dimensions,
   Animated,
+  Easing,
   PanResponder,
   ActivityIndicator,
   Alert,
@@ -643,12 +644,12 @@ export default function Discover() {
     // slow enough that the new second card settles without snapping.
     Animated.timing(topDragX, { toValue: 0, duration: 80, useNativeDriver: true }).start();
 
-    // Fly exit overlay off screen.
-    Animated.spring(exitPos, {
+    // Fly exit overlay off screen — use timing so the card doesn't decelerate/pause near the edge.
+    Animated.timing(exitPos, {
       toValue: { x: direction === 'right' ? SCREEN_WIDTH * 1.5 : -SCREEN_WIDTH * 1.5, y: 0 },
+      duration: 200,
+      easing: Easing.linear,
       useNativeDriver: true,
-      speed: 20,
-      bounciness: 0,
     }).start(() => {
       // Only clear if this is still the latest exit card
       if (exitIdRef.current === exitId) setExitCard(null);
