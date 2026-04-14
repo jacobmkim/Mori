@@ -1308,7 +1308,7 @@ export async function fetchMacros(
 }
 
 // ─── Dev Recipe Flagging ──────────────────────────────────────────────────────
-// AsyncStorage-backed; dev builds only. Stores recipes flagged for Claude review.
+// Supabase-backed; dev builds only. Stores recipes flagged for Claude review.
 
 export interface FlaggedRecipe {
   supabase_id: string;
@@ -1318,24 +1318,19 @@ export interface FlaggedRecipe {
   flagged_at: string;
 }
 
-const FLAGGED_KEY = 'mise_flagged_recipes_v1';
-
 export async function flagRecipe(
   recipe: { supabase_id?: string; id: string; title: string },
   reason: string
 ): Promise<void> {
   try {
-    const raw = await AsyncStorage.getItem(FLAGGED_KEY);
-    const existing: FlaggedRecipe[] = raw ? JSON.parse(raw) : [];
-    const filtered = existing.filter((f) => f.external_id !== recipe.id);
-    filtered.push({
-      supabase_id: recipe.supabase_id ?? '',
+    const { data: { user } } = await supabase.auth.getUser();
+    await supabase.from('recipe_flags').insert({
+      recipe_id: recipe.supabase_id || null,
       external_id: recipe.id,
-      title: recipe.title,
+      recipe_title: recipe.title,
       reason,
-      flagged_at: new Date().toISOString(),
+      flagged_by: user?.id ?? null,
     });
-    await AsyncStorage.setItem(FLAGGED_KEY, JSON.stringify(filtered));
   } catch {
     // Non-critical
   }
@@ -1343,8 +1338,17 @@ export async function flagRecipe(
 
 export async function getFlaggedRecipes(): Promise<FlaggedRecipe[]> {
   try {
-    const raw = await AsyncStorage.getItem(FLAGGED_KEY);
-    return raw ? JSON.parse(raw) : [];
+    const { data } = await supabase
+      .from('recipe_flags')
+      .select('*')
+      .order('flagged_at', { ascending: false });
+    return (data ?? []).map((r) => ({
+      supabase_id: r.recipe_id ?? '',
+      external_id: r.external_id ?? '',
+      title: r.recipe_title,
+      reason: r.reason,
+      flagged_at: r.flagged_at,
+    }));
   } catch {
     return [];
   }
@@ -1352,7 +1356,7 @@ export async function getFlaggedRecipes(): Promise<FlaggedRecipe[]> {
 
 export async function clearFlaggedRecipes(): Promise<void> {
   try {
-    await AsyncStorage.removeItem(FLAGGED_KEY);
+    await supabase.from('recipe_flags').delete().not('id', 'is', null);
   } catch {
     // Non-critical
   }
