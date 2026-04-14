@@ -45,7 +45,7 @@ Mori is a swipe-based recipe discovery app. Users swipe on recipe cards → save
 - 1,506 curated recipes; all have steps, macros, dietary_tags, meal_prep_friendly, gpt-image-1 images
 - Vercel functions: /api/macros, /api/taste-profile, /api/generate-recipe, /api/storage-tip (exactly 12 — Hobby plan limit; `_`-prefixed files don't count)
 - app.json: name Mori, bundle ID app.getmori.mori
-- Landing page: getmori.app (Vercel), hello@getmori.app email routing. Screenshots + taste profile section updated.
+- Landing page: getmori.app (Vercel), hello@getmori.app email routing. Screenshots + taste profile section updated. **Served from `public/index.html` — `landing/index.html` is a stale copy, do not edit it.**
 - App icon: italic m + spatula, linen #F8F3EC, 1024×1024
 - TestFlight internal live; external submitted for Beta App Review
 - Add Recipe wizard (4-step): basics, ingredients w/ autocomplete, steps w/ timer hints, review + submit → community recipes. Public recipes appear in all Discover decks.
