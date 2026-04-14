@@ -2,7 +2,7 @@
   "expo": {
     "name": "Mori",
     "slug": "mori",
-    "version": "3.0.0",
+    "version": "4.0.0",
     "orientation": "portrait",
     "icon": "./assets/mori_icon.png",
     "scheme": "mori",
@@ -15,6 +15,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "app.getmori.mori",
+      "buildNumber": "1",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
