@@ -87,7 +87,7 @@ function RecipeCard({
           shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 3, shadowOffset: { width: 0, height: 1 },
         }}>
           <Ionicons
-            name={selected ? 'checkmark-circle' : 'circle-outline'}
+            name={selected ? 'checkmark-circle' : 'ellipse-outline'}
             size={22}
             color={selected ? colors.primary : 'rgba(255,255,255,0.9)'}
           />

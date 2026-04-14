@@ -258,7 +258,7 @@ export async function fetchDiscoverRecipes(dietaryGoals: string[] = []): Promise
 
 // Fetches the most recent swipes for a user — used by the local scorer.
 // Returns most-recent-first so the first occurrence of a recipe_id wins.
-export async function getRecentSwipes(userId: string, limit = 150): Promise<{ recipe_id: string; direction: string; swiped_at: string }[]> {
+export async function getRecentSwipes(userId: string, limit = 500): Promise<{ recipe_id: string; direction: string; swiped_at: string }[]> {
   const { data } = await supabase
     .from('swipe_events')
     .select('recipe_id, direction, swiped_at')
@@ -291,17 +291,19 @@ async function getCohortAffinities(cohortKey: string): Promise<Map<string, numbe
   return map;
 }
 
-async function getInteractionCounts(userId: string): Promise<Map<string, { grocery_add: number; cooked: number }>> {
+async function getInteractionCounts(userId: string): Promise<Map<string, { grocery_add: number; cooked: number; unsave: number; view: number }>> {
   const { data } = await supabase
     .from('recipe_interactions')
     .select('recipe_id, interaction_type')
     .eq('user_id', userId)
-    .in('interaction_type', ['grocery_add', 'cooked']);
-  const map = new Map<string, { grocery_add: number; cooked: number }>();
+    .in('interaction_type', ['grocery_add', 'cooked', 'unsave', 'view']);
+  const map = new Map<string, { grocery_add: number; cooked: number; unsave: number; view: number }>();
   for (const row of data ?? []) {
-    const cur = map.get(row.recipe_id) ?? { grocery_add: 0, cooked: 0 };
+    const cur = map.get(row.recipe_id) ?? { grocery_add: 0, cooked: 0, unsave: 0, view: 0 };
     if (row.interaction_type === 'grocery_add') cur.grocery_add++;
     if (row.interaction_type === 'cooked') cur.cooked++;
+    if (row.interaction_type === 'unsave') cur.unsave++;
+    if (row.interaction_type === 'view') cur.view++;
     map.set(row.recipe_id, cur);
   }
   return map;
@@ -533,7 +535,7 @@ function scoreRecipe(
   swipeMap: Map<string, { direction: 'left' | 'right'; swiped_at: string }>,
   savedExternalIds: Set<string>,
   affinityMap: Map<string, number>,
-  interactionMap: Map<string, { grocery_add: number; cooked: number }>,
+  interactionMap: Map<string, { grocery_add: number; cooked: number; unsave: number; view: number }>,
   pantrySet: Set<string>,
 ): number {
   // Bug 7 — session penalty: instantly exclude anything swiped this session
@@ -551,20 +553,20 @@ function scoreRecipe(
 
   // Dietary goal alignment — Bug 6: trust macro data over tags when available
   const goals = profile?.dietary_goals ?? [];
+  let dietaryBonus = 0;
   for (const goal of goals) {
     const m = recipe.macros as any;
     if (m) {
-      // Verified macro data — full 10 points when recipe genuinely meets the goal
-      if (goal === 'high_protein'  && m.protein        >= 25) score += 10;
-      else if (goal === 'keto'     && (m.netCarbs ?? m.carbohydrates - (m.fibre ?? 0)) <= 10) score += 10;
-      else if (goal === 'low_fat'  && m.fat            <= 10) score += 10;
-      else if (goal === 'low_carb' && m.carbohydrates  <= 30) score += 10;
-      else if ((recipe.dietary_tags ?? []).includes(goal)) score += 5; // tag-only fallback
+      if (goal === 'high_protein' && m.protein >= 25) dietaryBonus += 10;
+      else if (goal === 'keto' && (m.netCarbs ?? m.carbohydrates - (m.fibre ?? 0)) <= 10) dietaryBonus += 10;
+      else if (goal === 'low_fat' && m.fat <= 10) dietaryBonus += 10;
+      else if (goal === 'low_carb' && m.carbohydrates <= 30) dietaryBonus += 10;
+      else if ((recipe.dietary_tags ?? []).includes(goal)) dietaryBonus += 5;
     } else {
-      // No macro data yet — half points for unverified tags
-      if ((recipe.dietary_tags ?? []).includes(goal)) score += 5;
+      if ((recipe.dietary_tags ?? []).includes(goal)) dietaryBonus += 5;
     }
   }
+  score += Math.min(dietaryBonus, 20);
 
   // Eating style
   if (profile?.eating_style === 'quick_simple') {
@@ -575,19 +577,23 @@ function scoreRecipe(
 
   // Swipe history with temporal decay — older signals fade over ~30 days
   if (sid) {
+    const ix = interactionMap.get(sid);
     const swipe = swipeMap.get(sid);
     if (swipe) {
       const daysSince = (Date.now() - new Date(swipe.swiped_at).getTime()) / 86_400_000;
       const decay = Math.exp(-daysSince / 30);
-      if (swipe.direction === 'right') score += 5 * decay;
+      if (swipe.direction === 'right') {
+        if (!ix || !ix.unsave) score += 5 * decay;
+      }
       if (swipe.direction === 'left') score -= 15 * decay;
     }
 
     // Interaction signals — capped at 2 to prevent feedback loop dominating deck
-    const ix = interactionMap.get(sid);
     if (ix) {
       score += Math.min(ix.grocery_add, 2) * 3;
       score += Math.min(ix.cooked, 2) * 4;
+      if (ix.unsave > 0) score -= 3;
+      if (ix.view > 2 && !ix.grocery_add && !ix.cooked) score -= 2;
     }
   }
 
@@ -604,7 +610,8 @@ function scoreRecipe(
         const name = ing.name.toLowerCase();
         const weight = COMMON_STAPLES.has(name) ? 0.2 : 1.0;
         totalWeight += weight;
-        if (pantrySet.has(name)) weightedMatches += weight;
+        const pantryMatch = [...pantrySet].some(p => name.includes(p) || p.includes(name));
+        if (pantryMatch) weightedMatches += weight;
       }
       const pantryRatio = totalWeight > 0 ? weightedMatches / totalWeight : 0;
       score += pantryRatio * 20;
@@ -632,7 +639,7 @@ export async function fetchScoredDeck(
     userId
       ? getUserCohortKey(userId).then((key) => (key ? getCohortAffinities(key) : new Map<string, number>()))
       : Promise.resolve(new Map<string, number>()),
-    userId ? getInteractionCounts(userId) : Promise.resolve(new Map<string, { grocery_add: number; cooked: number }>()),
+    userId ? getInteractionCounts(userId) : Promise.resolve(new Map<string, { grocery_add: number; cooked: number; unsave: number; view: number }>()),
     userId ? getPantryItems(userId) : Promise.resolve([]),
     fetchTrendingRecipeIds(),
   ]);
@@ -929,7 +936,7 @@ export async function logSwipe(event: Omit<SwipeEvent, 'id' | 'swiped_at'>): Pro
 export async function logInteraction(
   userId: string,
   recipeId: string,  // Supabase UUID (not external_id)
-  interactionType: 'view' | 'grocery_add' | 'cooked',
+  interactionType: 'view' | 'grocery_add' | 'cooked' | 'unsave',
   sessionNumber?: number,
 ): Promise<void> {
   const { error } = await supabase.from('recipe_interactions').insert({
@@ -1001,6 +1008,13 @@ export async function unsaveRecipe(userId: string, recipeExternalId: string, sup
     .eq('user_id', userId)
     .eq('recipe_id', recipeUuid);
   if (error) throw error;
+  if (recipeUuid) {
+    await supabase.from('recipe_interactions').insert({
+      user_id: userId,
+      recipe_id: recipeUuid,
+      interaction_type: 'unsave',
+    });
+  }
 }
 
 // Upserts a TheMealDB recipe into the recipes table by external_id.
