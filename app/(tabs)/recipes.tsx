@@ -47,10 +47,16 @@ function RecipeCard({
   recipe,
   cookedCount,
   onPress,
+  onLongPress,
+  deleteMode,
+  onDelete,
 }: {
   recipe: Recipe;
   cookedCount?: number;
   onPress: () => void;
+  onLongPress?: () => void;
+  deleteMode?: boolean;
+  onDelete?: () => void;
 }) {
   const colors = useTheme();
   const totalMins = (recipe.prep_time_mins ?? 0) + (recipe.cook_time_mins ?? 0);
@@ -60,13 +66,31 @@ function RecipeCard({
   const isLowCarb = !!(recipe.dietary_tags?.includes('low_carb') || (recipe.macros as any)?.carbohydrates <= 30);
   return (
     <Pressable
-      onPress={onPress}
+      onPress={deleteMode ? undefined : onPress}
+      onLongPress={onLongPress}
+      delayLongPress={400}
       style={{
         flex: 1, borderRadius: 14, backgroundColor: colors.card,
-        borderWidth: 0.5, borderColor: colors.border, overflow: 'hidden',
-        margin: 4,
+        borderWidth: deleteMode ? 1.5 : 0.5,
+        borderColor: deleteMode ? '#FF3B30' + '60' : colors.border,
+        overflow: 'hidden', margin: 4,
       }}
     >
+      {deleteMode && (
+        <Pressable
+          onPress={onDelete}
+          hitSlop={6}
+          style={{
+            position: 'absolute', top: 6, right: 6, zIndex: 10,
+            width: 22, height: 22, borderRadius: 11,
+            backgroundColor: '#FF3B30',
+            alignItems: 'center', justifyContent: 'center',
+            shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 3, shadowOffset: { width: 0, height: 1 },
+          }}
+        >
+          <Ionicons name="close" size={13} color="white" />
+        </Pressable>
+      )}
       <Image
         source={{ uri: recipe.image_url || undefined }}
         style={{ width: '100%', height: 100 }}
@@ -134,6 +158,32 @@ export default function Recipes() {
   const [cookedCounts, setCookedCounts] = useState<Map<string, number>>(new Map());
   const [mineRecipes, setMineRecipes] = useState<Recipe[]>([]);
   const [loading, setLoading] = useState(false);
+
+  const [deleteMode, setDeleteMode] = useState(false);
+
+  // Exit delete mode when switching tabs
+  useEffect(() => { setDeleteMode(false); }, [activeTab]);
+
+  async function handleDeleteRecipe(recipe: Recipe) {
+    if (activeTab === 'Saved') {
+      if (userId) removeRecipe(recipe, userId);
+    } else if (activeTab === 'Mine') {
+      Alert.alert(
+        'Delete Recipe',
+        `Delete "${recipe.title}"? This cannot be undone.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Delete', style: 'destructive',
+            onPress: async () => {
+              await supabase.from('recipes').delete().eq('id', recipe.supabase_id);
+              loadMineData();
+            },
+          },
+        ]
+      );
+    }
+  }
 
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [detailVisible, setDetailVisible] = useState(false);
@@ -363,17 +413,30 @@ export default function Recipes() {
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
           <Text style={{ fontSize: 28, fontWeight: '700', color: colors.text }}>My Recipes</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <Pressable
-              onPress={() => setWizardVisible(true)}
-              style={{
-                flexDirection: 'row', alignItems: 'center', gap: 5,
-                backgroundColor: colors.primary, borderRadius: 999,
-                paddingHorizontal: 12, paddingVertical: 7,
-              }}
-            >
-              <Ionicons name="add" size={15} color="white" />
-              <Text style={{ color: 'white', fontSize: 12, fontWeight: '700' }}>My Recipe</Text>
-            </Pressable>
+            {deleteMode ? (
+              <Pressable
+                onPress={() => setDeleteMode(false)}
+                style={{
+                  backgroundColor: colors.card, borderRadius: 999,
+                  paddingHorizontal: 14, paddingVertical: 7,
+                  borderWidth: 1, borderColor: colors.border,
+                }}
+              >
+                <Text style={{ color: colors.primary, fontSize: 13, fontWeight: '700' }}>Done</Text>
+              </Pressable>
+            ) : (
+              <Pressable
+                onPress={() => setWizardVisible(true)}
+                style={{
+                  flexDirection: 'row', alignItems: 'center', gap: 5,
+                  backgroundColor: colors.primary, borderRadius: 999,
+                  paddingHorizontal: 12, paddingVertical: 7,
+                }}
+              >
+                <Ionicons name="add" size={15} color="white" />
+                <Text style={{ color: 'white', fontSize: 12, fontWeight: '700' }}>My Recipe</Text>
+              </Pressable>
+            )}
             <AvatarButton />
           </View>
         </View>
@@ -506,6 +569,9 @@ export default function Recipes() {
                 recipe={item}
                 cookedCount={cookedCounts.get(item.supabase_id ?? '')}
                 onPress={() => openRecipe(item)}
+                onLongPress={() => activeTab !== 'Cooked' && setDeleteMode(true)}
+                deleteMode={deleteMode && activeTab !== 'Cooked'}
+                onDelete={() => handleDeleteRecipe(item)}
               />
             ) : (
               <View style={{ flex: 1, margin: 4 }} />
