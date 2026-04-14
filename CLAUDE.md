@@ -42,7 +42,7 @@ Mori is a swipe-based recipe discovery app. Users swipe on recipe cards → save
 - Plan tab: weekly meal grid, Supabase-backed
 - Grocery List: grouped categories, checkboxes, copy-to-clipboard
 - Profile: AvatarButton → ProfileSheet, taste profile (monthly cron + update modal), pantry, preferences, editable display name, appearance toggle
-- 1890 curated recipes; all have steps, macros, gpt-image-1 images
+- 1,506 curated recipes; all have steps, macros, dietary_tags, meal_prep_friendly, gpt-image-1 images
 - Vercel functions: /api/macros, /api/taste-profile, /api/generate-recipe, /api/storage-tip (exactly 12 — Hobby plan limit; `_`-prefixed files don't count)
 - app.json: name Mori, bundle ID app.getmori.mori
 - Landing page: getmori.app (Vercel), hello@getmori.app email routing. Screenshots + taste profile section updated.
@@ -59,6 +59,8 @@ Mori is a swipe-based recipe discovery app. Users swipe on recipe cards → save
 - Recipe flags moved to Supabase (`recipe_flags` table, RLS) — previously AsyncStorage-only, now cross-device and queryable
 - Long-press delete mode on Recipes tab (Saved + Mine): multi-select with checkmark-circle icons, Delete(N)/Done header buttons
 - Scorer optimized: unsave signal (−3 + neutralizes right-swipe boost), view-no-save penalty (−2 after 3 views), pantry word-containment matching, dietary goal cap +20, swipe history limit 500
+- Fusion cuisine: split display in detail modal (individual pills + "Fusion" pill), grid card joins with ", "; scorer splits `cuisine` on comma for preference matching
+- Session cuisine affinity: `sessionCuisineSwipes` map in `lib/api.ts` accumulates per-cuisine right/left swipes within a session; applied as bonus/penalty in `scoreRecipe`
 
 ### ❌ Phase 4 — Grocery APIs
 - ✅ Kroger OAuth + Cart: full PKCE flow using Web Crypto API (Expo Go compatible), tokens in Supabase (`kroger_tokens` table, RLS service-role only), direct cart add. `api/kroger-auth.ts`, `api/kroger-cart.ts`, `KrogerSheet` in `grocery-list.tsx`. `cleanForSearch()` strips quantities/prep words before search; not-found items shown in results instead of silently dropped.
@@ -66,13 +68,12 @@ Mori is a swipe-based recipe discovery app. Users swipe on recipe cards → save
 - ⏳ **Waiting on Instacart Developer Platform approval** — applied, waiting.
 - ✅ Grocery list persists across restarts — `groceryStore` now uses Zustand `persist` + `createJSONStorage(() => AsyncStorage)`, partializing `list` + `selectedRecipes`
 - ✅ Meal Prep sub-tab shows all saved recipes when `mode === 'meal_prep'` — previously filtered by `meal_prep_friendly` which is `null` for most DB recipes
-- ✅ **New Recipe Backfill (1000+ recipes)** — two-phase workflow for bulk additions:
-  - **Phase 1:** `node scripts/generate-new-recipes.mjs` reads CSV (`scripts/new-recipes.csv`), calls `/api/generate-recipe` with `save: false`, writes JSONL output to `scripts/new-recipes-draft.json` (one recipe per line). Resume-safe: skips titles already in Supabase + already in draft file.
-  - **Phase 2:** `node scripts/upload-new-recipes.mjs` — ❌ **NOT YET BUILT**. Needs to: read JSONL draft, batch-insert (50 rows/batch) to Supabase with deduplication. Photos added via `generate-images.mjs` after upload. Fields: `cuisine` stored as-is (e.g. `"cajun,italian"` for fusions), `skill_level: 'home_cook'`, `meal_prep_friendly` from recipe response, `image_url: null` until photos ready.
-  - **CSV format:** `title,cuisine,meal_prep_friendly,difficulty,approx_time_mins`. Fusion cuisines quoted (e.g., `"cajun,italian"`). ~330 unique recipes.
-  - **Cuisine handling:** Comma-separated for fusions (both parent cuisines kept); passed to API as `"cuisine1 and cuisine2"` for Claude context.
-  - **Parser:** RFC 4180 quoted-CSV in `generate-new-recipes.mjs:loadDishes()` handles embedded commas.
-- **Recipe title polish pass** — after new recipes are in production, run a script to rewrite titles to be more evocative and ingredient-forward (e.g. "Pork with Sauce" → "Pork Chops with Brown Butter Pan Sauce"). Use Claude Haiku; feed `recipe.title + recipe.ingredients` and ask for a punchy 4–7 word title. Update in Supabase in place.
+- ✅ **New Recipe Backfill (483 recipes)** — two-phase workflow complete:
+  - **Phase 1:** `node scripts/generate-new-recipes.mjs [--csv path] [--cuisine X] [--dry-run]` reads CSV, calls `/api/generate-recipe`, writes JSONL draft. Resume-safe.
+  - **Phase 2:** `node scripts/upload-new-recipes.mjs` — batch-inserts draft → Supabase (50 rows/batch). Fixed pagination bug: uses `.range()` to fetch all existing titles, not just first 1000.
+  - **CSV format:** `title,cuisine,meal_prep_friendly,difficulty,approx_time_mins`. Fusion cuisines quoted (e.g., `"cajun,italian"`). Cuisine stored as-is (comma-separated for fusions).
+  - **DB cleanup:** 385 duplicates removed (caused by original pagination bug); 43 macros backfilled; 349 dietary tags backfilled; 319 dirty MealDB tags cleaned.
+- **Recipe title polish pass** — `scripts/polish-recipe-titles.mjs` built (Haiku rewrites generic titles to be ingredient-forward). **Not yet run in production.**
 - Check ALL tags for all recipes and categories. Make sure that we are scoring properly for all of these categories and tags.
 - Payment wall take cut of grocery?
 - User ability to add photos for ALL recipes. User created or current Mori recipes.
@@ -145,13 +146,17 @@ scripts/ (all one-time or safe-to-resume, already ran)
   seed-recipes, backfill-*, rewrite-steps, generate-recipes,
   generate-images, clean-recipes, clean-ingredient-units,
   new-recipes.csv (source list for bulk backfill),
-  generate-new-recipes.mjs (Phase 1: generate → JSONL),
-  upload-new-recipes.mjs (Phase 2: JSONL → Supabase),
-  recheck-meal-prep.mjs (re-evaluate meal_prep_friendly via Haiku; --all/--false/--dry-run)
+  generate-new-recipes.mjs (Phase 1: generate → JSONL; supports --csv, --cuisine, --dry-run),
+  upload-new-recipes.mjs (Phase 2: JSONL → Supabase; pagination-safe),
+  recheck-meal-prep.mjs (re-evaluate meal_prep_friendly via Haiku; --all/--false/--dry-run),
+  backfill-dietary-tags.mjs (clean dirty MealDB tags + Haiku classify empty tags),
+  polish-recipe-titles.mjs (Haiku rewrites generic titles; --limit N, --dry-run, --recent N)
 
-__tests__/                 ✅ Jest 29 + jest-expo@54 — 103 tests, 9 suites
+__tests__/                 ✅ Jest 29 + jest-expo@54 — 103+ tests, 11 suites
   api/_apiAuth.test.ts     AuthError, extractBearerToken, handleAuthError
   api/_rateLimit.test.ts   rateLimitUser, rateLimitIP, getClientIP
+  api/generate-recipe.test.ts  auth gate (no JWT + no seed secret → 401)
+  api/waitlist.test.ts     CORS rejection, input validation
   lib/utils.test.ts        formatTime, formatCost, capitalize, getWeekStart, getTimeOfDay
   stores/collectionsStore.test.ts
   stores/mealPlanStore.test.ts
@@ -250,12 +255,13 @@ DoorDash, Uber Eats, Amazon Fresh, push notifications, Android, web app, barcode
 Full audit run across security, bugs, and edge cases. Items below are **unresolved**. Mark off as fixed.
 
 ### 🔴 Security
-- [ ] `/api/generate-recipe` allows unauthenticated calls — auth header is optional; seed scripts bypass rate limiting entirely. Require auth OR `x-seed-secret`.
-- [ ] Rate limiting fails **open** (`rateLimit.ts:159`) — infra error returns `success: true`. Should fail closed.
+- [x] `/api/generate-recipe` allows unauthenticated calls — fixed: now requires valid JWT or `x-seed-secret` header; no fallthrough.
+- [x] Rate limiting fails **open** — fixed: infra error now returns `success: false` (fail closed).
+- [x] Timing-attack risk on seed secret string comparison — fixed: uses `crypto.timingSafeEqual()`.
+- [x] `waitlist` CORS logic inverted — fixed: non-allowlisted origins now return 403.
 - [ ] Kroger `access_token` / `refresh_token` stored as plaintext `TEXT` in Supabase (`kroger_tokens` table). Encrypt with `pgsodium`.
 - [ ] No production error logging — all errors swallowed silently in prod. Add Sentry or equivalent.
 - [ ] No CSRF protection on public endpoints (`/api/waitlist`).
-- [ ] Timing-attack risk on seed secret string comparison — use `crypto.timingSafeEqual()`.
 - [ ] Missing security headers (X-Content-Type-Options, X-Frame-Options) on Vercel functions.
 
 ### 🔴 Bugs
@@ -284,4 +290,4 @@ Full audit run across security, bugs, and edge cases. Items below are **unresolv
 - [ ] **Adventure card pause not persisted** — session-only; resets on app relaunch.
 
 ---
-*v8.5 — Phases 1–3 complete. Phase 4 in progress. Scorer optimized (unsave signal, pantry word-match, dietary cap, view penalty). 1890 recipes; meal_prep_friendly re-evaluated with component-aware prompt. Jest: 103 tests, 9 suites.*
+*v9.0 — Phases 1–3 complete. Phase 4 in progress. Scorer: session cuisine affinity, fusion split matching. 1,506 recipes (deduped); all have images, macros, dietary tags, meal_prep_friendly. Security: auth gate on generate-recipe, rate limit fail-closed, timing-safe seed compare, CORS fix. Jest: 103+ tests, 11 suites.*
