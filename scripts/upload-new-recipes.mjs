@@ -44,9 +44,21 @@ const isDryRun = args.includes('--dry-run');
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 async function getExistingTitles() {
-  const { data, error } = await sb.from('recipes').select('title');
-  if (error) throw new Error(`Failed to fetch existing titles: ${error.message}`);
-  return new Set((data ?? []).map(r => r.title.toLowerCase().trim()));
+  const titles = [];
+  const PAGE = 1000;
+  let from = 0;
+  while (true) {
+    const { data, error } = await sb
+      .from('recipes')
+      .select('title')
+      .range(from, from + PAGE - 1);
+    if (error) throw new Error(`Failed to fetch existing titles: ${error.message}`);
+    if (!data || data.length === 0) break;
+    titles.push(...data.map(r => r.title.toLowerCase().trim()));
+    if (data.length < PAGE) break;
+    from += PAGE;
+  }
+  return new Set(titles);
 }
 
 function loadDraft() {

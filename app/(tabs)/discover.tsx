@@ -593,7 +593,8 @@ export default function Discover() {
     if (recipe.isAdventure && direction === 'left') recordAdventureCardLeftSwipe();
     resolveSupabaseId(recipe)
       .then((supabaseId) => {
-        recordSessionSwipe(supabaseId, direction);
+        const cuisines = (recipe.cuisine ?? '').split(',').map((c: string) => c.trim()).filter(Boolean);
+        recordSessionSwipe(supabaseId, direction, cuisines);
         return logSwipe({
           user_id: userId,
           recipe_id: supabaseId,
@@ -796,11 +797,11 @@ export default function Discover() {
                 key={m}
                 onPress={() => setMode(m as AppMode)}
                 style={{
-                  paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14,
+                  paddingHorizontal: 13, paddingVertical: 7, borderRadius: 14,
                   backgroundColor: mode === m ? colors.primary : 'transparent',
                 }}
               >
-                <Text style={{ color: mode === m ? 'white' : colors.textMuted, fontSize: 11, fontWeight: '600' }}>
+                <Text style={{ color: mode === m ? 'white' : colors.textMuted, fontSize: 13, fontWeight: '600' }}>
                   {m === 'spontaneous' ? 'Quick' : 'Meal Prep'}
                 </Text>
               </Pressable>

@@ -8,6 +8,7 @@
 - Compact at 60% of context usage.
 - Do not make changes unless 95% confident. Ask follow-up questions until that threshold is met.
 - Bug fix log lives at `.claude/bugfixes.md` — append an entry for every shipped fix batch.
+- Do not always agree with user! Look for missing edge cases things user has not thought of. 
 
 ### Security Commandments (April 2026)
 - **Never add API endpoints without JWT auth** — use `requireAuth(req)` from `lib/apiAuth.ts` unless explicitly public (waitlist)
@@ -41,8 +42,8 @@ Mori is a swipe-based recipe discovery app. Users swipe on recipe cards → save
 - Plan tab: weekly meal grid, Supabase-backed
 - Grocery List: grouped categories, checkboxes, copy-to-clipboard
 - Profile: AvatarButton → ProfileSheet, taste profile (monthly cron + update modal), pantry, preferences, editable display name, appearance toggle
-- 609 curated recipes (419 TheMealDB + generated); all have steps, macros, gpt-image-1 images
-- Vercel functions: /api/macros, /api/taste-profile, /api/generate-recipe, /api/storage-tip
+- 1890 curated recipes; all have steps, macros, gpt-image-1 images
+- Vercel functions: /api/macros, /api/taste-profile, /api/generate-recipe, /api/storage-tip (exactly 12 — Hobby plan limit; `_`-prefixed files don't count)
 - app.json: name Mori, bundle ID app.getmori.mori
 - Landing page: getmori.app (Vercel), hello@getmori.app email routing. Screenshots + taste profile section updated.
 - App icon: italic m + spatula, linen #F8F3EC, 1024×1024
@@ -55,6 +56,9 @@ Mori is a swipe-based recipe discovery app. Users swipe on recipe cards → save
 - API security hardening: JWT auth, Zod validation, rate limiting on all endpoints
 - Forgot password + confirm password flow
 - Mori logo: 3 PNG variants, correct per light/dark mode; heart/X buttons theme-synced
+- Recipe flags moved to Supabase (`recipe_flags` table, RLS) — previously AsyncStorage-only, now cross-device and queryable
+- Long-press delete mode on Recipes tab (Saved + Mine): multi-select with checkmark-circle icons, Delete(N)/Done header buttons
+- Scorer optimized: unsave signal (−3 + neutralizes right-swipe boost), view-no-save penalty (−2 after 3 views), pantry word-containment matching, dietary goal cap +20, swipe history limit 500
 
 ### ❌ Phase 4 — Grocery APIs
 - ✅ Kroger OAuth + Cart: full PKCE flow using Web Crypto API (Expo Go compatible), tokens in Supabase (`kroger_tokens` table, RLS service-role only), direct cart add. `api/kroger-auth.ts`, `api/kroger-cart.ts`, `KrogerSheet` in `grocery-list.tsx`. `cleanForSearch()` strips quantities/prep words before search; not-found items shown in results instead of silently dropped.
@@ -132,27 +136,29 @@ stores/
   userStore, savedStore, groceryStore, collectionsStore,
   mealPlanStore, discoverStore
 
-api/ (Vercel functions)
-  macros.ts, taste-profile.ts, generate-recipe.ts,
-  storage-tip.ts, recommendations.ts (built, unused)
+api/ (Vercel functions — exactly 12, Hobby plan limit)
+  macros.ts, taste-profile.ts, generate-recipe.ts, storage-tip.ts,
+  kroger-auth.ts, kroger-cart.ts
+  (recommendations.ts + backfill-meal-prep.ts deleted to stay within limit)
 
 scripts/ (all one-time or safe-to-resume, already ran)
   seed-recipes, backfill-*, rewrite-steps, generate-recipes,
   generate-images, clean-recipes, clean-ingredient-units,
   new-recipes.csv (source list for bulk backfill),
   generate-new-recipes.mjs (Phase 1: generate → JSONL),
-  upload-new-recipes.mjs (Phase 2: JSONL → Supabase)
+  upload-new-recipes.mjs (Phase 2: JSONL → Supabase),
+  recheck-meal-prep.mjs (re-evaluate meal_prep_friendly via Haiku; --all/--false/--dry-run)
 
-__tests__/                 ✅ Jest 29 + jest-expo@54 — 101 tests, 9 suites
+__tests__/                 ✅ Jest 29 + jest-expo@54 — 103 tests, 9 suites
   api/_apiAuth.test.ts     AuthError, extractBearerToken, handleAuthError
   api/_rateLimit.test.ts   rateLimitUser, rateLimitIP, getClientIP
   lib/utils.test.ts        formatTime, formatCost, capitalize, getWeekStart, getTimeOfDay
   stores/collectionsStore.test.ts
   stores/mealPlanStore.test.ts
-  stores/groceryStore.test.ts     (includes test.failing() for quantity-dedup bug)
+  stores/groceryStore.test.ts
   stores/savedStore.test.ts
   stores/discoverStore.test.ts
-  lib/substitutions.test.ts       (includes test.failing() for word-boundary bug)
+  lib/substitutions.test.ts
 ```
 
 ---
@@ -203,11 +209,11 @@ Full color values in `constants/theme.ts`.
 9. All colors via `useTheme()` — never hardcode hex
 10. Every screen needs loading + error state
 11. Log every swipe to Supabase (non-negotiable)
-12. Log every recipe_interaction (view, grocery_add, cooked)
+12. Log every recipe_interaction (view, grocery_add, cooked, unsave)
 13. Ingredient dislikes are hard filters — enforced before scoring
 14. All macros labelled "estimated"
 15. All interaction logging is fire-and-forget — never block UI
-16. Scorer signal caps: grocery_add and cooked capped at Math.min(count, 2)
+16. Scorer signal caps: grocery_add and cooked capped at Math.min(count, 2); dietary bonus capped at +20 total
 17. Recipe card titles use Georgia italic — never sans-serif
 
 ### API Security & Rate Limiting
@@ -278,4 +284,4 @@ Full audit run across security, bugs, and edge cases. Items below are **unresolv
 - [ ] **Adventure card pause not persisted** — session-only; resets on app relaunch.
 
 ---
-*v8.4 — Phases 1–3 complete. Phase 4 in progress. All audit bugs fixed. Edge cases: 6/13 resolved. Jest test suite live (103 tests, 9 suites).*
+*v8.5 — Phases 1–3 complete. Phase 4 in progress. Scorer optimized (unsave signal, pantry word-match, dietary cap, view penalty). 1890 recipes; meal_prep_friendly re-evaluated with component-aware prompt. Jest: 103 tests, 9 suites.*

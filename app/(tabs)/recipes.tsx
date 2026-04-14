@@ -122,28 +122,31 @@ function RecipeCard({
           {recipe.title}
         </Text>
         <Text style={{ fontSize: 9, color: colors.textMuted, marginTop: 3, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-          {[recipe.cuisine, formatTime(recipe.prep_time_mins, recipe.cook_time_mins)].filter(Boolean).join(' · ')}
+          {[
+            recipe.cuisine ? recipe.cuisine.split(',').map(c => c.trim()).join(', ') : null,
+            formatTime(recipe.prep_time_mins, recipe.cook_time_mins),
+          ].filter(Boolean).join(' · ')}
         </Text>
         {(isMealPrep || isQuick || isHighProtein || isLowCarb) && (
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 5 }}>
             {isMealPrep && (
-              <View style={{ backgroundColor: '#2E5438', borderRadius: 999, paddingHorizontal: 6, paddingVertical: 2, marginRight: 4, marginBottom: 2 }}>
-                <Text style={{ fontSize: 8, fontWeight: '700', color: '#fff' }}>Meal Prep</Text>
+              <View style={{ backgroundColor: '#2E5438', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3, marginRight: 4, marginBottom: 2 }}>
+                <Text style={{ fontSize: 10, fontWeight: '700', color: '#fff' }}>Meal Prep</Text>
               </View>
             )}
             {isQuick && (
-              <View style={{ backgroundColor: '#FFF3E0', borderRadius: 999, paddingHorizontal: 6, paddingVertical: 2, marginRight: 4, marginBottom: 2 }}>
-                <Text style={{ fontSize: 8, fontWeight: '700', color: '#E65100' }}>Quick</Text>
+              <View style={{ backgroundColor: '#FFF3E0', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3, marginRight: 4, marginBottom: 2 }}>
+                <Text style={{ fontSize: 10, fontWeight: '700', color: '#E65100' }}>Quick</Text>
               </View>
             )}
             {isHighProtein && (
-              <View style={{ backgroundColor: '#E3F2FD', borderRadius: 999, paddingHorizontal: 6, paddingVertical: 2, marginRight: 4, marginBottom: 2 }}>
-                <Text style={{ fontSize: 8, fontWeight: '700', color: '#1565C0' }}>High Protein</Text>
+              <View style={{ backgroundColor: '#E3F2FD', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3, marginRight: 4, marginBottom: 2 }}>
+                <Text style={{ fontSize: 10, fontWeight: '700', color: '#1565C0' }}>High Protein</Text>
               </View>
             )}
             {isLowCarb && (
-              <View style={{ backgroundColor: '#F3E5F5', borderRadius: 999, paddingHorizontal: 6, paddingVertical: 2, marginBottom: 2 }}>
-                <Text style={{ fontSize: 8, fontWeight: '700', color: '#6A1B9A' }}>Low Carb</Text>
+              <View style={{ backgroundColor: '#F3E5F5', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3, marginBottom: 2 }}>
+                <Text style={{ fontSize: 10, fontWeight: '700', color: '#6A1B9A' }}>Low Carb</Text>
               </View>
             )}
           </View>

@@ -479,11 +479,22 @@ export function recordAdventureCardLeftSwipe(): void {
   adventureCardCooldown = 10;
 }
 
-export function recordSessionSwipe(supabaseId: string, direction: 'left' | 'right'): void {
+// Tracks per-cuisine swipe counts within the current session so the scorer can
+// boost/penalize recipes sharing a cuisine the user is clearly into or avoiding.
+const sessionCuisineSwipes = new Map<string, { right: number; left: number }>();
+
+export function recordSessionSwipe(supabaseId: string, direction: 'left' | 'right', cuisines?: string[]): void {
   sessionShownIds.add(supabaseId);
   if (direction === 'left') {
     sessionLeftSwipes.add(supabaseId);
     persistLeftSwipe(supabaseId); // fire-and-forget — cross-session persistence
+  }
+  // Accumulate cuisine affinity from swipes (fusion-aware)
+  for (const cuisine of (cuisines ?? [])) {
+    const cur = sessionCuisineSwipes.get(cuisine) ?? { right: 0, left: 0 };
+    if (direction === 'right') cur.right++;
+    else cur.left++;
+    sessionCuisineSwipes.set(cuisine, cur);
   }
   if (adventureCardCooldown > 0) adventureCardCooldown--;
 }
@@ -506,6 +517,7 @@ export async function cancelLeftSwipe(supabaseId: string): Promise<void> {
 export function clearSessionState(): void {
   sessionLeftSwipes.clear();
   sessionShownIds.clear();
+  sessionCuisineSwipes.clear();
   adventureCardCooldown = 0;
 }
 
@@ -548,8 +560,19 @@ function scoreRecipe(
   const affinity = affinityMap.get(recipe.supabase_id ?? '');
   if (affinity != null) score += affinity * 4;
 
-  // Cuisine match
-  if (profile?.cuisine_preferences?.includes(recipe.cuisine ?? '')) score += 3;
+  // Cuisine match — handles fusion cuisines stored as "cajun,italian"
+  const recipeCuisines = (recipe.cuisine ?? '').split(',').map(c => c.trim()).filter(Boolean);
+  if (recipeCuisines.some(c => profile?.cuisine_preferences?.includes(c))) score += 3;
+
+  // Session cuisine affinity — boost/penalize based on cuisines swiped this session
+  // Capped at 3 swipes per cuisine to avoid runaway feedback loops
+  for (const cuisine of recipeCuisines) {
+    const swipes = sessionCuisineSwipes.get(cuisine);
+    if (swipes) {
+      score += Math.min(swipes.right, 3) * 1.5;
+      score -= Math.min(swipes.left, 3) * 2;
+    }
+  }
 
   // Dietary goal alignment — Bug 6: trust macro data over tags when available
   const goals = profile?.dietary_goals ?? [];

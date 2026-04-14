@@ -455,7 +455,10 @@ export function RecipeDetailModal({
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }}>
               <View style={{ flexDirection: 'row', gap: 6 }}>
                 {[
-                  recipe.cuisine,
+                  ...(recipe.cuisine
+                    ? recipe.cuisine.split(',').map(c => c.trim().charAt(0).toUpperCase() + c.trim().slice(1))
+                    : []),
+                  ...(recipe.cuisine?.includes(',') ? ['Fusion'] : []),
                   timeStr,
                   recipe.servings ? `${servings} serving${servings !== 1 ? 's' : ''}` : null,
                   costStr ? `${costStr}/serving` : null,
