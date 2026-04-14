@@ -28,7 +28,10 @@ const ALLOWED_ORIGINS = [
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // ── CORS (Restricted) ─────────────────────────────────────────────────
   const origin = req.headers.origin;
-  if (origin && ALLOWED_ORIGINS.includes(origin)) {
+  if (origin && !ALLOWED_ORIGINS.includes(origin)) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  if (origin) {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');

@@ -44,7 +44,9 @@ const sb = createClient(SUPABASE_URL, SERVICE_KEY);
 // ── Load dish list from CSV ────────────────────────────────────────────────────
 
 function loadDishes() {
-  const csvPath = resolve(process.cwd(), 'scripts', 'new-recipes.csv');
+  const csvPath = csvArg
+    ? resolve(process.cwd(), csvArg)
+    : resolve(process.cwd(), 'scripts', 'new-recipes.csv');
   const lines = readFileSync(csvPath, 'utf8').trim().split('\n');
   const headers = lines[0].split(',').map(h => h.trim());
 
@@ -85,6 +87,15 @@ function loadDishes() {
       };
     });
 }
+
+// ── Args ───────────────────────────────────────────────────────────────────────
+
+const args          = process.argv.slice(2);
+const isDryRun      = args.includes('--dry-run');
+const cuisineFilter = args.includes('--cuisine') ? args[args.indexOf('--cuisine') + 1] : null;
+const csvArg        = args.includes('--csv') ? args[args.indexOf('--csv') + 1] : null;
+const DELAY_MS      = 1200;
+const DRAFT_PATH    = resolve(process.cwd(), 'scripts', 'new-recipes-draft.json');
 
 const DISHES = loadDishes();
 
@@ -138,14 +149,6 @@ async function generateDish(dish) {
 
   return (await response.json()).recipe;
 }
-
-// ── Args ───────────────────────────────────────────────────────────────────────
-
-const args          = process.argv.slice(2);
-const isDryRun      = args.includes('--dry-run');
-const cuisineFilter = args.includes('--cuisine') ? args[args.indexOf('--cuisine') + 1] : null;
-const DELAY_MS      = 1200;
-const DRAFT_PATH    = resolve(process.cwd(), 'scripts', 'new-recipes-draft.json');
 
 // ── Main ───────────────────────────────────────────────────────────────────────
 

@@ -85,7 +85,23 @@
       "Bash(npx expo:*)",
       "Bash(grep -n \"scaleMeasure\\\\|scaleMacros\" /c/Users/jkim2/projectX/lib/*.ts)",
       "Bash(grep -r \"interface.*Recipe\\\\|measure.*string\\\\|unit.*string\\\\|quantity.*string\" c:/Users/jkim2/projectX/app --include=*.ts -l)",
-      "Bash(grep -r \"export.*interface Recipe\\\\|export.*type Recipe\\\\b\" c:/Users/jkim2/projectX --include=*.ts --include=*.tsx -l)"
+      "Bash(grep -r \"export.*interface Recipe\\\\|export.*type Recipe\\\\b\" c:/Users/jkim2/projectX --include=*.ts --include=*.tsx -l)",
+      "Bash(cp \"App Screen/\"*.PNG public/)",
+      "Bash(cp \"App Screen/\"*.PNG landing/)",
+      "Bash(git pull:*)",
+      "Bash(find c:Usersjkim2projectX -name .env* -type f)",
+      "Bash(npx jest:*)",
+      "Bash(npx ts-node:*)",
+      "Bash(python3 -c \"import json,sys; d=json.loads\\(sys.stdin.read\\(\\)\\); r=d[''''recipe'''']; print\\(r[''''title'''']\\); print\\(\\); print\\(r[''''description'''']\\); print\\(\\); [print\\(f\"\"  - {i[''''quantity'''']} {i[''''unit'''']} {i[''''name'''']}\"\"\\) for i in r[''''ingredients'''']]; print\\(\\); [print\\(f\"\"  {j+1}. {s[''''instruction'''']}\"\"\\) for j,s in enumerate\\(r[''''steps'''']\\)]\")",
+      "Bash(npm test:*)",
+      "Bash(wc -l /c/Users/jkim2/projectX/__tests__/**/*.test.ts)",
+      "Bash(grep -r \"SUPABASE_URL\\\\|supabase.co\" c:/Users/jkim2/projectX/.env* c:/Users/jkim2/projectX/lib/supabase.ts)",
+      "mcp__claude_ai_Supabase__apply_migration",
+      "Bash(grep -r \"flagRecipe\\\\|getFlaggedRecipes\\\\|recipe_flags\" c:/Users/jkim2/projectX --include=*.tsx --include=*.ts --exclude-dir=node_modules --exclude-dir=.next)",
+      "Bash(find c:/Users/jkim2/projectX -type f \\\\\\(-name *.sql -o -name *schema* -o -name *migrations* \\\\\\) ! -path */node_modules/*)",
+      "Bash(grep -r \"recipe_flags\\\\|recipe_id.*external_id\\\\|CREATE TABLE\" c:/Users/jkim2/projectX/supabase --include=*.sql)",
+      "Bash(tasklist /fi 'imagename eq node.exe' /fo list)",
+      "Bash(find /c/Users/jkim2/projectX -name *rateLimit* -o -name *apiAuth*)"
     ]
   }
 }

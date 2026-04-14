@@ -60,9 +60,13 @@ async function isMealPrep(recipe) {
       role: 'user',
       content: `Is this recipe meal-prep friendly? Answer only "yes" or "no".
 
-Meal-prep friendly: can be made in bulk, stores well in the fridge for 3–5 days or freezes, reheats without major quality loss.
-YES: grain bowls, soups, stews, roasted meats, casseroles, burrito bowls, stir-fries, sheet pan meals, marinated proteins, overnight oats
-NO: dishes with components that go soggy (dressed salads, breaded-and-fried foods meant to be crispy), recipes requiring last-minute assembly only
+Default to YES. Think component-by-component: if the main components can be cooked ahead, stored in the fridge 3–5 days, and reheated or assembled quickly, it is meal-prep friendly.
+
+YES (almost everything): soups, stews, curries, roasted/grilled meats, rice dishes, grain bowls, pasta with sauce, casseroles, stir-fries, sheet pan meals, marinated proteins, overnight oats, salads (dressing stored separately), bowl dishes (components stored separately), taco/burrito fillings, dips and spreads, braised dishes, fried rice, noodle dishes.
+
+NO (only these): deep-fried foods where crunch is the whole point and reheating ruins them (tempura, spring rolls, tonkatsu), delicate egg dishes that must be eaten immediately (soufflés, soft-poached eggs as the main component), fresh pastry meant to be eaten same-day (croissants), raw fish preparations for immediate consumption (sashimi, fresh-assembled sushi rolls).
+
+If in doubt, answer yes.
 
 Recipe: ${recipe.title}
 Cuisine: ${recipe.cuisine ?? 'unknown'}

@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import Anthropic from '@anthropic-ai/sdk';
 import { createClient } from '@supabase/supabase-js';
+import { timingSafeEqual } from 'crypto';
 import { rateLimitUser } from './_rateLimit';
 import { validate, GenerateRecipeRequestSchema, ValidationError, formatValidationError } from '../lib/validation';
 import { requireAuth } from './_apiAuth';
@@ -132,16 +133,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    // ── Authentication (required for user-initiated generation) ───────────
-    // Allow unauthenticated calls for seed scripts (they'll use x-seed-secret)
+    // ── Authentication ─────────────────────────────────────────────────────
+    // Requires either a valid JWT (user) or x-seed-secret header (seed scripts).
     let userId: string | null = null;
-    const authHeader = req.headers.authorization;
-    if (authHeader) {
-      try {
-        userId = await requireAuth(req);
-      } catch {
-        // Fall through — seed endpoint doesn't require auth
+    const seedSecret = process.env.SEED_SECRET;
+    const xSeedSecret = req.headers['x-seed-secret'] as string | undefined;
+
+    if (req.headers.authorization) {
+      userId = await requireAuth(req); // throws AuthError if invalid
+    } else if (xSeedSecret && seedSecret) {
+      const provided = Buffer.from(xSeedSecret);
+      const expected = Buffer.from(seedSecret);
+      if (provided.length !== expected.length || !timingSafeEqual(provided, expected)) {
+        return res.status(401).json({ error: 'Unauthorized' });
       }
+      // Seed script authenticated — no per-user rate limiting
+    } else {
+      return res.status(401).json({ error: 'Unauthorized' });
     }
 
     // ── Input Validation ──────────────────────────────────────────────────

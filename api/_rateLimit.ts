@@ -157,8 +157,8 @@ export async function rateLimitUser(
       resetAt: Math.ceil((Date.now() + windowSeconds * 1000) / 1000),
     };
   } catch {
-    // Rate store failure — fail open so users aren't blocked by infra issues
-    return { success: true, remaining: limit - 1, resetAt: Date.now() + windowSeconds * 1000 };
+    // Rate store failure — fail closed to prevent abuse during outages
+    return { success: false, remaining: 0, resetAt: Date.now() + windowSeconds * 1000 };
   }
 }
 
@@ -196,8 +196,8 @@ export async function rateLimitIP(
       resetAt: Math.ceil((Date.now() + windowSeconds * 1000) / 1000),
     };
   } catch {
-    // Rate store failure — fail open so users aren't blocked by infra issues
-    return { success: true, remaining: limit - 1, resetAt: Date.now() + windowSeconds * 1000 };
+    // Rate store failure — fail closed to prevent abuse during outages
+    return { success: false, remaining: 0, resetAt: Date.now() + windowSeconds * 1000 };
   }
 }
 
