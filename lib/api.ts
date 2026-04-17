@@ -336,7 +336,11 @@ function isReadyForAdventureCard(
   if (adventureCardCooldown > 0) return false; // recently left-swiped an adventure card
   const total = swipes.length;
   const rights = swipes.filter((s) => s.direction === 'right').length;
-  return total >= 20 && rights >= 8 && total > 0 && rights / total >= 0.3;
+  // most_days cookers unlock adventure cards with half the swipe history — they're ready for variety sooner
+  const isFrequentCook = profile.cooking_frequency === 'most_days';
+  const minTotal = isFrequentCook ? 10 : 20;
+  const minRights = isFrequentCook ? 4 : 8;
+  return total >= minTotal && rights >= minRights && total > 0 && rights / total >= 0.3;
 }
 
 function pickAdventureCuisine(
@@ -521,6 +525,84 @@ export function clearSessionState(): void {
   adventureCardCooldown = 0;
 }
 
+// ─── Leftovers ────────────────────────────────────────────────────────────────
+
+export async function getLeftovers(userId: string): Promise<import('@/types').UserLeftover[]> {
+  const { data, error } = await supabase
+    .from('user_leftovers')
+    .select('*')
+    .eq('user_id', userId)
+    .is('dismissed_at', null)
+    .order('spoils_at', { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as import('@/types').UserLeftover[];
+}
+
+export async function addLeftovers(
+  userId: string,
+  items: { name: string; spoilsAt: string; ingredientId?: string | null }[]
+): Promise<import('@/types').UserLeftover[]> {
+  const rows = items.map((item) => ({
+    user_id: userId,
+    ingredient_id: item.ingredientId ?? null,
+    ingredient_name: item.name,
+    storage_method: 'fridge',
+    spoils_at: item.spoilsAt,
+  }));
+  const { data, error } = await supabase
+    .from('user_leftovers')
+    .insert(rows)
+    .select();
+  if (error) throw error;
+  return (data ?? []) as import('@/types').UserLeftover[];
+}
+
+export async function dismissLeftover(id: string): Promise<void> {
+  await supabase
+    .from('user_leftovers')
+    .update({ dismissed_at: new Date().toISOString() })
+    .eq('id', id);
+}
+
+export async function extendLeftover(id: string, newSpoilsAt: string, newExtendedCount: number): Promise<void> {
+  await supabase
+    .from('user_leftovers')
+    .update({ spoils_at: newSpoilsAt, extended_count: newExtendedCount })
+    .eq('id', id);
+}
+
+// Returns active (non-expired, non-dismissed) leftover names as a lowercase Set.
+// Used by fetchScoredDeck — called once per deck load, passed into scoreRecipe.
+export async function fetchLeftoverNames(userId: string): Promise<Set<string>> {
+  const { data } = await supabase
+    .from('user_leftovers')
+    .select('ingredient_name')
+    .eq('user_id', userId)
+    .is('dismissed_at', null)
+    .gt('spoils_at', new Date().toISOString());
+  return new Set((data ?? []).filter((r: any) => r.ingredient_name).map((r: any) => r.ingredient_name.toLowerCase().trim()));
+}
+
+// Looks up days_fridge for a given ingredient name (exact or alias match).
+// Returns null if not found — callers fall back to a default.
+export async function getIngredientStorageDays(name: string): Promise<number | null> {
+  const n = name.toLowerCase().trim();
+  // Try canonical_name first
+  const { data: exact } = await supabase
+    .from('ingredient_storage')
+    .select('days_fridge')
+    .eq('canonical_name', n)
+    .single();
+  if (exact?.days_fridge != null) return exact.days_fridge;
+  // Try aliases array contains
+  const { data: alias } = await supabase
+    .from('ingredient_storage')
+    .select('days_fridge')
+    .contains('aliases', [n])
+    .single();
+  return alias?.days_fridge ?? null;
+}
+
 // ─── Previously-cooked recipe IDs ─────────────────────────────────────────────
 // Fetched on session start to show "Made before" on cards the user has cooked
 // in prior sessions — enables the post-cook check-in flow across sessions.
@@ -541,7 +623,7 @@ const COMMON_STAPLES = new Set([
   'garlic', 'onion', 'flour', 'sugar', 'eggs',
 ]);
 
-function scoreRecipe(
+export function scoreRecipe(
   recipe: Recipe,
   profile: Profile | null,
   swipeMap: Map<string, { direction: 'left' | 'right'; swiped_at: string }>,
@@ -549,6 +631,7 @@ function scoreRecipe(
   affinityMap: Map<string, number>,
   interactionMap: Map<string, { grocery_add: number; cooked: number; unsave: number; view: number }>,
   pantrySet: Set<string>,
+  leftoversSet?: Set<string>,
 ): number {
   // Bug 7 — session penalty: instantly exclude anything swiped this session
   const sid = recipe.supabase_id;
@@ -622,6 +705,20 @@ function scoreRecipe(
 
   // Saved recipes are hard-excluded in fetchScoredDeck before scoring reaches here.
 
+  // Leftover ingredient match — +2 per match, cap +10.
+  // Promotes recipes that use what the user already has before it spoils.
+  if (leftoversSet?.size) {
+    let matches = 0;
+    for (const ing of (recipe.ingredients ?? []) as { name: string }[]) {
+      if (!ing?.name) continue;
+      const n = ing.name.toLowerCase().trim();
+      for (const left of leftoversSet) {
+        if (n === left || n.includes(left) || left.includes(n)) { matches++; break; }
+      }
+    }
+    score += Math.min(matches * 2, 10);
+  }
+
   // Bug 5 — pantry match with specificity weighting (common staples count less)
   if (pantrySet.size > 0) {
     const recipeIngs = (recipe.ingredients ?? []) as { name: string }[];
@@ -656,7 +753,7 @@ export async function fetchScoredDeck(
   // Load persisted left-swipes from previous sessions into the session Set
   await loadPersistedLeftSwipes();
 
-  const [deck, swipes, affinityMap, interactionMap, pantryItems, trendingIds] = await Promise.all([
+  const [deck, swipes, affinityMap, interactionMap, pantryItems, trendingIds, leftoversSet] = await Promise.all([
     fetchDiscoverRecipes(dietaryGoals),
     userId ? getRecentSwipes(userId) : Promise.resolve([]),
     userId
@@ -665,9 +762,10 @@ export async function fetchScoredDeck(
     userId ? getInteractionCounts(userId) : Promise.resolve(new Map<string, { grocery_add: number; cooked: number; unsave: number; view: number }>()),
     userId ? getPantryItems(userId) : Promise.resolve([]),
     fetchTrendingRecipeIds(),
+    userId ? fetchLeftoverNames(userId) : Promise.resolve(new Set<string>()),
   ]);
 
-  const pantrySet = new Set(pantryItems.map((p) => p.ingredient_name.toLowerCase()));
+  const pantrySet = new Set(pantryItems.filter((p) => p.ingredient_name).map((p) => p.ingredient_name.toLowerCase()));
 
   // Bug 1 fix — ingredient dislike hard filter (never soft-deprioritise, never relaxed)
   const dislikes = (profile?.ingredient_dislikes ?? []).map((d) => d.toLowerCase());
@@ -678,8 +776,12 @@ export async function fetchScoredDeck(
     );
   });
 
-  // Exclude saved recipes — user already has them in their library
-  const afterSaved = savedExternalIds.size === 0 ? afterDislikes : afterDislikes.filter((r) =>
+  // Exclude saved recipes — user already has them in their library.
+  // EXCEPT: favourites_rotation users want to see saved recipes rotated back in
+  // (matches onboarding copy: "reliable go-tos with the occasional new discovery").
+  // The cooked (+4×2) and grocery_add (+3×2) boosts already surface true favorites.
+  const wantsRotation = profile?.eating_style === 'favourites_rotation';
+  const afterSaved = (wantsRotation || savedExternalIds.size === 0) ? afterDislikes : afterDislikes.filter((r) =>
     !savedExternalIds.has(r.external_id ?? r.id ?? '')
   );
 
@@ -694,7 +796,9 @@ export async function fetchScoredDeck(
     if (!recipeSkill) {
       // time-based fallback for recipes without an explicit skill_level
       const totalTime = (r.prep_time_mins ?? 0) + (r.cook_time_mins ?? 0);
-      if (skillLevel === 'beginner' && totalTime > 0 && totalTime > 60) return false;
+      // just_starting cookers get a stricter cap to build confidence on shorter recipes
+      const beginnerCap = profile?.cooking_frequency === 'just_starting' ? 45 : 60;
+      if (skillLevel === 'beginner' && totalTime > 0 && totalTime > beginnerCap) return false;
       if (skillLevel === 'home_cook' && totalTime > 0 && totalTime > 120) return false;
     }
     return true;
@@ -710,7 +814,7 @@ export async function fetchScoredDeck(
 
   let scored = filtered.map((r) => ({
     recipe: r,
-    score: scoreRecipe(r, profile, swipeMap, savedExternalIds, affinityMap, interactionMap, pantrySet),
+    score: scoreRecipe(r, profile, swipeMap, savedExternalIds, affinityMap, interactionMap, pantrySet, leftoversSet),
   }));
 
   // Phase 2.5 — Meal Prep mode: only show explicitly flagged recipes
@@ -748,7 +852,7 @@ export async function fetchScoredDeck(
     console.warn(`[fetchScoredDeck] skill filter too aggressive — relaxing`);
     const rescored = afterSaved.map((r) => ({
       recipe: r,
-      score: scoreRecipe(r, profile, swipeMap, savedExternalIds, affinityMap, interactionMap, pantrySet),
+      score: scoreRecipe(r, profile, swipeMap, savedExternalIds, affinityMap, interactionMap, pantrySet, leftoversSet),
     }));
     rescored.sort((a, b) => b.score - a.score);
     finalDeck = rescored;
@@ -758,7 +862,7 @@ export async function fetchScoredDeck(
     console.warn(`[fetchScoredDeck] very few unsaved recipes — re-including saved as last resort`);
     const rescored = afterDislikes.map((r) => ({
       recipe: r,
-      score: scoreRecipe(r, profile, swipeMap, savedExternalIds, affinityMap, interactionMap, pantrySet),
+      score: scoreRecipe(r, profile, swipeMap, savedExternalIds, affinityMap, interactionMap, pantrySet, leftoversSet),
     }));
     rescored.sort((a, b) => b.score - a.score);
     finalDeck = rescored;
@@ -778,8 +882,10 @@ export async function fetchScoredDeck(
     isTrending: trendingIds.has(s.recipe.supabase_id ?? ''),
   }));
 
-  // First-session pantry priority — promote top 3 pantry-matched recipes to front
-  if (profile && profile.total_sessions <= 1 && pantrySet.size > 0) {
+  // First-session pantry priority — promote top 3 pantry-matched recipes to front.
+  // just_starting cookers get this for their first 3 sessions to keep building confidence.
+  const pantryPriorityWindow = profile?.cooking_frequency === 'just_starting' ? 3 : 1;
+  if (profile && profile.total_sessions <= pantryPriorityWindow && pantrySet.size > 0) {
     const withPantryRatio = result.map((r) => {
       const ings = (r.ingredients ?? []) as { name: string }[];
       if (ings.length === 0) return { recipe: r, pantryRatio: 0 };

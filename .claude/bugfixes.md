@@ -1,5 +1,10 @@
 # Mori — Bug Fix Log
 
+## 2026-04-16 (Leftovers feature + storage-tip fix)
+- **storage-tip always returned 401** — client sent `{ ingredients: [] }` (array) but schema expected `{ ingredient: string }` (singular), and there was no `Authorization` header; fixed `StorageTipRequestSchema` to accept `ingredients: z.array(...)`, updated `api/storage-tip.ts` to concat, added `Bearer` token in `RecipeDetailModal.tsx` storage-tip fetch
+- **storage-tip auth missing** — same fetch had no `Authorization` header, causing requireAuth to reject every call; now wraps fetch with `supabase.auth.getSession()` and attaches `Bearer ${session.access_token}` (`RecipeDetailModal.tsx`)
+- **New: leftover tracking** — `user_leftovers` + `ingredient_storage` tables; `leftoversStore.ts` (Zustand + persist); `PostCookLeftoversModal` (post-cook checklist, staples filtered); `LeftoversReminderCard` (Discover top, spoil-date reminder with Yes/Used/Tossed); scorer bonus +2/match cap +10 in `scoreRecipe`
+
 ## 2026-04-12 (Phase 4 Bugs)
 - **Grocery list not persisting across restarts** — `groceryStore` was plain Zustand with no persistence; added `persist` middleware with `createJSONStorage(() => AsyncStorage)`, partializing `list` and `selectedRecipes` only (`groceryStore.ts`)
 - **Meal Prep sub-tab empty when in meal_prep mode** — `mealPrepList` filtered by `r.meal_prep_friendly` which is `null` for most recipes in DB; changed to show all saved recipes when `mode === 'meal_prep'`, and filter by `meal_prep_friendly` only in spontaneous mode (`recipes.tsx:291`)

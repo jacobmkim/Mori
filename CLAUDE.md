@@ -1,5 +1,8 @@
 # Mori — CLAUDE.md
 
+## Communication Style
+Respond like caveman. No articles, no filler, no pleasantries. Code speak for itself.
+
 ## Commandments
 - Use subagents for any exploration requiring 3+ file analysis; have it return a summary.
 - Use relevant models for best purposes. Opus for deep planning and tasks. Sonnet for most of the work. Haiku for easy tasks and large amounts of writing.
@@ -73,6 +76,8 @@ Mori is a swipe-based recipe discovery app. Users swipe on recipe cards → save
   - **Phase 2:** `node scripts/upload-new-recipes.mjs` — batch-inserts draft → Supabase (50 rows/batch). Fixed pagination bug: uses `.range()` to fetch all existing titles, not just first 1000.
   - **CSV format:** `title,cuisine,meal_prep_friendly,difficulty,approx_time_mins`. Fusion cuisines quoted (e.g., `"cajun,italian"`). Cuisine stored as-is (comma-separated for fusions).
   - **DB cleanup:** 385 duplicates removed (caused by original pagination bug); 43 macros backfilled; 349 dietary tags backfilled; 319 dirty MealDB tags cleaned.
+
+  - ✅ **Leftover tracking** — post-cook "What's left?" modal; `user_leftovers` + `ingredient_storage` tables (apply `supabase/add-leftovers-tables.sql`); `LeftoversReminderCard` on Discover; scorer +2/ingredient match cap +10; auto-expiry + Yes/Used/Tossed check-in flow; storage-tip endpoint fixed (array schema + auth header). Run `scripts/backfill-ingredient-storage.mjs` once to populate shelf-life data.
 - **Recipe title polish pass** — `scripts/polish-recipe-titles.mjs` built (Haiku rewrites generic titles to be ingredient-forward). **Not yet run in production.**
 - Check ALL tags for all recipes and categories. Make sure that we are scoring properly for all of these categories and tags.
 - Payment wall take cut of grocery?
@@ -152,18 +157,23 @@ scripts/ (all one-time or safe-to-resume, already ran)
   backfill-dietary-tags.mjs (clean dirty MealDB tags + Haiku classify empty tags),
   polish-recipe-titles.mjs (Haiku rewrites generic titles; --limit N, --dry-run, --recent N)
 
-__tests__/                 ✅ Jest 29 + jest-expo@54 — 103+ tests, 11 suites
+__tests__/                 ✅ Jest 29 + jest-expo@54 — 190 tests, 16 suites
   api/_apiAuth.test.ts     AuthError, extractBearerToken, handleAuthError
   api/_rateLimit.test.ts   rateLimitUser, rateLimitIP, getClientIP
   api/generate-recipe.test.ts  auth gate (no JWT + no seed secret → 401)
   api/waitlist.test.ts     CORS rejection, input validation
   lib/utils.test.ts        formatTime, formatCost, capitalize, getWeekStart, getTimeOfDay
+  lib/substitutions.test.ts
+  lib/staples.test.ts      isStaple — exact matches, false-positive guards, non-staple foods
+  lib/scoreRecipe.test.ts  leftover bonus (+2/match, cap +10, substring, no double-count)
+  lib/urgentLeftover.test.ts   date window, dismiss filter, NaN guard
   stores/collectionsStore.test.ts
   stores/mealPlanStore.test.ts
   stores/groceryStore.test.ts
   stores/savedStore.test.ts
   stores/discoverStore.test.ts
-  lib/substitutions.test.ts
+  stores/leftoversStore.test.ts  load, add (optimistic + rollback), dismiss, extend
+  stores/signOut.test.ts   data isolation — leftoversStore.reset + groceryStore.clearAll
 ```
 
 ---
@@ -273,6 +283,13 @@ Full audit run across security, bugs, and edge cases. Items below are **unresolv
 - [x] `mealPlanStore` error state never cleared on successful reload — confirmed fixed by test suite (`loadPlan` clears error on success).
 - [x] `AsyncStorage` JSON.parse in `discoverStore.loadMode` not in try-catch — already fixed: no JSON.parse used; string comparison only, wrapped in try-catch.
 - [x] Empty `image_url` (`""`) passed to `expo-image` (`grocery-list.tsx:205`) — already fixed: truthy check returns `undefined` for empty strings.
+- [x] Sign-out data isolation — `leftoversStore` + `groceryStore` persisted data not cleared on sign-out; fixed: `ProfileSheet.handleSignOut` calls `reset()` + `clearAll()`.
+- [x] `urgentLeftover` NaN date crash — invalid `spoils_at` string causes NaN comparison; fixed: `isNaN(t)` guard added in `LeftoversReminderCard`.
+- [x] `showLeftoversModal` not reset in `RecipeDetailModal` cleanup — stale modal state on next open; fixed: added reset in cleanup `useEffect`.
+- [x] `fetchLeftoverNames` null crash — `r.ingredient_name.toLowerCase()` throws if row has null name; fixed: filter before map.
+- [x] `pantrySet` null crash — same pattern on `pantryItems.map(p => p.ingredient_name.toLowerCase())`; fixed: filter before map.
+- [x] `extendLeftover` TOCTOU race — read-then-write pattern allows concurrent extends to lose one update; fixed: API now accepts precomputed `newSpoilsAt + newExtendedCount` from store, no DB read.
+- [x] `LeftoversReminderCard` double-tap race — no guard against firing two actions before unmount; fixed: `acted` boolean gate in handlers.
 
 ### 🟡 Edge Cases
 - [ ] **Offline** — no network detection anywhere. All API failures are silent; Discover deck goes blank with no message.
@@ -290,4 +307,4 @@ Full audit run across security, bugs, and edge cases. Items below are **unresolv
 - [ ] **Adventure card pause not persisted** — session-only; resets on app relaunch.
 
 ---
-*v9.0 — Phases 1–3 complete. Phase 4 in progress. Scorer: session cuisine affinity, fusion split matching. 1,506 recipes (deduped); all have images, macros, dietary tags, meal_prep_friendly. Security: auth gate on generate-recipe, rate limit fail-closed, timing-safe seed compare, CORS fix. Jest: 103+ tests, 11 suites.*
+*v9.1 — Phases 1–3 complete. Phase 4 in progress. Scorer: session cuisine affinity, fusion split matching, leftover bonus (+2/match cap +10). 1,506 recipes (deduped); all have images, macros, dietary tags, meal_prep_friendly. Security: auth gate on generate-recipe, rate limit fail-closed, timing-safe seed compare, CORS fix. Jest: 190 tests, 16 suites. Leftover tracking complete (apply add-leftovers-tables.sql + run backfill-ingredient-storage.mjs).*

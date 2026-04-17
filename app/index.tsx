@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { getProfile, incrementSessionCount } from '@/lib/api';
 import { useUserStore } from '@/stores/userStore';
 import { useSavedStore } from '@/stores/savedStore';
+import { useLeftoversStore } from '@/stores/leftoversStore';
 import { useTheme } from '@/hooks/useTheme';
 
 export default function Index() {
@@ -13,6 +14,7 @@ export default function Index() {
   const [hasSession, setHasSession] = useState(false);
   const { setProfile, setSessionNumber } = useUserStore();
   const loadSavedRecipes = useSavedStore((s) => s.loadSavedRecipes);
+  const loadLeftovers = useLeftoversStore((s) => s.loadLeftovers);
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
@@ -30,6 +32,7 @@ export default function Index() {
         // discover.tsx always has a populated savedExternalIds set and never
         // shows already-saved recipes in the swipe deck on relaunch.
         await loadSavedRecipes(userId);
+        loadLeftovers(userId).catch(() => {}); // non-blocking — deck runs fine without
         // Increment session count — used for swipe event logging (non-blocking)
         incrementSessionCount(userId)
           .then(setSessionNumber)

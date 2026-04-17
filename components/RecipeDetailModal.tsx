@@ -16,6 +16,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTheme } from '@/hooks/useTheme';
 import { formatTime, formatCost } from '@/lib/utils';
 import { fetchMacros, flagRecipe, getRecipeNote, saveRecipeNote } from '@/lib/api';
+import { PostCookLeftoversModal } from '@/components/PostCookLeftoversModal';
 import { useDiscoverStore } from '@/stores/discoverStore';
 import { getStaticSubs, getCachedSubs, fetchAndCacheSubs, type Swap } from '@/lib/substitutions';
 import { supabase } from '@/lib/supabase';
@@ -202,6 +203,7 @@ export function RecipeDetailModal({
   const [userRating, setUserRating] = useState(0);
   const [storageTips, setStorageTips] = useState<string | null>(null);
   const [tipsLoading, setTipsLoading] = useState(false);
+  const [showLeftoversModal, setShowLeftoversModal] = useState(false);
   const [activeTab, setActiveTab] = useState<'ingredients' | 'steps' | 'notes'>('ingredients');
   const [cookingModeVisible, setCookingModeVisible] = useState(false);
   const [showServingsSheet, setShowServingsSheet] = useState(false);
@@ -244,6 +246,7 @@ export function RecipeDetailModal({
       setNoteEditing(false); setNoteSaved(false);
       setShowServingsSheet(false); setGroceryToast(false);
       setSwapData({}); setExpandedSwapIdx(null); setAppliedSwaps({});
+      setShowLeftoversModal(false);
       return;
     }
     setServings(baseServings);
@@ -289,14 +292,20 @@ export function RecipeDetailModal({
       : (detail?.ingredients ?? []).map((i) => i.name)).slice(0, 8);
     if (ingredientNames.length === 0) return;
     setTipsLoading(true);
-    fetch(`${baseUrl}/api/storage-tip`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ingredients: ingredientNames }),
-    })
-      .then((r) => r.ok ? r.json() : null)
-      .then((data) => { if (data?.tips) setStorageTips(data.tips); })
-      .catch(() => {})
-      .finally(() => setTipsLoading(false));
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      fetch(`${baseUrl}/api/storage-tip`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({ ingredients: ingredientNames }),
+      })
+        .then((r) => r.ok ? r.json() : null)
+        .then((data) => { if (data?.tips) setStorageTips(data.tips); })
+        .catch(() => {})
+        .finally(() => setTipsLoading(false));
+    }).catch(() => setTipsLoading(false));
   }, [isCooked, recipe?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const adjustServings = useCallback((delta: number) => {
@@ -1044,10 +1053,19 @@ export function RecipeDetailModal({
               }))}
               ratio={ratio}
               onClose={() => setCookingModeVisible(false)}
-              onMarkCooked={onMarkCooked}
+              onMarkCooked={() => {
+                onMarkCooked?.();
+                if (recipe) setShowLeftoversModal(true);
+              }}
             />
           )}
         </View>
+
+        <PostCookLeftoversModal
+          visible={showLeftoversModal}
+          recipe={recipe}
+          onClose={() => setShowLeftoversModal(false)}
+        />
       </Modal>
     </>
   );

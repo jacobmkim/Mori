@@ -167,6 +167,20 @@ export interface GroceryList {
   created_at: string;
 }
 
+// ─── Leftovers ───────────────────────────────────────────────────────────────
+
+export interface UserLeftover {
+  id: string;
+  user_id: string;
+  ingredient_id: string | null;
+  ingredient_name: string;
+  added_at: string;
+  storage_method: string;
+  spoils_at: string;
+  dismissed_at: string | null;
+  extended_count: number;
+}
+
 // ─── Meal Plan ───────────────────────────────────────────────────────────────
 
 export interface MealSlot {

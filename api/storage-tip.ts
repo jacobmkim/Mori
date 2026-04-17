@@ -22,7 +22,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // ── Input Validation ──────────────────────────────────────────────────
     const body = await validate(StorageTipRequestSchema, req.body);
-    const { ingredient } = body;
+    const { ingredients } = body;
 
     // ── Rate Limiting (50 calls per user per day) ─────────────────────────
     const rateLimitResult = await rateLimitUser(userId, 'storage-tip', 50, 86400);
@@ -38,16 +38,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!apiKey) return res.status(500).json({ error: 'Service misconfigured' });
 
     const client = new Anthropic({ apiKey });
+    const ingredientList = ingredients.join(', ');
 
     const message = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 256,
+      max_tokens: 300,
       messages: [
         {
           role: 'user',
-          content: `Give me brief, practical storage and usage tips for this leftover ingredient: ${ingredient}.
+          content: `Give me brief, practical storage and usage tips for these leftover ingredients: ${ingredientList}.
 
-Format as 2-3 short tips. Be concise and specific. Focus on: how long it keeps, best storage method, and one quick way to use it up. No intro sentence, just the tips.`,
+Format as 2-4 short bullet points covering the most perishable items. Focus on: how long they keep in the fridge, best storage method, and one quick way to use them up. No intro sentence, just the tips. General guidance only — not safety guarantees.`,
         },
       ],
     });

@@ -56,8 +56,7 @@ export const TasteProfileRequestSchema = z.object({
 });
 
 export const StorageTipRequestSchema = z.object({
-  ingredient: SafeStringSchema,
-  storageMethod: z.enum(['room_temp', 'fridge', 'freezer']).optional(),
+  ingredients: z.array(SafeStringSchema).min(1).max(8),
 });
 
 export const SubstitutionsRequestSchema = z.object({

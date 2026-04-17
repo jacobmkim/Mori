@@ -12,6 +12,8 @@ import { router } from 'expo-router';
 import { useTheme } from '@/hooks/useTheme';
 import { useUserStore } from '@/stores/userStore';
 import { useSavedStore } from '@/stores/savedStore';
+import { useLeftoversStore } from '@/stores/leftoversStore';
+import { useGroceryStore } from '@/stores/groceryStore';
 import { useDiscoverStore, type AppearanceMode, type UnitSystem } from '@/stores/discoverStore';
 import { supabase } from '@/lib/supabase';
 import {
@@ -147,6 +149,8 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
         onPress: async () => {
           await supabase.auth.signOut();
           setProfile(null);
+          useLeftoversStore.getState().reset();
+          useGroceryStore.getState().clearAll();
           router.replace('/onboarding/welcome');
         },
       },

@@ -21,6 +21,8 @@ import { formatTime, formatCost, getTimeOfDay, getWeekStart } from '@/lib/utils'
 import { fetchMealDetail, type MealDetail } from '@/lib/mealdb';
 import { logSwipe, upsertRecipeByExternalId, setRecipeLiked, fetchMacros, estimateMacrosLocally, fetchScoredDeck, updateRecipeDetail, updateRecipeMacros, logInteraction, recordSessionSwipe, cancelLeftSwipe, recordAdventureCardLeftSwipe, clearSessionState, getCookedRecipeIds, rateRecipe, flagRecipe } from '@/lib/api';
 import { RecipeDetailModal } from '@/components/RecipeDetailModal';
+import { PostCookLeftoversModal } from '@/components/PostCookLeftoversModal';
+import { LeftoversReminderCard } from '@/components/LeftoversReminderCard';
 import { HeadlineMacroPill, MacroRow } from '@/components/ui/MacroRow';
 import { MoriLogo } from '@/components/ui/MoriLogo';
 import { AvatarButton } from '@/components/AvatarButton';
@@ -319,6 +321,8 @@ export default function Discover() {
   const [exitCard, setExitCard] = useState<ExitCard | null>(null);
   const [lastSwipe, setLastSwipe] = useState<{ recipe: Recipe; direction: 'left' | 'right' } | null>(null);
   const [showDetail, setShowDetail] = useState(false);
+  const [showLeftoversModal, setShowLeftoversModal] = useState(false);
+  const [cookedRecipeForLeftovers, setCookedRecipeForLeftovers] = useState<Recipe | null>(null);
   const [cartToast, setCartToast] = useState(false);
   const [deckServingsSheetVisible, setDeckServingsSheetVisible] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
@@ -773,6 +777,8 @@ export default function Discover() {
 
   const visibleCards = recipes.slice(currentIndex, currentIndex + 3);
   const isEmpty = !isLoading && currentIndex >= recipes.length;
+  // Deck was empty on load (nothing matched the filter) vs exhausted by swiping
+  const isInitiallyEmpty = !isLoading && recipes.length === 0;
 
   // Computed inline every render — no state lag. Cache hit = accurate data,
   // cache miss = instant local estimate. macroCacheVersion causes a re-render
@@ -812,12 +818,29 @@ export default function Discover() {
         </View>
       </View>
 
+      {/* Leftover expiry reminder */}
+      <LeftoversReminderCard />
+
       {/* Card Stack */}
       <View style={{ flex: 1, alignItems: 'center', paddingHorizontal: 16 }}>
         {isLoading ? (
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 }}>
             <ActivityIndicator size="large" color={colors.primary} />
             <Text style={{ color: colors.textMuted, fontSize: 15 }}>Loading recipes...</Text>
+          </View>
+        ) : isInitiallyEmpty && mode === 'meal_prep' ? (
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12, paddingHorizontal: 24 }}>
+            <Text style={{ fontSize: 48 }}>🥡</Text>
+            <Text style={{ fontSize: 20, fontWeight: '700', color: colors.text }}>No meal prep recipes yet</Text>
+            <Text style={{ fontSize: 15, color: colors.textMuted, textAlign: 'center' }}>
+              Nothing matches your preferences in Meal Prep mode right now.{'\n'}Try Spontaneous to discover more.
+            </Text>
+            <Pressable
+              onPress={() => setMode('spontaneous')}
+              style={{ backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 24, marginTop: 8 }}
+            >
+              <Text style={{ color: 'white', fontWeight: '600' }}>Try Spontaneous mode</Text>
+            </Pressable>
           </View>
         ) : isEmpty ? (
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 }}>
@@ -1157,6 +1180,8 @@ export default function Discover() {
               resolveSupabaseId(topRecipe)
                 .then((supabaseId) => logInteraction(userId, supabaseId, 'cooked', sessionNumber))
                 .catch(() => {});
+              setCookedRecipeForLeftovers(topRecipe);
+              setShowLeftoversModal(true);
             }}
             onRateRecipe={(rating) => {
               if (!topRecipe || !userId) return;
@@ -1331,6 +1356,12 @@ export default function Discover() {
           </View>
         </View>
       )}
+
+      <PostCookLeftoversModal
+        visible={showLeftoversModal}
+        recipe={cookedRecipeForLeftovers}
+        onClose={() => { setShowLeftoversModal(false); setCookedRecipeForLeftovers(null); }}
+      />
     </SafeAreaView>
   );
 }
