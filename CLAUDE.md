@@ -77,7 +77,7 @@ Mori is a swipe-based recipe discovery app. Users swipe on recipe cards → save
   - **CSV format:** `title,cuisine,meal_prep_friendly,difficulty,approx_time_mins`. Fusion cuisines quoted (e.g., `"cajun,italian"`). Cuisine stored as-is (comma-separated for fusions).
   - **DB cleanup:** 385 duplicates removed (caused by original pagination bug); 43 macros backfilled; 349 dietary tags backfilled; 319 dirty MealDB tags cleaned.
 
-  - ✅ **Leftover tracking** — post-cook "What's left?" modal; `user_leftovers` + `ingredient_storage` tables (apply `supabase/add-leftovers-tables.sql`); `LeftoversReminderCard` on Discover; scorer +2/ingredient match cap +10; auto-expiry + Yes/Used/Tossed check-in flow; storage-tip endpoint fixed (array schema + auth header). Run `scripts/backfill-ingredient-storage.mjs` once to populate shelf-life data.
+  - ✅ **Leftover tracking** — post-cook "What's left?" modal; `user_leftovers` + `ingredient_storage` tables (apply `supabase/add-leftovers-tables.sql`); `LeftoversReminderCard` on Discover; scorer +2/ingredient match cap +10; auto-expiry + Yes/Used/Tossed check-in flow; storage-tip endpoint fixed (array schema + auth header). `ingredient_storage` backfilled: 1,769 ingredients with shelf-life data (ran `scripts/backfill-ingredient-storage.mjs`).
 - **Recipe title polish pass** — `scripts/polish-recipe-titles.mjs` built (Haiku rewrites generic titles to be ingredient-forward). **Not yet run in production.**
 - Check ALL tags for all recipes and categories. Make sure that we are scoring properly for all of these categories and tags.
 - Payment wall take cut of grocery?
@@ -307,4 +307,4 @@ Full audit run across security, bugs, and edge cases. Items below are **unresolv
 - [ ] **Adventure card pause not persisted** — session-only; resets on app relaunch.
 
 ---
-*v9.1 — Phases 1–3 complete. Phase 4 in progress. Scorer: session cuisine affinity, fusion split matching, leftover bonus (+2/match cap +10). 1,506 recipes (deduped); all have images, macros, dietary tags, meal_prep_friendly. Security: auth gate on generate-recipe, rate limit fail-closed, timing-safe seed compare, CORS fix. Jest: 190 tests, 16 suites. Leftover tracking complete (apply add-leftovers-tables.sql + run backfill-ingredient-storage.mjs).*
+*v9.2 — Phases 1–3 complete. Phase 4 in progress. Scorer: session cuisine affinity, fusion split matching, leftover bonus (+2/match cap +10). 1,506 recipes (deduped); all have images, macros, dietary tags, meal_prep_friendly. Security: auth gate on generate-recipe, rate limit fail-closed, timing-safe seed compare, CORS fix. Jest: 190 tests, 16 suites. Leftover tracking complete; ingredient_storage backfilled (1,769 ingredients).*
