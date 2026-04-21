@@ -291,17 +291,20 @@ async function getCohortAffinities(cohortKey: string): Promise<Map<string, numbe
   return map;
 }
 
-async function getInteractionCounts(userId: string): Promise<Map<string, { grocery_add: number; cooked: number; unsave: number; view: number }>> {
+async function getInteractionCounts(userId: string): Promise<Map<string, { grocery_add: number; cooked: number; unsave: number; view: number; lastCookedAt: string | null }>> {
   const { data } = await supabase
     .from('recipe_interactions')
-    .select('recipe_id, interaction_type')
+    .select('recipe_id, interaction_type, created_at')
     .eq('user_id', userId)
     .in('interaction_type', ['grocery_add', 'cooked', 'unsave', 'view']);
-  const map = new Map<string, { grocery_add: number; cooked: number; unsave: number; view: number }>();
+  const map = new Map<string, { grocery_add: number; cooked: number; unsave: number; view: number; lastCookedAt: string | null }>();
   for (const row of data ?? []) {
-    const cur = map.get(row.recipe_id) ?? { grocery_add: 0, cooked: 0, unsave: 0, view: 0 };
+    const cur = map.get(row.recipe_id) ?? { grocery_add: 0, cooked: 0, unsave: 0, view: 0, lastCookedAt: null };
     if (row.interaction_type === 'grocery_add') cur.grocery_add++;
-    if (row.interaction_type === 'cooked') cur.cooked++;
+    if (row.interaction_type === 'cooked') {
+      cur.cooked++;
+      if (!cur.lastCookedAt || row.created_at > cur.lastCookedAt) cur.lastCookedAt = row.created_at;
+    }
     if (row.interaction_type === 'unsave') cur.unsave++;
     if (row.interaction_type === 'view') cur.view++;
     map.set(row.recipe_id, cur);
@@ -587,20 +590,44 @@ export async function fetchLeftoverNames(userId: string): Promise<Set<string>> {
 // Returns null if not found — callers fall back to a default.
 export async function getIngredientStorageDays(name: string): Promise<number | null> {
   const n = name.toLowerCase().trim();
-  // Try canonical_name first
   const { data: exact } = await supabase
     .from('ingredient_storage')
     .select('days_fridge')
     .eq('canonical_name', n)
     .single();
   if (exact?.days_fridge != null) return exact.days_fridge;
-  // Try aliases array contains
   const { data: alias } = await supabase
     .from('ingredient_storage')
     .select('days_fridge')
     .contains('aliases', [n])
     .single();
   return alias?.days_fridge ?? null;
+}
+
+export interface IngredientStorageInfo {
+  days_fridge: number | null;
+  days_freezer: number | null;
+  days_room_temp: number | null;
+  tips_text: string | null;
+}
+
+// Full shelf-life row for a given ingredient (exact or alias match).
+// Returns null if not found.
+export async function getIngredientStorage(name: string): Promise<IngredientStorageInfo | null> {
+  const n = name.toLowerCase().trim();
+  const cols = 'days_fridge,days_freezer,days_room_temp,tips_text';
+  const { data: exact } = await supabase
+    .from('ingredient_storage')
+    .select(cols)
+    .eq('canonical_name', n)
+    .single();
+  if (exact) return exact as IngredientStorageInfo;
+  const { data: alias } = await supabase
+    .from('ingredient_storage')
+    .select(cols)
+    .contains('aliases', [n])
+    .single();
+  return alias ? (alias as IngredientStorageInfo) : null;
 }
 
 // ─── Previously-cooked recipe IDs ─────────────────────────────────────────────
@@ -629,7 +656,7 @@ export function scoreRecipe(
   swipeMap: Map<string, { direction: 'left' | 'right'; swiped_at: string }>,
   savedExternalIds: Set<string>,
   affinityMap: Map<string, number>,
-  interactionMap: Map<string, { grocery_add: number; cooked: number; unsave: number; view: number }>,
+  interactionMap: Map<string, { grocery_add: number; cooked: number; unsave: number; view: number; lastCookedAt: string | null }>,
   pantrySet: Set<string>,
   leftoversSet?: Set<string>,
 ): number {
@@ -638,6 +665,12 @@ export function scoreRecipe(
   if (sid && (sessionLeftSwipes.has(sid) || sessionShownIds.has(sid))) return -999;
 
   let score = Math.random() * 3; // jitter — shuffles similarly-scored recipes each session
+
+  // favourites_rotation: +6 for saved recipes so old favourites compete without dominating
+  if (profile?.eating_style === 'favourites_rotation') {
+    const key = recipe.external_id ?? recipe.supabase_id ?? '';
+    if (key && savedExternalIds.has(key)) score += 6;
+  }
 
   // Cohort affinity base (0.0–1.0, scaled up) — cold-start signal for new users
   const affinity = affinityMap.get(recipe.supabase_id ?? '');
@@ -697,7 +730,18 @@ export function scoreRecipe(
     // Interaction signals — capped at 2 to prevent feedback loop dominating deck
     if (ix) {
       score += Math.min(ix.grocery_add, 2) * 3;
-      score += Math.min(ix.cooked, 2) * 4;
+      // Cooked signal: penalise recently-cooked recipes so they don't resurface
+      // immediately, then restore the favourite bonus once enough time has passed.
+      if (ix.cooked > 0) {
+        const daysSinceCooked = ix.lastCookedAt
+          ? (Date.now() - new Date(ix.lastCookedAt).getTime()) / 86_400_000
+          : 365;
+        if (daysSinceCooked < 3)  score -= 20; // just cooked — keep off the deck
+        else if (daysSinceCooked < 7)  score -= 10;
+        else if (daysSinceCooked < 14) score -= 4;
+        else if (daysSinceCooked < 30) score += 2;
+        else score += Math.min(ix.cooked, 2) * 4; // familiar favourite
+      }
       if (ix.unsave > 0) score -= 3;
       if (ix.view > 2 && !ix.grocery_add && !ix.cooked) score -= 2;
     }
@@ -759,7 +803,7 @@ export async function fetchScoredDeck(
     userId
       ? getUserCohortKey(userId).then((key) => (key ? getCohortAffinities(key) : new Map<string, number>()))
       : Promise.resolve(new Map<string, number>()),
-    userId ? getInteractionCounts(userId) : Promise.resolve(new Map<string, { grocery_add: number; cooked: number; unsave: number; view: number }>()),
+    userId ? getInteractionCounts(userId) : Promise.resolve(new Map<string, { grocery_add: number; cooked: number; unsave: number; view: number; lastCookedAt: string | null }>()),
     userId ? getPantryItems(userId) : Promise.resolve([]),
     fetchTrendingRecipeIds(),
     userId ? fetchLeftoverNames(userId) : Promise.resolve(new Set<string>()),
@@ -777,19 +821,30 @@ export async function fetchScoredDeck(
   });
 
   // Exclude saved recipes — user already has them in their library.
-  // EXCEPT: favourites_rotation users want to see saved recipes rotated back in
-  // (matches onboarding copy: "reliable go-tos with the occasional new discovery").
-  // The cooked (+4×2) and grocery_add (+3×2) boosts already surface true favorites.
+  // favourites_rotation: saved recipes stay in the pool so the scorer can rank them;
+  // a +6 bonus in scoreRecipe surfaces old favourites without guaranteeing their position.
   const wantsRotation = profile?.eating_style === 'favourites_rotation';
   const afterSaved = (wantsRotation || savedExternalIds.size === 0) ? afterDislikes : afterDislikes.filter((r) =>
     !savedExternalIds.has(r.external_id ?? r.id ?? '')
   );
 
+  // Hard-exclude recipes cooked in the last 7 days so they can't resurface even on a thin deck
+  const recentlyCookedIds = new Set<string>();
+  for (const [id, ix] of interactionMap) {
+    if (ix.lastCookedAt) {
+      const daysSince = (Date.now() - new Date(ix.lastCookedAt).getTime()) / 86_400_000;
+      if (daysSince < 7) recentlyCookedIds.add(id);
+    }
+  }
+  const afterCooked = recentlyCookedIds.size === 0
+    ? afterSaved
+    : afterSaved.filter((r) => !recentlyCookedIds.has(r.supabase_id ?? ''));
+
   // Bug 8 fix — skill level hard cap (filter before scoring, not a score penalty)
   // Recipe-level skill_level (set at generation from CSV difficulty) takes precedence;
   // time-based cap is the fallback for TheMealDB recipes that lack the field.
   const skillLevel = profile?.skill_level;
-  const filtered = !skillLevel ? afterSaved : afterSaved.filter((r) => {
+  const filtered = !skillLevel ? afterCooked : afterCooked.filter((r) => {
     const recipeSkill = (r as any).skill_level as string | null | undefined;
     if (recipeSkill === 'confident_chef' && skillLevel !== 'confident_chef') return false;
     if (recipeSkill === 'home_cook' && skillLevel === 'beginner') return false;

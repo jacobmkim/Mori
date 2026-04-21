@@ -11,7 +11,8 @@ Respond like caveman. No articles, no filler, no pleasantries. Code speak for it
 - Compact at 60% of context usage.
 - Do not make changes unless 95% confident. Ask follow-up questions until that threshold is met.
 - Bug fix log lives at `.claude/bugfixes.md` — append an entry for every shipped fix batch.
-- Do not always agree with user! Look for missing edge cases things user has not thought of. 
+- Do not always agree with user! Look for missing edge cases things user has not thought of.
+- **No binary scoring** — never use all-or-nothing pool inclusion as a feature signal. Use score bonuses/penalties so signals compete on merit (e.g. favourites_rotation gets +6 saved bonus, not unconditional deck inclusion).
 
 ### Security Commandments (April 2026)
 - **Never add API endpoints without JWT auth** — use `requireAuth(req)` from `lib/apiAuth.ts` unless explicitly public (waitlist)
@@ -77,7 +78,8 @@ Mori is a swipe-based recipe discovery app. Users swipe on recipe cards → save
   - **CSV format:** `title,cuisine,meal_prep_friendly,difficulty,approx_time_mins`. Fusion cuisines quoted (e.g., `"cajun,italian"`). Cuisine stored as-is (comma-separated for fusions).
   - **DB cleanup:** 385 duplicates removed (caused by original pagination bug); 43 macros backfilled; 349 dietary tags backfilled; 319 dirty MealDB tags cleaned.
 
-  - ✅ **Leftover tracking** — post-cook "What's left?" modal; `user_leftovers` + `ingredient_storage` tables (apply `supabase/add-leftovers-tables.sql`); `LeftoversReminderCard` on Discover; scorer +2/ingredient match cap +10; auto-expiry + Yes/Used/Tossed check-in flow; storage-tip endpoint fixed (array schema + auth header). `ingredient_storage` backfilled: 1,769 ingredients with shelf-life data (ran `scripts/backfill-ingredient-storage.mjs`).
+  - ✅ **Leftover tracking** — post-cook "What's left?" modal; `user_leftovers` + `ingredient_storage` tables (apply `supabase/add-leftovers-tables.sql`); `LeftoversReminderCard` on Discover; scorer +2/ingredient match cap +10; auto-expiry + Yes/Used/Tossed check-in flow; storage-tip endpoint fixed (array schema + auth header). `ingredient_storage` backfilled: 1,769 ingredients with shelf-life data (ran `scripts/backfill-ingredient-storage.mjs`). PostCookLeftoversModal has step 2: per-ingredient storage tips (fridge/freezer/counter + tips_text). CookingMode: single "Mark as Cooked ✓" CTA on last step, auto-closes, triggers leftovers flow immediately.
+  - ⏳ **Leftover amounts** — `user_leftovers` only stores ingredient name + spoil date. Should also capture quantity (e.g. "1 cup", "half a block") for portion-aware scoring and reminder copy. Needs schema change (`quantity TEXT`) + UI input in PostCookLeftoversModal step 1.
 - **Recipe title polish pass** — `scripts/polish-recipe-titles.mjs` built (Haiku rewrites generic titles to be ingredient-forward). **Not yet run in production.**
 - Check ALL tags for all recipes and categories. Make sure that we are scoring properly for all of these categories and tags.
 - Payment wall take cut of grocery?

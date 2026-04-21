@@ -21,8 +21,7 @@ import { formatTime, formatCost, getTimeOfDay, getWeekStart } from '@/lib/utils'
 import { fetchMealDetail, type MealDetail } from '@/lib/mealdb';
 import { logSwipe, upsertRecipeByExternalId, setRecipeLiked, fetchMacros, estimateMacrosLocally, fetchScoredDeck, updateRecipeDetail, updateRecipeMacros, logInteraction, recordSessionSwipe, cancelLeftSwipe, recordAdventureCardLeftSwipe, clearSessionState, getCookedRecipeIds, rateRecipe, flagRecipe } from '@/lib/api';
 import { RecipeDetailModal } from '@/components/RecipeDetailModal';
-import { PostCookLeftoversModal } from '@/components/PostCookLeftoversModal';
-import { LeftoversReminderCard } from '@/components/LeftoversReminderCard';
+import { LeftoversReminderModal } from '@/components/LeftoversReminderCard';
 import { HeadlineMacroPill, MacroRow } from '@/components/ui/MacroRow';
 import { MoriLogo } from '@/components/ui/MoriLogo';
 import { AvatarButton } from '@/components/AvatarButton';
@@ -321,8 +320,6 @@ export default function Discover() {
   const [exitCard, setExitCard] = useState<ExitCard | null>(null);
   const [lastSwipe, setLastSwipe] = useState<{ recipe: Recipe; direction: 'left' | 'right' } | null>(null);
   const [showDetail, setShowDetail] = useState(false);
-  const [showLeftoversModal, setShowLeftoversModal] = useState(false);
-  const [cookedRecipeForLeftovers, setCookedRecipeForLeftovers] = useState<Recipe | null>(null);
   const [cartToast, setCartToast] = useState(false);
   const [deckServingsSheetVisible, setDeckServingsSheetVisible] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
@@ -818,9 +815,6 @@ export default function Discover() {
         </View>
       </View>
 
-      {/* Leftover expiry reminder */}
-      <LeftoversReminderCard />
-
       {/* Card Stack */}
       <View style={{ flex: 1, alignItems: 'center', paddingHorizontal: 16 }}>
         {isLoading ? (
@@ -1180,8 +1174,7 @@ export default function Discover() {
               resolveSupabaseId(topRecipe)
                 .then((supabaseId) => logInteraction(userId, supabaseId, 'cooked', sessionNumber))
                 .catch(() => {});
-              setCookedRecipeForLeftovers(topRecipe);
-              setShowLeftoversModal(true);
+              // PostCookLeftoversModal is handled inside RecipeDetailModal
             }}
             onRateRecipe={(rating) => {
               if (!topRecipe || !userId) return;
@@ -1357,11 +1350,7 @@ export default function Discover() {
         </View>
       )}
 
-      <PostCookLeftoversModal
-        visible={showLeftoversModal}
-        recipe={cookedRecipeForLeftovers}
-        onClose={() => { setShowLeftoversModal(false); setCookedRecipeForLeftovers(null); }}
-      />
+      <LeftoversReminderModal />
     </SafeAreaView>
   );
 }

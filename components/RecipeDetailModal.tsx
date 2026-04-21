@@ -1054,7 +1054,7 @@ export function RecipeDetailModal({
               ratio={ratio}
               onClose={() => setCookingModeVisible(false)}
               onMarkCooked={() => {
-                onMarkCooked?.();
+                if (onMarkCooked) onMarkCooked(); // fire parent for interaction logging
                 if (recipe) setShowLeftoversModal(true);
               }}
             />

@@ -233,6 +233,8 @@ export function CookingMode({ recipe, steps, rawIngredients, ratio = 1, onClose,
   function handleMarkCooked() {
     setMarkedCooked(true);
     onMarkCooked?.();
+    // Close cooking mode after a brief pause so user sees the checkmark confirmation
+    setTimeout(onClose, 700);
   }
 
   if (!step) return null;
@@ -417,24 +419,7 @@ export function CookingMode({ recipe, steps, rawIngredients, ratio = 1, onClose,
           paddingHorizontal: 20, paddingTop: 12, paddingBottom: 36,
           gap: 10,
         }}>
-          {/* Mark as cooked — final step */}
-          {isLast && (
-            <Pressable
-              onPress={handleMarkCooked}
-              disabled={markedCooked}
-              style={{
-                backgroundColor: markedCooked ? '#1B5E20' : '#4CAF50',
-                borderRadius: 14, paddingVertical: 14,
-                alignItems: 'center', justifyContent: 'center',
-              }}
-            >
-              <Text style={{ fontSize: 16, fontWeight: '700', color: 'white' }}>
-                {markedCooked ? '✓ Marked as Cooked' : 'Mark as Cooked ✓'}
-              </Text>
-            </Pressable>
-          )}
-
-          {/* Back / Next */}
+          {/* Back / Next / Mark as Cooked */}
           <View style={{ flexDirection: 'row', gap: 10 }}>
             <Pressable
               onPress={goBack}
@@ -465,14 +450,17 @@ export function CookingMode({ recipe, steps, rawIngredients, ratio = 1, onClose,
               </Pressable>
             ) : (
               <Pressable
-                onPress={onClose}
+                onPress={handleMarkCooked}
+                disabled={markedCooked}
                 style={{
                   flex: 2, borderRadius: 14, paddingVertical: 14,
-                  backgroundColor: '#2A2A2A',
+                  backgroundColor: markedCooked ? '#1B5E20' : '#4CAF50',
                   alignItems: 'center', justifyContent: 'center',
                 }}
               >
-                <Text style={{ fontSize: 15, fontWeight: '600', color: '#F0EDE6' }}>Done Cooking</Text>
+                <Text style={{ fontSize: 15, fontWeight: '700', color: 'white' }}>
+                  {markedCooked ? '✓ Marked as Cooked' : 'Mark as Cooked ✓'}
+                </Text>
               </Pressable>
             )}
           </View>
