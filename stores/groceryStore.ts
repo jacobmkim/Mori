@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { GroceryList, GroceryItem, Recipe } from '@/types';
+import { normalizeIngredientName } from '@/lib/ingredientAliases';
 
 interface GroceryStore {
   list: GroceryList | null;
@@ -41,10 +42,10 @@ export const useGroceryStore = create<GroceryStore>()(
       const newItems = [...existingItems];
 
       for (const { name, measure } of ingredients) {
-        const trimmed = name.trim();
+        const trimmed = normalizeIngredientName(name);
         if (!trimmed) continue;
         const existing = newItems.find(
-          (i) => i.ingredient_name.toLowerCase() === trimmed.toLowerCase()
+          (i) => i.ingredient_name.toLowerCase() === trimmed
         );
         if (existing) {
           if (!existing.recipe_ids.includes(recipe.id)) {
@@ -126,8 +127,9 @@ export const useGroceryStore = create<GroceryStore>()(
       const newItems = [...existingItems];
 
       for (const ingredient of recipe.ingredients) {
+        const normalizedName = normalizeIngredientName(ingredient.name);
         const existing = newItems.find(
-          (i) => i.ingredient_name.toLowerCase() === ingredient.name.toLowerCase()
+          (i) => i.ingredient_name.toLowerCase() === normalizedName
         );
         if (existing) {
           if (!existing.recipe_ids.includes(recipe.id)) {
@@ -141,7 +143,7 @@ export const useGroceryStore = create<GroceryStore>()(
           }
         } else {
           newItems.push({
-            ingredient_name: ingredient.name,
+            ingredient_name: normalizedName,
             quantity: ingredient.quantity,
             unit: ingredient.unit,
             checked: false,

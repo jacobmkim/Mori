@@ -17,10 +17,12 @@ import { Image } from 'expo-image';
 import * as Clipboard from 'expo-clipboard';
 import * as WebBrowser from 'expo-web-browser';
 import * as ExpoLinking from 'expo-linking';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useGroceryStore } from '@/stores/groceryStore';
 import { useDiscoverStore } from '@/stores/discoverStore';
-import { fetchMacros } from '@/lib/api';
+import { fetchMacros, getPantryItems } from '@/lib/api';
+import { partitionForInstacart, isStaple } from '@/lib/staples';
+import { parseGroceryMeasurement } from '@/lib/instacartUtils';
 import { fetchMealDetail } from '@/lib/mealdb';
 import { supabase } from '@/lib/supabase';
 import { MacroRow } from '@/components/ui/MacroRow';
@@ -72,6 +74,16 @@ const KROGER_REDIRECT_URI = 'mori://kroger-callback';
 // ── Category helpers ────────────────────────────────────────────────────────
 
 const CATEGORIES = ['Produce', 'Meat & Seafood', 'Dairy', 'Pantry', 'Frozen', 'Other'];
+
+function formatSkipLine(staples: number, pantry: number): string {
+  if (staples > 0 && pantry > 0) {
+    return `Skipping ${staples} staple${staples === 1 ? '' : 's'} · ${pantry} pantry item${pantry === 1 ? '' : 's'}`;
+  }
+  if (staples > 0) {
+    return `Skipping ${staples} staple${staples === 1 ? '' : 's'} you likely have`;
+  }
+  return `Skipping ${pantry} item${pantry === 1 ? '' : 's'} already in your pantry`;
+}
 
 function categorize(name: string): string {
   const n = name.toLowerCase();
@@ -264,6 +276,32 @@ export default function GroceryList() {
   const [krogerConnected, setKrogerConnected] = useState(false);
   const [krogerItemsAdded, setKrogerItemsAdded] = useState(0);
   const [krogerError, setKrogerError] = useState<string | null>(null);
+  const [instacartLoading, setInstacartLoading] = useState(false);
+  const [instacartError, setInstacartError] = useState<string | null>(null);
+  const [pantryNames, setPantryNames] = useState<Set<string>>(() => new Set());
+  const [skippedModalVisible, setSkippedModalVisible] = useState(false);
+  const [forcedItems, setForcedItems] = useState<Set<string>>(() => new Set());
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      const uid = session?.user?.id;
+      if (!uid) return;
+      try {
+        const rows = await getPantryItems(uid);
+        if (cancelled) return;
+        setPantryNames(new Set(
+          rows
+            .map((r) => r.ingredient_name?.trim().toLowerCase())
+            .filter((n): n is string => !!n)
+        ));
+      } catch {
+        // Non-blocking: pantry filter just becomes a no-op if fetch fails.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   // Fetch and aggregate macros for all selected recipes whenever the meal selection changes.
   // TheMealDB recipes have empty ingredients[] — fetch detail first to get real ingredient data.
@@ -308,6 +346,19 @@ export default function GroceryList() {
   const items = list?.items ?? [];
   const checkedCount = items.filter((i) => i.checked).length;
   const uncheckedCount = items.length - checkedCount;
+
+  const { skippedStaples, skippedPantry, skippedItems } = useMemo(
+    () => partitionForInstacart(items.filter((i) => !i.checked), pantryNames),
+    [items, pantryNames],
+  );
+
+  // Counts for notice — subtract items the user manually added back
+  const displayedSkippedStaples = skippedItems.filter(
+    (i) => isStaple(i.ingredient_name) && !forcedItems.has(i.ingredient_name),
+  ).length;
+  const displayedSkippedPantry = skippedItems.filter(
+    (i) => !isStaple(i.ingredient_name) && !forcedItems.has(i.ingredient_name),
+  ).length;
 
   // Build a quick lookup: recipeId → title
   const recipeMap = Object.fromEntries(selectedRecipes.map((r) => [r.id, r.title]));
@@ -497,6 +548,62 @@ export default function GroceryList() {
     } catch {
       setKrogerError('Something went wrong connecting to Kroger.');
       setKrogerStatus('error');
+    }
+  }
+
+  async function handleInstacartOrder() {
+    const uncheckedItems = items.filter((i) => !i.checked);
+    if (uncheckedItems.length === 0) {
+      Alert.alert('No items', 'All items are already checked off.');
+      return;
+    }
+
+    const { sendable: baseSendable, skippedItems: allSkipped } = partitionForInstacart(uncheckedItems, pantryNames);
+    const sendable = [
+      ...baseSendable,
+      ...allSkipped.filter((i) => forcedItems.has(i.ingredient_name)),
+    ];
+    if (sendable.length === 0) {
+      Alert.alert('Nothing to order', 'All remaining items are staples or already in your pantry.');
+      return;
+    }
+
+    setInstacartLoading(true);
+    setInstacartError(null);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const baseUrl = process.env.EXPO_PUBLIC_API_URL;
+
+      const instacartItems = sendable.map((i) => {
+        const name = cleanForSearch(i.ingredient_name);
+        const displayText = i.quantity
+          ? `${i.ingredient_name} ${i.quantity}${i.unit ? ' ' + i.unit : ''}`.trim()
+          : i.ingredient_name;
+        const measurement = parseGroceryMeasurement(i.quantity, i.unit);
+        return { name, displayText, ...(measurement ? { measurement } : {}) };
+      });
+
+      const title = selectedRecipes.length > 0
+        ? `Mori: ${selectedRecipes.slice(0, 2).map((r) => r.title).join(', ')}${selectedRecipes.length > 2 ? ` +${selectedRecipes.length - 2} more` : ''}`
+        : 'Mori Grocery List';
+
+      const res = await fetch(`${baseUrl}/api/instacart-cart`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({ items: instacartItems, title }),
+      });
+
+      if (!res.ok) throw new Error(`instacart-cart ${res.status}`);
+      const data = await res.json();
+      await WebBrowser.openBrowserAsync(data.url);
+    } catch {
+      setInstacartError('Could not create Instacart list. Please try again.');
+    } finally {
+      setInstacartLoading(false);
     }
   }
 
@@ -694,24 +801,11 @@ export default function GroceryList() {
             <TallyItem icon="checkmark-circle-outline" value={checkedCount} label="done" />
           </>
         )}
-        <TallyDivider />
-        <View style={{ flex: 1, alignItems: 'center', gap: 2 }}>
-          <Ionicons name="pricetag-outline" size={18} color={colors.primary} />
-          <Text style={{ fontSize: 18, fontWeight: '700', color: colors.primary }}>
-            {krogerTotal != null ? `$${krogerTotal.toFixed(0)}` : '—'}
-          </Text>
-          <Text style={{ fontSize: 11, color: colors.primary, opacity: 0.75 }}>est. cost</Text>
-        </View>
       </View>
       {combinedMacros && (
         <View style={{ marginHorizontal: 16, marginTop: 8, marginBottom: 4 }}>
           <MacroRow macros={combinedMacros} compact />
         </View>
-      )}
-      {krogerTotal == null && (
-        <Text style={{ fontSize: 11, color: colors.textMuted, textAlign: 'center', marginBottom: 12, paddingHorizontal: 16 }}>
-          Tap "Order on Kroger" to see estimated cost
-        </Text>
       )}
 
       {/* Item list */}
@@ -838,6 +932,93 @@ export default function GroceryList() {
         )}
       </ScrollView>
 
+      {/* Skipped items detail modal */}
+      <Modal
+        visible={skippedModalVisible}
+        animationType="slide"
+        transparent
+        presentationStyle="overFullScreen"
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }}>
+          <Pressable style={{ ...StyleSheet.absoluteFillObject }} onPress={() => setSkippedModalVisible(false)} />
+          <View style={{
+            backgroundColor: colors.card,
+            borderTopLeftRadius: 20, borderTopRightRadius: 20,
+            paddingBottom: 36, maxHeight: '60%',
+          }}>
+            <View style={{
+              width: 36, height: 4, borderRadius: 2, backgroundColor: colors.border,
+              alignSelf: 'center', marginTop: 12, marginBottom: 4,
+            }} />
+            <View style={{
+              flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+              paddingHorizontal: 20, paddingVertical: 14,
+            }}>
+              <Text style={{ fontSize: 17, fontWeight: '700', color: colors.text }}>
+                Skipped items
+              </Text>
+              <Pressable onPress={() => setSkippedModalVisible(false)} hitSlop={12}>
+                <Ionicons name="close" size={22} color={colors.textMuted} />
+              </Pressable>
+            </View>
+            <Text style={{ fontSize: 13, color: colors.textMuted, paddingHorizontal: 20, marginBottom: 12 }}>
+              These won't be sent to Instacart. Tap Add to include any you need.
+            </Text>
+            <ScrollView
+              contentContainerStyle={{ paddingHorizontal: 20, gap: 6, paddingBottom: 8 }}
+              showsVerticalScrollIndicator={false}
+            >
+              {skippedItems.map((item) => {
+                const isStapleItem = isStaple(item.ingredient_name);
+                const forced = forcedItems.has(item.ingredient_name);
+                return (
+                  <View key={item.ingredient_name} style={{
+                    flexDirection: 'row', alignItems: 'center', gap: 10,
+                    backgroundColor: colors.background, borderRadius: 10,
+                    paddingHorizontal: 14, paddingVertical: 10,
+                  }}>
+                    <Ionicons
+                      name={isStapleItem ? 'flame-outline' : 'cube-outline'}
+                      size={16}
+                      color={colors.textMuted}
+                    />
+                    <Text style={{ flex: 1, fontSize: 14, color: colors.text }}>
+                      {item.ingredient_name}
+                    </Text>
+                    <Text style={{ fontSize: 11, color: colors.textMuted, marginRight: 6 }}>
+                      {isStapleItem ? 'staple' : 'pantry'}
+                    </Text>
+                    <Pressable
+                      onPress={() => {
+                        const name = item.ingredient_name;
+                        setForcedItems((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(name)) next.delete(name);
+                          else next.add(name);
+                          return next;
+                        });
+                      }}
+                      style={{
+                        borderWidth: 1,
+                        borderColor: forced ? colors.primary : colors.border,
+                        borderRadius: 8,
+                        paddingHorizontal: 10,
+                        paddingVertical: 4,
+                        backgroundColor: forced ? colors.primary + '22' : 'transparent',
+                      }}
+                    >
+                      <Text style={{ fontSize: 12, color: forced ? colors.primary : colors.textMuted, fontWeight: forced ? '600' : '400' }}>
+                        {forced ? '✓ Added' : 'Add'}
+                      </Text>
+                    </Pressable>
+                  </View>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
       <KrogerSheet
         visible={krogerSheetVisible}
         status={krogerStatus}
@@ -898,16 +1079,41 @@ export default function GroceryList() {
           <Text style={{ color: 'white', fontSize: 16, fontWeight: '600' }}>Copy List</Text>
         </Pressable>
 
+        {instacartError && (
+          <Text style={{ color: colors.error, fontSize: 13, textAlign: 'center' }}>
+            {instacartError}
+          </Text>
+        )}
+        {(skippedItems.length > 0) && (
+          <Pressable
+            onPress={() => setSkippedModalVisible(true)}
+            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 }}
+          >
+            <Text style={{ color: colors.textMuted, fontSize: 12 }}>
+              {(displayedSkippedStaples + displayedSkippedPantry) > 0
+                ? formatSkipLine(displayedSkippedStaples, displayedSkippedPantry)
+                : 'All skipped items added back'}
+            </Text>
+            <Ionicons name="information-circle-outline" size={13} color={colors.textMuted} />
+          </Pressable>
+        )}
         <Pressable
-          onPress={handleKrogerOrder}
+          onPress={handleInstacartOrder}
+          disabled={instacartLoading}
           style={{
             backgroundColor: colors.card, borderRadius: 12, borderWidth: 1.5,
             borderColor: colors.primary, paddingVertical: 13, alignItems: 'center',
             flexDirection: 'row', justifyContent: 'center', gap: 8,
+            opacity: instacartLoading ? 0.6 : 1,
           }}
         >
-          <Ionicons name="cart-outline" size={18} color={colors.primary} />
-          <Text style={{ color: colors.primary, fontSize: 15, fontWeight: '600' }}>Order on Kroger</Text>
+          {instacartLoading
+            ? <ActivityIndicator size="small" color={colors.primary} />
+            : <Ionicons name="cart-outline" size={18} color={colors.primary} />
+          }
+          <Text style={{ color: colors.primary, fontSize: 15, fontWeight: '600' }}>
+            {instacartLoading ? 'Creating list...' : 'Order on Instacart'}
+          </Text>
         </Pressable>
       </View>
     </SafeAreaView>

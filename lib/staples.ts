@@ -43,6 +43,12 @@ export const STAPLES: ReadonlySet<string> = new Set([
   'ginger powder', 'ground ginger',
   'onion powder', 'cayenne', 'cayenne pepper',
   'italian seasoning', 'herbs de provence',
+  // Ground forms (canonical targets after normalization)
+  'ground cumin',
+  // Compound staple safety net — catches community recipes that write these as one ingredient
+  'salt and pepper', 'salt and black pepper', 'salt & pepper',
+  'sea salt and black pepper', 'salt and white pepper',
+  'salt and black pepper to taste',
 ]);
 
 // Careful matcher — plain substring matching misfires ("butter" vs "butternut",
@@ -60,4 +66,31 @@ export function isStaple(name: string): boolean {
     if (s.includes(' ') && n.includes(s)) return true;
   }
   return false;
+}
+
+// Splits a list of grocery items into what we should send to Instacart vs what to
+// skip silently. Staples take precedence over pantry matches so a salt-in-pantry
+// entry doesn't inflate the "pantry items" count — it reads as a staple either way.
+export function partitionForInstacart<T extends { ingredient_name: string }>(
+  items: T[],
+  pantryNames: ReadonlySet<string>,
+): { sendable: T[]; skippedStaples: number; skippedPantry: number; skippedItems: T[] } {
+  const sendable: T[] = [];
+  const skippedItems: T[] = [];
+  let skippedStaples = 0;
+  let skippedPantry = 0;
+  for (const item of items) {
+    if (isStaple(item.ingredient_name)) {
+      skippedStaples++;
+      skippedItems.push(item);
+      continue;
+    }
+    if (pantryNames.has(item.ingredient_name.trim().toLowerCase())) {
+      skippedPantry++;
+      skippedItems.push(item);
+      continue;
+    }
+    sendable.push(item);
+  }
+  return { sendable, skippedStaples, skippedPantry, skippedItems };
 }

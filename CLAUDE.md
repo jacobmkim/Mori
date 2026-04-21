@@ -69,7 +69,12 @@ Mori is a swipe-based recipe discovery app. Users swipe on recipe cards → save
 ### ❌ Phase 4 — Grocery APIs
 - ✅ Kroger OAuth + Cart: full PKCE flow using Web Crypto API (Expo Go compatible), tokens in Supabase (`kroger_tokens` table, RLS service-role only), direct cart add. `api/kroger-auth.ts`, `api/kroger-cart.ts`, `KrogerSheet` in `grocery-list.tsx`. `cleanForSearch()` strips quantities/prep words before search; not-found items shown in results instead of silently dropped.
 - ⏳ **Waiting on Kroger production API approval** — Partner Request submitted via `developer.kroger.com` contact form (Jacob Kim, jkim2002@gmail.com, April 2026). Sandbox (`api-ce.kroger.com`) has limited catalog so most ingredients won't be found. Once approved: add `KROGER_ENVIRONMENT=production` + production credentials to Vercel env vars. Code is ready; `filter.limit` bumped to 5 with best-match fallback already in `api/kroger-cart.ts`.
-- ⏳ **Waiting on Instacart Developer Platform approval** — applied, waiting.
+- ✅ **Instacart integration** — `api/instacart-cart.ts` live. Link-generation model: POST items → get URL → open in WebBrowser. No OAuth needed. Sandbox key active (`INSTACART_API_KEY`). **Prod key pending** — apply at developer.instacart.com. When approved: add `INSTACART_ENVIRONMENT=production` to Vercel env vars.
+  - ✅ **Staples + pantry filter on send** — `partitionForInstacart()` in `lib/staples.ts` strips staples (salt, pepper, oil, flour, etc.) + any item already in user's `pantry_items`. Inline subtle notice under button: "Skipping 3 staples · 2 pantry items". Empty-after-filter shows "Nothing to order" alert.
+  - ⏳ **Weird-quantity cleanup pass** — find recipes with odd protein grams/oz (e.g. "12.1 oz chicken") and round to standard pack sizes. Small one-shot script, not a full 1,506 pass. Leftover tracker handles small overshoots already.
+  - ⏳ **Structured qty/unit spike** — currently send qty inside `display_text` string only. Check if Instacart `products_link` API accepts structured `quantity` + `unit` fields for better product match.
+  - ⏳ **Product preferences (organic / brand)** — no UX yet. Defer until post-launch signal justifies.
+  - ⏳ **Affiliate / Impact params** — deferred until prod key lands; add UTM/partner params to `products_link_url` before opening.
 - ✅ Grocery list persists across restarts — `groceryStore` now uses Zustand `persist` + `createJSONStorage(() => AsyncStorage)`, partializing `list` + `selectedRecipes`
 - ✅ Meal Prep sub-tab shows all saved recipes when `mode === 'meal_prep'` — previously filtered by `meal_prep_friendly` which is `null` for most DB recipes
 - ✅ **New Recipe Backfill (483 recipes)** — two-phase workflow complete:
@@ -83,7 +88,9 @@ Mori is a swipe-based recipe discovery app. Users swipe on recipe cards → save
 - **Recipe title polish pass** — `scripts/polish-recipe-titles.mjs` built (Haiku rewrites generic titles to be ingredient-forward). **Not yet run in production.**
 - Check ALL tags for all recipes and categories. Make sure that we are scoring properly for all of these categories and tags.
 - Payment wall take cut of grocery?
+- 12.1 oz of chicken? Normalize recipes to standard grocery amounts for meats and such.
 - User ability to add photos for ALL recipes. User created or current Mori recipes.
+- usda standard all food saving processes. give user information on cooked version or raw version.
 - Vercel functions: `/api/walmart-cart`, `/api/instacart-cart`
 - Affiliate tracking via Impact
 - Grocery list history view
