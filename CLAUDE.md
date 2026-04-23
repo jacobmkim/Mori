@@ -72,7 +72,7 @@ Mori is a swipe-based recipe discovery app. Users swipe on recipe cards → save
 - ⏳ **Waiting on Kroger production API approval** — Partner Request submitted via `developer.kroger.com` contact form (Jacob Kim, jkim2002@gmail.com, April 2026). Sandbox (`api-ce.kroger.com`) has limited catalog so most ingredients won't be found. Once approved: add `KROGER_ENVIRONMENT=production` + production credentials to Vercel env vars. Code is ready; `filter.limit` bumped to 5 with best-match fallback already in `api/kroger-cart.ts`.
 - ✅ **Instacart integration** — `api/instacart-cart.ts` live. Link-generation model: POST items → get URL → open in WebBrowser. No OAuth needed. Sandbox key active (`INSTACART_API_KEY`). **Prod key pending** — apply at developer.instacart.com. When approved: add `INSTACART_ENVIRONMENT=production` to Vercel env vars.
   - ✅ **Staples + pantry filter on send** — `partitionForInstacart()` in `lib/staples.ts` strips staples + any item in user's `pantry_items`. Inline notice: "Skipping 3 staples · 2 pantry items". Empty-after-filter → "Nothing to order" alert. Staples expanded: distilled vinegars (balsamic excluded), extended dry spices, sweeteners (honey, maple syrup, etc.) — all USDA indefinite shelf life.
-  - ⏳ **Weird-quantity cleanup pass** — find recipes with odd protein grams/oz (e.g. "12.1 oz chicken") and round to standard pack sizes. Small one-shot script, not a full 1,506 pass. Leftover tracker handles small overshoots already.
+  - ✅ **Ingredient quantity normalization** — `scripts/normalize-ingredient-units.mjs` ran on all 1,294 metric-unit recipes. Haiku rewrote metric → US grocery amounts AND converted count-based proteins to weight (e.g. "4 salmon fillets" → "1.5 lb", "8 chicken thighs" → "2 lb", "300g spinach" → "10 oz"). `whole`/`wholes` added to UNIT_MAP in `lib/instacartUtils.ts`. Instacart now auto-calculates correct package counts from weight measurements.
   - ✅ **Structured qty/unit spike** — `lib/instacartUtils.ts` (`parseGroceryMeasurement`, `convertMeasurementToUs`, `formatGroceryQuantity`). Grocery list passes structured `measurement` field to Instacart + converts metric → US when `unitSystem === 'us'`.
   - ⏳ **Product preferences (organic / brand)** — no UX yet. Defer until post-launch signal justifies.
   - ✅ **Affiliate / Impact params** — UTM params appended to every `products_link_url`; Impact partner ID 7220009 live in Vercel (`INSTACART_PARTNER_ID`).
@@ -90,7 +90,6 @@ Mori is a swipe-based recipe discovery app. Users swipe on recipe cards → save
 - Check ALL tags for all recipes and categories. Make sure that we are scoring properly for all of these categories and tags.
 - Payment wall take cut of grocery?
 - long touch and the click one and then unclick i.e. nothing is selected in long touch in recipes. exit the multi-select mode. 
-- 12.1 oz of chicken? Normalize recipes to standard grocery amounts for meats and such.
 - User ability to add photos for ALL recipes. User created or current Mori recipes.
 - usda standard all food saving processes. give user information on cooked version or raw version.
 - Vercel functions: `/api/walmart-cart`, `/api/instacart-cart`

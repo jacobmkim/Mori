@@ -1,5 +1,10 @@
 # Mori — Bug Fix Log
 
+## 2026-04-23 (Instacart quantity fixes)
+- **Instacart selecting 1 unit for proteins** — "4 salmon fillets" / "8 chicken thighs" sent as `{quantity: N, unit: 'each'}` which Instacart ignores for cart quantity. Fixed by running `normalize-ingredient-units.mjs` on all 1,294 metric recipes: Haiku converted count-based proteins to weight (salmon → 1.5 lb, chicken thighs → 2 lb). Instacart now calculates package count from weight.
+- **"lemon 2 whole + 1 whole" not summing** — `unit: "whole"` missing from UNIT_MAP caused parse failure → raw string displayed and sent to Instacart. Fixed: added `whole: 'each', wholes: 'each'` to UNIT_MAP in `lib/instacartUtils.ts`. After re-adding recipes, lemons sum to 3 correctly.
+- **Grocery list showing metric units in US mode** — stale AsyncStorage data from pre-normalization. Fix: clear grocery list and re-add; fresh DB data flows through `formatGroceryQuantity` with correct US units.
+
 ## 2026-04-23 (Leftover expiration — stop notifying on shelf-stable items)
 - **Bogus 2-day expiration warnings on vinegar / spices / honey / dry goods** — `getIngredientStorageDays` in `lib/api.ts` returned only `days_fridge`; for room-temp-stable items that column is NULL, so `PostCookLeftoversModal` fell back to `DEFAULT_FRIDGE_DAYS = 4`, firing a 2-day warning almost immediately. Fixed: function now returns `days_fridge ?? days_room_temp ?? null` so honey gets 730 days, spices get 180-730, etc.
 - **STAPLES expanded per USDA shelf-life standards** — added distilled/wine vinegars (indefinite), dry grains/pasta/rice/oats (2+ yr), dried legumes (indefinite), sweeteners (honey indefinite, syrups 1+ yr), extra oils (rapeseed/peanut/coconut/avocado, 1-2 yr), dry spices + seasoning blends (2-3 yr), spirits (indefinite), dry stock cubes / bouillon powder (2+ yr), non-food items (water variants, bamboo skewers, corn husks). Balsamic vinegar intentionally kept trackable (180-day fridge). Liquid stock & broth stay trackable (3-5 day spoilage, powers scorer bonus).
