@@ -1,5 +1,10 @@
 # Mori — Bug Fix Log
 
+## 2026-04-23 (Leftover expiration — stop notifying on shelf-stable items)
+- **Bogus 2-day expiration warnings on vinegar / spices / honey / dry goods** — `getIngredientStorageDays` in `lib/api.ts` returned only `days_fridge`; for room-temp-stable items that column is NULL, so `PostCookLeftoversModal` fell back to `DEFAULT_FRIDGE_DAYS = 4`, firing a 2-day warning almost immediately. Fixed: function now returns `days_fridge ?? days_room_temp ?? null` so honey gets 730 days, spices get 180-730, etc.
+- **STAPLES expanded per USDA shelf-life standards** — added distilled/wine vinegars (indefinite), dry grains/pasta/rice/oats (2+ yr), dried legumes (indefinite), sweeteners (honey indefinite, syrups 1+ yr), extra oils (rapeseed/peanut/coconut/avocado, 1-2 yr), dry spices + seasoning blends (2-3 yr), spirits (indefinite), dry stock cubes / bouillon powder (2+ yr), non-food items (water variants, bamboo skewers, corn husks). Balsamic vinegar intentionally kept trackable (180-day fridge). Liquid stock & broth stay trackable (3-5 day spoilage, powers scorer bonus).
+- **DB cleanup** — `supabase/fix-vinegar-leftovers.sql` deletes existing `user_leftovers` rows for new staples and drops 170 `ingredient_storage` rows so the backfill script won't re-add them. Ran against production. Legitimate tracked items (soy sauce, fish sauce, hot sauce, miso, gochujang, kimchi, mustard, ketchup, balsamic, stock/broth, coconut milk, tomato paste) preserved.
+
 ## 2026-04-16 (Leftovers feature + storage-tip fix)
 - **storage-tip always returned 401** — client sent `{ ingredients: [] }` (array) but schema expected `{ ingredient: string }` (singular), and there was no `Authorization` header; fixed `StorageTipRequestSchema` to accept `ingredients: z.array(...)`, updated `api/storage-tip.ts` to concat, added `Bearer` token in `RecipeDetailModal.tsx` storage-tip fetch
 - **storage-tip auth missing** — same fetch had no `Authorization` header, causing requireAuth to reject every call; now wraps fetch with `supabase.auth.getSession()` and attaches `Bearer ${session.access_token}` (`RecipeDetailModal.tsx`)

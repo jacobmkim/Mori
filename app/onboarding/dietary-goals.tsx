@@ -11,6 +11,7 @@ const GOALS = [
   { id: 'low_carb',     label: 'Low Carb',     icon: '🥗' },
   { id: 'vegetarian',   label: 'Vegetarian',   icon: '🥦' },
   { id: 'vegan',        label: 'Vegan',        icon: '🌱' },
+  { id: 'pescatarian',  label: 'Pescatarian',  icon: '🐟' },
   { id: 'gluten_free',  label: 'Gluten Free',  icon: '🌾' },
   { id: 'dairy_free',   label: 'Dairy Free',   icon: '🥛' },
   { id: 'keto',         label: 'Keto',         icon: '🥑' },

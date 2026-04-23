@@ -22,11 +22,12 @@ import { useGroceryStore } from '@/stores/groceryStore';
 import { useDiscoverStore } from '@/stores/discoverStore';
 import { fetchMacros, getPantryItems } from '@/lib/api';
 import { partitionForInstacart, isStaple } from '@/lib/staples';
-import { parseGroceryMeasurement } from '@/lib/instacartUtils';
+import { parseGroceryMeasurement, convertMeasurementToUs, formatGroceryQuantity } from '@/lib/instacartUtils';
 import { fetchMealDetail } from '@/lib/mealdb';
 import { supabase } from '@/lib/supabase';
 import { MacroRow } from '@/components/ui/MacroRow';
 import { AvatarButton } from '@/components/AvatarButton';
+import { InstacartButton } from '@/components/grocery/InstacartButton';
 import { useTheme } from '@/hooks/useTheme';
 import type { GroceryItem, Recipe, Macros } from '@/types';
 
@@ -255,6 +256,7 @@ function MealsModal({
 export default function GroceryList() {
   const colors = useTheme();
   const mode = useDiscoverStore((s) => s.mode);
+  const unitSystem = useDiscoverStore((s) => s.unitSystem);
   const {
     list, selectedRecipes,
     toggleItem, deleteItem, clearChecked, restoreItems, removeRecipeFromList, clearAll, addCustomItem,
@@ -577,10 +579,19 @@ export default function GroceryList() {
 
       const instacartItems = sendable.map((i) => {
         const name = cleanForSearch(i.ingredient_name);
-        const displayText = i.quantity
-          ? `${i.ingredient_name} ${i.quantity}${i.unit ? ' ' + i.unit : ''}`.trim()
-          : i.ingredient_name;
-        const measurement = parseGroceryMeasurement(i.quantity, i.unit);
+        const rawMeasurement = parseGroceryMeasurement(i.quantity, i.unit);
+        const measurement = rawMeasurement && unitSystem === 'us'
+          ? convertMeasurementToUs(rawMeasurement)
+          : rawMeasurement;
+        let displayText: string;
+        if (measurement) {
+          const unitLabel = measurement.unit === 'each' ? '' : ` ${measurement.unit}`;
+          displayText = `${i.ingredient_name} ${measurement.quantity}${unitLabel}`.trim();
+        } else if (i.quantity) {
+          displayText = `${i.ingredient_name} ${i.quantity}${i.unit ? ' ' + i.unit : ''}`.trim();
+        } else {
+          displayText = i.ingredient_name;
+        }
         return { name, displayText, ...(measurement ? { measurement } : {}) };
       });
 
@@ -824,6 +835,7 @@ export default function GroceryList() {
                 item={item}
                 recipeMap={recipeMap}
                 editMode={editMode}
+                unitSystem={unitSystem}
                 onToggle={() => {
                   toggleItem(item.ingredient_name);
                   setCheckUndoName(item.ingredient_name);
@@ -921,6 +933,7 @@ export default function GroceryList() {
                 item={item}
                 recipeMap={recipeMap}
                 editMode={editMode}
+                unitSystem={unitSystem}
                 onToggle={() => toggleItem(item.ingredient_name)}
                 onDelete={() => {
                   const deleted = deleteItem(item.ingredient_name);
@@ -1097,24 +1110,11 @@ export default function GroceryList() {
             <Ionicons name="information-circle-outline" size={13} color={colors.textMuted} />
           </Pressable>
         )}
-        <Pressable
+        <InstacartButton
           onPress={handleInstacartOrder}
+          loading={instacartLoading}
           disabled={instacartLoading}
-          style={{
-            backgroundColor: colors.card, borderRadius: 12, borderWidth: 1.5,
-            borderColor: colors.primary, paddingVertical: 13, alignItems: 'center',
-            flexDirection: 'row', justifyContent: 'center', gap: 8,
-            opacity: instacartLoading ? 0.6 : 1,
-          }}
-        >
-          {instacartLoading
-            ? <ActivityIndicator size="small" color={colors.primary} />
-            : <Ionicons name="cart-outline" size={18} color={colors.primary} />
-          }
-          <Text style={{ color: colors.primary, fontSize: 15, fontWeight: '600' }}>
-            {instacartLoading ? 'Creating list...' : 'Order on Instacart'}
-          </Text>
-        </Pressable>
+        />
       </View>
     </SafeAreaView>
   );
@@ -1325,12 +1325,14 @@ function GroceryRow({
   item,
   recipeMap,
   editMode,
+  unitSystem,
   onToggle,
   onDelete,
 }: {
   item: GroceryItem;
   recipeMap: Record<string, string>;
   editMode: boolean;
+  unitSystem: 'us' | 'metric';
   onToggle: () => void;
   onDelete: () => void;
 }) {
@@ -1400,7 +1402,7 @@ function GroceryRow({
       {/* Quantity */}
       {(item.quantity || item.unit) ? (
         <Text style={{ fontSize: 13, color: colors.textMuted }}>
-          {item.quantity}{item.unit ? ' ' + item.unit : ''}
+          {formatGroceryQuantity(item.quantity, item.unit, unitSystem)}
         </Text>
       ) : null}
     </Pressable>

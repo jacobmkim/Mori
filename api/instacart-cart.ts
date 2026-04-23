@@ -38,7 +38,8 @@ const InstacartCartSchema = z.object({
 
 // ─── Instacart helpers ────────────────────────────────────────────────────────
 
-const INSTACART_BASE = process.env.INSTACART_ENVIRONMENT === 'production'
+const IS_PROD = process.env.INSTACART_ENVIRONMENT === 'production';
+const INSTACART_BASE = IS_PROD
   ? 'https://connect.instacart.com'
   : 'https://connect.dev.instacart.tools';
 
@@ -58,7 +59,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const body = await validate(InstacartCartSchema, req.body);
 
-    const apiKey = process.env.INSTACART_API_KEY;
+    const apiKey = IS_PROD
+      ? process.env.INSTACART_API_KEY
+      : (process.env.INSTACART_API_KEY_SANDBOX ?? process.env.INSTACART_API_KEY);
     if (!apiKey) return res.status(500).json({ error: 'Instacart not configured' });
 
     const lineItems = body.items.map((item) => ({
@@ -90,7 +93,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const data = await instacartRes.json() as { products_link_url: string };
-    return res.status(200).json({ url: data.products_link_url });
+    let url = data.products_link_url;
+    const partnerId = process.env.INSTACART_PARTNER_ID;
+    if (partnerId) {
+      const sep = url.includes('?') ? '&' : '?';
+      url += `${sep}utm_campaign=instacart-idp&utm_medium=affiliate&utm_source=instacart_idp&utm_term=partnertype-mediapartner&utm_content=campaignid-20313_partnerid-${partnerId}`;
+    }
+    return res.status(200).json({ url });
 
   } catch (err) {
     if (err instanceof ValidationError) return res.status(400).json(formatValidationError(err));

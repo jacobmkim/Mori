@@ -114,6 +114,15 @@ export async function getRecipeById(id: string): Promise<Recipe | null> {
 
 // ─── Discover Deck ────────────────────────────────────────────────────────────
 
+// Builds a single lowercase string from all ingredient names for keyword scanning.
+// Handles both string[] and {name:string}[] shapes that may exist in DB rows.
+function buildIngredientText(ingredients: any[]): string {
+  return ingredients
+    .map((i) => (typeof i === 'string' ? i : (i?.name ?? '')))
+    .join(' ')
+    .toLowerCase();
+}
+
 const DECK_EXCLUDE = [
   'cake', 'pudding', 'tart', 'pie', 'biscuit', 'cookie', 'brownie', 'muffin',
   'pancake', 'waffle', 'ice cream', 'sorbet', 'custard', 'fudge', 'candy',
@@ -217,10 +226,16 @@ export async function fetchDiscoverRecipes(dietaryGoals: string[] = []): Promise
       if (DECK_EXCLUDE.some((w) => t.includes(w))) return false;
       if ((r.dietary_tags ?? []).includes('dessert')) return false;
       if (dietaryGoals.includes('vegan') || dietaryGoals.includes('vegetarian')) {
-        return !DECK_ALL_MEAT.some((w) => t.includes(w));
+        if (DECK_ALL_MEAT.some((w) => t.includes(w))) return false;
+        const ingText = buildIngredientText(r.ingredients ?? []);
+        if (DECK_ALL_MEAT.some((w) => ingText.includes(w))) return false;
+        return true;
       }
       if (dietaryGoals.includes('pescatarian')) {
-        return !DECK_LAND_MEAT.some((w) => t.includes(w));
+        if (DECK_LAND_MEAT.some((w) => t.includes(w))) return false;
+        const ingText = buildIngredientText(r.ingredients ?? []);
+        if (DECK_LAND_MEAT.some((w) => ingText.includes(w))) return false;
+        return true;
       }
       return true;
     })
@@ -365,6 +380,7 @@ function pickAdventureCuisine(
 async function fetchAdventureRecipe(
   cuisine: string,
   existingSupabaseIds: Set<string>,
+  dietaryGoals: string[] = [],
 ): Promise<Recipe | null> {
   const { data } = await supabase
     .from('recipes')
@@ -372,7 +388,17 @@ async function fetchAdventureRecipe(
     .ilike('cuisine', cuisine)
     .not('external_id', 'is', null)
     .limit(10);
-  const eligible = (data ?? []).filter((r: any) => !existingSupabaseIds.has(r.id));
+  const eligible = (data ?? []).filter((r: any) => {
+    if (existingSupabaseIds.has(r.id)) return false;
+    const t = (r.title ?? '').toLowerCase();
+    const ingText = buildIngredientText(r.ingredients ?? []);
+    if (dietaryGoals.includes('vegan') || dietaryGoals.includes('vegetarian')) {
+      if (DECK_ALL_MEAT.some((w) => t.includes(w) || ingText.includes(w))) return false;
+    } else if (dietaryGoals.includes('pescatarian')) {
+      if (DECK_LAND_MEAT.some((w) => t.includes(w) || ingText.includes(w))) return false;
+    }
+    return true;
+  });
   if (eligible.length === 0) return null;
   const r = eligible[Math.floor(Math.random() * eligible.length)] as any;
   return {
@@ -586,22 +612,24 @@ export async function fetchLeftoverNames(userId: string): Promise<Set<string>> {
   return new Set((data ?? []).filter((r: any) => r.ingredient_name).map((r: any) => r.ingredient_name.toLowerCase().trim()));
 }
 
-// Looks up days_fridge for a given ingredient name (exact or alias match).
-// Returns null if not found — callers fall back to a default.
+// Looks up shelf-life for a given ingredient name (exact or alias match).
+// Prefers days_fridge; falls back to days_room_temp so room-temp-stable items
+// (honey, dry spices, oils) don't get the 4-day default and fire a bogus
+// 2-day notification. Returns null only if the row is missing or has neither value.
 export async function getIngredientStorageDays(name: string): Promise<number | null> {
   const n = name.toLowerCase().trim();
   const { data: exact } = await supabase
     .from('ingredient_storage')
-    .select('days_fridge')
+    .select('days_fridge,days_room_temp')
     .eq('canonical_name', n)
     .single();
-  if (exact?.days_fridge != null) return exact.days_fridge;
+  if (exact) return exact.days_fridge ?? exact.days_room_temp ?? null;
   const { data: alias } = await supabase
     .from('ingredient_storage')
-    .select('days_fridge')
+    .select('days_fridge,days_room_temp')
     .contains('aliases', [n])
     .single();
-  return alias?.days_fridge ?? null;
+  return alias ? (alias.days_fridge ?? alias.days_room_temp ?? null) : null;
 }
 
 export interface IngredientStorageInfo {
@@ -970,7 +998,7 @@ export async function fetchScoredDeck(
     const existingIds = new Set(result.map((r) => r.supabase_id ?? '').filter(Boolean));
     const adventureCuisine = pickAdventureCuisine(profile, existingCuisines);
     if (adventureCuisine) {
-      const adventureRecipe = await fetchAdventureRecipe(adventureCuisine, existingIds);
+      const adventureRecipe = await fetchAdventureRecipe(adventureCuisine, existingIds, dietaryGoals);
       if (adventureRecipe) {
         result.splice(5, 0, { ...adventureRecipe, isTrending: adventureRecipe.isTrending ?? false });
         console.log(`[fetchScoredDeck] adventure card injected: "${adventureRecipe.title}" (${adventureCuisine})`);

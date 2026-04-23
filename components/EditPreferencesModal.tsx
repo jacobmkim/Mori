@@ -11,7 +11,7 @@ import type { Profile } from '@/types';
 
 const GOAL_LABELS: Record<string, string> = {
   balanced: 'Balanced', high_protein: 'High Protein', low_carb: 'Low Carb',
-  vegetarian: 'Vegetarian', vegan: 'Vegan', gluten_free: 'Gluten Free',
+  vegetarian: 'Vegetarian', vegan: 'Vegan', pescatarian: 'Pescatarian', gluten_free: 'Gluten Free',
   dairy_free: 'Dairy Free', keto: 'Keto', paleo: 'Paleo', nut_free: 'Nut Free',
 };
 const SKILL_LABELS: Record<string, string> = {
@@ -65,6 +65,7 @@ export function EditPreferencesModal({
   function getGoalConflict(goals: string[]): string | null {
     if (goals.includes('vegan') && goals.includes('paleo')) return 'Vegan and Paleo are incompatible — paleo requires meat and fish.';
     if (goals.includes('vegetarian') && goals.includes('paleo')) return 'Vegetarian and Paleo conflict — paleo is built around animal protein.';
+    if (goals.includes('pescatarian') && goals.includes('vegan')) return 'Pescatarian and Vegan conflict — vegans do not eat fish.';
     if (goals.includes('keto') && goals.includes('low_fat')) return 'Keto (high fat) and Low Fat directly conflict.';
     if (goals.includes('vegan') && goals.includes('high_protein')) return 'High Protein on a vegan diet is hard — consider removing one or adding a note.';
     return null;

@@ -41,16 +41,14 @@ describe('isStaple — exact matches', () => {
 });
 
 describe('isStaple — non-staples (must be tracked as leftovers)', () => {
-  it('returns false for stock and broth (product decision)', () => {
+  it('returns false for stock and broth (product decision — real 3-5d spoilage, powers scorer)', () => {
     expect(isStaple('chicken stock')).toBe(false);
     expect(isStaple('beef broth')).toBe(false);
     expect(isStaple('vegetable stock')).toBe(false);
   });
 
-  it('returns false for vinegar (product decision)', () => {
-    expect(isStaple('rice vinegar')).toBe(false);
-    expect(isStaple('apple cider vinegar')).toBe(false);
-    expect(isStaple('white wine vinegar')).toBe(false);
+  it('returns false for balsamic vinegar (180-day fridge life, worth tracking)', () => {
+    expect(isStaple('balsamic vinegar')).toBe(false);
   });
 
   it('returns false for proteins', () => {
@@ -87,9 +85,11 @@ describe('isStaple — false-positive guards (no accidental substring matching)'
     expect(isStaple('watercress')).toBe(false);
   });
 
-  it('does not match "oil" inside "coconut oil" (coconut oil is not a staple)', () => {
-    // coconut oil is not in STAPLES — should not match
-    expect(isStaple('coconut oil')).toBe(false);
+  it('does not match "oil" inside non-staple oils', () => {
+    // Sunflower/olive/coconut oil are staples (USDA 1-2yr shelf life); verify
+    // single-word "oil" doesn't false-match things that merely end in "oil".
+    expect(isStaple('lamp oil')).toBe(false);
+    expect(isStaple('essential oil')).toBe(false);
   });
 
   it('does not match "salt" inside "salted caramel"', () => {

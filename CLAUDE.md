@@ -65,16 +65,17 @@ Mori is a swipe-based recipe discovery app. Users swipe on recipe cards → save
 - Scorer optimized: unsave signal (−3 + neutralizes right-swipe boost), view-no-save penalty (−2 after 3 views), pantry word-containment matching, dietary goal cap +20, swipe history limit 500
 - Fusion cuisine: split display in detail modal (individual pills + "Fusion" pill), grid card joins with ", "; scorer splits `cuisine` on comma for preference matching
 - Session cuisine affinity: `sessionCuisineSwipes` map in `lib/api.ts` accumulates per-cuisine right/left swipes within a session; applied as bonus/penalty in `scoreRecipe`
+- **Pescatarian** dietary goal added — onboarding, profile, EditPreferencesModal, payoff screen; conflict guard vs vegan; hard filter in `fetchDiscoverRecipes`
 
 ### ❌ Phase 4 — Grocery APIs
 - ✅ Kroger OAuth + Cart: full PKCE flow using Web Crypto API (Expo Go compatible), tokens in Supabase (`kroger_tokens` table, RLS service-role only), direct cart add. `api/kroger-auth.ts`, `api/kroger-cart.ts`, `KrogerSheet` in `grocery-list.tsx`. `cleanForSearch()` strips quantities/prep words before search; not-found items shown in results instead of silently dropped.
 - ⏳ **Waiting on Kroger production API approval** — Partner Request submitted via `developer.kroger.com` contact form (Jacob Kim, jkim2002@gmail.com, April 2026). Sandbox (`api-ce.kroger.com`) has limited catalog so most ingredients won't be found. Once approved: add `KROGER_ENVIRONMENT=production` + production credentials to Vercel env vars. Code is ready; `filter.limit` bumped to 5 with best-match fallback already in `api/kroger-cart.ts`.
 - ✅ **Instacart integration** — `api/instacart-cart.ts` live. Link-generation model: POST items → get URL → open in WebBrowser. No OAuth needed. Sandbox key active (`INSTACART_API_KEY`). **Prod key pending** — apply at developer.instacart.com. When approved: add `INSTACART_ENVIRONMENT=production` to Vercel env vars.
-  - ✅ **Staples + pantry filter on send** — `partitionForInstacart()` in `lib/staples.ts` strips staples (salt, pepper, oil, flour, etc.) + any item already in user's `pantry_items`. Inline subtle notice under button: "Skipping 3 staples · 2 pantry items". Empty-after-filter shows "Nothing to order" alert.
+  - ✅ **Staples + pantry filter on send** — `partitionForInstacart()` in `lib/staples.ts` strips staples + any item in user's `pantry_items`. Inline notice: "Skipping 3 staples · 2 pantry items". Empty-after-filter → "Nothing to order" alert. Staples expanded: distilled vinegars (balsamic excluded), extended dry spices, sweeteners (honey, maple syrup, etc.) — all USDA indefinite shelf life.
   - ⏳ **Weird-quantity cleanup pass** — find recipes with odd protein grams/oz (e.g. "12.1 oz chicken") and round to standard pack sizes. Small one-shot script, not a full 1,506 pass. Leftover tracker handles small overshoots already.
-  - ⏳ **Structured qty/unit spike** — currently send qty inside `display_text` string only. Check if Instacart `products_link` API accepts structured `quantity` + `unit` fields for better product match.
+  - ✅ **Structured qty/unit spike** — `lib/instacartUtils.ts` (`parseGroceryMeasurement`, `convertMeasurementToUs`, `formatGroceryQuantity`). Grocery list passes structured `measurement` field to Instacart + converts metric → US when `unitSystem === 'us'`.
   - ⏳ **Product preferences (organic / brand)** — no UX yet. Defer until post-launch signal justifies.
-  - ⏳ **Affiliate / Impact params** — deferred until prod key lands; add UTM/partner params to `products_link_url` before opening.
+  - ✅ **Affiliate / Impact params** — UTM params appended to every `products_link_url`; Impact partner ID 7220009 live in Vercel (`INSTACART_PARTNER_ID`).
 - ✅ Grocery list persists across restarts — `groceryStore` now uses Zustand `persist` + `createJSONStorage(() => AsyncStorage)`, partializing `list` + `selectedRecipes`
 - ✅ Meal Prep sub-tab shows all saved recipes when `mode === 'meal_prep'` — previously filtered by `meal_prep_friendly` which is `null` for most DB recipes
 - ✅ **New Recipe Backfill (483 recipes)** — two-phase workflow complete:
@@ -88,6 +89,7 @@ Mori is a swipe-based recipe discovery app. Users swipe on recipe cards → save
 - **Recipe title polish pass** — `scripts/polish-recipe-titles.mjs` built (Haiku rewrites generic titles to be ingredient-forward). **Not yet run in production.**
 - Check ALL tags for all recipes and categories. Make sure that we are scoring properly for all of these categories and tags.
 - Payment wall take cut of grocery?
+- long touch and the click one and then unclick i.e. nothing is selected in long touch in recipes. exit the multi-select mode. 
 - 12.1 oz of chicken? Normalize recipes to standard grocery amounts for meats and such.
 - User ability to add photos for ALL recipes. User created or current Mori recipes.
 - usda standard all food saving processes. give user information on cooked version or raw version.
@@ -140,12 +142,13 @@ components/
   AvatarButton.tsx        ✅ initials circle → ProfileSheet
   cards/RecipeCard.tsx    ✅
   cards/RecipeGridCard.tsx ✅
-  grocery/InstacartButton.tsx  🔲 Phase 4
+  grocery/InstacartButton.tsx  ✅ themed pill button w/ carrot icon + loading state
   ui/MacroRow.tsx         ✅
   ui/MoriLogo.tsx         ✅
 
 lib/
-  supabase.ts, api.ts (scorer here), mealdb.ts, utils.ts, substitutions.ts
+  supabase.ts, api.ts (scorer here), mealdb.ts, utils.ts, substitutions.ts,
+  instacartUtils.ts (parseGroceryMeasurement, convertMeasurementToUs, formatGroceryQuantity)
 
 stores/
   userStore, savedStore, groceryStore, collectionsStore,
@@ -164,16 +167,21 @@ scripts/ (all one-time or safe-to-resume, already ran)
   upload-new-recipes.mjs (Phase 2: JSONL → Supabase; pagination-safe),
   recheck-meal-prep.mjs (re-evaluate meal_prep_friendly via Haiku; --all/--false/--dry-run),
   backfill-dietary-tags.mjs (clean dirty MealDB tags + Haiku classify empty tags),
-  polish-recipe-titles.mjs (Haiku rewrites generic titles; --limit N, --dry-run, --recent N)
+  polish-recipe-titles.mjs (Haiku rewrites generic titles; --limit N, --dry-run, --recent N),
+  normalize-ingredient-units.mjs (metric/awkward → standard US amounts via Haiku; --metric-only, --limit N, --dry-run),
+  validate-recipe-ratios.mjs (Haiku scores ingredient plausibility 0-100; rewrites anything below 85; --id, --offset, --limit, --dry-run),
+  audit-recipes-full.mjs (full pass: ingredients + steps; same 85 threshold; --id, --offset, --limit, --verbose, --dry-run)
 
-__tests__/                 ✅ Jest 29 + jest-expo@54 — 190 tests, 16 suites
+__tests__/                 ✅ Jest 29 + jest-expo@54 — 18 suites
   api/_apiAuth.test.ts     AuthError, extractBearerToken, handleAuthError
   api/_rateLimit.test.ts   rateLimitUser, rateLimitIP, getClientIP
   api/generate-recipe.test.ts  auth gate (no JWT + no seed secret → 401)
+  api/instacart-cart.test.ts   auth gate, rate limit, sandbox/prod base URL, affiliate params
   api/waitlist.test.ts     CORS rejection, input validation
   lib/utils.test.ts        formatTime, formatCost, capitalize, getWeekStart, getTimeOfDay
   lib/substitutions.test.ts
-  lib/staples.test.ts      isStaple — exact matches, false-positive guards, non-staple foods
+  lib/staples.test.ts      isStaple — exact matches, false-positive guards, non-staple foods, vinegars
+  lib/dietaryFilter.test.ts    vegetarian/vegan/pescatarian hard filter on fetchDiscoverRecipes
   lib/scoreRecipe.test.ts  leftover bonus (+2/match, cap +10, substring, no double-count)
   lib/urgentLeftover.test.ts   date window, dismiss filter, NaN guard
   stores/collectionsStore.test.ts
@@ -259,7 +267,7 @@ SUPABASE_SERVICE_ROLE_KEY=
 OPENAI_API_KEY=           # gpt-image-1 for generate-images.mjs
 UNSPLASH_ACCESS_KEY=      # registered
 SEED_SECRET=              # Admin-only seed-recipes endpoint (generate: openssl rand -hex 32)
-INSTACART_PARTNER_ID=     # Phase 4
+INSTACART_PARTNER_ID=7220009  # Impact affiliate ID — already live in Vercel
 INSTACART_API_KEY=        # Phase 4
 ```
 
@@ -284,6 +292,7 @@ Full audit run across security, bugs, and edge cases. Items below are **unresolv
 - [ ] Missing security headers (X-Content-Type-Options, X-Frame-Options) on Vercel functions.
 
 ### 🔴 Bugs
+- [ ] `InstacartButton` dark mode icon invisible — always uses `instacart-carrot.png` (green) even on dark bg `#003D29`; `instacart-carrot-white.png` exists but unused. Fix: swap source based on `isDark`.
 - [x] `scoreRecipe` (`lib/api.ts:555`) — already has `if (m)` null guard wrapping all macro accesses. Safe.
 - [x] `RecipeDetailModal` crashes if `recipe.ingredients` is null — fixed: added `?.length` optional chaining on line 287.
 - [x] Race condition in `savedStore.addRecipe` — already fixed: no `loadSavedRecipes()` reload called; trusts optimistic update by design.
@@ -314,6 +323,7 @@ Full audit run across security, bugs, and edge cases. Items below are **unresolv
 - [x] **Macro float precision** — fixed: all macro values rounded to 1 decimal (calories rounded to integer).
 - [ ] **Budget field unused** — collected in onboarding, stored in profile, never used for filtering anywhere.
 - [ ] **Adventure card pause not persisted** — session-only; resets on app relaunch.
+- [ ] **Multi-unit combined qty silently drops second part** — `parseGroceryMeasurement` in `instacartUtils.ts:101`: when two recipes add the same ingredient in different units (e.g. "1 cup + 100g"), only the first part's measurement is sent to Instacart; second part's quantity is lost. Affects structured measurement only — `display_text` still shows full string.
 
 ---
-*v9.2 — Phases 1–3 complete. Phase 4 in progress. Scorer: session cuisine affinity, fusion split matching, leftover bonus (+2/match cap +10). 1,506 recipes (deduped); all have images, macros, dietary tags, meal_prep_friendly. Security: auth gate on generate-recipe, rate limit fail-closed, timing-safe seed compare, CORS fix. Jest: 190 tests, 16 suites. Leftover tracking complete; ingredient_storage backfilled (1,769 ingredients).*
+*v9.3 — Phases 1–3 complete. Phase 4 in progress. Instacart: structured qty/unit, metric→US conversion, affiliate params live (Impact partner 7220009), InstacartButton component. Pescatarian goal added. Staples expanded (vinegars, dry spices, sweeteners). New scripts: normalize-ingredient-units, validate-recipe-ratios, audit-recipes-full (all Haiku, 85 threshold). Jest: 18 suites.*

@@ -36,7 +36,7 @@ const EATING_STYLE_LABELS: Record<string, string> = {
 };
 const GOAL_LABELS: Record<string, string> = {
   balanced: 'Balanced', high_protein: 'High Protein', low_carb: 'Low Carb',
-  vegetarian: 'Vegetarian', vegan: 'Vegan', gluten_free: 'Gluten Free',
+  vegetarian: 'Vegetarian', vegan: 'Vegan', pescatarian: 'Pescatarian', gluten_free: 'Gluten Free',
   dairy_free: 'Dairy Free', keto: 'Keto', paleo: 'Paleo', nut_free: 'Nut Free',
 };
 

@@ -1,4 +1,6 @@
 // Instacart-supported unit strings (from /developer_platform_api/api/units_of_measurement)
+// Metric units that can be converted to US equivalents
+const METRIC_UNITS = new Set(['gram', 'kg', 'ml', 'liter']);
 const UNIT_MAP: Record<string, string> = {
   // Volume
   cup: 'cup', cups: 'cup', c: 'cup',
@@ -19,6 +21,7 @@ const UNIT_MAP: Record<string, string> = {
   kilogram: 'kg', kilograms: 'kg', kg: 'kg', kgs: 'kg',
   // Count
   each: 'each',
+  whole: 'each', wholes: 'each',
   bunch: 'bunch', bunches: 'bunch',
   can: 'can', cans: 'can',
   head: 'head', heads: 'head',
@@ -102,4 +105,38 @@ export function parseGroceryMeasurement(
   }
 
   return parseSingle(trimQty);
+}
+
+/** Converts a metric measurement to US units (gram→oz/lb, kg→lb, ml→fl oz, liter→cup). */
+export function convertMeasurementToUs(m: { quantity: number; unit: string }): { quantity: number; unit: string } {
+  switch (m.unit) {
+    case 'gram': {
+      const oz = m.quantity / 28.35;
+      if (oz >= 16) return { quantity: +((oz / 16).toFixed(1)), unit: 'lb' };
+      return { quantity: +(oz.toFixed(1)), unit: 'oz' };
+    }
+    case 'kg':
+      return { quantity: +((m.quantity * 2.205).toFixed(1)), unit: 'lb' };
+    case 'ml': {
+      const floz = m.quantity / 29.574;
+      return { quantity: +(floz.toFixed(1)), unit: 'fl oz' };
+    }
+    case 'liter':
+      return { quantity: +((m.quantity * 4.227).toFixed(1)), unit: 'cup' };
+    default:
+      return m;
+  }
+}
+
+/**
+ * Formats a grocery item's quantity+unit for display, converting metric → US when unitSystem is 'us'.
+ * Handles combined quantities ("1 + 2"), fractions ("1/2"), and bare counts.
+ */
+export function formatGroceryQuantity(qty: string, unit: string, unitSystem: 'us' | 'metric'): string {
+  if (!qty && !unit) return '';
+  const parsed = parseGroceryMeasurement(qty, unit);
+  if (!parsed) return unit ? `${qty} ${unit}`.trim() : qty;
+  const m = (unitSystem === 'us' && METRIC_UNITS.has(parsed.unit)) ? convertMeasurementToUs(parsed) : parsed;
+  const unitLabel = m.unit === 'each' ? '' : ` ${m.unit}`;
+  return `${m.quantity}${unitLabel}`.trim();
 }
