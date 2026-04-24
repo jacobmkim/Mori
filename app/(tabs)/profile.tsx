@@ -564,11 +564,13 @@ export default function Profile() {
   const savedTasteProfile = (profile?.taste_profile as any);
   const [tasteProfile, setTasteProfile] = useState<string | null>(savedTasteProfile?.text ?? null);
   const [tasteLoading, setTasteLoading] = useState(false);
+  const [tasteError, setTasteError] = useState<string | null>(null);
 
   async function runTasteProfileGeneration(userId: string) {
     const baseUrl = process.env.EXPO_PUBLIC_API_URL;
     if (!baseUrl) return;
     setTasteLoading(true);
+    setTasteError(null);
     try {
       let { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) {
@@ -591,9 +593,13 @@ export default function Profile() {
             taste_profile: { text: json.tasteProfile, generated_at: new Date().toISOString() },
           });
         }
+      } else if (res.ok && json.reason === 'not_enough_data') {
+        setTasteError('Swipe more recipes first — need at least 5 to build your profile.');
+      } else {
+        setTasteError('Generation failed. Try again.');
       }
-    } catch (err) {
-      console.log('[taste] ERROR:', err);
+    } catch {
+      setTasteError('Generation failed. Try again.');
     } finally {
       setTasteLoading(false);
     }
@@ -734,8 +740,6 @@ export default function Profile() {
                 <TouchableOpacity
                   activeOpacity={0.5}
                   onPress={() => {
-                    console.log('[taste] BUTTON PRESSED');
-                    Alert.alert('Taste', 'Button pressed! id=' + (profile?.id ?? 'NULL'));
                     if (profile?.id) runTasteProfileGeneration(profile.id);
                   }}
                   hitSlop={{ top: 10, left: 10, bottom: 10, right: 10 }}
@@ -759,6 +763,10 @@ export default function Profile() {
                     {tasteProfile ? 'Refreshing your taste profile...' : 'Building your taste profile...'}
                   </Text>
                 </View>
+              ) : tasteError ? (
+                <Text style={{ fontSize: 14, color: colors.textMuted, lineHeight: 22 }}>
+                  {tasteError}
+                </Text>
               ) : tasteProfile ? (
                 <Text style={{ fontSize: 14, color: colors.text, lineHeight: 22, fontStyle: 'italic' }}>
                   "{tasteProfile}"
