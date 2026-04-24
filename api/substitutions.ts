@@ -3,6 +3,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { rateLimitUser } from './_rateLimit';
 import { validate, SubstitutionsRequestSchema, ValidationError, formatValidationError } from '../lib/validation';
 import { requireAuth } from './_apiAuth';
+import { captureException } from './_sentry';
 
 // POST /api/substitutions
 // Given a recipe title and ingredient, returns practical ingredient swaps.
@@ -76,7 +77,7 @@ Rules:
       return res.status(statusCode).json({ error: err.message });
     }
 
-    // Log to external service in production (not console)
+    captureException(err);
     if (process.env.NODE_ENV === 'development') {
       const message = err instanceof Error ? err.message : 'Substitution generation failed';
       console.error('[substitutions]', message);

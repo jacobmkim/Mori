@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import { rateLimitIP, getClientIP } from './_rateLimit';
+import { captureException } from './_sentry';
 import { validate, WaitlistRequestSchema, ValidationError, formatValidationError } from '../lib/validation';
 
 // POST /api/waitlist
@@ -84,7 +85,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json(formatValidationError(err));
     }
 
-    // Log to external service in production (not console)
+    captureException(err);
     if (process.env.NODE_ENV === 'development') {
       const message = err instanceof Error ? err.message : 'Waitlist signup failed';
       console.error('[waitlist]', message);

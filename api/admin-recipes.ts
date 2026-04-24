@@ -14,6 +14,7 @@
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
+import { captureException } from './_sentry';
 
 function getSupabase() {
   const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
@@ -58,6 +59,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       recipes: data,
     });
   } catch (err: any) {
+    captureException(err);
     return res.status(500).json({ error: err.message ?? 'Internal server error' });
   }
 }

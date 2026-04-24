@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import { rateLimitUser } from './_rateLimit';
 import { validate, TasteProfileRequestSchema, ValidationError, formatValidationError } from '../lib/validation';
 import { requireAuth } from './_apiAuth';
+import { captureException } from './_sentry';
 
 // POST /api/taste-profile
 // Reads a user's swipe + interaction history and generates a 2-3 sentence
@@ -138,6 +139,7 @@ Do NOT copy the example. Write something fresh based on their data.`;
       return res.status(statusCode).json({ error: err.message });
     }
 
+    captureException(err);
     return res.status(500).json({ error: 'Failed to generate taste profile' });
   }
 }

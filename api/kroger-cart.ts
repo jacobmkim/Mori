@@ -19,6 +19,7 @@ import { createClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { requireAuth, AuthError } from './_apiAuth';
 import { rateLimitUser } from './_rateLimit';
+import { captureException } from './_sentry';
 import { validate, ValidationError, formatValidationError } from '../lib/validation';
 
 // ─── Schema ───────────────────────────────────────────────────────────────────
@@ -269,6 +270,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   } catch (err) {
     if (err instanceof ValidationError) return res.status(400).json(formatValidationError(err));
     if (err instanceof AuthError)       return res.status(err.statusCode).json({ error: err.message });
+    captureException(err);
     console.error('[kroger-cart]', err instanceof Error ? err.stack : err);
     return res.status(500).json({ error: 'Failed to search Kroger products' });
   }

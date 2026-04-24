@@ -4,8 +4,11 @@ import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Linking } from 'react-native';
 import { router } from 'expo-router';
+import { initSentry, Sentry } from '../lib/sentry';
 
-export default function RootLayout() {
+initSentry();
+
+function RootLayout() {
   useEffect(() => {
     const subscription = Linking.addEventListener('url', handleDeepLink);
     return () => subscription.remove();
@@ -36,3 +39,5 @@ export default function RootLayout() {
     </GestureHandlerRootView>
   );
 }
+
+export default Sentry.wrap(RootLayout);

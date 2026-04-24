@@ -3,6 +3,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { rateLimitUser, getClientIP } from './_rateLimit';
 import { validate, StorageTipRequestSchema, ValidationError, formatValidationError } from '../lib/validation';
 import { requireAuth } from './_apiAuth';
+import { captureException } from './_sentry';
 
 // POST /api/storage-tip
 // Given a leftover ingredient, returns storage and usage tips from Claude Haiku.
@@ -67,7 +68,7 @@ Format as 2-4 short bullet points covering the most perishable items. Focus on: 
       return res.status(statusCode).json({ error: err.message });
     }
 
-    // Log to external service in production (not console)
+    captureException(err);
     if (process.env.NODE_ENV === 'development') {
       const message = err instanceof Error ? err.message : 'Storage tip generation failed';
       console.error('[storage-tip]', message);

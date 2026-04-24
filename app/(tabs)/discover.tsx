@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { useRef, useState, useEffect } from 'react';
 import { useRouter } from 'expo-router';
+import NetInfo from '@react-native-community/netinfo';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -325,6 +326,8 @@ export default function Discover() {
   const [showTutorial, setShowTutorial] = useState(false);
   const [showMealPrepTip, setShowMealPrepTip] = useState(false);
   const [deckServings, setDeckServings] = useState(2);
+  const [reloadKey, setReloadKey] = useState(0);
+  const [isOffline, setIsOffline] = useState(false);
   const cartToastOpacity = useRef(new Animated.Value(0)).current;
   const detailCache = useRef<Map<string, MealDetail>>(new Map());
   const macroCache = useRef<Map<string, Macros>>(new Map());
@@ -338,6 +341,7 @@ export default function Discover() {
   const sessionNumber = useUserStore((s) => s.sessionNumber);
   const profile = useUserStore((s) => s.profile ?? null);
   const dietaryGoals = useUserStore((s) => s.profile?.dietary_goals ?? EMPTY_GOALS);
+  const ingredientDislikes = useUserStore((s) => s.profile?.ingredient_dislikes ?? EMPTY_GOALS);
   const savedRecipes = useSavedStore((s) => s.savedRecipes);
 
   // Tracks whether a deck is already on screen — used to skip the loading
@@ -439,6 +443,14 @@ export default function Discover() {
     }
   }, [userId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Offline detection — update banner whenever connectivity changes
+  useEffect(() => {
+    const unsub = NetInfo.addEventListener((state) => {
+      setIsOffline(state.isConnected === false);
+    });
+    return unsub;
+  }, []);
+
   // Show tutorial on first launch after onboarding — only for new users with no saves
   useEffect(() => {
     if (!userId) return;
@@ -497,7 +509,7 @@ export default function Discover() {
     if (userId) {
       getCookedRecipeIds(userId).then(setPrevCookedIds).catch(() => {});
     }
-  }, [userId, mode, dietaryGoals]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [userId, mode, dietaryGoals, ingredientDislikes, reloadKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // When top card changes, update detail from cache (detail has no local estimator).
   useEffect(() => {
@@ -791,6 +803,13 @@ export default function Discover() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+      {/* Offline banner */}
+      {isOffline && (
+        <View style={{ backgroundColor: '#B45309', paddingVertical: 6, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Ionicons name="cloud-offline-outline" size={15} color="white" />
+          <Text style={{ color: 'white', fontSize: 13, fontWeight: '600' }}>No internet connection</Text>
+        </View>
+      )}
       {/* Header */}
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 }}>
         <MoriLogo size="sm" />
@@ -836,6 +855,20 @@ export default function Discover() {
               <Text style={{ color: 'white', fontWeight: '600' }}>Try Spontaneous mode</Text>
             </Pressable>
           </View>
+        ) : isInitiallyEmpty ? (
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12, paddingHorizontal: 24 }}>
+            <Text style={{ fontSize: 48 }}>🍽️</Text>
+            <Text style={{ fontSize: 20, fontWeight: '700', color: colors.text }}>No recipes found</Text>
+            <Text style={{ fontSize: 15, color: colors.textMuted, textAlign: 'center' }}>
+              Couldn't load your deck.{'\n'}Check your connection and try again.
+            </Text>
+            <Pressable
+              onPress={() => { hasDeckRef.current = false; setIsLoading(true); setReloadKey((k) => k + 1); }}
+              style={{ backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 24, marginTop: 8 }}
+            >
+              <Text style={{ color: 'white', fontWeight: '600' }}>Try Again</Text>
+            </Pressable>
+          </View>
         ) : isEmpty ? (
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 }}>
             <Text style={{ fontSize: 48 }}>🎉</Text>
@@ -844,7 +877,7 @@ export default function Discover() {
               You've seen all available recipes.{'\n'}Check back soon for more.
             </Text>
             <Pressable
-              onPress={() => setCurrentIndex(0)}
+              onPress={() => { setCurrentIndex(0); setReloadKey((k) => k + 1); }}
               style={{ backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 24, marginTop: 8 }}
             >
               <Text style={{ color: 'white', fontWeight: '600' }}>Start Over</Text>

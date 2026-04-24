@@ -1,5 +1,18 @@
 # Mori — Bug Fix Log
 
+## 2026-04-23 (Offline banner + dislike filter retroactive)
+- **Offline detection** — installed `@react-native-community/netinfo`; `NetInfo.addEventListener` in `discover.tsx`; amber banner renders above header when `isConnected === false`, auto-hides on reconnect. No user action required.
+- **Dislike filter not retroactive** — `ingredient_dislikes` was missing from the deck-load `useEffect` dependency array in `discover.tsx`. Added `ingredientDislikes` Zustand selector + added it to deps alongside `dietaryGoals`. Deck now reloads silently the moment dislikes are saved. Test coverage: `__tests__/lib/dislikeFilter.test.ts` (6 cases, `fetchScoredDeck` integration via supabase chain mock).
+
+## 2026-04-23 (Sentry + Deck exhaustion + Security headers)
+- **No prod error visibility** — installed `@sentry/react-native` + `@sentry/node`; `lib/sentry.ts` initializes on app boot (`_layout.tsx`), `api/_sentry.ts` exposes `captureException`; added to all 11 API catch blocks. Add `EXPO_PUBLIC_SENTRY_DSN` + `SENTRY_DSN` env vars to activate.
+- **Deck exhaustion blank screen** — `discover.tsx`: added `reloadKey` state wired to deck-load `useEffect`; split empty states into 3 branches: meal_prep empty → switch mode, spontaneous load failure → "Try Again" (resets `hasDeckRef` + spinner), deck exhausted → "Start Over" (reloads fresh deck).
+- **Security headers audit item** — headers already present in `vercel.json` for all `/api/*` routes; marked resolved in CLAUDE.md.
+
+## 2026-04-23 (InstacartButton dark mode + multi-unit qty)
+- **InstacartButton icon invisible in dark mode** — always used `instacart-carrot.png` (green on dark `#003D29` bg); swapped source to `instacart-carrot-white.png` when `isDark` (`components/grocery/InstacartButton.tsx:45`)
+- **Multi-unit combined qty drops second part** — `parseGroceryMeasurement` returned `parsed[0]` when units differed, losing the second recipe's quantity. Fixed: normalize metric → US first so same-class-different-notation parts sum correctly; when units are genuinely incompatible (e.g. cup + oz), return the dominant part by normalized magnitude instead of always the first (`lib/instacartUtils.ts`)
+
 ## 2026-04-23 (Instacart quantity fixes)
 - **Instacart selecting 1 unit for proteins** — "4 salmon fillets" / "8 chicken thighs" sent as `{quantity: N, unit: 'each'}` which Instacart ignores for cart quantity. Fixed by running `normalize-ingredient-units.mjs` on all 1,294 metric recipes: Haiku converted count-based proteins to weight (salmon → 1.5 lb, chicken thighs → 2 lb). Instacart now calculates package count from weight.
 - **"lemon 2 whole + 1 whole" not summing** — `unit: "whole"` missing from UNIT_MAP caused parse failure → raw string displayed and sent to Instacart. Fixed: added `whole: 'each', wholes: 'each'` to UNIT_MAP in `lib/instacartUtils.ts`. After re-adding recipes, lemons sum to 3 correctly.

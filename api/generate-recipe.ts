@@ -5,6 +5,7 @@ import { timingSafeEqual } from 'crypto';
 import { rateLimitUser } from './_rateLimit';
 import { validate, GenerateRecipeRequestSchema, ValidationError, formatValidationError } from '../lib/validation';
 import { requireAuth } from './_apiAuth';
+import { captureException } from './_sentry';
 
 // POST /api/generate-recipe
 // Generates a complete original recipe using Claude Haiku (~$0.004 per recipe).
@@ -276,7 +277,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(statusCode).json({ error: err.message });
     }
 
-    // Log to external service in production (not console)
+    captureException(err);
     if (process.env.NODE_ENV === 'development') {
       const message = err instanceof Error ? err.message : 'Recipe generation failed';
       console.error('[generate-recipe]', message);

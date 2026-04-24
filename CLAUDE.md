@@ -286,12 +286,12 @@ Full audit run across security, bugs, and edge cases. Items below are **unresolv
 - [x] Timing-attack risk on seed secret string comparison — fixed: uses `crypto.timingSafeEqual()`.
 - [x] `waitlist` CORS logic inverted — fixed: non-allowlisted origins now return 403.
 - [ ] Kroger `access_token` / `refresh_token` stored as plaintext `TEXT` in Supabase (`kroger_tokens` table). Encrypt with `pgsodium`.
-- [ ] No production error logging — all errors swallowed silently in prod. Add Sentry or equivalent.
+- [x] No production error logging — fixed: Sentry added (`@sentry/react-native` mobile, `@sentry/node` API). Add `EXPO_PUBLIC_SENTRY_DSN` + `SENTRY_DSN` env vars to activate.
 - [ ] No CSRF protection on public endpoints (`/api/waitlist`).
-- [ ] Missing security headers (X-Content-Type-Options, X-Frame-Options) on Vercel functions.
+- [x] Missing security headers (X-Content-Type-Options, X-Frame-Options) on Vercel functions — already configured in `vercel.json` headers array for all `/api/*` routes.
 
 ### 🔴 Bugs
-- [ ] `InstacartButton` dark mode icon invisible — always uses `instacart-carrot.png` (green) even on dark bg `#003D29`; `instacart-carrot-white.png` exists but unused. Fix: swap source based on `isDark`.
+- [x] `InstacartButton` dark mode icon invisible — always uses `instacart-carrot.png` (green) even on dark bg `#003D29`; `instacart-carrot-white.png` exists but unused. Fix: swap source based on `isDark`.
 - [x] `scoreRecipe` (`lib/api.ts:555`) — already has `if (m)` null guard wrapping all macro accesses. Safe.
 - [x] `RecipeDetailModal` crashes if `recipe.ingredients` is null — fixed: added `?.length` optional chaining on line 287.
 - [x] Race condition in `savedStore.addRecipe` — already fixed: no `loadSavedRecipes()` reload called; trusts optimistic update by design.
@@ -309,20 +309,20 @@ Full audit run across security, bugs, and edge cases. Items below are **unresolv
 - [x] `LeftoversReminderCard` double-tap race — no guard against firing two actions before unmount; fixed: `acted` boolean gate in handlers.
 
 ### 🟡 Edge Cases
-- [ ] **Offline** — no network detection anywhere. All API failures are silent; Discover deck goes blank with no message.
-- [ ] **Deck exhaustion** — no empty state when all recipes are swiped. Screen goes blank or crashes.
+- [x] **Offline** — fixed: `NetInfo.addEventListener` in Discover; amber banner ("No internet connection") shown instantly on disconnect, auto-hides on reconnect.
+- [x] **Deck exhaustion** — fixed: three distinct states (meal_prep empty, spontaneous load failure w/ Try Again, deck exhausted w/ Start Over + reload).
 - [x] **Timezone bug** — fixed: `toDateStr()` and `getWeekStart()` now use local date formatting instead of `toISOString()`.
 - [x] **Grocery quantity dedup** — fixed: quantities now combine as `"1 cup + 2 cups"` when same ingredient added from two recipes.
 - [x] **Meal plan deleted recipes** — fixed: shows "Recipe removed" with dismiss button when slot references a deleted recipe.
 - [ ] **Kroger token refresh silent failure** — tokens deleted from DB on revocation with no re-auth prompt to user.
-- [ ] **Dislike filter not retroactive** — editing dislikes mid-session doesn't refresh the active deck until tab switch.
+- [x] **Dislike filter not retroactive** — fixed: added `ingredientDislikes` selector + dep to discover deck-load useEffect; deck now reloads immediately when `ingredient_dislikes` changes.
 - [ ] **Rapid swiping** — concurrent `logSwipeBackground()` calls can log swipes out of order; recommendation signal degrades.
 - [x] **Search + filter don't compose** — verified: `filtered()` in recipes.tsx correctly applies both search + filters; no code bug (UX perception only).
 - [x] **Substitution partial matching** — fixed: word-boundary matching prevents "oil" matching "coconut oil", etc.
 - [x] **Macro float precision** — fixed: all macro values rounded to 1 decimal (calories rounded to integer).
 - [ ] **Budget field unused** — collected in onboarding, stored in profile, never used for filtering anywhere.
 - [ ] **Adventure card pause not persisted** — session-only; resets on app relaunch.
-- [ ] **Multi-unit combined qty silently drops second part** — `parseGroceryMeasurement` in `instacartUtils.ts:101`: when two recipes add the same ingredient in different units (e.g. "1 cup + 100g"), only the first part's measurement is sent to Instacart; second part's quantity is lost. Affects structured measurement only — `display_text` still shows full string.
+- [x] **Multi-unit combined qty silently drops second part** — fixed: normalize metric → US before unit comparison so same-class parts sum; for genuinely incompatible units (e.g. cup + oz), return the dominant part by normalized magnitude instead of always first (`instacartUtils.ts`).
 
 ---
 *v9.3 — Phases 1–3 complete. Phase 4 in progress. Instacart: structured qty/unit, metric→US conversion, affiliate params live (Impact partner 7220009), InstacartButton component. Pescatarian goal added. Staples expanded (vinegars, dry spices, sweeteners). New scripts: normalize-ingredient-units, validate-recipe-ratios, audit-recipes-full (all Haiku, 85 threshold). Jest: 18 suites.*

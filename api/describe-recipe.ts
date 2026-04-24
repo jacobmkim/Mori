@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import { rateLimitUser } from './_rateLimit';
 import { validate, DescribeRecipeRequestSchema, ValidationError, formatValidationError } from '../lib/validation';
 import { requireAuth } from './_apiAuth';
+import { captureException } from './_sentry';
 
 // POST /api/describe-recipe
 // Generates a one-sentence recipe description using Claude Haiku.
@@ -90,6 +91,7 @@ One sentence only:`;
       return res.status(statusCode).json({ error: err.message });
     }
 
+    captureException(err);
     if (process.env.NODE_ENV === 'development') {
       const message = err instanceof Error ? err.message : 'Description generation failed';
       console.error('[describe-recipe]', message);
