@@ -89,7 +89,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (!instacartRes.ok) {
       const errBody = await instacartRes.text().catch(() => '');
-      console.error(`[instacart-cart] ${instacartRes.status} | ${errBody}`);
+      if (process.env.NODE_ENV === 'development') console.error(`[instacart-cart] ${instacartRes.status}`);
       return res.status(502).json({ error: 'Failed to create Instacart list' });
     }
 
@@ -106,7 +106,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (err instanceof ValidationError) return res.status(400).json(formatValidationError(err));
     if (err instanceof AuthError)       return res.status(err.statusCode).json({ error: err.message });
     captureException(err);
-    console.error('[instacart-cart]', err instanceof Error ? err.stack : err);
+    if (process.env.NODE_ENV === 'development') console.error('[instacart-cart]', err instanceof Error ? err.message : 'Unknown error');
     return res.status(500).json({ error: 'Failed to create Instacart list' });
   }
 }

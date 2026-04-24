@@ -14,6 +14,7 @@
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
+import { timingSafeEqual } from 'crypto';
 import { captureException } from './_sentry';
 
 function getSupabase() {
@@ -30,7 +31,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const secret = req.headers['x-seed-secret'];
   const expectedSecret = process.env.SEED_SECRET;
   if (!expectedSecret) return res.status(500).json({ error: 'Server misconfigured' });
-  if (!secret || secret !== expectedSecret) return res.status(401).json({ error: 'Unauthorized' });
+  const secretStr = Array.isArray(secret) ? secret[0] : secret;
+  const secretBuf = Buffer.from(secretStr ?? '');
+  const expectedBuf = Buffer.from(expectedSecret);
+  const equal = secretBuf.length === expectedBuf.length && timingSafeEqual(secretBuf, expectedBuf);
+  if (!secretStr || !equal) return res.status(401).json({ error: 'Unauthorized' });
 
   try {
     const sb = getSupabase();
@@ -60,6 +65,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   } catch (err: any) {
     captureException(err);
-    return res.status(500).json({ error: err.message ?? 'Internal server error' });
+    if (process.env.NODE_ENV === 'development') console.error('[admin-recipes]', err);
+    return res.status(500).json({ error: 'Internal server error' });
   }
 }
