@@ -70,12 +70,17 @@ One sentence only:`;
     const description = (message.content[0] as { text: string }).text.trim()
       .replace(/^["']|["']$/g, '');
 
-    // Persist to Supabase so this never needs to be called again for this recipe
     const sb = getSupabase();
     if (sb && externalId) {
-      void sb.from('recipes')
-        .update({ description })
-        .eq('external_id', externalId);
+      const { data: recipe } = await sb.from('recipes')
+        .select('created_by, source_type')
+        .eq('external_id', externalId)
+        .single();
+      if (recipe?.source_type === 'community' && recipe?.created_by === userId) {
+        void sb.from('recipes')
+          .update({ description })
+          .eq('external_id', externalId);
+      }
     }
 
     return res.status(200).json({ description });

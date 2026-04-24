@@ -566,31 +566,31 @@ export default function Profile() {
   const [tasteLoading, setTasteLoading] = useState(false);
 
   async function runTasteProfileGeneration(userId: string) {
-    console.log('[taste] called, userId:', userId);
     const baseUrl = process.env.EXPO_PUBLIC_API_URL;
-    console.log('[taste] baseUrl:', baseUrl);
-    if (!baseUrl) { console.log('[taste] ABORT: no baseUrl'); return; }
+    if (!baseUrl) return;
     setTasteLoading(true);
     try {
       let { data: { session } } = await supabase.auth.getSession();
-      console.log('[taste] session token?', !!session?.access_token);
       if (!session?.access_token) {
         const { data } = await supabase.auth.refreshSession();
         session = data.session;
-        console.log('[taste] refreshed token?', !!session?.access_token);
       }
-      if (!session?.access_token) { console.log('[taste] ABORT: no token'); return; }
+      if (!session?.access_token) return;
 
-      console.log('[taste] fetching', `${baseUrl}/api/taste-profile`);
       const res = await fetch(`${baseUrl}/api/taste-profile`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
         body: JSON.stringify({ userId }),
       });
       const json = await res.json();
-      console.log('[taste] response status:', res.status, 'body:', JSON.stringify(json).slice(0, 200));
       if (res.ok && json.tasteProfile) {
         setTasteProfile(json.tasteProfile);
+        if (profile) {
+          setProfile({
+            ...profile,
+            taste_profile: { text: json.tasteProfile, generated_at: new Date().toISOString() },
+          });
+        }
       }
     } catch (err) {
       console.log('[taste] ERROR:', err);
@@ -659,8 +659,6 @@ export default function Profile() {
     { label: 'Recipes Saved', value: savedCount, icon: 'heart' },
     { label: 'Submitted', value: profile?.recipes_submitted_count ?? 0, icon: 'create' },
   ];
-
-  console.log('[PROFILE RENDER] apiUrl:', process.env.EXPO_PUBLIC_API_URL, 'profileId:', profile?.id, 'tasteLoading:', tasteLoading, 'tasteProfile:', tasteProfile?.slice(0, 30));
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
