@@ -56,38 +56,76 @@ async function buildTasteProfileText(
   const rightSwipeIds = swipes.filter((s) => s.direction === 'right').map((s) => s.recipe_id);
   const cookedIds = interactions.filter((i) => i.interaction_type === 'cooked').map((i) => i.recipe_id);
   const groceryIds = interactions.filter((i) => i.interaction_type === 'grocery_add').map((i) => i.recipe_id);
+  const savedIds = interactions.filter((i) => i.interaction_type === 'save').map((i) => i.recipe_id);
   const allSignalIds = [...new Set([...rightSwipeIds.slice(0, 20), ...cookedIds, ...groceryIds])];
 
   const { data: signalRecipes } = await sb
-    .from('recipes').select('id, title').in('id', allSignalIds.slice(0, 30));
+    .from('recipes').select('id, title, cuisine').in('id', allSignalIds.slice(0, 30));
 
   const likedTitles = signalRecipes?.filter((r) => rightSwipeIds.includes(r.id)).map((r) => r.title) ?? [];
   const cookedTitles = signalRecipes?.filter((r) => cookedIds.includes(r.id)).map((r) => r.title) ?? [];
   const groceryTitles = signalRecipes?.filter((r) => groceryIds.includes(r.id)).map((r) => r.title) ?? [];
+  const uniqueCuisines = [...new Set(
+    signalRecipes?.filter((r) => rightSwipeIds.includes(r.id) && r.cuisine).map((r) => r.cuisine) ?? []
+  )].length;
+  const followThroughPct = savedIds.length > 0 ? Math.round((cookedIds.length / savedIds.length) * 100) : 0;
 
-  const prompt = `You are writing a punchy taste profile for a recipe discovery app called Mori.
+  const prompt = `You are writing a taste profile for Mori, a recipe discovery app. It will be shared as an image on social media — write something people want to screenshot and send to a friend.
 
-User data:
+Tone: casual, specific, a little funny. Spotify Wrapped energy — sharp and true.
+
+User behaviour signals:
 - Cuisines they like: ${profile?.cuisine_preferences?.join(', ') || 'not specified'}
 - Dietary goals: ${profile?.dietary_goals?.join(', ') || 'none'}
 - Eating style: ${profile?.eating_style || 'not set'}
 - Skill level: ${profile?.skill_level || 'not set'}
-- Liked recipes: ${likedTitles.slice(0, 8).join(', ') || 'none yet'}
+- Recipes liked: ${likedTitles.slice(0, 8).join(', ') || 'none yet'}
 - Actually cooked: ${cookedTitles.slice(0, 5).join(', ') || 'none yet'}
 - Added to grocery list: ${groceryTitles.slice(0, 5).join(', ') || 'none yet'}
+- Distinct cuisines liked: ${uniqueCuisines}
+- Total saves: ${savedIds.length} | Total cooks: ${cookedIds.length} | Grocery adds: ${groceryIds.length}
+- Follow-through rate: ${followThroughPct}% of saved recipes actually cooked
 
-Write 1-2 sentences (max 35 words) in second person. Be playful and specific — like a friend affectionately summing up their food personality. Focus on what makes them unique. No filler, no lists.
+Write exactly 1 sentence for "tasteProfile". Max 12 words. Second person. Punchy, funny, true — the "mori says" punchline. Name a specific dish, cuisine, or behaviour pattern. No em-dashes, no colons, no "you are someone who."
 
-Example tone: "You're a weeknight Asian food obsessive who actually follows through — your grocery list doesn't lie."
-Do NOT copy the example. Write something fresh based on their data.`;
+Examples (do NOT copy): "Japanese food, but only the noodle section." / "The pasta always wins." / "Saves everything. Cooks selectively." / "Meal prep Sunday is not a joke."
+
+Also return a Cook DNA object with 5 behaviour-based dimensions — these work for every diet.
+
+Return ONLY valid JSON, no markdown:
+{
+  "tasteProfile": "<1-sentence punchline>",
+  "flavourDna": {
+    "explorer":     { "score": <0-100>, "note": "<max 7 words, lowercase, wry>" },
+    "committed":    { "score": <0-100>, "note": "<max 7 words>" },
+    "speed":        { "score": <0-100>, "note": "<max 7 words>" },
+    "planner":      { "score": <0-100>, "note": "<max 7 words>" },
+    "devoted":      { "score": <0-100>, "note": "<max 7 words>" }
+  }
+}
+
+Dimension scoring:
+- explorer: cuisine breadth. 1 cuisine = ~15, 3 = ~50, 5+ = ~85. Note names the range or obsession.
+- committed: follow-through. ${followThroughPct}% cooked/saved → score proportionally. Note references the ratio wryly.
+- speed: preference for fast cooking. quick_simple style + short recipes → high. elaborate cooking → low.
+- planner: grocery list + meal prep signals. ${groceryIds.length} grocery adds → higher.
+- devoted: depth on one cuisine vs. wide ranging. Inverse of explorer — narrow = high, wide = low.
+
+Note style: "5 cuisines, no loyalty" / "cooks 1 in 4 saves" / "30 min or nothing" / "the grocery list is a diary" / "miso soup era, ongoing"`;
 
   const message = await anthropic.messages.create({
     model: 'claude-haiku-4-5-20251001',
-    max_tokens: 100,
+    max_tokens: 400,
     messages: [{ role: 'user', content: prompt }],
   });
 
-  return (message.content[0] as { text: string }).text.trim();
+  const raw = (message.content[0] as { text: string }).text.trim();
+  try {
+    const parsed = JSON.parse(raw);
+    return { text: parsed.tasteProfile ?? raw, flavourDna: parsed.flavourDna };
+  } catch {
+    return { text: raw, flavourDna: undefined };
+  }
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -114,11 +152,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   for (const user of users) {
     try {
-      const newText = await buildTasteProfileText(user.id, sb, anthropic);
-      if (!newText) { results.skipped++; continue; }
+      const result = await buildTasteProfileText(user.id, sb, anthropic);
+      if (!result?.text) { results.skipped++; continue; }
 
       await sb.from('profiles').update({
-        taste_profile: { text: newText, generated_at: new Date().toISOString() },
+        taste_profile: { text: result.text, flavourDna: result.flavourDna, generated_at: new Date().toISOString() },
       }).eq('id', user.id);
 
       results.updated++;

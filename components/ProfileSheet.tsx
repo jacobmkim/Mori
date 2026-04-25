@@ -91,6 +91,7 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
   const [nameInput, setNameInput] = useState('');
   const savedTasteProfile = (profile?.taste_profile as any);
   const [tasteProfile, setTasteProfile] = useState<string | null>(savedTasteProfile?.text ?? null);
+  const [flavourDna, setFlavourDna] = useState<Record<string, { score: number; note: string }> | null>(savedTasteProfile?.flavourDna ?? null);
   const [tasteLoading, setTasteLoading] = useState(false);
   const [shareLoading, setShareLoading] = useState(false);
   const cardRef = useRef<View>(null);
@@ -119,16 +120,14 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
 
   async function runTasteProfileGeneration(userId: string) {
     const baseUrl = process.env.EXPO_PUBLIC_API_URL;
-    if (!baseUrl) { console.log('[taste] no baseUrl'); return; }
+    if (!baseUrl) return;
     setTasteLoading(true);
     try {
-      let { data: { session } } = await supabase.auth.getSession();
+      // Always force-refresh to avoid sending an expired token
+      const { data: refreshData } = await supabase.auth.refreshSession();
+      const session = refreshData.session ?? (await supabase.auth.getSession()).data.session;
       if (!session?.access_token) {
-        const { data } = await supabase.auth.refreshSession();
-        session = data.session;
-      }
-      if (!session?.access_token) {
-        console.log('[taste] no auth token');
+        setTasteProfile('Could not authenticate — try signing out and back in.');
         return;
       }
 
@@ -141,20 +140,22 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
         body: JSON.stringify({ userId }),
       });
       const json = await res.json();
-      console.log('[taste] response:', res.status);
       if (res.ok && json.tasteProfile) {
         setTasteProfile(json.tasteProfile);
+        if (json.flavourDna) setFlavourDna(json.flavourDna);
         if (profile) {
-          const updatedTp = { text: json.tasteProfile, generated_at: new Date().toISOString() };
+          const updatedTp = { text: json.tasteProfile, flavourDna: json.flavourDna, generated_at: new Date().toISOString() };
           setProfile({ ...profile, taste_profile: updatedTp });
         }
       } else if (json.reason === 'not_enough_data') {
         setTasteProfile('Swipe on a few more recipes — we need at least 5 swipes to build your profile.');
       } else if (res.status === 429) {
         setTasteProfile('Rate limit reached — try again tomorrow.');
+      } else {
+        setTasteProfile(`Could not generate profile (${res.status}) — try again later.`);
       }
     } catch (err) {
-      console.log('[taste] error:', err);
+      setTasteProfile('Connection error — check your internet and try again.');
     } finally {
       setTasteLoading(false);
     }
@@ -176,10 +177,12 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
         } else {
           if (freshTp.text !== tasteProfile) {
             setTasteProfile(freshTp.text);
+            setFlavourDna(freshTp.flavourDna ?? null);
             setProfile({ ...profile, taste_profile: freshTp });
           }
           const stale = new Date(freshTp.generated_at) < new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
-          if (stale) runTasteProfileGeneration(profile.id);
+          const missingDna = !freshTp.flavourDna;
+          if (stale || missingDna) runTasteProfileGeneration(profile.id);
         }
       })();
       getAdventureCardsEnabled().then(setAdventureCards).catch(() => {});
@@ -303,34 +306,50 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
                     </View>
                   ) : tasteProfile ? (
                     <>
-                      {/* Quote */}
-                      <View style={{ padding: 18, paddingBottom: 14 }}>
-                        <Text style={{
-                          fontFamily: 'Georgia', fontStyle: 'italic',
-                          fontSize: 16, color: colors.text, lineHeight: 24,
-                        }}>
+                      {/* Flavour DNA bars */}
+                      {flavourDna && (
+                        <View style={{ paddingHorizontal: 18, paddingTop: 16, paddingBottom: 4 }}>
+                          <Text style={{ fontSize: 9, fontWeight: '700', color: colors.textMuted, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 12 }}>
+                            Flavour DNA
+                          </Text>
+                          {(['explorer', 'committed', 'speed', 'planner', 'devoted'] as const).map((dim) => {
+                            const d = flavourDna[dim];
+                            if (!d) return null;
+                            const barColor = d.score >= 70 ? '#1E4D35' : d.score >= 40 ? '#52B788' : '#E8854A';
+                            return (
+                              <View key={dim} style={{ marginBottom: 10 }}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+                                  <Text style={{ fontSize: 10, color: colors.text, fontWeight: '600', width: 72, textTransform: 'capitalize' }}>{dim}</Text>
+                                  <View style={{ flex: 1, height: 5, backgroundColor: colors.border, borderRadius: 3 }}>
+                                    <View style={{ width: `${d.score}%`, height: '100%', backgroundColor: barColor, borderRadius: 3 }} />
+                                  </View>
+                                  <Text style={{ fontSize: 9, color: colors.textMuted, width: 28, textAlign: 'right' }}>{d.score}%</Text>
+                                </View>
+                                <Text style={{ fontFamily: 'Georgia', fontStyle: 'italic', fontSize: 11, color: colors.textMuted, paddingLeft: 80, lineHeight: 15 }}>
+                                  {d.note}
+                                </Text>
+                              </View>
+                            );
+                          })}
+                        </View>
+                      )}
+
+                      {/* Mori says */}
+                      <View style={{
+                        borderTopWidth: flavourDna ? 1 : 0, borderTopColor: colors.border,
+                        paddingHorizontal: 18, paddingTop: 14, paddingBottom: 14,
+                      }}>
+                        {flavourDna && (
+                          <Text style={{ fontSize: 9, fontWeight: '700', color: colors.textMuted, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 8 }}>
+                            Mori Says
+                          </Text>
+                        )}
+                        <Text style={{ fontFamily: 'Georgia', fontStyle: 'italic', fontSize: 15, color: colors.text, lineHeight: 22 }}>
                           "{tasteProfile}"
                         </Text>
                       </View>
 
-                      {/* Personality chips */}
-                      {getPersonalityChips(profile).length > 0 && (
-                        <View style={{
-                          flexDirection: 'row', flexWrap: 'wrap', gap: 6,
-                          paddingHorizontal: 18, paddingBottom: 14,
-                        }}>
-                          {getPersonalityChips(profile).map((chip) => (
-                            <View key={chip} style={{
-                              backgroundColor: colors.primaryLight, borderRadius: 20,
-                              paddingHorizontal: 10, paddingVertical: 4,
-                            }}>
-                              <Text style={{ fontSize: 12, color: colors.primary, fontWeight: '500' }}>{chip}</Text>
-                            </View>
-                          ))}
-                        </View>
-                      )}
-
-                      {/* Footer: timestamp + share */}
+                      {/* Footer: timestamp + refresh + share */}
                       <View style={{
                         flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
                         borderTopWidth: 1, borderTopColor: colors.border,
@@ -339,18 +358,29 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
                         <Text style={{ fontSize: 11, color: colors.textMuted }}>
                           {savedTasteProfile?.generated_at ? daysAgoText(savedTasteProfile.generated_at) : ''}
                         </Text>
-                        <Pressable
-                          onPress={handleShareImage}
-                          disabled={shareLoading}
-                          hitSlop={8}
-                          style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
-                        >
-                          {shareLoading
-                            ? <ActivityIndicator size="small" color={colors.primary} />
-                            : <Ionicons name="share-outline" size={14} color={colors.primary} />
-                          }
-                          <Text style={{ fontSize: 11, color: colors.primary, fontWeight: '500' }}>Share</Text>
-                        </Pressable>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                          <Pressable
+                            onPress={() => profile?.id && runTasteProfileGeneration(profile.id)}
+                            disabled={tasteLoading}
+                            hitSlop={8}
+                            style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+                          >
+                            <Ionicons name="refresh-outline" size={14} color={colors.textMuted} />
+                            <Text style={{ fontSize: 11, color: colors.textMuted }}>Refresh</Text>
+                          </Pressable>
+                          <Pressable
+                            onPress={handleShareImage}
+                            disabled={shareLoading}
+                            hitSlop={8}
+                            style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+                          >
+                            {shareLoading
+                              ? <ActivityIndicator size="small" color={colors.primary} />
+                              : <Ionicons name="share-outline" size={14} color={colors.primary} />
+                            }
+                            <Text style={{ fontSize: 11, color: colors.primary, fontWeight: '500' }}>Share</Text>
+                          </Pressable>
+                        </View>
                       </View>
                     </>
                   ) : (
@@ -591,26 +621,68 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
       {/* Hidden card used for image capture — positioned off-screen */}
       <View ref={cardRef} collapsable={false} style={{
         position: 'absolute', left: -9999, top: 0,
-        width: 360, height: 360,
-        backgroundColor: '#F8F3EC',
-        borderRadius: 24,
-        padding: 32,
+        width: 300, height: 533,
+        backgroundColor: '#F8F4ED',
+        borderRadius: 18,
+        borderWidth: 1.5,
+        borderColor: '#2D6A4F',
+        padding: 26,
         justifyContent: 'space-between',
       }}>
-        <Text style={{ fontFamily: 'Georgia', fontStyle: 'italic', fontSize: 22, fontWeight: '700', color: '#2E5438' }}>
-          mori
-        </Text>
-        <Text style={{ fontFamily: 'Georgia', fontStyle: 'italic', fontSize: 18, color: '#1a1a1a', lineHeight: 28, textAlign: 'center' }}>
-          "{tasteProfile}"
-        </Text>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, justifyContent: 'center' }}>
-          {profile && getPersonalityChips(profile).map((chip) => (
-            <View key={chip} style={{ backgroundColor: '#d4e6d8', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 }}>
-              <Text style={{ fontSize: 12, color: '#2E5438', fontWeight: '500' }}>{chip}</Text>
-            </View>
-          ))}
+        {/* Header */}
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <View>
+            <Text style={{ fontSize: 9, fontFamily: 'monospace', color: '#2D6A4F', letterSpacing: 3, textTransform: 'uppercase', marginBottom: 3 }}>taste profile</Text>
+            <Text style={{ fontFamily: 'Georgia', fontStyle: 'italic', fontSize: 15, color: '#1E4D35', fontWeight: '700' }}>mori</Text>
+          </View>
+          <View style={{ backgroundColor: '#1E4D35', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 }}>
+            <Text style={{ fontSize: 9, fontFamily: 'monospace', color: '#95D5B2', letterSpacing: 1 }}>
+              {new Date().toLocaleString('default', { month: 'short' }).toLowerCase()} {new Date().getFullYear()}
+            </Text>
+          </View>
         </View>
-        <Text style={{ fontSize: 11, color: '#2E5438', textAlign: 'right', opacity: 0.6 }}>getmori.app</Text>
+
+        {/* DNA bars */}
+        {flavourDna && (
+          <View style={{ borderTopWidth: 0.5, borderBottomWidth: 0.5, borderColor: '#2D6A4F', paddingVertical: 14 }}>
+            <Text style={{ fontSize: 9, fontFamily: 'monospace', color: '#7A7468', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 12 }}>your flavour dna</Text>
+            {(['heat', 'bold', 'quick', 'complex', 'adventurous'] as const).map((dim) => {
+              const d = flavourDna[dim];
+              if (!d) return null;
+              const barColor = d.score >= 70 ? '#1E4D35' : d.score >= 40 ? '#52B788' : '#E8854A';
+              return (
+                <View key={dim} style={{ marginBottom: 9 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+                    <Text style={{ fontSize: 10, color: '#2C2C24', fontFamily: 'monospace', width: 70 }}>{dim}</Text>
+                    <View style={{ flex: 1, height: 5, backgroundColor: '#E8DDD0', borderRadius: 3 }}>
+                      <View style={{ width: `${d.score}%`, height: 5, backgroundColor: barColor, borderRadius: 3 }} />
+                    </View>
+                    <Text style={{ fontSize: 9, color: '#7A7468', fontFamily: 'monospace', width: 30, textAlign: 'right' }}>{d.score}%</Text>
+                  </View>
+                  <Text style={{ fontFamily: 'Georgia', fontStyle: 'italic', fontSize: 9, color: '#7A7468', paddingLeft: 78, lineHeight: 13 }}>{d.note}</Text>
+                </View>
+              );
+            })}
+          </View>
+        )}
+
+        {/* Mori says */}
+        <View>
+          <Text style={{ fontSize: 9, fontFamily: 'monospace', color: '#7A7468', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 8 }}>mori says</Text>
+          <Text style={{ fontFamily: 'Georgia', fontStyle: 'italic', fontSize: 12, color: '#1E4D35', lineHeight: 18 }}>
+            "{tasteProfile}"
+          </Text>
+        </View>
+
+        {/* Footer */}
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Text style={{ fontSize: 8, fontFamily: 'monospace', color: '#7A7468', letterSpacing: 1 }}>getmori.app</Text>
+          <View style={{ flexDirection: 'row', gap: 4 }}>
+            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#1E4D35', opacity: 0.8 }} />
+            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#52B788', opacity: 0.5 }} />
+            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#E8854A', opacity: 0.5 }} />
+          </View>
+        </View>
       </View>
 
       {/* Sub-modals rendered outside the sheet so they work after onClose */}

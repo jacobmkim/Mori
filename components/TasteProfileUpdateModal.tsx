@@ -6,15 +6,18 @@ import * as Sharing from 'expo-sharing';
 import * as MediaLibrary from 'expo-media-library';
 import { useTheme } from '@/hooks/useTheme';
 
+interface FlavourDimension { score: number; note: string; }
+
 interface Props {
   visible: boolean;
   profileText: string;
+  flavourDna?: Record<string, FlavourDimension> | null;
   isFirstTime?: boolean;
   onViewProfile: () => void;
   onDismiss: () => void;
 }
 
-export function TasteProfileUpdateModal({ visible, profileText, isFirstTime, onViewProfile, onDismiss }: Props) {
+export function TasteProfileUpdateModal({ visible, profileText, flavourDna, isFirstTime, onViewProfile, onDismiss }: Props) {
   const colors = useTheme();
   const [shareLoading, setShareLoading] = useState(false);
   const cardRef = useRef<View>(null);
@@ -136,19 +139,68 @@ export function TasteProfileUpdateModal({ visible, profileText, isFirstTime, onV
       {/* Hidden card for image capture — outside Modal so captureRef works */}
       <View ref={cardRef} collapsable={false} style={{
         position: 'absolute', left: -9999, top: 0,
-        width: 360, height: 360,
-        backgroundColor: '#F8F3EC',
-        borderRadius: 24,
-        padding: 32,
+        width: 300, height: 533,
+        backgroundColor: '#F8F4ED',
+        borderRadius: 18,
+        borderWidth: 1.5,
+        borderColor: '#2D6A4F',
+        padding: 26,
         justifyContent: 'space-between',
       }}>
-        <Text style={{ fontFamily: 'Georgia', fontStyle: 'italic', fontSize: 22, fontWeight: '700', color: '#2E5438' }}>
-          mori
-        </Text>
-        <Text style={{ fontFamily: 'Georgia', fontStyle: 'italic', fontSize: 18, color: '#1a1a1a', lineHeight: 28, textAlign: 'center' }}>
-          "{profileText}"
-        </Text>
-        <Text style={{ fontSize: 11, color: '#2E5438', textAlign: 'right', opacity: 0.6 }}>getmori.app</Text>
+        {/* Header */}
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <View>
+            <Text style={{ fontSize: 9, fontFamily: 'monospace', color: '#2D6A4F', letterSpacing: 3, textTransform: 'uppercase', marginBottom: 3 }}>taste profile</Text>
+            <Text style={{ fontFamily: 'Georgia', fontStyle: 'italic', fontSize: 15, color: '#1E4D35', fontWeight: '700' }}>mori</Text>
+          </View>
+          <View style={{ backgroundColor: '#1E4D35', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 }}>
+            <Text style={{ fontSize: 9, fontFamily: 'monospace', color: '#95D5B2', letterSpacing: 1 }}>
+              {new Date().toLocaleString('default', { month: 'short' }).toLowerCase()} {new Date().getFullYear()}
+            </Text>
+          </View>
+        </View>
+
+        {/* DNA bars */}
+        {flavourDna && (
+          <View style={{ borderTopWidth: 0.5, borderBottomWidth: 0.5, borderColor: '#2D6A4F', paddingVertical: 14 }}>
+            <Text style={{ fontSize: 9, fontFamily: 'monospace', color: '#7A7468', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 12 }}>your flavour dna</Text>
+            {(['explorer', 'committed', 'speed', 'planner', 'devoted'] as const).map((dim) => {
+              const d = flavourDna[dim];
+              if (!d) return null;
+              const barColor = d.score >= 70 ? '#1E4D35' : d.score >= 40 ? '#52B788' : '#E8854A';
+              return (
+                <View key={dim} style={{ marginBottom: 9 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+                    <Text style={{ fontSize: 10, color: '#2C2C24', fontFamily: 'monospace', width: 70 }}>{dim}</Text>
+                    <View style={{ flex: 1, height: 5, backgroundColor: '#E8DDD0', borderRadius: 3 }}>
+                      <View style={{ width: `${d.score}%`, height: 5, backgroundColor: barColor, borderRadius: 3 }} />
+                    </View>
+                    <Text style={{ fontSize: 9, color: '#7A7468', fontFamily: 'monospace', width: 30, textAlign: 'right' }}>{d.score}%</Text>
+                  </View>
+                  <Text style={{ fontFamily: 'Georgia', fontStyle: 'italic', fontSize: 9, color: '#7A7468', paddingLeft: 78, lineHeight: 13 }}>{d.note}</Text>
+                </View>
+              );
+            })}
+          </View>
+        )}
+
+        {/* Mori says */}
+        <View>
+          <Text style={{ fontSize: 9, fontFamily: 'monospace', color: '#7A7468', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 8 }}>mori says</Text>
+          <Text style={{ fontFamily: 'Georgia', fontStyle: 'italic', fontSize: 12, color: '#1E4D35', lineHeight: 18 }}>
+            "{profileText}"
+          </Text>
+        </View>
+
+        {/* Footer */}
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Text style={{ fontSize: 8, fontFamily: 'monospace', color: '#7A7468', letterSpacing: 1 }}>getmori.app</Text>
+          <View style={{ flexDirection: 'row', gap: 4 }}>
+            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#1E4D35', opacity: 0.8 }} />
+            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#52B788', opacity: 0.5 }} />
+            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#E8854A', opacity: 0.5 }} />
+          </View>
+        </View>
       </View>
     </>
   );

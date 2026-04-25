@@ -106,47 +106,87 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ? `followed through on ${cookedIds.length} of ${savedIds.length} saved recipes`
       : cookedIds.length > 0 ? `actually cooked ${cookedIds.length} recipe${cookedIds.length > 1 ? 's' : ''}` : null;
 
+    const followThroughPct = savedIds.length > 0 ? Math.round((cookedIds.length / savedIds.length) * 100) : 0;
+
     const client = new Anthropic({ apiKey });
 
-    const prompt = `You are writing a taste profile for a recipe discovery app called Mori. The tone: a sharp, warm friend who's been quietly watching your cooking habits — perceptive, specific, a little surprising. Never generic, never vague.
+    const prompt = `You are writing a taste profile for Mori, a recipe discovery app. It will be shared as an image on social media — write something people want to screenshot and send to a friend.
 
-User signals:
+Tone: casual, specific, a little funny. Spotify Wrapped energy — sharp and true.
+
+User behaviour signals:
 - Cuisines they prefer: ${profile?.cuisine_preferences?.join(', ') || 'not specified'}
 - Dietary goals: ${profile?.dietary_goals?.join(', ') || 'none'}
 - Eating style: ${profile?.eating_style || 'not set'}
 - Skill level: ${profile?.skill_level || 'not set'}
-- Recipes they liked: ${likedTitles.slice(0, 8).join(', ') || 'none yet'}
+- Recipes liked: ${likedTitles.slice(0, 8).join(', ') || 'none yet'}
 - Actually cooked: ${cookedTitles.slice(0, 5).join(', ') || 'none yet'}
 - Added to grocery list: ${groceryTitles.slice(0, 5).join(', ') || 'none yet'}
 - Consistently skipped: ${leftTitles.slice(0, 5).join(', ') || 'none'}
-- Cuisine variety score: ${uniqueCuisines} different cuisines liked
-${followThroughNote ? `- Follow-through: ${followThroughNote}` : ''}
+- Distinct cuisines liked: ${uniqueCuisines}
+- Total saves: ${savedIds.length} | Total cooks: ${cookedIds.length} | Grocery adds: ${groceryIds.length}
+- Follow-through rate: ${followThroughPct}% of saved recipes actually cooked
 
-Write exactly 2 sentences, max 50 words, second person. Name actual dishes or cuisines from their data — never write vague things like "Asian food" or "healthy options." The first sentence should feel like a real observation someone made. The second should land like a quiet revelation — something they sensed but never named.
+Write exactly 1 sentence for "tasteProfile". Max 12 words. Second person. Punchy, funny, true — the "mori says" punchline. Name a specific dish, cuisine, or behaviour pattern. No em-dashes, no colons, no "you are someone who."
 
-Rotate your angle each generation (pick one that fits the data best):
-• What they quietly obsess over vs what they claimed to want
-• What they consistently skip inside a cuisine they say they love
-• The gap between what they save and what they actually cook
-• A contradiction between two parts of their stated identity
-• How narrow or surprisingly wide their real range is
-• What their skipped recipes reveal that their preferences don't
+Examples (do NOT copy): "Japanese food, but only the noodle section." / "The pasta always wins." / "Saves everything. Cooks selectively." / "Meal prep Sunday is not a joke."
 
-Example tone (do NOT copy): "You've been slowly reverse-engineering every Thai noodle dish that exists, save by save. What's interesting is you've never once touched anything green curry adjacent — even when it's right there."`;
+Also return a Cook DNA object with 5 behaviour-based dimensions — these work for every diet.
+
+Return ONLY valid JSON, no markdown:
+{
+  "tasteProfile": "<1-sentence punchline>",
+  "flavourDna": {
+    "explorer":     { "score": <0-100>, "note": "<max 7 words, lowercase, wry>" },
+    "committed":    { "score": <0-100>, "note": "<max 7 words>" },
+    "speed":        { "score": <0-100>, "note": "<max 7 words>" },
+    "planner":      { "score": <0-100>, "note": "<max 7 words>" },
+    "devoted":      { "score": <0-100>, "note": "<max 7 words>" }
+  }
+}
+
+Dimension scoring:
+- explorer: cuisine breadth. 1 cuisine = ~15, 3 = ~50, 5+ = ~85. Note names the range or obsession.
+- committed: follow-through. ${followThroughPct}% cooked/saved → score proportionally. Note references the ratio wryly.
+- speed: preference for fast cooking. quick_simple style + short recipes → high. elaborate cooking → low.
+- planner: grocery list + meal prep signals. ${groceryIds.length} grocery adds, meal_prep saves → higher.
+- devoted: depth on one cuisine vs. wide ranging. Inverse of explorer — narrow = high, wide = low.
+
+Note style: "5 cuisines, no loyalty" / "cooks 1 in 4 saves" / "30 min or nothing" / "the grocery list is a diary" / "miso soup era, ongoing"`;
+
+DNA scoring rules:
+- heat: spice/fire level. Indian, Thai, Korean, Sichuan, Mexican → higher. French, Italian, Japanese → lower.
+- bold: flavor intensity. Heavy umami, red meat, fermented, smoky → higher. Mild, delicate, light → lower.
+- quick: speed preference. quick_simple eating style + short recipes → higher. Elaborate weekend cooks → lower.
+- complex: technique preference. confident_chef + multi-step cooked recipes → higher. beginner → lower.
+- adventurous: range. variety eating style + many cuisines liked → higher. Narrow/repeated → lower.
+
+Note style examples: "vindaloo, larb — you run hot" / "you sear, you don't finesse" / "oxtail on a tuesday? absolutely"`;
 
     const message = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 120,
+      max_tokens: 400,
       temperature: 1,
       messages: [{ role: 'user', content: prompt }],
     });
 
-    const tasteProfile = (message.content[0] as { text: string }).text.trim();
+    const raw = (message.content[0] as { text: string }).text.trim();
+    let tasteProfile: string;
+    let flavourDna: Record<string, { score: number; note: string }> | undefined;
+    try {
+      const parsed = JSON.parse(raw);
+      tasteProfile = parsed.tasteProfile ?? raw;
+      flavourDna = parsed.flavourDna;
+    } catch {
+      tasteProfile = raw;
+    }
 
     // Save to profile
-    await sb.from('profiles').update({ taste_profile: { text: tasteProfile, generated_at: new Date().toISOString() } }).eq('id', userId);
+    await sb.from('profiles').update({
+      taste_profile: { text: tasteProfile, flavourDna, generated_at: new Date().toISOString() },
+    }).eq('id', userId);
 
-    return res.status(200).json({ tasteProfile });
+    return res.status(200).json({ tasteProfile, flavourDna });
   } catch (err: unknown) {
     // Handle validation errors
     if (err instanceof ValidationError) {

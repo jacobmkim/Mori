@@ -17,6 +17,7 @@ export default function TabLayout() {
   const setProfileSheetOpen = useUserStore((s) => s.setProfileSheetOpen);
   const [tasteUpdateVisible, setTasteUpdateVisible] = useState(false);
   const [tasteUpdateText, setTasteUpdateText] = useState('');
+  const [tasteUpdateDna, setTasteUpdateDna] = useState<Record<string, { score: number; note: string }> | null>(null);
   const [tasteIsFirstTime, setTasteIsFirstTime] = useState(false);
 
   useEffect(() => {
@@ -38,6 +39,7 @@ export default function TabLayout() {
       const lastSeen = seenAt ? new Date(seenAt).getTime() : 0;
       if (generatedAt > lastSeen) {
         setTasteUpdateText(tp.text);
+        setTasteUpdateDna(tp.flavourDna ?? null);
         setTasteIsFirstTime(!seenAt);
         setTasteUpdateVisible(true);
       }
@@ -59,6 +61,7 @@ export default function TabLayout() {
     <TasteProfileUpdateModal
       visible={tasteUpdateVisible}
       profileText={tasteUpdateText}
+      flavourDna={tasteUpdateDna}
       isFirstTime={tasteIsFirstTime}
       onViewProfile={viewProfile}
       onDismiss={dismissTasteUpdate}
