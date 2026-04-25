@@ -4,9 +4,17 @@ import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Linking } from 'react-native';
 import { router } from 'expo-router';
-import { initSentry, Sentry } from '../lib/sentry';
+import * as Sentry from '@sentry/react-native';
 
-initSentry();
+Sentry.init({
+  dsn: 'https://59eecaa7b60a4f0a210f8c92fa782c67@o4511275352326144.ingest.us.sentry.io/4511275354423296',
+  enabled: !__DEV__,
+  sendDefaultPii: true,
+  enableLogs: true,
+  replaysSessionSampleRate: 0.1,
+  replaysOnErrorSampleRate: 1,
+  integrations: [Sentry.mobileReplayIntegration(), Sentry.feedbackIntegration()],
+});
 
 function RootLayout() {
   useEffect(() => {

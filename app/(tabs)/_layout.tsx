@@ -17,6 +17,7 @@ export default function TabLayout() {
   const setProfileSheetOpen = useUserStore((s) => s.setProfileSheetOpen);
   const [tasteUpdateVisible, setTasteUpdateVisible] = useState(false);
   const [tasteUpdateText, setTasteUpdateText] = useState('');
+  const [tasteIsFirstTime, setTasteIsFirstTime] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -37,6 +38,7 @@ export default function TabLayout() {
       const lastSeen = seenAt ? new Date(seenAt).getTime() : 0;
       if (generatedAt > lastSeen) {
         setTasteUpdateText(tp.text);
+        setTasteIsFirstTime(!seenAt);
         setTasteUpdateVisible(true);
       }
     });
@@ -57,6 +59,7 @@ export default function TabLayout() {
     <TasteProfileUpdateModal
       visible={tasteUpdateVisible}
       profileText={tasteUpdateText}
+      isFirstTime={tasteIsFirstTime}
       onViewProfile={viewProfile}
       onDismiss={dismissTasteUpdate}
     />

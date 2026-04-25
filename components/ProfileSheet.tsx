@@ -7,7 +7,10 @@ import {
   View, Text, Modal, Pressable, ScrollView, Alert, ActivityIndicator, Switch, TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { captureRef } from 'react-native-view-shot';
+import * as MediaLibrary from 'expo-media-library';
+import * as Sharing from 'expo-sharing';
 import { router } from 'expo-router';
 import { useTheme } from '@/hooks/useTheme';
 import { useUserStore } from '@/stores/userStore';
@@ -89,6 +92,30 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
   const savedTasteProfile = (profile?.taste_profile as any);
   const [tasteProfile, setTasteProfile] = useState<string | null>(savedTasteProfile?.text ?? null);
   const [tasteLoading, setTasteLoading] = useState(false);
+  const [shareLoading, setShareLoading] = useState(false);
+  const cardRef = useRef<View>(null);
+
+  async function handleShareImage() {
+    if (!cardRef.current || !tasteProfile) return;
+    setShareLoading(true);
+    try {
+      const uri = await captureRef(cardRef, { format: 'png', quality: 1, result: 'tmpfile' });
+      const canShare = await Sharing.isAvailableAsync();
+      if (canShare) {
+        await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: 'Share your taste profile' });
+      } else {
+        const { status } = await MediaLibrary.requestPermissionsAsync();
+        if (status === 'granted') {
+          await MediaLibrary.saveToLibraryAsync(uri);
+          Alert.alert('Saved!', 'Taste profile card saved to your photos.');
+        }
+      }
+    } catch (err) {
+      Alert.alert('Could not share', 'Try again in a moment.');
+    } finally {
+      setShareLoading(false);
+    }
+  }
 
   async function runTasteProfileGeneration(userId: string) {
     const baseUrl = process.env.EXPO_PUBLIC_API_URL;
@@ -117,6 +144,10 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
       console.log('[taste] response:', res.status);
       if (res.ok && json.tasteProfile) {
         setTasteProfile(json.tasteProfile);
+        if (profile) {
+          const updatedTp = { text: json.tasteProfile, generated_at: new Date().toISOString() };
+          setProfile({ ...profile, taste_profile: updatedTp });
+        }
       } else if (json.reason === 'not_enough_data') {
         setTasteProfile('Swipe on a few more recipes — we need at least 5 swipes to build your profile.');
       } else if (res.status === 429) {
@@ -131,11 +162,26 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
 
   useEffect(() => {
     if (visible && profile?.id) {
-      const generatedAt = savedTasteProfile?.generated_at ? new Date(savedTasteProfile.generated_at) : null;
-      const stale = !generatedAt || generatedAt < new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
-      if (!tasteProfile || stale) {
-        runTasteProfileGeneration(profile.id);
-      }
+      (async () => {
+        // Always fetch fresh taste_profile from DB — catches clears and cross-device updates
+        const { data } = await supabase
+          .from('profiles')
+          .select('taste_profile')
+          .eq('id', profile.id)
+          .single();
+
+        const freshTp = data?.taste_profile as any;
+        if (!freshTp?.text || !freshTp?.generated_at) {
+          runTasteProfileGeneration(profile.id);
+        } else {
+          if (freshTp.text !== tasteProfile) {
+            setTasteProfile(freshTp.text);
+            setProfile({ ...profile, taste_profile: freshTp });
+          }
+          const stale = new Date(freshTp.generated_at) < new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
+          if (stale) runTasteProfileGeneration(profile.id);
+        }
+      })();
       getAdventureCardsEnabled().then(setAdventureCards).catch(() => {});
     }
   }, [visible, profile?.id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -242,15 +288,8 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
             {/* Taste Profile */}
             {profile && (
               <View style={{ paddingHorizontal: 16, paddingTop: 20, marginBottom: 20 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
                   <Text style={{ fontSize: 14, fontWeight: '700', color: colors.text }}>Taste Profile</Text>
-                  {!tasteLoading && (
-                    <Pressable onPress={() => profile?.id && runTasteProfileGeneration(profile.id)} hitSlop={8}>
-                      <Text style={{ color: colors.primary, fontSize: 13, fontWeight: '500' }}>
-                        {tasteProfile ? 'Refresh' : 'Generate'}
-                      </Text>
-                    </Pressable>
-                  )}
                 </View>
 
                 <View style={{
@@ -291,7 +330,7 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
                         </View>
                       )}
 
-                      {/* Footer: timestamp + saved count */}
+                      {/* Footer: timestamp + share */}
                       <View style={{
                         flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
                         borderTopWidth: 1, borderTopColor: colors.border,
@@ -300,9 +339,18 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
                         <Text style={{ fontSize: 11, color: colors.textMuted }}>
                           {savedTasteProfile?.generated_at ? daysAgoText(savedTasteProfile.generated_at) : ''}
                         </Text>
-                        <Text style={{ fontSize: 11, color: colors.textMuted }}>
-                          {savedCount} recipe{savedCount !== 1 ? 's' : ''} saved
-                        </Text>
+                        <Pressable
+                          onPress={handleShareImage}
+                          disabled={shareLoading}
+                          hitSlop={8}
+                          style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+                        >
+                          {shareLoading
+                            ? <ActivityIndicator size="small" color={colors.primary} />
+                            : <Ionicons name="share-outline" size={14} color={colors.primary} />
+                          }
+                          <Text style={{ fontSize: 11, color: colors.primary, fontWeight: '500' }}>Share</Text>
+                        </Pressable>
                       </View>
                     </>
                   ) : (
@@ -539,6 +587,31 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
           </ScrollView>
         </View>
       </Modal>
+
+      {/* Hidden card used for image capture — positioned off-screen */}
+      <View ref={cardRef} collapsable={false} style={{
+        position: 'absolute', left: -9999, top: 0,
+        width: 360, height: 360,
+        backgroundColor: '#F8F3EC',
+        borderRadius: 24,
+        padding: 32,
+        justifyContent: 'space-between',
+      }}>
+        <Text style={{ fontFamily: 'Georgia', fontStyle: 'italic', fontSize: 22, fontWeight: '700', color: '#2E5438' }}>
+          mori
+        </Text>
+        <Text style={{ fontFamily: 'Georgia', fontStyle: 'italic', fontSize: 18, color: '#1a1a1a', lineHeight: 28, textAlign: 'center' }}>
+          "{tasteProfile}"
+        </Text>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, justifyContent: 'center' }}>
+          {profile && getPersonalityChips(profile).map((chip) => (
+            <View key={chip} style={{ backgroundColor: '#d4e6d8', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 }}>
+              <Text style={{ fontSize: 12, color: '#2E5438', fontWeight: '500' }}>{chip}</Text>
+            </View>
+          ))}
+        </View>
+        <Text style={{ fontSize: 11, color: '#2E5438', textAlign: 'right', opacity: 0.6 }}>getmori.app</Text>
+      </View>
 
       {/* Sub-modals rendered outside the sheet so they work after onClose */}
       {profile && (

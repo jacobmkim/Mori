@@ -97,11 +97,20 @@ export function parseGroceryMeasurement(
       .map(parseSingle)
       .filter((p): p is { quantity: number; unit: string } => p !== null);
     if (parsed.length === 0) return null;
-    const baseUnit = parsed[0].unit;
-    // Sum when all parts share the same unit; otherwise send the first chunk
-    return parsed.every((p) => p.unit === baseUnit)
-      ? { quantity: parsed.reduce((s, p) => s + p.quantity, 0), unit: baseUnit }
-      : parsed[0];
+    // Normalize metric → US so e.g. "100g + 200g" sums as oz rather than silently dropping
+    const normalized = parsed.map((p) => METRIC_UNITS.has(p.unit) ? convertMeasurementToUs(p) : p);
+    const baseUnit = normalized[0].unit;
+    if (normalized.every((p) => p.unit === baseUnit)) {
+      return { quantity: normalized.reduce((s, p) => s + p.quantity, 0), unit: baseUnit };
+    }
+    // Incompatible units (e.g. cup + oz) — return the dominant part by normalized magnitude
+    const VOLUME_TBSP: Record<string, number> = {
+      teaspoon: 1 / 3, tablespoon: 1, 'fl oz': 2, cup: 16, pint: 32, quart: 64, gallon: 256, ml: 0.0676, liter: 67.628,
+    };
+    const WEIGHT_OZ: Record<string, number> = { gram: 0.0353, oz: 1, lb: 16, kg: 35.27 };
+    const magnitude = (p: { quantity: number; unit: string }) =>
+      p.quantity * (VOLUME_TBSP[p.unit] ?? WEIGHT_OZ[p.unit] ?? 1);
+    return normalized.reduce((best, p) => magnitude(p) > magnitude(best) ? p : best);
   }
 
   return parseSingle(trimQty);
