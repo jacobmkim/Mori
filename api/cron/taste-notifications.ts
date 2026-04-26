@@ -120,11 +120,12 @@ Note style: "5 cuisines, no loyalty" / "cooks 1 in 4 saves" / "30 min or nothing
   });
 
   const raw = (message.content[0] as { text: string }).text.trim();
+  const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
   try {
-    const parsed = JSON.parse(raw);
-    return { text: parsed.tasteProfile ?? raw, flavourDna: parsed.flavourDna };
+    const parsed = JSON.parse(cleaned);
+    return { text: parsed.tasteProfile ?? cleaned, flavourDna: parsed.flavourDna };
   } catch {
-    return { text: raw, flavourDna: undefined };
+    return { text: cleaned, flavourDna: undefined };
   }
 }
 

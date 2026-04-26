@@ -162,14 +162,15 @@ Note style: "5 cuisines, no loyalty" / "cooks 1 in 4 saves" / "30 min or nothing
     });
 
     const raw = (message.content[0] as { text: string }).text.trim();
+    const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
     let tasteProfile: string;
     let flavourDna: Record<string, { score: number; note: string }> | undefined;
     try {
-      const parsed = JSON.parse(raw);
-      tasteProfile = parsed.tasteProfile ?? raw;
+      const parsed = JSON.parse(cleaned);
+      tasteProfile = parsed.tasteProfile ?? cleaned;
       flavourDna = parsed.flavourDna;
     } catch {
-      tasteProfile = raw;
+      tasteProfile = cleaned;
     }
 
     // Save to profile
