@@ -7,6 +7,7 @@ import {
   View, Text, Modal, Pressable, ScrollView, Alert, ActivityIndicator, Switch, TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { useState, useEffect, useRef } from 'react';
 import { captureRef } from 'react-native-view-shot';
 import * as MediaLibrary from 'expo-media-library';
@@ -120,17 +121,29 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
 
   async function runTasteProfileGeneration(userId: string) {
     const baseUrl = process.env.EXPO_PUBLIC_API_URL;
-    if (!baseUrl) return;
+    if (!baseUrl) {
+      setTasteProfile('Config error — API URL not set.');
+      return;
+    }
     setTasteLoading(true);
-    try {
-      // Always force-refresh to avoid sending an expired token
-      const { data: refreshData } = await supabase.auth.refreshSession();
-      const session = refreshData.session ?? (await supabase.auth.getSession()).data.session;
-      if (!session?.access_token) {
-        setTasteProfile('Could not authenticate — try signing out and back in.');
-        return;
-      }
 
+    let session: any = null;
+    try {
+      const { data: refreshData } = await supabase.auth.refreshSession();
+      session = refreshData.session ?? (await supabase.auth.getSession()).data.session;
+    } catch (err: any) {
+      setTasteProfile(`Auth error — ${err?.message ?? 'could not refresh session'}.`);
+      setTasteLoading(false);
+      return;
+    }
+
+    if (!session?.access_token) {
+      setTasteProfile('Could not authenticate — try signing out and back in.');
+      setTasteLoading(false);
+      return;
+    }
+
+    try {
       const res = await fetch(`${baseUrl}/api/taste-profile`, {
         method: 'POST',
         headers: {
@@ -139,7 +152,14 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
         },
         body: JSON.stringify({ userId }),
       });
-      const json = await res.json();
+      const raw = await res.text();
+      let json: any;
+      try {
+        json = JSON.parse(raw);
+      } catch {
+        setTasteProfile(`API returned non-JSON (${res.status}): ${raw.slice(0, 120)}`);
+        return;
+      }
       if (res.ok && json.tasteProfile) {
         setTasteProfile(json.tasteProfile);
         if (json.flavourDna) setFlavourDna(json.flavourDna);
@@ -154,8 +174,8 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
       } else {
         setTasteProfile(`Could not generate profile (${res.status}) — try again later.`);
       }
-    } catch (err) {
-      setTasteProfile('Connection error — check your internet and try again.');
+    } catch (err: any) {
+      setTasteProfile(`Fetch error — ${err?.message ?? 'unknown'}.`);
     } finally {
       setTasteLoading(false);
     }
@@ -261,8 +281,15 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
                   width: 48, height: 48, borderRadius: 24,
                   backgroundColor: colors.primary,
                   alignItems: 'center', justifyContent: 'center',
+                  overflow: 'hidden',
                 }}>
-                  {initials ? (
+                  {profile?.avatar_url ? (
+                    <Image
+                      source={{ uri: profile.avatar_url }}
+                      style={{ width: 48, height: 48, borderRadius: 24 }}
+                      contentFit="cover"
+                    />
+                  ) : initials ? (
                     <Text style={{ color: 'white', fontSize: 16, fontWeight: '700' }}>{initials}</Text>
                   ) : (
                     <Ionicons name="person" size={22} color="white" />
@@ -363,10 +390,8 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
                             onPress={() => profile?.id && runTasteProfileGeneration(profile.id)}
                             disabled={tasteLoading}
                             hitSlop={8}
-                            style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
                           >
                             <Ionicons name="refresh-outline" size={14} color={colors.textMuted} />
-                            <Text style={{ fontSize: 11, color: colors.textMuted }}>Refresh</Text>
                           </Pressable>
                           <Pressable
                             onPress={handleShareImage}
