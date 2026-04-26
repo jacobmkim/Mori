@@ -103,11 +103,17 @@ export function parseGroceryMeasurement(
     if (normalized.every((p) => p.unit === baseUnit)) {
       return { quantity: normalized.reduce((s, p) => s + p.quantity, 0), unit: baseUnit };
     }
-    // Incompatible units (e.g. cup + oz) — return the dominant part by normalized magnitude
+    // Incompatible units — determine if they span different categories (weight vs volume)
     const VOLUME_TBSP: Record<string, number> = {
       teaspoon: 1 / 3, tablespoon: 1, 'fl oz': 2, cup: 16, pint: 32, quart: 64, gallon: 256, ml: 0.0676, liter: 67.628,
     };
     const WEIGHT_OZ: Record<string, number> = { gram: 0.0353, oz: 1, lb: 16, kg: 35.27 };
+    const category = (u: string) => u in VOLUME_TBSP ? 'volume' : u in WEIGHT_OZ ? 'weight' : 'other';
+    const categories = new Set(normalized.map((p) => category(p.unit)));
+    if (categories.size > 1) {
+      // Cross-category (e.g. lb + cup) — magnitudes are not comparable; return first part
+      return normalized[0];
+    }
     const magnitude = (p: { quantity: number; unit: string }) =>
       p.quantity * (VOLUME_TBSP[p.unit] ?? WEIGHT_OZ[p.unit] ?? 1);
     return normalized.reduce((best, p) => magnitude(p) > magnitude(best) ? p : best);

@@ -17,6 +17,8 @@ interface Props {
   onDismiss: () => void;
 }
 
+const DNA_DIMS = ['explorer', 'committed', 'speed', 'planner', 'devoted'] as const;
+
 export function TasteProfileUpdateModal({ visible, profileText, flavourDna, isFirstTime, onViewProfile, onDismiss }: Props) {
   const colors = useTheme();
   const [shareLoading, setShareLoading] = useState(false);
@@ -55,7 +57,7 @@ export function TasteProfileUpdateModal({ visible, profileText, flavourDna, isFi
             <View style={{
               backgroundColor: colors.card,
               borderRadius: 20,
-              padding: 28,
+              padding: 24,
               maxWidth: 360,
               width: '100%',
               shadowColor: '#000',
@@ -78,21 +80,58 @@ export function TasteProfileUpdateModal({ visible, profileText, flavourDna, isFi
                 {isFirstTime ? 'Your taste profile is ready' : 'Your taste has evolved'}
               </Text>
 
+              {/* Flavour DNA bars */}
+              {flavourDna && (
+                <View style={{
+                  borderTopWidth: 1, borderBottomWidth: 1, borderColor: colors.border,
+                  paddingVertical: 14, marginBottom: 16,
+                }}>
+                  <Text style={{ fontSize: 9, fontWeight: '700', color: colors.textMuted, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 12 }}>
+                    Flavour DNA
+                  </Text>
+                  {DNA_DIMS.map((dim) => {
+                    const d = flavourDna[dim];
+                    if (!d) return null;
+                    const barColor = d.score >= 70 ? '#1E4D35' : d.score >= 40 ? '#52B788' : '#E8854A';
+                    return (
+                      <View key={dim} style={{ marginBottom: 8 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 2 }}>
+                          <Text style={{ fontSize: 10, color: colors.text, fontWeight: '600', width: 72, textTransform: 'capitalize' }}>{dim}</Text>
+                          <View style={{ flex: 1, height: 5, backgroundColor: colors.border, borderRadius: 3 }}>
+                            <View style={{ width: `${d.score}%`, height: '100%', backgroundColor: barColor, borderRadius: 3 }} />
+                          </View>
+                          <Text style={{ fontSize: 9, color: colors.textMuted, width: 28, textAlign: 'right' }}>{d.score}%</Text>
+                        </View>
+                        <Text style={{ fontFamily: 'Georgia', fontStyle: 'italic', fontSize: 10, color: colors.textMuted, paddingLeft: 80, lineHeight: 14 }}>
+                          {d.note}
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
+
+              {/* Mori says */}
               <View style={{
                 backgroundColor: colors.background,
                 borderRadius: 12,
                 borderWidth: 1,
                 borderColor: colors.border,
-                padding: 16,
+                padding: 14,
                 marginBottom: 16,
               }}>
+                {flavourDna && (
+                  <Text style={{ fontSize: 9, fontWeight: '700', color: colors.textMuted, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 6 }}>
+                    Mori Says
+                  </Text>
+                )}
                 <Text style={{
                   fontFamily: 'Georgia',
                   fontStyle: 'italic',
                   fontSize: 15,
                   color: colors.text,
                   lineHeight: 22,
-                  textAlign: 'center',
+                  textAlign: flavourDna ? 'left' : 'center',
                 }}>
                   "{profileText}"
                 </Text>
@@ -105,7 +144,7 @@ export function TasteProfileUpdateModal({ visible, profileText, flavourDna, isFi
                 style={{
                   flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
                   borderWidth: 1, borderColor: colors.border, borderRadius: 12,
-                  paddingVertical: 10, marginBottom: 16,
+                  paddingVertical: 10, marginBottom: 12,
                 }}
               >
                 {shareLoading
@@ -164,7 +203,7 @@ export function TasteProfileUpdateModal({ visible, profileText, flavourDna, isFi
         {flavourDna && (
           <View style={{ borderTopWidth: 0.5, borderBottomWidth: 0.5, borderColor: '#2D6A4F', paddingVertical: 14 }}>
             <Text style={{ fontSize: 9, fontFamily: 'monospace', color: '#7A7468', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 12 }}>your flavour dna</Text>
-            {(['explorer', 'committed', 'speed', 'planner', 'devoted'] as const).map((dim) => {
+            {DNA_DIMS.map((dim) => {
               const d = flavourDna[dim];
               if (!d) return null;
               const barColor = d.score >= 70 ? '#1E4D35' : d.score >= 40 ? '#52B788' : '#E8854A';

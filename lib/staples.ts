@@ -15,10 +15,9 @@ export const STAPLES: ReadonlySet<string> = new Set([
   // Distilled / wine vinegars — indefinite shelf life per USDA (balsamic intentionally
   // excluded: fridge-tracked 6mo after opening, specialty, worth real reminders).
   'vinegar', 'white vinegar', 'distilled vinegar', 'distilled white vinegar',
-  'apple cider vinegar', 'cider vinegar', 'rice vinegar', 'rice wine vinegar',
+  'apple cider vinegar', 'cider vinegar',
   'white wine vinegar', 'red wine vinegar', 'black vinegar',
   'champagne vinegar', 'sherry vinegar', 'malt vinegar', 'cleaning vinegar',
-  'black vinegar or rice vinegar',
   // Fats + acids that don't need tracking
   'salt', 'kosher salt', 'sea salt', 'table salt',
   'pepper', 'black pepper', 'white pepper', 'ground pepper',
