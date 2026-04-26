@@ -154,15 +154,6 @@ Dimension scoring:
 
 Note style: "5 cuisines, no loyalty" / "cooks 1 in 4 saves" / "30 min or nothing" / "the grocery list is a diary" / "miso soup era, ongoing"`;
 
-DNA scoring rules:
-- heat: spice/fire level. Indian, Thai, Korean, Sichuan, Mexican → higher. French, Italian, Japanese → lower.
-- bold: flavor intensity. Heavy umami, red meat, fermented, smoky → higher. Mild, delicate, light → lower.
-- quick: speed preference. quick_simple eating style + short recipes → higher. Elaborate weekend cooks → lower.
-- complex: technique preference. confident_chef + multi-step cooked recipes → higher. beginner → lower.
-- adventurous: range. variety eating style + many cuisines liked → higher. Narrow/repeated → lower.
-
-Note style examples: "vindaloo, larb — you run hot" / "you sear, you don't finesse" / "oxtail on a tuesday? absolutely"`;
-
     const message = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 400,
