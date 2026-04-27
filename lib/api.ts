@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
 import type { Profile, Recipe, SwipeEvent, SavedRecipe, PantryItem, GroceryList, MealPlan, MealSlot, OnboardingState, Macros, AppMode, RecipeNote } from '@/types';
+import type { BadgeStats } from '@/lib/badges';
 
 // ─── Macro AsyncStorage cache ─────────────────────────────────────────────────
 // Persists macro data across sessions so Spoonacular is never called twice for
@@ -1158,6 +1159,83 @@ export async function logInteraction(
     session_number: sessionNumber ?? null,
   });
   if (error) throw error;
+}
+
+// ─── Streak + Count ───────────────────────────────────────────────────────────
+// Called fire-and-forget after every logInteraction(..., 'cooked').
+// Updates current_streak, longest_streak, last_cooked_date, meals_cooked_count.
+
+export async function updateStreakAndCount(
+  userId: string,
+): Promise<{ current_streak: number; longest_streak: number; meals_cooked_count: number } | null> {
+  const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD in local time
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('last_cooked_date, current_streak, longest_streak, meals_cooked_count')
+    .eq('id', userId)
+    .single();
+  if (!profile) return null;
+
+  const last: string | null = profile.last_cooked_date;
+  const yesterday = new Date(Date.now() - 86_400_000).toLocaleDateString('en-CA');
+
+  let newStreak: number;
+  if (last === today) {
+    // Same-day cook — preserve existing streak, don't double-count
+    newStreak = profile.current_streak ?? 1;
+  } else if (last === yesterday) {
+    newStreak = (profile.current_streak ?? 0) + 1;
+  } else {
+    // Streak broken or first cook
+    newStreak = 1;
+  }
+
+  const newLongest = Math.max(profile.longest_streak ?? 0, newStreak);
+  const newCount = (profile.meals_cooked_count ?? 0) + (last === today ? 0 : 1);
+
+  await supabase.from('profiles').update({
+    current_streak: newStreak,
+    longest_streak: newLongest,
+    last_cooked_date: today,
+    meals_cooked_count: newCount,
+  }).eq('id', userId);
+
+  return { current_streak: newStreak, longest_streak: newLongest, meals_cooked_count: newCount };
+}
+
+// ─── Badge Stats ──────────────────────────────────────────────────────────────
+// Fetches the data needed to compute which badges the user has earned.
+
+// longestStreak + recipesSubmitted are passed in from the already-loaded profile
+// so this query doesn't depend on the streak migration columns being present.
+export async function fetchBadgeStats(
+  userId: string,
+  knownStats: { longestStreak: number; recipesSubmitted: number },
+): Promise<BadgeStats> {
+  const interactionsRes = await supabase
+    .from('recipe_interactions')
+    .select('recipes(cuisine, meal_prep_friendly)')
+    .eq('user_id', userId)
+    .eq('interaction_type', 'cooked');
+
+  const rows = (interactionsRes.data ?? []) as unknown as Array<{
+    recipes: { cuisine: string | null; meal_prep_friendly: boolean | null } | null;
+  }>;
+  const cuisines = new Set<string>();
+  let cookedMealPrep = false;
+  for (const row of rows) {
+    const r = row.recipes;
+    if (r?.cuisine) r.cuisine.split(',').forEach((c) => cuisines.add(c.trim()));
+    if (r?.meal_prep_friendly) cookedMealPrep = true;
+  }
+
+  return {
+    totalCooked: rows.length,
+    longestStreak: knownStats.longestStreak,
+    distinctCuisines: cuisines.size,
+    cookedMealPrep,
+    recipesSubmitted: knownStats.recipesSubmitted,
+  };
 }
 
 // ─── Saved Recipes ────────────────────────────────────────────────────────────

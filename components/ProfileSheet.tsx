@@ -23,8 +23,12 @@ import { supabase } from '@/lib/supabase';
 import {
   patchProfile, clearDiscoverCache,
   getAdventureCardsEnabled, setAdventureCardsEnabled,
+  getProfile, fetchBadgeStats,
 } from '@/lib/api';
 import { clearRecipeCache } from '@/lib/mealdb';
+import { computeBadges } from '@/lib/badges';
+import type { Badge } from '@/lib/badges';
+import { BadgeRow } from '@/components/BadgeRow';
 import type { Profile } from '@/types';
 import { EditPreferencesModal } from '@/components/EditPreferencesModal';
 import { PantryModal } from '@/components/PantryModal';
@@ -90,6 +94,7 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
   const [adventureCards, setAdventureCards] = useState(true);
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState('');
+  const [badges, setBadges] = useState<Badge[]>([]);
   const savedTasteProfile = (profile?.taste_profile as any);
   const [tasteProfile, setTasteProfile] = useState<string | null>(savedTasteProfile?.text ?? null);
   const [flavourDna, setFlavourDna] = useState<Record<string, { score: number; note: string }> | null>(savedTasteProfile?.flavourDna ?? null);
@@ -184,6 +189,15 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
   useEffect(() => {
     if (visible && profile?.id) {
       (async () => {
+        // Refresh full profile so streak/count fields are current
+        const fresh = await getProfile(profile.id).catch(() => null);
+        if (fresh) {
+          setProfile(fresh);
+          const knownStats = { longestStreak: fresh.longest_streak ?? 0, recipesSubmitted: fresh.recipes_submitted_count ?? 0 };
+          setBadges(computeBadges({ totalCooked: fresh.meals_cooked_count ?? 0, longestStreak: knownStats.longestStreak, distinctCuisines: 0, cookedMealPrep: false, recipesSubmitted: knownStats.recipesSubmitted }));
+          fetchBadgeStats(fresh.id, knownStats).then((stats) => setBadges(computeBadges(stats))).catch(() => {});
+        }
+
         // Always fetch fresh taste_profile from DB — catches clears and cross-device updates
         const { data } = await supabase
           .from('profiles')
@@ -302,6 +316,14 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
                   <Text style={{ fontSize: 13, color: colors.textMuted }}>
                     {savedCount} recipe{savedCount !== 1 ? 's' : ''} saved
                   </Text>
+                  {(profile?.current_streak ?? 0) > 0 && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
+                      <Text style={{ fontSize: 13 }}>🔥</Text>
+                      <Text style={{ fontSize: 13, fontWeight: '600', color: colors.primary }}>
+                        {profile!.current_streak}-day streak
+                      </Text>
+                    </View>
+                  )}
                 </View>
               </View>
               <Pressable onPress={onClose} hitSlop={8} style={{
@@ -315,9 +337,33 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
 
           <ScrollView contentContainerStyle={{ paddingBottom: 48 }} showsVerticalScrollIndicator={false}>
 
+            {/* Stats */}
+            <View style={{ flexDirection: 'row', paddingHorizontal: 16, gap: 8, paddingTop: 16, marginBottom: 16 }}>
+              {[
+                { label: 'Meals', value: profile?.meals_cooked_count ?? 0, icon: 'restaurant' },
+                { label: 'Saved', value: savedCount, icon: 'heart' },
+                { label: 'Streak', value: (profile?.current_streak ?? 0) > 0 ? `${profile!.current_streak}d` : '—', icon: 'flame' },
+                { label: 'Best', value: (profile?.longest_streak ?? 0) > 0 ? `${profile!.longest_streak}d` : '—', icon: 'trophy-outline' },
+              ].map((stat) => (
+                <View key={stat.label} style={{ flex: 1, backgroundColor: colors.card, borderRadius: 12, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: colors.border }}>
+                  <Ionicons name={stat.icon as any} size={16} color={colors.primary} />
+                  <Text style={{ fontSize: 16, fontWeight: '700', color: colors.text, marginTop: 4 }}>{stat.value}</Text>
+                  <Text style={{ fontSize: 10, color: colors.textMuted, marginTop: 1 }}>{stat.label}</Text>
+                </View>
+              ))}
+            </View>
+
+            {/* Achievements */}
+            {badges.length > 0 && (
+              <View style={{ marginBottom: 16 }}>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: colors.text, paddingHorizontal: 16, marginBottom: 10 }}>Achievements</Text>
+                <BadgeRow badges={badges} />
+              </View>
+            )}
+
             {/* Taste Profile */}
             {profile && (
-              <View style={{ paddingHorizontal: 16, paddingTop: 20, marginBottom: 20 }}>
+              <View style={{ paddingHorizontal: 16, paddingTop: 4, marginBottom: 20 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
                   <Text style={{ fontSize: 14, fontWeight: '700', color: colors.text }}>Taste Profile</Text>
                 </View>

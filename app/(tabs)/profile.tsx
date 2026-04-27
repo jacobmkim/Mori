@@ -1,16 +1,22 @@
 import { View, Text, Pressable, ScrollView, Alert, Modal, TextInput, ActivityIndicator, Switch, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useFocusEffect } from 'expo-router';
 import type { ReactNode } from 'react';
 import { useUserStore } from '@/stores/userStore';
 import { useSavedStore } from '@/stores/savedStore';
 import { supabase } from '@/lib/supabase';
-import { patchProfile, clearDiscoverCache, getPantryItems, addPantryItem, deletePantryItem, getAdventureCardsEnabled, setAdventureCardsEnabled, getUnitSystem, setUnitSystem, getFlaggedRecipes, clearFlaggedRecipes, type FlaggedRecipe } from '@/lib/api';
+import { patchProfile, clearDiscoverCache, getPantryItems, addPantryItem, deletePantryItem, getAdventureCardsEnabled, setAdventureCardsEnabled, getUnitSystem, setUnitSystem, getFlaggedRecipes, clearFlaggedRecipes, fetchBadgeStats, getProfile, type FlaggedRecipe } from '@/lib/api';
 import { clearRecipeCache } from '@/lib/mealdb';
 import { useTheme } from '@/hooks/useTheme';
 import { useDiscoverStore, type AppearanceMode } from '@/stores/discoverStore';
+import { computeBadges } from '@/lib/badges';
+import type { Badge } from '@/lib/badges';
+import { BadgeRow } from '@/components/BadgeRow';
 import type { Profile, PantryItem } from '@/types';
 
 // ── Label maps ────────────────────────────────────────────────────────────────
@@ -565,6 +571,30 @@ export default function Profile() {
   const [tasteProfile, setTasteProfile] = useState<string | null>(savedTasteProfile?.text ?? null);
   const [tasteLoading, setTasteLoading] = useState(false);
   const [tasteError, setTasteError] = useState<string | null>(null);
+  const [badges, setBadges] = useState<Badge[]>([]);
+  const [avatarLoading, setAvatarLoading] = useState(false);
+
+  useFocusEffect(useCallback(() => {
+    if (!profile?.id) return;
+    getProfile(profile.id).then((fresh) => {
+      if (!fresh) return;
+      setProfile(fresh);
+      const knownStats = {
+        longestStreak: fresh.longest_streak ?? 0,
+        recipesSubmitted: fresh.recipes_submitted_count ?? 0,
+      };
+      setBadges(computeBadges({
+        totalCooked: fresh.meals_cooked_count ?? 0,
+        longestStreak: knownStats.longestStreak,
+        distinctCuisines: 0,
+        cookedMealPrep: false,
+        recipesSubmitted: knownStats.recipesSubmitted,
+      }));
+      fetchBadgeStats(fresh.id, knownStats)
+        .then((stats) => setBadges(computeBadges(stats)))
+        .catch(() => {});
+    }).catch(() => {});
+  }, [profile?.id])); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function runTasteProfileGeneration(userId: string) {
     const baseUrl = process.env.EXPO_PUBLIC_API_URL;
@@ -615,7 +645,57 @@ export default function Profile() {
     }
     getAdventureCardsEnabled().then(setAdventureCards).catch(() => {});
     getUnitSystem().then(setUnitSystemState).catch(() => {});
+    // Immediately show badges from profile-level data we already have.
+    // Then enrich with DB data (exploration badges need recipe join).
+    const knownStats = {
+      longestStreak: profile.longest_streak ?? 0,
+      recipesSubmitted: profile.recipes_submitted_count ?? 0,
+    };
+    setBadges(computeBadges({
+      totalCooked: profile.meals_cooked_count ?? 0,
+      longestStreak: knownStats.longestStreak,
+      distinctCuisines: 0,
+      cookedMealPrep: false,
+      recipesSubmitted: knownStats.recipesSubmitted,
+    }));
+    fetchBadgeStats(profile.id, knownStats)
+      .then((stats) => setBadges(computeBadges(stats)))
+      .catch(() => {});
   }, [profile?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function handlePickAvatar() {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Allow photo library access to set a profile picture.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+    });
+    if (result.canceled || !profile?.id) return;
+    const uri = result.assets[0].uri;
+    setAvatarLoading(true);
+    try {
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      const path = `${profile.id}/avatar.jpg`;
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(path, blob, { upsert: true, contentType: 'image/jpeg' });
+      if (uploadError) throw uploadError;
+      const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
+      const avatar_url = `${urlData.publicUrl}?t=${Date.now()}`;
+      await supabase.from('profiles').update({ avatar_url }).eq('id', profile.id);
+      setProfile({ ...profile, avatar_url });
+    } catch {
+      Alert.alert('Upload failed', 'Could not save profile picture. Try again.');
+    } finally {
+      setAvatarLoading(false);
+    }
+  }
 
   async function handleSignOut() {
     Alert.alert('Sign out', 'Are you sure you want to sign out?', [
@@ -660,10 +740,12 @@ export default function Profile() {
     }
   }
 
+  const currentStreak = profile?.current_streak ?? 0;
   const stats = [
     { label: 'Meals Cooked', value: profile?.meals_cooked_count ?? 0, icon: 'restaurant' },
     { label: 'Recipes Saved', value: savedCount, icon: 'heart' },
-    { label: 'Submitted', value: profile?.recipes_submitted_count ?? 0, icon: 'create' },
+    { label: 'Streak', value: currentStreak > 0 ? `${currentStreak}d` : '—', icon: 'flame' },
+    { label: 'Best', value: (profile?.longest_streak ?? 0) > 0 ? `${profile!.longest_streak}d` : '—', icon: 'trophy-outline' },
   ];
 
   return (
@@ -671,13 +753,39 @@ export default function Profile() {
       <ScrollView contentContainerStyle={{ paddingBottom: 32 }}>
         {/* Header */}
         <View style={{ alignItems: 'center', paddingTop: 32, paddingBottom: 24, paddingHorizontal: 24 }}>
-          <View style={{
-            width: 80, height: 80, borderRadius: 40,
-            backgroundColor: colors.primaryLight,
-            alignItems: 'center', justifyContent: 'center', marginBottom: 12,
-          }}>
-            <Ionicons name="person" size={40} color={colors.primary} />
-          </View>
+          <Pressable onPress={handlePickAvatar} style={{ marginBottom: 12 }}>
+            <View style={{
+              width: 80, height: 80, borderRadius: 40,
+              backgroundColor: colors.primaryLight,
+              alignItems: 'center', justifyContent: 'center',
+              overflow: 'hidden',
+            }}>
+              {profile?.avatar_url ? (
+                <Image
+                  source={{ uri: profile.avatar_url }}
+                  style={{ width: 80, height: 80, borderRadius: 40 }}
+                  contentFit="cover"
+                />
+              ) : (
+                <Ionicons name="person" size={40} color={colors.primary} />
+              )}
+            </View>
+            {avatarLoading ? (
+              <View style={{
+                position: 'absolute', bottom: 0, right: 0,
+                backgroundColor: colors.card, borderRadius: 12, padding: 2,
+              }}>
+                <ActivityIndicator size="small" color={colors.primary} />
+              </View>
+            ) : (
+              <View style={{
+                position: 'absolute', bottom: 0, right: 0,
+                backgroundColor: colors.primary, borderRadius: 12, padding: 3,
+              }}>
+                <Ionicons name="camera" size={12} color="white" />
+              </View>
+            )}
+          </Pressable>
           {editingName ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
               <TextInput
@@ -714,6 +822,14 @@ export default function Profile() {
           <Text style={{ fontSize: 14, color: colors.textMuted, marginTop: 4 }}>
             {profile ? 'Member since ' + new Date(profile.created_at).getFullYear() : 'Welcome!'}
           </Text>
+{currentStreak > 0 && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 8 }}>
+              <Text style={{ fontSize: 16 }}>🔥</Text>
+              <Text style={{ fontSize: 14, fontWeight: '600', color: colors.primary }}>
+                {currentStreak}-day streak
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Stats */}
@@ -730,6 +846,16 @@ export default function Profile() {
             </View>
           ))}
         </View>
+
+        {/* Achievements */}
+        {badges.length > 0 && (
+          <View style={{ marginBottom: 24 }}>
+            <Text style={{ fontSize: 16, fontWeight: '600', color: colors.text, paddingHorizontal: 16, marginBottom: 12 }}>
+              Achievements
+            </Text>
+            <BadgeRow badges={badges} />
+          </View>
+        )}
 
         {/* Taste Profile */}
         {profile && (

@@ -31,6 +31,9 @@ export interface Profile {
   taste_profile: Record<string, unknown> | null;
   onboarding_complete: boolean;
   created_at: string;
+  current_streak: number;
+  longest_streak: number;
+  last_cooked_date: string | null;
 }
 
 // ─── Macros ───────────────────────────────────────────────────────────────────

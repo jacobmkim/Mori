@@ -6,6 +6,7 @@
 import { View, Text, Pressable } from 'react-native';
 import { useState, useEffect } from 'react';
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { useTheme } from '@/hooks/useTheme';
 import { useUserStore } from '@/stores/userStore';
 import { ProfileSheet } from '@/components/ProfileSheet';
@@ -36,9 +37,16 @@ export function AvatarButton() {
           width: 36, height: 36, borderRadius: 18,
           backgroundColor: colors.primary,
           alignItems: 'center', justifyContent: 'center',
+          overflow: 'hidden',
         }}
       >
-        {initials ? (
+        {profile?.avatar_url ? (
+          <Image
+            source={{ uri: profile.avatar_url }}
+            style={{ width: 36, height: 36, borderRadius: 18 }}
+            contentFit="cover"
+          />
+        ) : initials ? (
           <Text style={{ color: 'white', fontSize: 13, fontWeight: '600' }}>{initials}</Text>
         ) : (
           <Ionicons name="person" size={18} color="white" />

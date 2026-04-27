@@ -20,7 +20,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks/useTheme';
 import { formatTime, formatCost, getTimeOfDay, getWeekStart } from '@/lib/utils';
 import { fetchMealDetail, type MealDetail } from '@/lib/mealdb';
-import { logSwipe, upsertRecipeByExternalId, setRecipeLiked, fetchMacros, estimateMacrosLocally, fetchScoredDeck, updateRecipeDetail, updateRecipeMacros, logInteraction, recordSessionSwipe, cancelLeftSwipe, recordAdventureCardLeftSwipe, clearSessionState, getCookedRecipeIds, rateRecipe, flagRecipe } from '@/lib/api';
+import { logSwipe, upsertRecipeByExternalId, setRecipeLiked, fetchMacros, estimateMacrosLocally, fetchScoredDeck, updateRecipeDetail, updateRecipeMacros, logInteraction, updateStreakAndCount, recordSessionSwipe, cancelLeftSwipe, recordAdventureCardLeftSwipe, clearSessionState, getCookedRecipeIds, rateRecipe, flagRecipe } from '@/lib/api';
 import { RecipeDetailModal } from '@/components/RecipeDetailModal';
 import { LeftoversReminderModal } from '@/components/LeftoversReminderCard';
 import { HeadlineMacroPill, MacroRow } from '@/components/ui/MacroRow';
@@ -1205,7 +1205,14 @@ export default function Discover() {
               if (!topRecipe || !userId) return;
               if (topRecipe.supabase_id) setCookedRecipeIds((prev) => new Set([...prev, topRecipe.supabase_id!]));
               resolveSupabaseId(topRecipe)
-                .then((supabaseId) => logInteraction(userId, supabaseId, 'cooked', sessionNumber))
+                .then((supabaseId) => {
+                  logInteraction(userId, supabaseId, 'cooked', sessionNumber).catch(() => {});
+                  updateStreakAndCount(userId).then((updates) => {
+                    if (updates && profile) {
+                      useUserStore.getState().setProfile({ ...profile, ...updates });
+                    }
+                  }).catch(() => {});
+                })
                 .catch(() => {});
               // PostCookLeftoversModal is handled inside RecipeDetailModal
             }}
