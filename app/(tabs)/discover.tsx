@@ -21,6 +21,9 @@ import { useTheme } from '@/hooks/useTheme';
 import { formatTime, formatCost, getTimeOfDay, getWeekStart } from '@/lib/utils';
 import { fetchMealDetail, type MealDetail } from '@/lib/mealdb';
 import { logSwipe, upsertRecipeByExternalId, setRecipeLiked, fetchMacros, estimateMacrosLocally, fetchScoredDeck, updateRecipeDetail, updateRecipeMacros, logInteraction, updateStreakAndCount, recordSessionSwipe, cancelLeftSwipe, recordAdventureCardLeftSwipe, clearSessionState, getCookedRecipeIds, rateRecipe, flagRecipe } from '@/lib/api';
+import { computeBadges } from '@/lib/badges';
+import { BadgeMilestoneModal } from '@/components/BadgeMilestoneModal';
+import type { Badge } from '@/lib/badges';
 import { RecipeDetailModal } from '@/components/RecipeDetailModal';
 import { LeftoversReminderModal } from '@/components/LeftoversReminderCard';
 import { HeadlineMacroPill, MacroRow } from '@/components/ui/MacroRow';
@@ -776,6 +779,7 @@ export default function Discover() {
   const [cookedRecipeIds, setCookedRecipeIds] = useState<Set<string>>(new Set());
   // Supabase-backed cooked IDs — persists across sessions, enables "Made before" banner
   const [prevCookedIds, setPrevCookedIds] = useState<Set<string>>(new Set());
+  const [pendingBadge, setPendingBadge] = useState<Badge | null>(null);
   // Meal prep slot picker — shown after right swipe in meal_prep mode
 
   const isSaved = useSavedStore((s) => s.isSaved);
@@ -1204,12 +1208,19 @@ export default function Discover() {
             onMarkCooked={() => {
               if (!topRecipe || !userId) return;
               if (topRecipe.supabase_id) setCookedRecipeIds((prev) => new Set([...prev, topRecipe.supabase_id!]));
+              const preCooked = profile?.meals_cooked_count ?? 0;
+              const preLongest = profile?.longest_streak ?? 0;
               resolveSupabaseId(topRecipe)
                 .then((supabaseId) => {
                   logInteraction(userId, supabaseId, 'cooked', sessionNumber).catch(() => {});
                   updateStreakAndCount(userId).then((updates) => {
                     if (updates && profile) {
                       useUserStore.getState().setProfile({ ...profile, ...updates });
+                      const base = { distinctCuisines: 0, cookedMealPrep: false, recipesSubmitted: 0 };
+                      const preBadges = computeBadges({ totalCooked: preCooked, longestStreak: preLongest, ...base });
+                      const postBadges = computeBadges({ totalCooked: updates.meals_cooked_count, longestStreak: updates.longest_streak, ...base });
+                      const newBadge = postBadges.find((b, i) => b.earned && !preBadges[i].earned) ?? null;
+                      if (newBadge) setPendingBadge(newBadge);
                     }
                   }).catch(() => {});
                 })
@@ -1391,6 +1402,7 @@ export default function Discover() {
       )}
 
       <LeftoversReminderModal />
+      <BadgeMilestoneModal badge={pendingBadge} onDismiss={() => setPendingBadge(null)} />
     </SafeAreaView>
   );
 }

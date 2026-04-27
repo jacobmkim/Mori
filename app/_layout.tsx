@@ -1,10 +1,13 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Linking } from 'react-native';
 import { router } from 'expo-router';
 import * as Sentry from '@sentry/react-native';
+import { useUserStore } from '@/stores/userStore';
+import { registerForPushNotifications } from '@/lib/notifications';
+import { updatePushToken } from '@/lib/api';
 
 Sentry.init({
   dsn: 'https://59eecaa7b60a4f0a210f8c92fa782c67@o4511275352326144.ingest.us.sentry.io/4511275354423296',
@@ -17,6 +20,17 @@ Sentry.init({
 });
 
 function RootLayout() {
+  const profile = useUserStore((s) => s.profile);
+  const registeredFor = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!profile?.id || registeredFor.current === profile.id) return;
+    registeredFor.current = profile.id;
+    registerForPushNotifications()
+      .then((token) => { if (token) updatePushToken(profile.id, token).catch(() => {}); })
+      .catch(() => {});
+  }, [profile?.id]);
+
   useEffect(() => {
     const subscription = Linking.addEventListener('url', handleDeepLink);
     return () => subscription.remove();

@@ -43,6 +43,7 @@
           "backgroundColor": "#F8F3EC"
         }
       ],
+      "expo-notifications",
       "expo-web-browser",
       "@sentry/react-native",
       [

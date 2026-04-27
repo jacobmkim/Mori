@@ -11,6 +11,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import Anthropic from '@anthropic-ai/sdk';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { sendExpoPush } from '../_pushUtils';
 
 function getSupabase() {
   const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
@@ -143,7 +144,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
   const { data: users, error } = await sb
     .from('profiles')
-    .select('id, taste_profile')
+    .select('id, taste_profile, push_token')
     .or(`taste_profile->generated_at.is.null,taste_profile->>generated_at.lt.${thirtyDaysAgo}`);
 
   if (error) return res.status(500).json({ error: 'Failed to fetch users' });
@@ -159,6 +160,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       await sb.from('profiles').update({
         taste_profile: { text: result.text, flavourDna: result.flavourDna, generated_at: new Date().toISOString() },
       }).eq('id', user.id);
+
+      if (user.push_token) {
+        await sendExpoPush({
+          to: user.push_token,
+          title: 'Your Flavour DNA updated ✨',
+          body: result.text,
+          data: { type: 'taste_profile_update' },
+        }).catch(() => {});
+      }
 
       results.updated++;
       await new Promise((resolve) => setTimeout(resolve, 1000)); // pace Claude calls
