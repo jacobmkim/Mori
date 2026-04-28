@@ -35,7 +35,7 @@ function makeChain(data: any[] = []) {
   const node: any = {};
 
   ['select', 'eq', 'neq', 'in', 'not', 'is', 'gte', 'lte', 'gt', 'lt',
-   'order', 'ilike', 'contains', 'overlaps', 'limit'].forEach((m) => {
+   'order', 'ilike', 'contains', 'overlaps', 'limit', 'or'].forEach((m) => {
     node[m] = jest.fn(() => node);
   });
 

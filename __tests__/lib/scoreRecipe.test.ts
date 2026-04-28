@@ -37,7 +37,7 @@ function makeRecipe(ingredients: string[], overrides: Record<string, unknown> = 
   } as any;
 }
 
-function callScore(recipe: any, leftoversSet?: Set<string>): number {
+function callScore(recipe: any, leftoversSet?: Set<string>, ratingMap?: Map<string, number>): number {
   return scoreRecipe(
     recipe,
     NO_PROFILE,
@@ -47,6 +47,7 @@ function callScore(recipe: any, leftoversSet?: Set<string>): number {
     EMPTY_MAP,        // interactionMap
     EMPTY_SET,        // pantrySet
     leftoversSet,
+    ratingMap,
   );
 }
 
@@ -151,5 +152,107 @@ describe('scoreRecipe — leftover bonus', () => {
     const withBonus = callScore(recipe, new Set(['chicken']));
     Math.random = origRandom;
     expect(withBonus - noBonus).toBe(2); // only valid ingredient matches
+  });
+});
+
+// ─── Rating quality bonus ────────────────────────────────────────────────────
+
+describe('scoreRecipe — rating quality bonus', () => {
+  it('adds nothing below 3 reviews (cold start)', () => {
+    const origRandom = Math.random;
+    Math.random = () => 0;
+    const baseline = callScore(makeRecipe(['chicken']));
+    const r1 = callScore(makeRecipe(['chicken'], { avg_rating: 5, rating_count: 0 }));
+    const r2 = callScore(makeRecipe(['chicken'], { avg_rating: 5, rating_count: 2 }));
+    Math.random = origRandom;
+    expect(r1 - baseline).toBe(0);
+    expect(r2 - baseline).toBe(0);
+  });
+
+  it('adds +3 for a 5-star recipe with 10 reviews', () => {
+    const origRandom = Math.random;
+    Math.random = () => 0;
+    const baseline = callScore(makeRecipe(['chicken']));
+    const rated = callScore(makeRecipe(['chicken'], { avg_rating: 5, rating_count: 10 }));
+    Math.random = origRandom;
+    expect(rated - baseline).toBe(3); // (5 - 3) * 1.5
+  });
+
+  it('subtracts 3 for a 1-star recipe with 10 reviews', () => {
+    const origRandom = Math.random;
+    Math.random = () => 0;
+    const baseline = callScore(makeRecipe(['chicken']));
+    const rated = callScore(makeRecipe(['chicken'], { avg_rating: 1, rating_count: 10 }));
+    Math.random = origRandom;
+    expect(rated - baseline).toBe(-3); // (1 - 3) * 1.5
+  });
+
+  it('is neutral at 3 stars (no influence)', () => {
+    const origRandom = Math.random;
+    Math.random = () => 0;
+    const baseline = callScore(makeRecipe(['chicken']));
+    const rated = callScore(makeRecipe(['chicken'], { avg_rating: 3, rating_count: 10 }));
+    Math.random = origRandom;
+    expect(rated - baseline).toBe(0);
+  });
+
+  it('handles null avg_rating gracefully', () => {
+    const origRandom = Math.random;
+    Math.random = () => 0;
+    const baseline = callScore(makeRecipe(['chicken']));
+    const rated = callScore(makeRecipe(['chicken'], { avg_rating: null, rating_count: 10 }));
+    Math.random = origRandom;
+    expect(rated - baseline).toBe(0);
+  });
+});
+
+// ─── Personal user_rating signal ────────────────────────────────────────────
+
+describe('scoreRecipe — personal user_rating signal', () => {
+  const SID = 'sb-r1';
+
+  it('adds +4 for a 5-star personal rating', () => {
+    const origRandom = Math.random;
+    Math.random = () => 0;
+    const baseline = callScore(makeRecipe(['chicken']));
+    const rated = callScore(makeRecipe(['chicken']), undefined, new Map([[SID, 5]]));
+    Math.random = origRandom;
+    expect(rated - baseline).toBe(4); // (5 - 3) * 2
+  });
+
+  it('subtracts 4 for a 1-star personal rating', () => {
+    const origRandom = Math.random;
+    Math.random = () => 0;
+    const baseline = callScore(makeRecipe(['chicken']));
+    const rated = callScore(makeRecipe(['chicken']), undefined, new Map([[SID, 1]]));
+    Math.random = origRandom;
+    expect(rated - baseline).toBe(-4); // (1 - 3) * 2
+  });
+
+  it('is neutral at 3 stars', () => {
+    const origRandom = Math.random;
+    Math.random = () => 0;
+    const baseline = callScore(makeRecipe(['chicken']));
+    const rated = callScore(makeRecipe(['chicken']), undefined, new Map([[SID, 3]]));
+    Math.random = origRandom;
+    expect(rated - baseline).toBe(0);
+  });
+
+  it('ignores rating for a different recipe id', () => {
+    const origRandom = Math.random;
+    Math.random = () => 0;
+    const baseline = callScore(makeRecipe(['chicken']));
+    const rated = callScore(makeRecipe(['chicken']), undefined, new Map([['other-id', 5]]));
+    Math.random = origRandom;
+    expect(rated - baseline).toBe(0);
+  });
+
+  it('adds nothing when ratingMap is undefined', () => {
+    const origRandom = Math.random;
+    Math.random = () => 0;
+    const baseline = callScore(makeRecipe(['chicken']));
+    const noMap = callScore(makeRecipe(['chicken']), undefined, undefined);
+    Math.random = origRandom;
+    expect(noMap - baseline).toBe(0);
   });
 });

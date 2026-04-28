@@ -6,27 +6,19 @@
  * the next time they open the app, the in-app update modal fires.
  *
  * Trigger manually: GET /api/cron/taste-notifications
- * with Authorization: Bearer <SEED_SECRET>
+ * with Authorization: Bearer <CRON_SECRET>
  */
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import Anthropic from '@anthropic-ai/sdk';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { sendExpoPush } from '../_pushUtils';
+import { verifyCronAuth } from './_auth';
 
 function getSupabase() {
   const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) throw new Error('Supabase env vars not configured');
   return createClient(url, key);
-}
-
-function verifyCronAuth(req: VercelRequest): boolean {
-  const auth = req.headers.authorization;
-  const cronSecret = process.env.CRON_SECRET;
-  const seedSecret = process.env.SEED_SECRET;
-  if (cronSecret && auth === `Bearer ${cronSecret}`) return true;
-  if (seedSecret && auth === `Bearer ${seedSecret}`) return true;
-  return false;
 }
 
 async function buildTasteProfileText(

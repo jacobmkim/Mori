@@ -7,6 +7,7 @@ export type AppMode = 'meal_prep' | 'spontaneous';
 export type SwipeDirection = 'right' | 'left';
 export type RecipeBadge = 'none' | 'staff_pick' | 'community_verified' | 'community_favorite';
 export type RecipeSourceType = 'curated' | 'community' | 'imported';
+export type ModerationStatus = 'pending' | 'approved' | 'rejected';
 export type GroceryListType = 'weekly' | 'spontaneous';
 export type GroceryListStatus = 'active' | 'exported' | 'complete';
 export type PantryAddedVia = 'onboarding' | 'grocery_list' | 'manual';
@@ -16,6 +17,8 @@ export type TimeOfDay = 'morning' | 'afternoon' | 'evening' | 'night';
 export interface Profile {
   id: string;
   name: string | null;
+  username: string | null;
+  username_changed_at: string | null;
   avatar_url: string | null;
   dietary_goals: string[];
   dietary_extra_preferences: string | null;
@@ -35,6 +38,8 @@ export interface Profile {
   longest_streak: number;
   last_cooked_date: string | null;
   push_token: string | null;
+  notify_creator_events: boolean;
+  last_creator_digest_at: string | null;
 }
 
 // ─── Macros ───────────────────────────────────────────────────────────────────
@@ -96,6 +101,38 @@ export interface Recipe {
   isAdventure?: boolean;
   // True when this recipe is trending (many right swipes from other users recently).
   isTrending?: boolean;
+  // Visibility + moderation gates for community submissions.
+  is_public?: boolean;
+  moderation_status?: ModerationStatus | null;
+  // Joined from profiles via submitted_by — for "By @{name}" attribution on cards.
+  submitter_name?: string | null;
+  submitter_avatar?: string | null;
+  submitter_username?: string | null;
+}
+
+// ─── Reviews ─────────────────────────────────────────────────────────────────
+
+export interface Review {
+  id: string;
+  recipe_id: string;
+  user_id: string;
+  rating: number;
+  review_text: string | null;
+  created_at: string;
+  updated_at: string;
+  reviewer_name?: string | null;
+  reviewer_username?: string | null;
+  reviewer_avatar?: string | null;
+}
+
+export interface CreatorStats {
+  right_swipes: number;
+  left_swipes: number;
+  saves: number;
+  cooks: number;
+  views: number;
+  avg_rating: number;
+  rating_count: number;
 }
 
 // ─── Recipe Notes ─────────────────────────────────────────────────────────────

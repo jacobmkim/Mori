@@ -15,7 +15,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTheme } from '@/hooks/useTheme';
 import { formatTime, formatCost } from '@/lib/utils';
-import { fetchMacros, flagRecipe, getRecipeNote, saveRecipeNote } from '@/lib/api';
+import { fetchMacros, flagRecipe, getRecipeNote, saveRecipeNote, fetchRecipeReviews, getUserReviewForRecipe, hasUserCookedRecipe, submitReview, updateReview, deleteReview, fetchCreatorStats, rateRecipe } from '@/lib/api';
+import { ReviewItem } from '@/components/ReviewItem';
+import { ReviewComposer } from '@/components/ReviewComposer';
+import { CreatorStatsCard } from '@/components/CreatorStatsCard';
 import { PostCookLeftoversModal } from '@/components/PostCookLeftoversModal';
 import { useDiscoverStore } from '@/stores/discoverStore';
 import { getStaticSubs, getCachedSubs, fetchAndCacheSubs, type Swap } from '@/lib/substitutions';
@@ -23,7 +26,7 @@ import { supabase } from '@/lib/supabase';
 import { MacroRow } from '@/components/ui/MacroRow';
 import { CookingMode } from '@/components/CookingMode';
 import { useUserStore } from '@/stores/userStore';
-import type { Recipe, Macros, RecipeStep } from '@/types';
+import type { Recipe, Macros, RecipeStep, Review, CreatorStats } from '@/types';
 import type { MealDetail } from '@/lib/mealdb';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -189,12 +192,11 @@ interface RecipeDetailModalProps {
   onAddToCart: (scaledIngredients: { name: string; measure: string }[]) => void;
   onRemoveFromCart?: () => void;
   onMarkCooked?: () => void;
-  onRateRecipe?: (rating: number) => void;
 }
 
 export function RecipeDetailModal({
   visible, recipe, detail, isSaved, isInCart, isCooked = false,
-  onClose, onSaveToggle, onAddToCart, onRemoveFromCart, onMarkCooked, onRateRecipe,
+  onClose, onSaveToggle, onAddToCart, onRemoveFromCart, onMarkCooked,
 }: RecipeDetailModalProps) {
   const colors = useTheme();
   const userId = useUserStore((s) => s.profile?.id);
@@ -204,7 +206,17 @@ export function RecipeDetailModal({
   const [storageTips, setStorageTips] = useState<string | null>(null);
   const [tipsLoading, setTipsLoading] = useState(false);
   const [showLeftoversModal, setShowLeftoversModal] = useState(false);
-  const [activeTab, setActiveTab] = useState<'ingredients' | 'steps' | 'notes'>('ingredients');
+  const [activeTab, setActiveTab] = useState<'ingredients' | 'steps' | 'notes' | 'reviews'>('ingredients');
+
+  // Reviews state
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [hasCooked, setHasCooked] = useState(false);
+  const [userReview, setUserReview] = useState<Review | null>(null);
+  const [editingReview, setEditingReview] = useState(false);
+  const [reviewDismissed, setReviewDismissed] = useState(false);
+  const [creatorStats, setCreatorStats] = useState<CreatorStats | null>(null);
+  const [creatorStatsLoading, setCreatorStatsLoading] = useState(false);
   const [cookingModeVisible, setCookingModeVisible] = useState(false);
   const [showServingsSheet, setShowServingsSheet] = useState(false);
   const [groceryToast, setGroceryToast] = useState(false);
@@ -247,6 +259,8 @@ export function RecipeDetailModal({
       setShowServingsSheet(false); setGroceryToast(false);
       setSwapData({}); setExpandedSwapIdx(null); setAppliedSwaps({});
       setShowLeftoversModal(false);
+      setReviews([]); setUserReview(null); setHasCooked(false);
+      setEditingReview(false); setReviewDismissed(false); setCreatorStats(null);
       return;
     }
     setServings(baseServings);
@@ -307,6 +321,67 @@ export function RecipeDetailModal({
         .finally(() => setTipsLoading(false));
     }).catch(() => setTipsLoading(false));
   }, [isCooked, recipe?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Load reviews + cook status when reviews tab becomes active
+  useEffect(() => {
+    if (activeTab !== 'reviews' || !recipe || !userId) return;
+    const recipeId = recipe.supabase_id ?? recipe.id;
+    setReviewsLoading(true);
+    Promise.all([
+      fetchRecipeReviews(recipeId),
+      getUserReviewForRecipe(userId, recipeId),
+      hasUserCookedRecipe(userId, recipeId),
+    ]).then(([list, own, cooked]) => {
+      setReviews(list);
+      setUserReview(own);
+      setHasCooked(cooked);
+    }).catch(() => {}).finally(() => setReviewsLoading(false));
+
+    if (recipe.submitted_by === userId) {
+      setCreatorStatsLoading(true);
+      fetchCreatorStats(recipeId)
+        .then(setCreatorStats)
+        .catch(() => {})
+        .finally(() => setCreatorStatsLoading(false));
+    }
+  }, [activeTab, recipe?.id, userId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function handleSubmitReview(rating: number, text: string) {
+    if (!userId || !recipe) return;
+    const recipeId = recipe.supabase_id ?? recipe.id;
+    try {
+      if (userReview) {
+        const updated = await updateReview(userReview.id, rating, text || null);
+        setUserReview(updated);
+        setReviews((prev) => prev.map((r) => r.id === updated.id ? updated : r));
+      } else {
+        const created = await submitReview(userId, recipeId, rating, text || null);
+        setUserReview(created);
+        setReviews((prev) => [created, ...prev]);
+      }
+      // Sync private scorer signal alongside the public review
+      if (recipe.supabase_id) rateRecipe(userId, recipe.supabase_id, rating).catch(() => {});
+      setUserRating(rating);
+      setEditingReview(false);
+    } catch (err: any) {
+      if (err?.message?.includes('review_insert') || err?.code === '42501') {
+        Alert.alert('Not available', 'You need to mark this recipe as cooked before reviewing.');
+      } else {
+        Alert.alert('Error', 'Could not save review. Try again.');
+      }
+    }
+  }
+
+  async function handleDeleteReview() {
+    if (!userReview) return;
+    try {
+      await deleteReview(userReview.id);
+      setReviews((prev) => prev.filter((r) => r.id !== userReview.id));
+      setUserReview(null);
+    } catch {
+      Alert.alert('Error', 'Could not delete review. Try again.');
+    }
+  }
 
   const adjustServings = useCallback((delta: number) => {
     setServings((prev) => Math.max(1, Math.min(20, prev + delta)));
@@ -400,10 +475,12 @@ export function RecipeDetailModal({
 
   const steps = (recipe.steps ?? []).slice().sort((a, b) => a.order - b.order);
 
+  const reviewCount = recipe?.rating_count ?? 0;
   const TABS = [
     { key: 'ingredients', label: 'Ingredients' },
     { key: 'steps', label: 'Steps' },
     { key: 'notes', label: 'Notes' },
+    { key: 'reviews', label: reviewCount > 0 ? `Reviews (${reviewCount})` : 'Reviews' },
   ] as const;
 
   return (
@@ -456,9 +533,18 @@ export function RecipeDetailModal({
 
           {/* Recipe info block */}
           <View style={{ paddingHorizontal: 16, paddingTop: 14, paddingBottom: 10, backgroundColor: colors.background }}>
-            <Text style={{ fontFamily: 'Georgia', fontStyle: 'italic', fontSize: 22, color: colors.text, marginBottom: 10, lineHeight: 28 }}>
+            <Text style={{ fontFamily: 'Georgia', fontStyle: 'italic', fontSize: 22, color: colors.text, marginBottom: recipe.source_type === 'community' ? 4 : 10, lineHeight: 28 }}>
               {recipe.title}
             </Text>
+
+            {recipe.source_type === 'community' && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+                <Ionicons name="people-outline" size={12} color={colors.primary} />
+                <Text style={{ fontSize: 12, color: colors.textMuted }}>
+                  By {recipe.submitter_username ? `@${recipe.submitter_username}` : recipe.submitter_name ?? 'Mori community'}
+                </Text>
+              </View>
+            )}
 
             {/* Meta pills */}
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }}>
@@ -478,6 +564,23 @@ export function RecipeDetailModal({
                 ))}
               </View>
             </ScrollView>
+
+            {/* Rating summary — tap to jump to Reviews tab */}
+            {(recipe.rating_count ?? 0) >= 3 && (
+              <Pressable
+                onPress={() => setActiveTab('reviews')}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 }}
+                hitSlop={6}
+              >
+                <Ionicons name="star" size={14} color="#FFC107" />
+                <Text style={{ fontSize: 13, color: colors.text, fontWeight: '600' }}>
+                  {Number(recipe.avg_rating).toFixed(1)}
+                </Text>
+                <Text style={{ fontSize: 12, color: colors.textMuted }}>
+                  · {recipe.rating_count} {recipe.rating_count === 1 ? 'review' : 'reviews'}
+                </Text>
+              </Pressable>
+            )}
 
             {/* Macros row */}
             {scaledMacros && (
@@ -871,23 +974,33 @@ export function RecipeDetailModal({
                       </View>
                     )}
 
-                    {/* Post-cook rating */}
-                    {isCooked && onRateRecipe && (
-                      <View style={{ marginTop: 12, padding: 16, backgroundColor: colors.card, borderRadius: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}>
-                        <Text style={{ fontSize: 14, fontWeight: '600', color: colors.text, marginBottom: 10 }}>How was it?</Text>
-                        <View style={{ flexDirection: 'row', gap: 8 }}>
-                          {[1, 2, 3, 4, 5].map((star) => (
-                            <Pressable key={star} onPress={() => { setUserRating(star); onRateRecipe(star); }} hitSlop={4}>
-                              <Ionicons name={star <= userRating ? 'star' : 'star-outline'} size={30} color={star <= userRating ? '#FFB300' : colors.border} />
-                            </Pressable>
-                          ))}
+                    {/* Post-cook review prompt */}
+                    {isCooked && (
+                      userReview ? (
+                        <View style={{ marginTop: 12, padding: 14, backgroundColor: colors.card, borderRadius: 12, borderWidth: 1, borderColor: colors.border }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                            <Text style={{ fontSize: 13, fontWeight: '600', color: colors.text }}>Your review</Text>
+                            <View style={{ flexDirection: 'row', gap: 2 }}>
+                              {[1,2,3,4,5].map((s) => (
+                                <Ionicons key={s} name={s <= userReview.rating ? 'star' : 'star-outline'} size={13} color={s <= userReview.rating ? '#FFC107' : colors.border} />
+                              ))}
+                            </View>
+                          </View>
+                          {userReview.review_text ? (
+                            <Text style={{ fontSize: 12, color: colors.textMuted, lineHeight: 18 }}>{userReview.review_text}</Text>
+                          ) : null}
+                          <Pressable onPress={() => setActiveTab('reviews')} hitSlop={6} style={{ marginTop: 8 }}>
+                            <Text style={{ fontSize: 11, color: colors.primary, fontWeight: '600' }}>Edit in Reviews tab →</Text>
+                          </Pressable>
                         </View>
-                        {userRating > 0 && (
-                          <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 8 }}>
-                            {userRating === 5 ? 'Amazing!' : userRating >= 4 ? 'Really good!' : userRating >= 3 ? 'Pretty good' : userRating >= 2 ? 'Not bad' : 'Not for me'}
-                          </Text>
-                        )}
-                      </View>
+                      ) : !reviewDismissed ? (
+                        <View style={{ marginTop: 12 }}>
+                          <ReviewComposer
+                            onSubmit={handleSubmitReview}
+                            onCancel={() => setReviewDismissed(true)}
+                          />
+                        </View>
+                      ) : null
                     )}
                   </>
                 )}
@@ -912,19 +1025,129 @@ export function RecipeDetailModal({
                   <NotesFilled
                     noteText={noteText} noteSubs={noteSubs}
                     noteTags={noteTags} noteMakeAgain={noteMakeAgain}
-                    userRating={userRating}
                     onEdit={() => setNoteEditing(true)}
-                    onRate={(r) => { setUserRating(r); onRateRecipe?.(r); }}
                   />
                 ) : (
-                  <NotesEmpty
-                    userRating={userRating}
-                    onRate={(r) => { setUserRating(r); onRateRecipe?.(r); }}
-                    onAdd={() => setNoteEditing(true)}
-                  />
+                  <NotesEmpty onAdd={() => setNoteEditing(true)} />
                 )}
               </>
             )}
+            {/* ── Reviews tab ───────────────────────────────────────────── */}
+            {activeTab === 'reviews' && (
+              <>
+                {/* Creator stats — only visible to the recipe creator */}
+                {recipe?.submitted_by === userId && (
+                  <CreatorStatsCard stats={creatorStats} loading={creatorStatsLoading} />
+                )}
+
+                {/* Rating summary header */}
+                {!reviewsLoading && (reviews.length > 0 || recipe?.rating_count) && (
+                  <View style={{
+                    flexDirection: 'row', alignItems: 'center', gap: 12,
+                    paddingVertical: 14, marginBottom: 8,
+                    borderBottomWidth: 1, borderBottomColor: colors.border,
+                  }}>
+                    <View style={{ alignItems: 'center' }}>
+                      <Text style={{ fontSize: 36, fontWeight: '700', color: colors.text, lineHeight: 40 }}>
+                        {recipe?.avg_rating ? Number(recipe.avg_rating).toFixed(1) : '—'}
+                      </Text>
+                      <View style={{ flexDirection: 'row', gap: 2, marginTop: 2 }}>
+                        {[1,2,3,4,5].map((s) => (
+                          <Ionicons key={s} name={s <= Math.round(Number(recipe?.avg_rating ?? 0)) ? 'star' : 'star-outline'} size={12} color={s <= Math.round(Number(recipe?.avg_rating ?? 0)) ? '#FFC107' : colors.border} />
+                        ))}
+                      </View>
+                      <Text style={{ fontSize: 11, color: colors.textMuted, marginTop: 2 }}>
+                        {recipe?.rating_count ?? 0} {(recipe?.rating_count ?? 0) === 1 ? 'review' : 'reviews'}
+                      </Text>
+                    </View>
+                    {/* Distribution bars */}
+                    {reviews.length > 0 && (
+                      <View style={{ flex: 1, gap: 3 }}>
+                        {[5,4,3,2,1].map((star) => {
+                          const count = reviews.filter((r) => r.rating === star).length;
+                          const pct = reviews.length > 0 ? count / reviews.length : 0;
+                          return (
+                            <View key={star} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                              <Text style={{ fontSize: 10, color: colors.textMuted, width: 8 }}>{star}</Text>
+                              <View style={{ flex: 1, height: 6, backgroundColor: colors.border, borderRadius: 3 }}>
+                                <View style={{ width: `${pct * 100}%`, height: 6, backgroundColor: '#FFC107', borderRadius: 3 }} />
+                              </View>
+                              <Text style={{ fontSize: 10, color: colors.textMuted, width: 16 }}>{count}</Text>
+                            </View>
+                          );
+                        })}
+                      </View>
+                    )}
+                  </View>
+                )}
+
+                {reviewsLoading ? (
+                  <ActivityIndicator color={colors.primary} style={{ marginTop: 32 }} />
+                ) : (
+                  <>
+                    {/* Composer or "write" button */}
+                    {hasCooked && recipe?.submitted_by !== userId && (
+                      editingReview || !userReview ? (
+                        <ReviewComposer
+                          existing={editingReview ? userReview : null}
+                          onSubmit={handleSubmitReview}
+                          onCancel={() => setEditingReview(false)}
+                        />
+                      ) : null
+                    )}
+
+                    {/* Write review button if cooked + no review yet + not editing */}
+                    {hasCooked && !userReview && !editingReview && recipe?.submitted_by !== userId && (
+                      <Pressable
+                        onPress={() => setEditingReview(true)}
+                        style={{
+                          flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+                          paddingVertical: 13, borderRadius: 12,
+                          borderWidth: 1.5, borderColor: colors.primary,
+                          marginBottom: 16,
+                        }}
+                      >
+                        <Ionicons name="star-outline" size={16} color={colors.primary} />
+                        <Text style={{ fontSize: 14, fontWeight: '600', color: colors.primary }}>Write a review</Text>
+                      </Pressable>
+                    )}
+
+                    {/* Cook-gated empty state */}
+                    {!hasCooked && recipe?.submitted_by !== userId && (
+                      <View style={{
+                        paddingVertical: 16, paddingHorizontal: 12, marginBottom: 16,
+                        backgroundColor: colors.card, borderRadius: 12,
+                        borderWidth: 1, borderColor: colors.border,
+                        flexDirection: 'row', alignItems: 'center', gap: 10,
+                      }}>
+                        <Ionicons name="lock-closed-outline" size={16} color={colors.textMuted} />
+                        <Text style={{ fontSize: 13, color: colors.textMuted, flex: 1 }}>
+                          Cook this recipe to leave a review
+                        </Text>
+                      </View>
+                    )}
+
+                    {/* Reviews list */}
+                    {reviews.length === 0 && !reviewsLoading ? (
+                      <Text style={{ fontSize: 14, color: colors.textMuted, textAlign: 'center', marginTop: 8 }}>
+                        No reviews yet — be the first!
+                      </Text>
+                    ) : (
+                      reviews.map((review) => (
+                        <ReviewItem
+                          key={review.id}
+                          review={review}
+                          isOwn={review.user_id === userId}
+                          onEdit={() => setEditingReview(true)}
+                          onDelete={handleDeleteReview}
+                        />
+                      ))
+                    )}
+                  </>
+                )}
+              </>
+            )}
+
           </View>{/* end tab content */}
           </ScrollView>{/* end outer sticky ScrollView */}
 
@@ -1072,7 +1295,7 @@ export function RecipeDetailModal({
 }
 
 // ── Notes sub-components ──────────────────────────────────────────────────────
-function NotesEmpty({ userRating, onRate, onAdd }: { userRating: number; onRate: (r: number) => void; onAdd: () => void }) {
+function NotesEmpty({ onAdd }: { onAdd: () => void }) {
   const colors = useTheme();
   return (
     <View style={{ padding: 4, gap: 16 }}>
@@ -1081,16 +1304,6 @@ function NotesEmpty({ userRating, onRate, onAdd }: { userRating: number; onRate:
         <Text style={{ fontSize: 15, fontWeight: '700', color: colors.text, textAlign: 'center' }}>Your personal notes on this recipe</Text>
         <Text style={{ fontSize: 12, color: colors.textMuted, textAlign: 'center', lineHeight: 19 }}>Tweaks, substitutions, what to do differently next time.</Text>
       </View>
-      <View style={{ alignItems: 'center', gap: 10 }}>
-        <Text style={{ fontSize: 12, color: colors.textMuted }}>Rate this recipe</Text>
-        <View style={{ flexDirection: 'row', gap: 8 }}>
-          {[1, 2, 3, 4, 5].map((star) => (
-            <Pressable key={star} onPress={() => onRate(star)} hitSlop={4}>
-              <Ionicons name={star <= userRating ? 'star' : 'star-outline'} size={28} color={star <= userRating ? '#FFC107' : colors.border} />
-            </Pressable>
-          ))}
-        </View>
-      </View>
       <Pressable onPress={onAdd} style={{ backgroundColor: colors.primary, borderRadius: 14, height: 52, alignItems: 'center', justifyContent: 'center' }}>
         <Text style={{ fontSize: 15, fontWeight: '600', color: 'white' }}>+ Add a note</Text>
       </Pressable>
@@ -1098,22 +1311,14 @@ function NotesEmpty({ userRating, onRate, onAdd }: { userRating: number; onRate:
   );
 }
 
-function NotesFilled({ noteText, noteSubs, noteTags, noteMakeAgain, userRating, onEdit, onRate }: {
+function NotesFilled({ noteText, noteSubs, noteTags, noteMakeAgain, onEdit }: {
   noteText: string; noteSubs: string; noteTags: string[]; noteMakeAgain: string | null;
-  userRating: number; onEdit: () => void; onRate: (r: number) => void;
+  onEdit: () => void;
 }) {
   const colors = useTheme();
   const makeAgain = MAKE_AGAIN_OPTIONS.find((o) => o.key === noteMakeAgain);
   return (
     <View style={{ gap: 12 }}>
-      {/* Rating */}
-      <View style={{ flexDirection: 'row', gap: 6 }}>
-        {[1, 2, 3, 4, 5].map((star) => (
-          <Pressable key={star} onPress={() => onRate(star)} hitSlop={4}>
-            <Ionicons name={star <= userRating ? 'star' : 'star-outline'} size={24} color={star <= userRating ? '#FFC107' : colors.border} />
-          </Pressable>
-        ))}
-      </View>
       {/* Tags */}
       {noteTags.length > 0 && (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>

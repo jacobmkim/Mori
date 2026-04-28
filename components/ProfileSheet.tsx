@@ -4,7 +4,7 @@
  * Opened by tapping the AvatarButton on any screen.
  */
 import {
-  View, Text, Modal, Pressable, ScrollView, Alert, ActivityIndicator, Switch, TextInput,
+  View, Text, Modal, Pressable, ScrollView, Alert, ActivityIndicator, Switch,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
@@ -26,12 +26,15 @@ import {
   getProfile, fetchBadgeStats,
 } from '@/lib/api';
 import { clearRecipeCache } from '@/lib/mealdb';
-import { computeBadges } from '@/lib/badges';
-import type { Badge } from '@/lib/badges';
-import { BadgeRow } from '@/components/BadgeRow';
+import { computeBadges, getShowcaseBadges } from '@/lib/badges';
+import type { Badge, BadgeStats } from '@/lib/badges';
 import type { Profile } from '@/types';
 import { EditPreferencesModal } from '@/components/EditPreferencesModal';
 import { PantryModal } from '@/components/PantryModal';
+import { BadgeGrid } from '@/components/badges/BadgeGrid';
+import { BadgeItem } from '@/components/badges/BadgeItem';
+import { BadgeAchievementModal } from '@/components/badges/BadgeAchievementModal';
+import { BADGE_CATEGORY_LABELS } from '@/components/badges/badgeData';
 
 const SKILL_LABELS: Record<string, string> = {
   beginner: 'Beginner', home_cook: 'Home Cook', confident_chef: 'Confident Chef',
@@ -92,15 +95,17 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
   const [editVisible, setEditVisible] = useState(false);
   const [pantryVisible, setPantryVisible] = useState(false);
   const [adventureCards, setAdventureCards] = useState(true);
-  const [editingName, setEditingName] = useState(false);
-  const [nameInput, setNameInput] = useState('');
-  const [badges, setBadges] = useState<Badge[]>([]);
   const savedTasteProfile = (profile?.taste_profile as any);
   const [tasteProfile, setTasteProfile] = useState<string | null>(savedTasteProfile?.text ?? null);
   const [flavourDna, setFlavourDna] = useState<Record<string, { score: number; note: string }> | null>(savedTasteProfile?.flavourDna ?? null);
   const [tasteLoading, setTasteLoading] = useState(false);
   const [shareLoading, setShareLoading] = useState(false);
   const cardRef = useRef<View>(null);
+  const [activeTab, setActiveTab] = useState<'overview' | 'badges'>('overview');
+  const [badgeStats, setBadgeStats] = useState<BadgeStats>({
+    totalCooked: 0, longestStreak: 0, distinctCuisines: 0, cookedMealPrep: false, recipesSubmitted: 0,
+  });
+  const [previewQueue, setPreviewQueue] = useState<Badge[]>([]);
 
   async function handleShareImage() {
     if (!cardRef.current || !tasteProfile) return;
@@ -193,9 +198,6 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
         const fresh = await getProfile(profile.id).catch(() => null);
         if (fresh) {
           setProfile(fresh);
-          const knownStats = { longestStreak: fresh.longest_streak ?? 0, recipesSubmitted: fresh.recipes_submitted_count ?? 0 };
-          setBadges(computeBadges({ totalCooked: fresh.meals_cooked_count ?? 0, longestStreak: knownStats.longestStreak, distinctCuisines: 0, cookedMealPrep: false, recipesSubmitted: knownStats.recipesSubmitted }));
-          fetchBadgeStats(fresh.id, knownStats).then((stats) => setBadges(computeBadges(stats))).catch(() => {});
         }
 
         // Always fetch fresh taste_profile from DB — catches clears and cross-device updates
@@ -220,6 +222,21 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
         }
       })();
       getAdventureCardsEnabled().then(setAdventureCards).catch(() => {});
+
+      // Badge stats
+      setActiveTab('overview');
+      const knownStats = {
+        longestStreak: profile.longest_streak ?? 0,
+        recipesSubmitted: profile.recipes_submitted_count ?? 0,
+      };
+      const initialStats: BadgeStats = {
+        totalCooked: profile.meals_cooked_count ?? 0,
+        longestStreak: knownStats.longestStreak,
+        distinctCuisines: 0, cookedMealPrep: false,
+        recipesSubmitted: knownStats.recipesSubmitted,
+      };
+      setBadgeStats(initialStats);
+      fetchBadgeStats(profile.id, knownStats).then(setBadgeStats).catch(() => {});
     }
   }, [visible, profile?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -249,20 +266,6 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
       clearDiscoverCache();
     } catch {
       Alert.alert('Could not save preferences', 'Please check your connection and try again.');
-    }
-  }
-
-  async function handleSaveName() {
-    if (!profile) return;
-    const trimmed = nameInput.trim();
-    if (!trimmed) return;
-    try {
-      const updated = await patchProfile(profile.id, { name: trimmed });
-      setProfile(updated);
-    } catch {
-      Alert.alert('Could not save name', 'Please try again.');
-    } finally {
-      setEditingName(false);
     }
   }
 
@@ -311,8 +314,13 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
                 </View>
                 <View>
                   <Text style={{ fontSize: 17, fontWeight: '700', color: colors.text }}>
-                    {profile?.name ?? profile?.email?.split('@')[0] ?? 'Mori User'}
+                    {profile?.name ?? (profile as any)?.email?.split('@')[0] ?? 'Mori User'}
                   </Text>
+                  {profile?.username && (
+                    <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 1 }}>
+                      @{profile.username}
+                    </Text>
+                  )}
                   <Text style={{ fontSize: 13, color: colors.textMuted }}>
                     {savedCount} recipe{savedCount !== 1 ? 's' : ''} saved
                   </Text>
@@ -353,16 +361,61 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
               ))}
             </View>
 
-            {/* Achievements */}
-            {badges.length > 0 && (
-              <View style={{ marginBottom: 16 }}>
-                <Text style={{ fontSize: 13, fontWeight: '700', color: colors.text, paddingHorizontal: 16, marginBottom: 10 }}>Achievements</Text>
-                <BadgeRow badges={badges} />
-              </View>
+            {/* Top badge showcase — one per category */}
+            {(() => {
+              const showcase = getShowcaseBadges(badgeStats);
+              return (
+                <View style={{ paddingHorizontal: 16, marginBottom: 16 }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-around', backgroundColor: colors.card, borderRadius: 16, borderWidth: 1, borderColor: colors.border, paddingVertical: 16, paddingHorizontal: 8 }}>
+                    {showcase.map((badge) => (
+                      <View key={badge.id} style={{ alignItems: 'center', gap: 6 }}>
+                        <BadgeItem
+                          badge={badge}
+                          size={52}
+                          showName={false}
+                          onPress={() => setPreviewQueue([badge])}
+                        />
+                        <Text style={{ fontSize: 10, color: colors.textMuted, fontWeight: '500', letterSpacing: 0.4, textTransform: 'uppercase' }}>
+                          {BADGE_CATEGORY_LABELS[badge.category]}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              );
+            })()}
+
+            {/* Tab bar */}
+            <View style={{ flexDirection: 'row', paddingHorizontal: 16, marginBottom: 20, gap: 8 }}>
+              {(['overview', 'badges'] as const).map((tab) => (
+                <Pressable
+                  key={tab}
+                  onPress={() => setActiveTab(tab)}
+                  style={{
+                    flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center',
+                    backgroundColor: activeTab === tab ? colors.primary : colors.card,
+                    borderWidth: 1.5,
+                    borderColor: activeTab === tab ? colors.primary : colors.border,
+                  }}
+                >
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: activeTab === tab ? 'white' : colors.textMuted }}>
+                    {tab === 'overview' ? 'Overview' : 'Badges'}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
+            {/* Badges tab */}
+            {activeTab === 'badges' && (
+              <BadgeGrid
+                stats={badgeStats}
+                scrollEnabled={false}
+                onBadgePress={(badge) => setPreviewQueue([badge])}
+              />
             )}
 
             {/* Taste Profile */}
-            {profile && (
+            {activeTab === 'overview' && profile && (
               <View style={{ paddingHorizontal: 16, paddingTop: 4, marginBottom: 20 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
                   <Text style={{ fontSize: 14, fontWeight: '700', color: colors.text }}>Taste Profile</Text>
@@ -465,6 +518,8 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
               </View>
             )}
 
+            {activeTab === 'overview' && (<>
+
             {/* Account */}
             <View style={{ paddingHorizontal: 16, marginBottom: 20 }}>
               <Text style={{
@@ -477,51 +532,12 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
                 backgroundColor: colors.card, borderRadius: 12,
                 borderWidth: 1, borderColor: colors.border, overflow: 'hidden',
               }}>
-                {editingName ? (
-                  <View style={{
-                    flexDirection: 'row', alignItems: 'center',
-                    paddingHorizontal: 16, paddingVertical: 12,
-                    borderBottomWidth: 0,
-                  }}>
-                    <Ionicons name="person-outline" size={20} color={colors.primary} />
-                    <TextInput
-                      value={nameInput}
-                      onChangeText={setNameInput}
-                      placeholder="Display name"
-                      placeholderTextColor={colors.textMuted}
-                      autoFocus
-                      maxLength={40}
-                      style={{
-                        flex: 1, marginLeft: 12, fontSize: 15, color: colors.text,
-                        borderBottomWidth: 1.5, borderBottomColor: colors.primary,
-                        paddingVertical: 2,
-                      }}
-                    />
-                    <Pressable onPress={handleSaveName} hitSlop={8} style={{ marginLeft: 10 }}>
-                      <Ionicons name="checkmark-circle" size={24} color={colors.primary} />
-                    </Pressable>
-                    <Pressable onPress={() => setEditingName(false)} hitSlop={8} style={{ marginLeft: 6 }}>
-                      <Ionicons name="close-circle" size={24} color={colors.textMuted} />
-                    </Pressable>
-                  </View>
-                ) : (
-                  <Pressable
-                    onPress={() => { setNameInput(profile?.name ?? ''); setEditingName(true); }}
-                    style={{
-                      flexDirection: 'row', alignItems: 'center',
-                      paddingHorizontal: 16, paddingVertical: 14, minHeight: 52,
-                    }}
-                  >
-                    <Ionicons name="person-outline" size={20} color={colors.primary} />
-                    <Text style={{ flex: 1, marginLeft: 12, fontSize: 15, color: colors.text, fontWeight: '500' }}>
-                      Display Name
-                    </Text>
-                    <Text style={{ fontSize: 14, color: profile?.name ? colors.textMuted : colors.primary, fontStyle: profile?.name ? 'normal' : 'italic' }}>
-                      {profile?.name ?? 'Set name'}
-                    </Text>
-                    <Ionicons name="chevron-forward" size={16} color={colors.textMuted} style={{ marginLeft: 6 }} />
-                  </Pressable>
-                )}
+                <SheetRow
+                  icon="person-circle-outline"
+                  label="Edit Profile"
+                  onPress={() => { onClose(); setTimeout(() => router.push('/edit-profile' as any), 300); }}
+                  last
+                />
               </View>
             </View>
 
@@ -685,8 +701,16 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
                 </View>
               </View>
             )}
+            </>)}
           </ScrollView>
         </View>
+
+        {/* Badge preview modal — inside pageSheet so it stacks correctly on iOS */}
+        <BadgeAchievementModal
+          queue={previewQueue}
+          onQueueChange={setPreviewQueue}
+          previewMode
+        />
       </Modal>
 
       {/* Hidden card used for image capture — positioned off-screen */}
@@ -717,7 +741,7 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
         {flavourDna && (
           <View style={{ borderTopWidth: 0.5, borderBottomWidth: 0.5, borderColor: '#2D6A4F', paddingVertical: 14 }}>
             <Text style={{ fontSize: 9, fontFamily: 'monospace', color: '#7A7468', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 12 }}>your flavour dna</Text>
-            {(['heat', 'bold', 'quick', 'complex', 'adventurous'] as const).map((dim) => {
+            {(['explorer', 'committed', 'speed', 'planner', 'devoted'] as const).map((dim) => {
               const d = flavourDna[dim];
               if (!d) return null;
               const barColor = d.score >= 70 ? '#1E4D35' : d.score >= 40 ? '#52B788' : '#E8854A';

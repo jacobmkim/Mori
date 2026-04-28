@@ -2,7 +2,6 @@ import { View, Text, Pressable, ScrollView, Alert, Modal, TextInput, ActivityInd
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import { useState, useEffect, useCallback } from 'react';
 import { useFocusEffect } from 'expo-router';
@@ -15,8 +14,9 @@ import { clearRecipeCache } from '@/lib/mealdb';
 import { useTheme } from '@/hooks/useTheme';
 import { useDiscoverStore, type AppearanceMode } from '@/stores/discoverStore';
 import { computeBadges } from '@/lib/badges';
-import type { Badge } from '@/lib/badges';
-import { BadgeRow } from '@/components/BadgeRow';
+import type { Badge, BadgeStats } from '@/lib/badges';
+import { BadgeGrid } from '@/components/badges/BadgeGrid';
+import { BadgeAchievementModal } from '@/components/badges/BadgeAchievementModal';
 import type { Profile, PantryItem } from '@/types';
 
 // ── Label maps ────────────────────────────────────────────────────────────────
@@ -72,11 +72,13 @@ function EditPreferencesModal({
   const [cookingFrequency, setCookingFrequency] = useState(profile.cooking_frequency ?? '');
   const [budget, setBudget] = useState(profile.weekly_budget ?? '');
   const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
 
   // Resync local state from profile whenever the modal opens.
   // React doesn't reinitialize useState when props change, so we do it explicitly.
   useEffect(() => {
     if (!visible) return;
+    setSaved(false);
     setDietaryGoals(profile.dietary_goals ?? []);
     setExtraPrefs(profile.dietary_extra_preferences ?? '');
     setCuisines((profile.cuisine_preferences ?? []).map((c) => c.charAt(0).toUpperCase() + c.slice(1)));
@@ -128,7 +130,10 @@ function EditPreferencesModal({
         cooking_frequency: (cookingFrequency as Profile['cooking_frequency']) || null,
         weekly_budget: budget || null,
       });
-      onClose();
+      setSaved(true);
+      setTimeout(onClose, 700);
+    } catch {
+      // onSave already shows an Alert on failure — just reset the button
     } finally {
       setSaving(false);
     }
@@ -148,9 +153,9 @@ function EditPreferencesModal({
             <Text style={{ color: colors.textMuted, fontSize: 16 }}>Cancel</Text>
           </Pressable>
           <Text style={{ fontSize: 17, fontWeight: '700', color: colors.text }}>Edit Preferences</Text>
-          <Pressable onPress={handleSave} disabled={saving} hitSlop={8}>
-            <Text style={{ color: saving ? colors.textMuted : colors.primary, fontSize: 16, fontWeight: '600' }}>
-              {saving ? 'Saving...' : 'Save'}
+          <Pressable onPress={handleSave} disabled={saving || saved} hitSlop={8}>
+            <Text style={{ color: saving || saved ? colors.textMuted : colors.primary, fontSize: 16, fontWeight: '600' }}>
+              {saving ? 'Saving...' : saved ? 'Saved ✓' : 'Save'}
             </Text>
           </Pressable>
         </View>
@@ -459,7 +464,7 @@ function PantryModal({
 
 // ── Dev Tools (dev builds only) ───────────────────────────────────────────────
 
-function DevToolsSection() {
+function DevToolsSection({ onReplayBadgeQueue }: { onReplayBadgeQueue: () => void }) {
   const colors = useTheme();
   const [flagged, setFlagged] = useState<FlaggedRecipe[]>([]);
 
@@ -549,6 +554,28 @@ function DevToolsSection() {
             Share this list with Claude to review and fix bad recipes.
           </Text>
         </View>
+        <View style={{
+          flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+          padding: 16, borderTopWidth: 1, borderTopColor: colors.border,
+        }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 15, fontWeight: '500', color: colors.text }}>
+              Replay badge queue
+            </Text>
+            <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>
+              Preview the achievement modal with 3 sample badges
+            </Text>
+          </View>
+          <Pressable
+            onPress={onReplayBadgeQueue}
+            style={{
+              backgroundColor: colors.infoBg, borderRadius: 8,
+              paddingHorizontal: 12, paddingVertical: 6,
+            }}
+          >
+            <Text style={{ fontSize: 13, color: colors.info, fontWeight: '600' }}>Play</Text>
+          </Pressable>
+        </View>
       </View>
     </View>
   );
@@ -563,8 +590,6 @@ export default function Profile() {
   const [editVisible, setEditVisible] = useState(false);
   const [pantryVisible, setPantryVisible] = useState(false);
   const [adventureCards, setAdventureCards] = useState(true);
-  const [editingName, setEditingName] = useState(false);
-  const [nameInput, setNameInput] = useState('');
   const [unitSystem, setUnitSystemState] = useState<'us' | 'metric'>('us');
   const { appearanceMode, setAppearanceMode } = useDiscoverStore();
   const savedTasteProfile = (profile?.taste_profile as any);
@@ -572,7 +597,9 @@ export default function Profile() {
   const [tasteLoading, setTasteLoading] = useState(false);
   const [tasteError, setTasteError] = useState<string | null>(null);
   const [badges, setBadges] = useState<Badge[]>([]);
-  const [avatarLoading, setAvatarLoading] = useState(false);
+  const [badgeStats, setBadgeStats] = useState<BadgeStats>({ totalCooked: 0, longestStreak: 0, distinctCuisines: 0, cookedMealPrep: false, recipesSubmitted: 0 });
+  const [activeTab, setActiveTab] = useState<'overview' | 'badges'>('overview');
+  const [previewQueue, setPreviewQueue] = useState<Badge[]>([]);
 
   useFocusEffect(useCallback(() => {
     if (!profile?.id) return;
@@ -583,15 +610,11 @@ export default function Profile() {
         longestStreak: fresh.longest_streak ?? 0,
         recipesSubmitted: fresh.recipes_submitted_count ?? 0,
       };
-      setBadges(computeBadges({
-        totalCooked: fresh.meals_cooked_count ?? 0,
-        longestStreak: knownStats.longestStreak,
-        distinctCuisines: 0,
-        cookedMealPrep: false,
-        recipesSubmitted: knownStats.recipesSubmitted,
-      }));
+      const initialStats: BadgeStats = { totalCooked: fresh.meals_cooked_count ?? 0, longestStreak: knownStats.longestStreak, distinctCuisines: 0, cookedMealPrep: false, recipesSubmitted: knownStats.recipesSubmitted };
+      setBadgeStats(initialStats);
+      setBadges(computeBadges(initialStats));
       fetchBadgeStats(fresh.id, knownStats)
-        .then((stats) => setBadges(computeBadges(stats)))
+        .then((stats) => { setBadgeStats(stats); setBadges(computeBadges(stats)); })
         .catch(() => {});
     }).catch(() => {});
   }, [profile?.id])); // eslint-disable-line react-hooks/exhaustive-deps
@@ -651,51 +674,13 @@ export default function Profile() {
       longestStreak: profile.longest_streak ?? 0,
       recipesSubmitted: profile.recipes_submitted_count ?? 0,
     };
-    setBadges(computeBadges({
-      totalCooked: profile.meals_cooked_count ?? 0,
-      longestStreak: knownStats.longestStreak,
-      distinctCuisines: 0,
-      cookedMealPrep: false,
-      recipesSubmitted: knownStats.recipesSubmitted,
-    }));
+    const initialStats: BadgeStats = { totalCooked: profile.meals_cooked_count ?? 0, longestStreak: knownStats.longestStreak, distinctCuisines: 0, cookedMealPrep: false, recipesSubmitted: knownStats.recipesSubmitted };
+    setBadgeStats(initialStats);
+    setBadges(computeBadges(initialStats));
     fetchBadgeStats(profile.id, knownStats)
-      .then((stats) => setBadges(computeBadges(stats)))
+      .then((stats) => { setBadgeStats(stats); setBadges(computeBadges(stats)); })
       .catch(() => {});
   }, [profile?.id]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  async function handlePickAvatar() {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Allow photo library access to set a profile picture.');
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.7,
-    });
-    if (result.canceled || !profile?.id) return;
-    const uri = result.assets[0].uri;
-    setAvatarLoading(true);
-    try {
-      const response = await fetch(uri);
-      const blob = await response.blob();
-      const path = `${profile.id}/avatar.jpg`;
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(path, blob, { upsert: true, contentType: 'image/jpeg' });
-      if (uploadError) throw uploadError;
-      const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
-      const avatar_url = `${urlData.publicUrl}?t=${Date.now()}`;
-      await supabase.from('profiles').update({ avatar_url }).eq('id', profile.id);
-      setProfile({ ...profile, avatar_url });
-    } catch {
-      Alert.alert('Upload failed', 'Could not save profile picture. Try again.');
-    } finally {
-      setAvatarLoading(false);
-    }
-  }
 
   async function handleSignOut() {
     Alert.alert('Sign out', 'Are you sure you want to sign out?', [
@@ -726,20 +711,6 @@ export default function Profile() {
     }
   }
 
-  async function handleSaveName() {
-    if (!profile) return;
-    const trimmed = nameInput.trim();
-    if (!trimmed) return;
-    try {
-      const updated = await patchProfile(profile.id, { name: trimmed });
-      setProfile(updated);
-    } catch {
-      Alert.alert('Could not save name', 'Please try again.');
-    } finally {
-      setEditingName(false);
-    }
-  }
-
   const currentStreak = profile?.current_streak ?? 0;
   const stats = [
     { label: 'Meals Cooked', value: profile?.meals_cooked_count ?? 0, icon: 'restaurant' },
@@ -753,7 +724,7 @@ export default function Profile() {
       <ScrollView contentContainerStyle={{ paddingBottom: 32 }}>
         {/* Header */}
         <View style={{ alignItems: 'center', paddingTop: 32, paddingBottom: 24, paddingHorizontal: 24 }}>
-          <Pressable onPress={handlePickAvatar} style={{ marginBottom: 12 }}>
+          <View style={{ marginBottom: 12 }}>
             <View style={{
               width: 80, height: 80, borderRadius: 40,
               backgroundColor: colors.primaryLight,
@@ -770,54 +741,18 @@ export default function Profile() {
                 <Ionicons name="person" size={40} color={colors.primary} />
               )}
             </View>
-            {avatarLoading ? (
-              <View style={{
-                position: 'absolute', bottom: 0, right: 0,
-                backgroundColor: colors.card, borderRadius: 12, padding: 2,
-              }}>
-                <ActivityIndicator size="small" color={colors.primary} />
-              </View>
-            ) : (
-              <View style={{
-                position: 'absolute', bottom: 0, right: 0,
-                backgroundColor: colors.primary, borderRadius: 12, padding: 3,
-              }}>
-                <Ionicons name="camera" size={12} color="white" />
-              </View>
-            )}
-          </Pressable>
-          {editingName ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
-              <TextInput
-                value={nameInput}
-                onChangeText={setNameInput}
-                placeholder="Your name"
-                placeholderTextColor={colors.textMuted}
-                autoFocus
-                maxLength={40}
-                style={{
-                  fontSize: 18, fontWeight: '700', color: colors.text,
-                  borderBottomWidth: 2, borderBottomColor: colors.primary,
-                  paddingVertical: 2, paddingHorizontal: 4, minWidth: 120,
-                }}
-              />
-              <Pressable onPress={handleSaveName} hitSlop={8}>
-                <Ionicons name="checkmark-circle" size={28} color={colors.primary} />
-              </Pressable>
-              <Pressable onPress={() => setEditingName(false)} hitSlop={8}>
-                <Ionicons name="close-circle" size={28} color={colors.textMuted} />
-              </Pressable>
-            </View>
-          ) : (
-            <Pressable
-              onPress={() => { setNameInput(profile?.name ?? ''); setEditingName(true); }}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}
-            >
-              <Text style={{ fontSize: 20, fontWeight: '700', color: profile?.name ? colors.text : colors.textMuted, fontStyle: profile?.name ? 'normal' : 'italic' }}>
-                {profile?.name ?? 'Set display name'}
-              </Text>
-              <Ionicons name="pencil-outline" size={16} color={colors.textMuted} />
-            </Pressable>
+          </View>
+          <Text style={{
+            fontSize: 20, fontWeight: '700', marginTop: 4,
+            color: profile?.name ? colors.text : colors.textMuted,
+            fontStyle: profile?.name ? 'normal' : 'italic',
+          }}>
+            {profile?.name ?? 'Mori User'}
+          </Text>
+          {profile?.username && (
+            <Text style={{ fontSize: 13, color: colors.textMuted, marginTop: 2 }}>
+              @{profile.username}
+            </Text>
           )}
           <Text style={{ fontSize: 14, color: colors.textMuted, marginTop: 4 }}>
             {profile ? 'Member since ' + new Date(profile.created_at).getFullYear() : 'Welcome!'}
@@ -847,18 +782,36 @@ export default function Profile() {
           ))}
         </View>
 
-        {/* Achievements */}
-        {badges.length > 0 && (
-          <View style={{ marginBottom: 24 }}>
-            <Text style={{ fontSize: 16, fontWeight: '600', color: colors.text, paddingHorizontal: 16, marginBottom: 12 }}>
-              Achievements
-            </Text>
-            <BadgeRow badges={badges} />
-          </View>
+        {/* Tab bar */}
+        <View style={{ flexDirection: 'row', paddingHorizontal: 16, marginBottom: 20, gap: 8 }}>
+          {(['overview', 'badges'] as const).map((tab) => (
+            <Pressable
+              key={tab}
+              onPress={() => setActiveTab(tab)}
+              style={{
+                flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center',
+                backgroundColor: activeTab === tab ? colors.primary : colors.card,
+                borderWidth: 1.5,
+                borderColor: activeTab === tab ? colors.primary : colors.border,
+              }}
+            >
+              <Text style={{ fontSize: 14, fontWeight: '600', color: activeTab === tab ? 'white' : colors.textMuted }}>
+                {tab === 'overview' ? 'Overview' : 'Badges'}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+
+        {activeTab === 'badges' && (
+          <BadgeGrid
+            stats={badgeStats}
+            scrollEnabled={false}
+            onBadgePress={(badge) => setPreviewQueue([badge])}
+          />
         )}
 
         {/* Taste Profile */}
-        {profile && (
+        {activeTab === 'overview' && profile && (
           <View style={{ paddingHorizontal: 16, marginBottom: 24 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
               <Text style={{ fontSize: 16, fontWeight: '600', color: colors.text }}>Your Taste Profile v2</Text>
@@ -907,7 +860,7 @@ export default function Profile() {
         )}
 
         {/* Preferences */}
-        {profile && (
+        {activeTab === 'overview' && profile && (
           <View style={{ paddingHorizontal: 16, marginBottom: 24 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
               <Text style={{ fontSize: 16, fontWeight: '600', color: colors.text }}>My Preferences</Text>
@@ -961,7 +914,7 @@ export default function Profile() {
         )}
 
         {/* Pantry */}
-        {profile && (
+        {activeTab === 'overview' && profile && (
           <View style={{ paddingHorizontal: 16, marginBottom: 24 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
               <Text style={{ fontSize: 16, fontWeight: '600', color: colors.text }}>My Pantry</Text>
@@ -989,159 +942,172 @@ export default function Profile() {
           </View>
         )}
 
-        {/* Discover Settings */}
-        <View style={{ paddingHorizontal: 16, marginBottom: 24 }}>
-          <Text style={{
-            fontSize: 13, fontWeight: '700', color: colors.textMuted,
-            textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 12,
-          }}>
-            Discover Settings
-          </Text>
-          <View style={{
-            backgroundColor: colors.card, borderRadius: 12,
-            borderWidth: 1, borderColor: colors.border, overflow: 'hidden',
-          }}>
-            {/* Adventure cards */}
-            <View style={{
-              flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-              padding: 16, borderBottomWidth: 1, borderBottomColor: colors.border,
-            }}>
-              <View style={{ flex: 1, marginRight: 12 }}>
-                <Text style={{ fontSize: 15, fontWeight: '500', color: colors.text }}>
-                  Adventure cards
-                </Text>
-                <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>
-                  {adventureCards
-                    ? 'Exploring new cuisines based on your taste'
-                    : 'Showing familiar cuisines only'}
-                </Text>
-              </View>
-              <Switch
-                value={adventureCards}
-                onValueChange={(val) => {
-                  setAdventureCards(val);
-                  setAdventureCardsEnabled(val).catch(() => {});
-                }}
-                trackColor={{ false: colors.border, true: colors.primary }}
-                thumbColor="white"
-              />
-            </View>
-
-            {/* Measurement units */}
-            <View style={{
-              flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-              padding: 16, borderTopWidth: 1, borderTopColor: colors.border,
-            }}>
-              <View style={{ flex: 1, marginRight: 12 }}>
-                <Text style={{ fontSize: 15, fontWeight: '500', color: colors.text }}>
-                  Measurement units
-                </Text>
-                <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>
-                  {unitSystem === 'us' ? 'cups/tbsp for volume · oz for weight' : 'ml for volume · g for weight'}
-                </Text>
-              </View>
-              <View style={{ flexDirection: 'row', borderRadius: 8, borderWidth: 1, borderColor: colors.border, overflow: 'hidden' }}>
-                {(['us', 'metric'] as const).map((opt) => (
-                  <Pressable
-                    key={opt}
-                    onPress={() => {
-                      setUnitSystemState(opt);
-                      setUnitSystem(opt).catch(() => {});
-                    }}
-                    style={{
-                      paddingHorizontal: 14, paddingVertical: 7,
-                      backgroundColor: unitSystem === opt ? colors.primary : colors.background,
-                    }}
-                  >
-                    <Text style={{ fontSize: 13, fontWeight: '600', color: unitSystem === opt ? 'white' : colors.textMuted }}>
-                      {opt === 'us' ? 'cups' : 'ml'}
+        {activeTab === 'overview' && (
+          <>
+            {/* Discover Settings */}
+            <View style={{ paddingHorizontal: 16, marginBottom: 24 }}>
+              <Text style={{
+                fontSize: 13, fontWeight: '700', color: colors.textMuted,
+                textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 12,
+              }}>
+                Discover Settings
+              </Text>
+              <View style={{
+                backgroundColor: colors.card, borderRadius: 12,
+                borderWidth: 1, borderColor: colors.border, overflow: 'hidden',
+              }}>
+                {/* Adventure cards */}
+                <View style={{
+                  flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+                  padding: 16, borderBottomWidth: 1, borderBottomColor: colors.border,
+                }}>
+                  <View style={{ flex: 1, marginRight: 12 }}>
+                    <Text style={{ fontSize: 15, fontWeight: '500', color: colors.text }}>
+                      Adventure cards
                     </Text>
-                  </Pressable>
-                ))}
+                    <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>
+                      {adventureCards
+                        ? 'Exploring new cuisines based on your taste'
+                        : 'Showing familiar cuisines only'}
+                    </Text>
+                  </View>
+                  <Switch
+                    value={adventureCards}
+                    onValueChange={(val) => {
+                      setAdventureCards(val);
+                      setAdventureCardsEnabled(val).catch(() => {});
+                    }}
+                    trackColor={{ false: colors.border, true: colors.primary }}
+                    thumbColor="white"
+                  />
+                </View>
+
+                {/* Measurement units */}
+                <View style={{
+                  flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+                  padding: 16, borderTopWidth: 1, borderTopColor: colors.border,
+                }}>
+                  <View style={{ flex: 1, marginRight: 12 }}>
+                    <Text style={{ fontSize: 15, fontWeight: '500', color: colors.text }}>
+                      Measurement units
+                    </Text>
+                    <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>
+                      {unitSystem === 'us' ? 'cups/tbsp for volume · oz for weight' : 'ml for volume · g for weight'}
+                    </Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', borderRadius: 8, borderWidth: 1, borderColor: colors.border, overflow: 'hidden' }}>
+                    {(['us', 'metric'] as const).map((opt) => (
+                      <Pressable
+                        key={opt}
+                        onPress={() => {
+                          setUnitSystemState(opt);
+                          setUnitSystem(opt).catch(() => {});
+                        }}
+                        style={{
+                          paddingHorizontal: 14, paddingVertical: 7,
+                          backgroundColor: unitSystem === opt ? colors.primary : colors.background,
+                        }}
+                      >
+                        <Text style={{ fontSize: 13, fontWeight: '600', color: unitSystem === opt ? 'white' : colors.textMuted }}>
+                          {opt === 'us' ? 'cups' : 'ml'}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </View>
               </View>
             </View>
 
-          </View>
-        </View>
-
-        {/* Appearance */}
-        <View style={{ paddingHorizontal: 16, marginBottom: 24 }}>
-          <Text style={{
-            fontSize: 13, fontWeight: '700', color: colors.textMuted,
-            textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 12,
-          }}>
-            Appearance
-          </Text>
-          <View style={{
-            backgroundColor: colors.card, borderRadius: 12,
-            borderWidth: 1, borderColor: colors.border, padding: 16,
-          }}>
-            <View style={{ flexDirection: 'row', gap: 8 }}>
-              {(['light', 'system', 'dark'] as AppearanceMode[]).map((opt) => (
-                <Pressable
-                  key={opt}
-                  onPress={() => setAppearanceMode(opt)}
-                  style={{
-                    flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center',
-                    backgroundColor: appearanceMode === opt ? colors.primary : colors.background,
-                    borderWidth: 1.5,
-                    borderColor: appearanceMode === opt ? colors.primary : colors.border,
-                  }}
-                >
-                  <Text style={{ fontSize: 20, marginBottom: 4 }}>
-                    {opt === 'light' ? '☀️' : opt === 'dark' ? '🌙' : '⚙️'}
-                  </Text>
-                  <Text style={{
-                    fontSize: 12, fontWeight: '600', textTransform: 'capitalize',
-                    color: appearanceMode === opt ? 'white' : colors.textMuted,
-                  }}>
-                    {opt}
-                  </Text>
-                </Pressable>
-              ))}
+            {/* Appearance */}
+            <View style={{ paddingHorizontal: 16, marginBottom: 24 }}>
+              <Text style={{
+                fontSize: 13, fontWeight: '700', color: colors.textMuted,
+                textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 12,
+              }}>
+                Appearance
+              </Text>
+              <View style={{
+                backgroundColor: colors.card, borderRadius: 12,
+                borderWidth: 1, borderColor: colors.border, padding: 16,
+              }}>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  {(['light', 'system', 'dark'] as AppearanceMode[]).map((opt) => (
+                    <Pressable
+                      key={opt}
+                      onPress={() => setAppearanceMode(opt)}
+                      style={{
+                        flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center',
+                        backgroundColor: appearanceMode === opt ? colors.primary : colors.background,
+                        borderWidth: 1.5,
+                        borderColor: appearanceMode === opt ? colors.primary : colors.border,
+                      }}
+                    >
+                      <Text style={{ fontSize: 20, marginBottom: 4 }}>
+                        {opt === 'light' ? '☀️' : opt === 'dark' ? '🌙' : '⚙️'}
+                      </Text>
+                      <Text style={{
+                        fontSize: 12, fontWeight: '600', textTransform: 'capitalize',
+                        color: appearanceMode === opt ? 'white' : colors.textMuted,
+                      }}>
+                        {opt}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
             </View>
-          </View>
-        </View>
 
-        {/* Dev Tools — only visible in dev builds */}
-        {__DEV__ && (
-          <DevToolsSection />
+            {/* Dev Tools — only visible in dev builds */}
+            {__DEV__ && (
+              <DevToolsSection
+                onReplayBadgeQueue={() => {
+                  const sample = computeBadges({
+                    totalCooked: 100,
+                    longestStreak: 30,
+                    distinctCuisines: 5,
+                    cookedMealPrep: true,
+                    recipesSubmitted: 5,
+                  })
+                    .filter((b) => b.earned)
+                    .slice(0, 3);
+                  if (sample.length) setPreviewQueue(sample);
+                }}
+              />
+            )}
+
+            {/* Legal */}
+            <View style={{ paddingHorizontal: 16, marginBottom: 24 }}>
+              <View style={{
+                backgroundColor: colors.card, borderRadius: 12,
+                borderWidth: 1, borderColor: colors.border, overflow: 'hidden',
+              }}>
+                <Pressable
+                  onPress={() => router.push('/privacy-policy')}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16 }}
+                >
+                  <Ionicons name="shield-checkmark-outline" size={20} color={colors.textMuted} />
+                  <Text style={{ flex: 1, fontSize: 15, color: colors.text }}>Privacy Policy</Text>
+                  <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+                </Pressable>
+              </View>
+            </View>
+
+            {/* Sign Out */}
+            <View style={{ paddingHorizontal: 16 }}>
+              <Pressable
+                onPress={handleSignOut}
+                style={{
+                  flexDirection: 'row', alignItems: 'center', gap: 12,
+                  backgroundColor: colors.card, borderRadius: 12,
+                  padding: 16, borderWidth: 1, borderColor: colors.border,
+                }}
+              >
+                <Ionicons name="log-out-outline" size={20} color={colors.error} />
+                <Text style={{ color: colors.error, fontSize: 15, fontWeight: '500' }}>Sign Out</Text>
+              </Pressable>
+            </View>
+          </>
         )}
-
-        {/* Legal */}
-        <View style={{ paddingHorizontal: 16, marginBottom: 24 }}>
-          <View style={{
-            backgroundColor: colors.card, borderRadius: 12,
-            borderWidth: 1, borderColor: colors.border, overflow: 'hidden',
-          }}>
-            <Pressable
-              onPress={() => router.push('/privacy-policy')}
-              style={{
-                flexDirection: 'row', alignItems: 'center', gap: 12,
-                padding: 16,
-              }}
-            >
-              <Ionicons name="shield-checkmark-outline" size={20} color={colors.textMuted} />
-              <Text style={{ flex: 1, fontSize: 15, color: colors.text }}>Privacy Policy</Text>
-              <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
-            </Pressable>
-          </View>
-        </View>
-
-        {/* Sign Out */}
-        <View style={{ paddingHorizontal: 16 }}>
-          <Pressable
-            onPress={handleSignOut}
-            style={{
-              flexDirection: 'row', alignItems: 'center', gap: 12,
-              backgroundColor: colors.card, borderRadius: 12,
-              padding: 16, borderWidth: 1, borderColor: colors.border,
-            }}
-          >
-            <Ionicons name="log-out-outline" size={20} color={colors.error} />
-            <Text style={{ color: colors.error, fontSize: 15, fontWeight: '500' }}>Sign Out</Text>
-          </Pressable>
-        </View>
       </ScrollView>
 
       {profile && (
@@ -1159,6 +1125,11 @@ export default function Profile() {
           onClose={() => setPantryVisible(false)}
         />
       )}
+      <BadgeAchievementModal
+        queue={previewQueue}
+        onQueueChange={setPreviewQueue}
+        previewMode
+      />
     </SafeAreaView>
   );
 }

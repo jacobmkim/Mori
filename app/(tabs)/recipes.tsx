@@ -46,6 +46,7 @@ const SUB_TABS: SubTab[] = ['Saved', 'Cooked', 'Mine'];
 function RecipeCard({
   recipe,
   cookedCount,
+  currentUserId,
   onPress,
   onLongPress,
   deleteMode,
@@ -54,6 +55,7 @@ function RecipeCard({
 }: {
   recipe: Recipe;
   cookedCount?: number;
+  currentUserId?: string;
   onPress: () => void;
   onLongPress?: () => void;
   deleteMode?: boolean;
@@ -107,6 +109,30 @@ function RecipeCard({
         contentFit="cover"
       />
       <View style={{ padding: 10 }}>
+        {recipe.moderation_status === 'pending' && (
+          <View style={{
+            alignSelf: 'flex-start', backgroundColor: '#FFF3E0', borderRadius: 999,
+            paddingHorizontal: 8, paddingVertical: 2, marginBottom: 4,
+          }}>
+            <Text style={{ fontSize: 8, fontWeight: '700', color: '#E65100' }}>Under review</Text>
+          </View>
+        )}
+        {recipe.moderation_status === 'rejected' && (
+          <View style={{
+            alignSelf: 'flex-start', backgroundColor: '#FFEBEE', borderRadius: 999,
+            paddingHorizontal: 8, paddingVertical: 2, marginBottom: 4,
+          }}>
+            <Text style={{ fontSize: 8, fontWeight: '700', color: '#C62828' }}>Not approved</Text>
+          </View>
+        )}
+        {recipe.is_public === false && recipe.moderation_status === 'approved' && (
+          <View style={{
+            alignSelf: 'flex-start', backgroundColor: colors.primaryLight, borderRadius: 999,
+            paddingHorizontal: 8, paddingVertical: 2, marginBottom: 4,
+          }}>
+            <Text style={{ fontSize: 8, fontWeight: '700', color: colors.primary }}>Private</Text>
+          </View>
+        )}
         {cookedCount != null && cookedCount > 0 && (
           <View style={{
             alignSelf: 'flex-start', backgroundColor: '#E8F5E9', borderRadius: 999,
@@ -121,14 +147,37 @@ function RecipeCard({
         >
           {recipe.title}
         </Text>
+        {recipe.source_type === 'community' && (recipe.submitter_username || recipe.submitter_name) && (
+          <Text style={{ fontSize: 9, color: colors.textMuted, marginTop: 2, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+            By {recipe.submitter_username ? `@${recipe.submitter_username}` : recipe.submitter_name}
+          </Text>
+        )}
+        {recipe.source_type === 'community' && recipe.submitted_by === currentUserId && (
+          <Text style={{ fontSize: 9, color: colors.primary, marginTop: 3, fontWeight: '600' }}>
+            {recipe.save_count > 0 ? `${recipe.save_count} saves` : ''}
+            {recipe.save_count > 0 && (recipe.rating_count ?? 0) > 0 ? ' · ' : ''}
+            {(recipe.rating_count ?? 0) > 0 ? `★ ${Number(recipe.avg_rating).toFixed(1)}` : ''}
+          </Text>
+        )}
+        {!(recipe.source_type === 'community' && recipe.submitted_by === currentUserId)
+          && (recipe.rating_count ?? 0) >= 3 && (
+          <Text style={{ fontSize: 9, color: colors.textMuted, marginTop: 3, fontWeight: '600' }}>
+            ★ {Number(recipe.avg_rating).toFixed(1)} ({recipe.rating_count})
+          </Text>
+        )}
         <Text style={{ fontSize: 9, color: colors.textMuted, marginTop: 3, textTransform: 'uppercase', letterSpacing: 0.5 }}>
           {[
             recipe.cuisine ? recipe.cuisine.split(',').map(c => c.trim()).join(', ') : null,
             formatTime(recipe.prep_time_mins, recipe.cook_time_mins),
           ].filter(Boolean).join(' · ')}
         </Text>
-        {(isMealPrep || isQuick || isHighProtein || isLowCarb) && (
+        {(recipe.source_type === 'community' || isMealPrep || isQuick || isHighProtein || isLowCarb) && (
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 5 }}>
+            {recipe.source_type === 'community' && (
+              <View style={{ backgroundColor: colors.primaryLight, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3, marginRight: 4, marginBottom: 2 }}>
+                <Text style={{ fontSize: 10, fontWeight: '700', color: colors.primary }}>Community</Text>
+              </View>
+            )}
             {isMealPrep && (
               <View style={{ backgroundColor: '#2E5438', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3, marginRight: 4, marginBottom: 2 }}>
                 <Text style={{ fontSize: 10, fontWeight: '700', color: '#fff' }}>Meal Prep</Text>
@@ -323,6 +372,9 @@ export default function Recipes() {
         save_count: r.save_count ?? 0,
         image_url: r.image_url,
         external_id: r.external_id,
+        is_public: r.is_public ?? true,
+        moderation_status: r.moderation_status ?? null,
+        submitted_by: r.submitted_by ?? null,
       })));
     } catch {}
   }
@@ -613,6 +665,7 @@ export default function Recipes() {
               <RecipeCard
                 recipe={item}
                 cookedCount={cookedCounts.get(item.supabase_id ?? '')}
+                currentUserId={userId}
                 onPress={() => openRecipe(item)}
                 onLongPress={() => {
                   if (activeTab === 'Cooked') return;

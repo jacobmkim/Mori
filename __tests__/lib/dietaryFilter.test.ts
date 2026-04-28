@@ -56,7 +56,9 @@ function makeRow(overrides: Partial<{
 function setupDB(rows: ReturnType<typeof makeRow>[]) {
   mockFrom.mockReturnValue({
     select: jest.fn().mockReturnValue({
-      limit: jest.fn().mockResolvedValue({ data: rows, error: null }),
+      or: jest.fn().mockReturnValue({
+        limit: jest.fn().mockResolvedValue({ data: rows, error: null }),
+      }),
     }),
   });
 }

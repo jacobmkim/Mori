@@ -96,7 +96,16 @@ export const useSavedStore = create<SavedStore>()(
     {
       name: 'mori-saved-store',
       storage: createJSONStorage(() => AsyncStorage),
-      partialize: (state) => ({ mealPrepIds: state.mealPrepIds }),
+      // Persist savedRecipes + _removedPositions alongside mealPrepIds.
+      // Without this, a slow or failed loadSavedRecipes() at cold start leaves
+      // the store empty, isSaved() returns false, and the user can re-save the
+      // same recipe → duplicate optimistic insert. It also loses any optimistic
+      // adds done while offline.
+      partialize: (state) => ({
+        savedRecipes: state.savedRecipes,
+        mealPrepIds: state.mealPrepIds,
+        _removedPositions: state._removedPositions,
+      }),
     }
   )
 );

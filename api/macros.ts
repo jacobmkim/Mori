@@ -5,6 +5,7 @@ import { rateLimitUser } from './_rateLimit';
 import { validate, MacrosRequestSchema, ValidationError, formatValidationError } from '../lib/validation';
 import { requireAuth } from './_apiAuth';
 import { captureException } from './_sentry';
+import { canWriteMacros } from '../lib/macrosOwnership';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -51,20 +52,30 @@ async function getCachedMacrosFromDB(
   }
 }
 
+// Caches Claude's macros estimate against the recipe row so we don't re-spend
+// on the next request. Two write paths are allowed:
+//   1. Curated recipes (source_type = 'curated') with no macros yet — backfill.
+//   2. Community recipes the caller submitted themselves.
+// Anything else is a no-op. This blocks the IDOR where any signed-in user could
+// pass an arbitrary `supabaseId` and overwrite another recipe's macros via the
+// service-role write.
 async function saveMacrosToDB(
   macros: Macros,
+  userId: string,
   externalId?: string,
   supabaseId?: string,
 ): Promise<void> {
   const sb = getSupabase();
   if (!sb || (!externalId && !supabaseId)) return;
   try {
-    const query = sb.from('recipes').update({ macros });
-    if (externalId) {
-      await query.eq('external_id', externalId);
-    } else {
-      await query.eq('id', supabaseId);
-    }
+    const lookup = sb.from('recipes').select('id, source_type, submitted_by, macros');
+    const { data: recipe } = externalId
+      ? await lookup.eq('external_id', externalId).single()
+      : await lookup.eq('id', supabaseId!).single();
+    if (!recipe) return;
+    if (!canWriteMacros(recipe, userId)) return;
+
+    await sb.from('recipes').update({ macros }).eq('id', recipe.id);
   } catch {
     // Non-critical — cache write failure is fine
   }
@@ -160,7 +171,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // 2. Estimate with Claude Haiku — always labelled isEstimated: true
     const estimated = await estimateWithClaude(recipeTitle, (ingredients ?? []) as MacroRequest['ingredients']);
     if (estimated) {
-      saveMacrosToDB(estimated, externalId, supabaseId); // fire-and-forget
+      saveMacrosToDB(estimated, userId, externalId, supabaseId); // fire-and-forget
       return res.json({ macros: estimated });
     }
 

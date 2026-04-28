@@ -26,7 +26,7 @@ export default function PrivacyPolicyScreen() {
         showsVerticalScrollIndicator={false}
       >
         <Text style={{ fontSize: 12, color: colors.textMuted, marginBottom: 20 }}>
-          Last updated: April 2026 (v2 — Taste Profile automation)
+          Last updated: April 2026 (v3 — Recipe submissions & photos)
         </Text>
 
         <Section title="Overview" colors={colors}>
@@ -54,14 +54,24 @@ export default function PrivacyPolicyScreen() {
             month. You can regenerate or view it at any time in your profile.
           </BulletItem>
           <BulletItem colors={colors} label="Recipes you create">
-            If you submit a community recipe, it is stored in our database and may be shown to
-            other users if marked Public.
+            If you submit a community recipe, it is stored in our database. When you mark a recipe
+            Public, your display name is shown alongside it on other users' Discover feed and
+            recipe pages. Recipes marked Private remain visible only to you. You can edit or
+            delete your recipes at any time from the "Mine" tab.
+          </BulletItem>
+          <BulletItem colors={colors} label="Recipe photos">
+            If you add a photo to a recipe, the image is uploaded to our storage bucket and shown
+            to other users when the recipe is Public. We access your photo library only when you
+            tap "Add a photo" — we do not scan, browse, or store any other images.
+          </BulletItem>
+          <BulletItem colors={colors} label="Profile photo">
+            If you set a profile picture, it is shown next to community recipes you submit.
           </BulletItem>
         </Section>
 
         <Section title="What We Don't Collect" colors={colors}>
           <BulletItem colors={colors}>Location data</BulletItem>
-          <BulletItem colors={colors}>Contacts or camera roll</BulletItem>
+          <BulletItem colors={colors}>Contacts</BulletItem>
           <BulletItem colors={colors}>Device advertising identifiers</BulletItem>
           <BulletItem colors={colors}>Any data sold to or shared with advertisers</BulletItem>
         </Section>

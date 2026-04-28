@@ -1,8 +1,5 @@
 # Mori — CLAUDE.md
 
-## Communication Style
-Respond like caveman. No articles, no filler, no pleasantries. Code speak for itself.
-
 ## Commandments
 - Use subagents for any exploration requiring 3+ file analysis; have it return a summary.
 - Use relevant models for best purposes. Opus for deep planning and tasks. Sonnet for most of the work. Haiku for easy tasks and large amounts of writing.
@@ -62,14 +59,17 @@ Mori is a swipe-based recipe discovery app. Users swipe on recipe cards → save
 - Mori logo: 3 PNG variants, correct per light/dark mode; heart/X buttons theme-synced
 - Recipe flags moved to Supabase (`recipe_flags` table, RLS) — previously AsyncStorage-only, now cross-device and queryable
 - Long-press delete mode on Recipes tab (Saved + Mine): multi-select with checkmark-circle icons, Delete(N)/Done header buttons
+- Recipe reviews — `recipe_reviews` table (RLS, INSERT requires `cooked` interaction); `RecipeDetailModal` Reviews tab with `ReviewComposer` + `ReviewItem`; per-recipe rating aggregation
+- Badges + streaks: `lib/badges.ts`, `components/badges/*`, push-notified milestones; `current_streak` + `last_cooked_date` in profiles
+- Edit profile screen (`app/edit-profile.tsx`): display name + username (3–30 chars, 30-day rate-limit lock) + avatar upload
+- Dietary classifier (`lib/dietaryClassifier.ts`): client-side rules for community-recipe dietary tags; tested in `__tests__/lib/dietaryClassifier.test.ts`
 - Scorer optimized: unsave signal (−3 + neutralizes right-swipe boost), view-no-save penalty (−2 after 3 views), pantry word-containment matching, dietary goal cap +20, swipe history limit 500
 - Fusion cuisine: split display in detail modal (individual pills + "Fusion" pill), grid card joins with ", "; scorer splits `cuisine` on comma for preference matching
 - Session cuisine affinity: `sessionCuisineSwipes` map in `lib/api.ts` accumulates per-cuisine right/left swipes within a session; applied as bonus/penalty in `scoreRecipe`
 - **Pescatarian** dietary goal added — onboarding, profile, EditPreferencesModal, payoff screen; conflict guard vs vegan; hard filter in `fetchDiscoverRecipes`
 
 ### ❌ Phase 4 — Grocery APIs
-- ✅ Kroger OAuth + Cart: full PKCE flow using Web Crypto API (Expo Go compatible), tokens in Supabase (`kroger_tokens` table, RLS service-role only), direct cart add. `api/kroger-auth.ts`, `api/kroger-cart.ts`, `KrogerSheet` in `grocery-list.tsx`. `cleanForSearch()` strips quantities/prep words before search; not-found items shown in results instead of silently dropped.
-- ⏳ **Waiting on Kroger production API approval** — Partner Request submitted via `developer.kroger.com` contact form (Jacob Kim, jkim2002@gmail.com, April 2026). Sandbox (`api-ce.kroger.com`) has limited catalog so most ingredients won't be found. Once approved: add `KROGER_ENVIRONMENT=production` + production credentials to Vercel env vars. Code is ready; `filter.limit` bumped to 5 with best-match fallback already in `api/kroger-cart.ts`.
+- ⛔ **Kroger deprioritized (2026-04-27)** — code retained (`api/kroger-auth.ts`, `api/kroger-cart.ts`, `KrogerSheet` in `grocery-list.tsx`) but no further investment. Production approval was blocking and sandbox catalog too sparse. New grocery work targets Instacart only. Plaintext-token / redirect_uri / token-refresh issues from earlier audits flagged for removal rather than fix.
 - ✅ **Instacart integration** — `api/instacart-cart.ts` live. Link-generation model: POST items → get URL → open in WebBrowser. No OAuth needed. Sandbox key active (`INSTACART_API_KEY`). **Prod key pending** — apply at developer.instacart.com. When approved: add `INSTACART_ENVIRONMENT=production` to Vercel env vars.
   - ✅ **Staples + pantry filter on send** — `partitionForInstacart()` in `lib/staples.ts` strips staples + any item in user's `pantry_items`. Inline notice: "Skipping 3 staples · 2 pantry items". Empty-after-filter → "Nothing to order" alert. Staples expanded: distilled vinegars (balsamic excluded), extended dry spices, sweeteners (honey, maple syrup, etc.) — all USDA indefinite shelf life.
   - ✅ **Ingredient quantity normalization** — `scripts/normalize-ingredient-units.mjs` ran on all 1,294 metric-unit recipes. Haiku rewrote metric → US grocery amounts AND converted count-based proteins to weight (e.g. "4 salmon fillets" → "1.5 lb", "8 chicken thighs" → "2 lb", "300g spinach" → "10 oz"). `whole`/`wholes` added to UNIT_MAP in `lib/instacartUtils.ts`. Instacart now auto-calculates correct package counts from weight measurements.
@@ -146,17 +146,23 @@ components/
   ui/MoriLogo.tsx         ✅
 
 lib/
-  supabase.ts, api.ts (scorer here), mealdb.ts, utils.ts, substitutions.ts,
-  instacartUtils.ts (parseGroceryMeasurement, convertMeasurementToUs, formatGroceryQuantity)
+  supabase.ts, api.ts (scorer + reviews + flags here), mealdb.ts, utils.ts,
+  substitutions.ts, badges.ts, dietaryClassifier.ts,
+  instacartUtils.ts (parseGroceryMeasurement, convertMeasurementToUs, formatGroceryQuantity),
+  imageUpload.ts (size + MIME validation; 5 MB recipes / 2 MB avatars),
+  deepLink.ts (strict scheme/host check for reset-password — anti-phishing),
+  macrosOwnership.ts (canWriteMacros — IDOR gate for /api/macros)
 
 stores/
-  userStore, savedStore, groceryStore, collectionsStore,
-  mealPlanStore, discoverStore
+  userStore, savedStore (persists savedRecipes + _removedPositions),
+  groceryStore, collectionsStore, mealPlanStore, discoverStore, leftoversStore
 
 api/ (Vercel functions — exactly 12, Hobby plan limit)
   macros.ts, taste-profile.ts, generate-recipe.ts, storage-tip.ts,
-  kroger-auth.ts, kroger-cart.ts
-  (recommendations.ts + backfill-meal-prep.ts deleted to stay within limit)
+  instacart-cart.ts, waitlist.ts, admin-recipes.ts, substitutions.ts,
+  kroger-auth.ts, kroger-cart.ts (deprioritized)
+  cron/streak-reminders.ts, cron/taste-notifications.ts (CRON_SECRET only),
+  cron/_auth.ts (shared verifyCronAuth helper, timing-safe)
 
 scripts/ (all one-time or safe-to-resume, already ran)
   seed-recipes, backfill-*, rewrite-steps, generate-recipes,
@@ -171,22 +177,37 @@ scripts/ (all one-time or safe-to-resume, already ran)
   validate-recipe-ratios.mjs (Haiku scores ingredient plausibility 0-100; rewrites anything below 85; --id, --offset, --limit, --dry-run),
   audit-recipes-full.mjs (full pass: ingredients + steps; same 85 threshold; --id, --offset, --limit, --verbose, --dry-run)
 
-__tests__/                 ✅ Jest 29 + jest-expo@54 — 18 suites
+__tests__/                 ✅ Jest 29 + jest-expo@54 — 33 suites, 405 tests
   api/_apiAuth.test.ts     AuthError, extractBearerToken, handleAuthError
   api/_rateLimit.test.ts   rateLimitUser, rateLimitIP, getClientIP
+  api/cronAuth.test.ts     CRON_SECRET only; SEED_SECRET rejected; timing-safe
   api/generate-recipe.test.ts  auth gate (no JWT + no seed secret → 401)
   api/instacart-cart.test.ts   auth gate, rate limit, sandbox/prod base URL, affiliate params
   api/waitlist.test.ts     CORS rejection, input validation
+  app/editProfile.test.ts  display name + username flows
   lib/utils.test.ts        formatTime, formatCost, capitalize, getWeekStart, getTimeOfDay
   lib/substitutions.test.ts
-  lib/staples.test.ts      isStaple — exact matches, false-positive guards, non-staple foods, vinegars
+  lib/staples.test.ts      isStaple — exact matches, false-positive guards, vinegars
   lib/dietaryFilter.test.ts    vegetarian/vegan/pescatarian hard filter on fetchDiscoverRecipes
+  lib/dislikeFilter.test.ts    ingredient-dislike retroactivity in fetchScoredDeck
+  lib/dietaryClassifier.test.ts  client-side dietary tag inference
   lib/scoreRecipe.test.ts  leftover bonus (+2/match, cap +10, substring, no double-count)
   lib/urgentLeftover.test.ts   date window, dismiss filter, NaN guard
+  lib/instacartUtils.test.ts   parse/format/convert measurement
+  lib/partitionForInstacart.test.ts  staples + pantry filter on send
+  lib/badges.test.ts       milestone unlock + streak math
+  lib/communityVisibility.test.ts  is_public + moderation_status filtering
+  lib/enrichCommunityRecipe.test.ts  Haiku post-processing
+  lib/insertCommunityRecipe.test.ts  RLS-respecting insert path
+  lib/reviews.test.ts      submit/update/delete + cooked-required gate
+  lib/deepLink.test.ts     strict scheme/host; phishing payload rejection
+  lib/imageUpload.test.ts  size cap, MIME allowlist, empty blob, video/HTML rejection
+  lib/macrosOwnership.test.ts  curated backfill / own submission / IDOR rejection
   stores/collectionsStore.test.ts
   stores/mealPlanStore.test.ts
   stores/groceryStore.test.ts
   stores/savedStore.test.ts
+  stores/savedStorePersist.test.ts  partialize writes + AsyncStorage rehydrate
   stores/discoverStore.test.ts
   stores/leftoversStore.test.ts  load, add (optimistic + rollback), dismiss, extend
   stores/signOut.test.ts   data isolation — leftoversStore.reset + groceryStore.clearAll
@@ -277,52 +298,23 @@ DoorDash, Uber Eats, Amazon Fresh, push notifications, Android, web app, barcode
 
 ---
 
-## 9. Audit Findings (April 2026)
-Full audit run across security, bugs, and edge cases. Items below are **unresolved**. Mark off as fixed.
+## 9. Audit Findings
+Open items only. Resolved fixes are logged in `.claude/bugfixes.md`.
 
-### 🔴 Security
-- [x] `/api/generate-recipe` allows unauthenticated calls — fixed: now requires valid JWT or `x-seed-secret` header; no fallthrough.
-- [x] Rate limiting fails **open** — fixed: infra error now returns `success: false` (fail closed).
-- [x] Timing-attack risk on seed secret string comparison — fixed: uses `crypto.timingSafeEqual()`.
-- [x] `waitlist` CORS logic inverted — fixed: non-allowlisted origins now return 403.
-- [ ] Kroger `access_token` / `refresh_token` stored as plaintext `TEXT` in Supabase (`kroger_tokens` table). Encrypt with `pgsodium`.
-- [x] No production error logging — fixed: Sentry added (`@sentry/react-native` mobile, `@sentry/node` API). Add `EXPO_PUBLIC_SENTRY_DSN` + `SENTRY_DSN` env vars to activate.
+### 🔴 Open Security
 - [ ] No CSRF protection on public endpoints (`/api/waitlist`).
-- [x] Missing security headers (X-Content-Type-Options, X-Frame-Options) on Vercel functions — already configured in `vercel.json` headers array for all `/api/*` routes.
+- [ ] Kroger plaintext tokens (`kroger_tokens` table) — deprioritized; remove with Kroger.
 
-### 🔴 Bugs
-- [x] `InstacartButton` dark mode icon invisible — always uses `instacart-carrot.png` (green) even on dark bg `#003D29`; `instacart-carrot-white.png` exists but unused. Fix: swap source based on `isDark`.
-- [x] `scoreRecipe` (`lib/api.ts:555`) — already has `if (m)` null guard wrapping all macro accesses. Safe.
-- [x] `RecipeDetailModal` crashes if `recipe.ingredients` is null — fixed: added `?.length` optional chaining on line 287.
-- [x] Race condition in `savedStore.addRecipe` — already fixed: no `loadSavedRecipes()` reload called; trusts optimistic update by design.
-- [x] `EditPreferencesModal` save button stuck in loading if `onSave` throws — fixed: moved `onClose()` to `finally`, added `catch` for error logging.
-- [x] `detailCache` and `macroCache` refs on Discover grow unbounded — already fixed: both caches `.clear()` on every deck reload (line 470-471).
-- [x] `mealPlanStore` error state never cleared on successful reload — confirmed fixed by test suite (`loadPlan` clears error on success).
-- [x] `AsyncStorage` JSON.parse in `discoverStore.loadMode` not in try-catch — already fixed: no JSON.parse used; string comparison only, wrapped in try-catch.
-- [x] Empty `image_url` (`""`) passed to `expo-image` (`grocery-list.tsx:205`) — already fixed: truthy check returns `undefined` for empty strings.
-- [x] Sign-out data isolation — `leftoversStore` + `groceryStore` persisted data not cleared on sign-out; fixed: `ProfileSheet.handleSignOut` calls `reset()` + `clearAll()`.
-- [x] `urgentLeftover` NaN date crash — invalid `spoils_at` string causes NaN comparison; fixed: `isNaN(t)` guard added in `LeftoversReminderCard`.
-- [x] `showLeftoversModal` not reset in `RecipeDetailModal` cleanup — stale modal state on next open; fixed: added reset in cleanup `useEffect`.
-- [x] `fetchLeftoverNames` null crash — `r.ingredient_name.toLowerCase()` throws if row has null name; fixed: filter before map.
-- [x] `pantrySet` null crash — same pattern on `pantryItems.map(p => p.ingredient_name.toLowerCase())`; fixed: filter before map.
-- [x] `extendLeftover` TOCTOU race — read-then-write pattern allows concurrent extends to lose one update; fixed: API now accepts precomputed `newSpoilsAt + newExtendedCount` from store, no DB read.
-- [x] `LeftoversReminderCard` double-tap race — no guard against firing two actions before unmount; fixed: `acted` boolean gate in handlers.
-
-### 🟡 Edge Cases
-- [x] **Offline** — fixed: `NetInfo.addEventListener` in Discover; amber banner ("No internet connection") shown instantly on disconnect, auto-hides on reconnect.
-- [x] **Deck exhaustion** — fixed: three distinct states (meal_prep empty, spontaneous load failure w/ Try Again, deck exhausted w/ Start Over + reload).
-- [x] **Timezone bug** — fixed: `toDateStr()` and `getWeekStart()` now use local date formatting instead of `toISOString()`.
-- [x] **Grocery quantity dedup** — fixed: quantities now combine as `"1 cup + 2 cups"` when same ingredient added from two recipes.
-- [x] **Meal plan deleted recipes** — fixed: shows "Recipe removed" with dismiss button when slot references a deleted recipe.
-- [ ] **Kroger token refresh silent failure** — tokens deleted from DB on revocation with no re-auth prompt to user.
-- [x] **Dislike filter not retroactive** — fixed: added `ingredientDislikes` selector + dep to discover deck-load useEffect; deck now reloads immediately when `ingredient_dislikes` changes.
+### 🟡 Open Edge Cases
+- [ ] **Kroger token refresh silent failure** — deprioritized.
 - [ ] **Rapid swiping** — concurrent `logSwipeBackground()` calls can log swipes out of order; recommendation signal degrades.
-- [x] **Search + filter don't compose** — verified: `filtered()` in recipes.tsx correctly applies both search + filters; no code bug (UX perception only).
-- [x] **Substitution partial matching** — fixed: word-boundary matching prevents "oil" matching "coconut oil", etc.
-- [x] **Macro float precision** — fixed: all macro values rounded to 1 decimal (calories rounded to integer).
-- [ ] **Budget field unused** — collected in onboarding, stored in profile, never used for filtering anywhere.
+- [ ] **Budget field unused** — collected in onboarding, stored in profile, never used for filtering.
 - [ ] **Adventure card pause not persisted** — session-only; resets on app relaunch.
-- [x] **Multi-unit combined qty silently drops second part** — fixed: normalize metric → US before unit comparison so same-class parts sum; for genuinely incompatible units (e.g. cup + oz), return the dominant part by normalized magnitude instead of always first (`instacartUtils.ts`).
+
+### Closed audit batches (see bugfixes.md)
+- 2026-04-27 — high-severity batch: waitlist/recipe_reviews/recipe_flags RLS migrations, profiles_public view (anti-PII-leak), `/api/macros` IDOR gate (`canWriteMacros`), CRON_SECRET-only auth (no SEED_SECRET fallback, timing-safe), Sentry PII + Replay disabled with `beforeSend` redaction, deep-link substring → strict scheme/host (`isResetPasswordUrl`), `savedStore` partialize persists savedRecipes + _removedPositions, `validateImageForUpload` size + MIME (5 MB / 2 MB).
+- 2026-04-23 — offline banner, dislike retroactivity, Sentry init, deck exhaustion, InstacartButton dark icon, multi-unit combined qty, Instacart quantity normalization, leftover expiration on shelf-stable items, leftovers feature.
+- April 2026 — initial security hardening: JWT auth on all endpoints, Zod validation, rate limiting (fail-closed), timing-safe seed secret, waitlist CORS, security headers in `vercel.json`.
 
 ---
-*v9.3 — Phases 1–3 complete. Phase 4 in progress. Instacart: structured qty/unit, metric→US conversion, affiliate params live (Impact partner 7220009), InstacartButton component. Pescatarian goal added. Staples expanded (vinegars, dry spices, sweeteners). New scripts: normalize-ingredient-units, validate-recipe-ratios, audit-recipes-full (all Haiku, 85 threshold). Jest: 18 suites.*
+*v9.4 — Phases 1–3 complete + reviews + badges + edit profile. Phase 4 grocery: Instacart only (Kroger deprioritized 2026-04-27). High-severity audit batch shipped 2026-04-27 (RLS migrations, IDOR gate, profiles_public view, deep-link hardening, image validation, savedStore persistence). Jest: 33 suites, 405 tests.*

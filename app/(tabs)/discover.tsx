@@ -20,10 +20,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks/useTheme';
 import { formatTime, formatCost, getTimeOfDay, getWeekStart } from '@/lib/utils';
 import { fetchMealDetail, type MealDetail } from '@/lib/mealdb';
-import { logSwipe, upsertRecipeByExternalId, setRecipeLiked, fetchMacros, estimateMacrosLocally, fetchScoredDeck, updateRecipeDetail, updateRecipeMacros, logInteraction, updateStreakAndCount, recordSessionSwipe, cancelLeftSwipe, recordAdventureCardLeftSwipe, clearSessionState, getCookedRecipeIds, rateRecipe, flagRecipe } from '@/lib/api';
-import { computeBadges } from '@/lib/badges';
-import { BadgeMilestoneModal } from '@/components/BadgeMilestoneModal';
-import type { Badge } from '@/lib/badges';
+import { logSwipe, upsertRecipeByExternalId, setRecipeLiked, fetchMacros, estimateMacrosLocally, fetchScoredDeck, updateRecipeDetail, updateRecipeMacros, logInteraction, updateStreakAndCount, recordSessionSwipe, cancelLeftSwipe, recordAdventureCardLeftSwipe, clearSessionState, getCookedRecipeIds, flagRecipe } from '@/lib/api';
+import { computeBadges, getNewlyEarned } from '@/lib/badges';
+import type { Badge, BadgeStats } from '@/lib/badges';
+import { BadgeAchievementModal } from '@/components/badges/BadgeAchievementModal';
 import { RecipeDetailModal } from '@/components/RecipeDetailModal';
 import { LeftoversReminderModal } from '@/components/LeftoversReminderCard';
 import { HeadlineMacroPill, MacroRow } from '@/components/ui/MacroRow';
@@ -252,8 +252,19 @@ function RecipeSwipeCard({
                 {recipe.badge === 'staff_pick' ? 'Staff Pick' : 'Fan Fave'}
               </Text>
             </View>
+          ) : recipe.source_type === 'community' ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.primaryLight, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, marginLeft: 8, marginTop: 2 }}>
+              <Ionicons name="people-outline" size={11} color={colors.primary} />
+              <Text style={{ color: colors.primary, fontSize: 11, fontWeight: '600' }}>Community</Text>
+            </View>
           ) : null}
         </View>
+
+        {recipe.source_type === 'community' && (
+          <Text style={{ fontSize: 11, color: colors.textMuted, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.6 }}>
+            By {recipe.submitter_username ? `@${recipe.submitter_username}` : recipe.submitter_name ?? 'Mori community'}
+          </Text>
+        )}
 
         {/* Blurb */}
         {detail?.blurb ? (
@@ -779,7 +790,7 @@ export default function Discover() {
   const [cookedRecipeIds, setCookedRecipeIds] = useState<Set<string>>(new Set());
   // Supabase-backed cooked IDs — persists across sessions, enables "Made before" banner
   const [prevCookedIds, setPrevCookedIds] = useState<Set<string>>(new Set());
-  const [pendingBadge, setPendingBadge] = useState<Badge | null>(null);
+  const [badgeQueue, setBadgeQueue] = useState<Badge[]>([]);
   // Meal prep slot picker — shown after right swipe in meal_prep mode
 
   const isSaved = useSavedStore((s) => s.isSaved);
@@ -1216,22 +1227,16 @@ export default function Discover() {
                   updateStreakAndCount(userId).then((updates) => {
                     if (updates && profile) {
                       useUserStore.getState().setProfile({ ...profile, ...updates });
-                      const base = { distinctCuisines: 0, cookedMealPrep: false, recipesSubmitted: 0 };
-                      const preBadges = computeBadges({ totalCooked: preCooked, longestStreak: preLongest, ...base });
-                      const postBadges = computeBadges({ totalCooked: updates.meals_cooked_count, longestStreak: updates.longest_streak, ...base });
-                      const newBadge = postBadges.find((b, i) => b.earned && !preBadges[i].earned) ?? null;
-                      if (newBadge) setPendingBadge(newBadge);
+                      const base: Partial<BadgeStats> = { distinctCuisines: 0, cookedMealPrep: false, recipesSubmitted: 0 };
+                      const prevStats: BadgeStats = { totalCooked: preCooked, longestStreak: preLongest, ...base } as BadgeStats;
+                      const nextStats: BadgeStats = { totalCooked: updates.meals_cooked_count, longestStreak: updates.longest_streak, ...base } as BadgeStats;
+                      const newBadges = getNewlyEarned(prevStats, nextStats);
+                      if (newBadges.length) setBadgeQueue(newBadges);
                     }
                   }).catch(() => {});
                 })
                 .catch(() => {});
               // PostCookLeftoversModal is handled inside RecipeDetailModal
-            }}
-            onRateRecipe={(rating) => {
-              if (!topRecipe || !userId) return;
-              resolveSupabaseId(topRecipe)
-                .then((supabaseId) => rateRecipe(userId, supabaseId, rating))
-                .catch(() => {});
             }}
           />
         );
@@ -1402,7 +1407,7 @@ export default function Discover() {
       )}
 
       <LeftoversReminderModal />
-      <BadgeMilestoneModal badge={pendingBadge} onDismiss={() => setPendingBadge(null)} />
+      <BadgeAchievementModal queue={badgeQueue} onQueueChange={setBadgeQueue} />
     </SafeAreaView>
   );
 }

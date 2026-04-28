@@ -17,3 +17,9 @@ export function useTheme(): Theme {
   if (isDark)                          return darkTheme;
   return lightTheme;
 }
+
+export function useIsDark(): boolean {
+  const systemScheme = useColorScheme();
+  const appearanceMode = useDiscoverStore((s) => s.appearanceMode);
+  return appearanceMode === 'dark' ? true : appearanceMode === 'light' ? false : systemScheme === 'dark';
+}

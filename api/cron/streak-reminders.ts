@@ -6,26 +6,18 @@
  * cooked today. Gives them a nudge before midnight.
  *
  * Trigger manually: GET /api/cron/streak-reminders
- * with Authorization: Bearer <SEED_SECRET>
+ * with Authorization: Bearer <CRON_SECRET>
  */
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import { sendExpoPush } from '../_pushUtils';
+import { verifyCronAuth } from './_auth';
 
 function getSupabase() {
   const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) throw new Error('Supabase env vars not configured');
   return createClient(url, key);
-}
-
-function verifyCronAuth(req: VercelRequest): boolean {
-  const auth = req.headers.authorization;
-  const cronSecret = process.env.CRON_SECRET;
-  const seedSecret = process.env.SEED_SECRET;
-  if (cronSecret && auth === `Bearer ${cronSecret}`) return true;
-  if (seedSecret && auth === `Bearer ${seedSecret}`) return true;
-  return false;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {

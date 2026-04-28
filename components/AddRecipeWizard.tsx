@@ -11,11 +11,15 @@ import {
   ActivityIndicator,
   Platform,
 } from 'react-native';
+import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useState, useEffect, useRef } from 'react';
 import { useTheme } from '@/hooks/useTheme';
-import { fetchIngredientNames, insertCommunityRecipe } from '@/lib/api';
+import { fetchIngredientNames, insertCommunityRecipe, enrichCommunityRecipe } from '@/lib/api';
+import { supabase } from '@/lib/supabase';
+import { validateImageForUpload, ImageValidationError } from '@/lib/imageUpload';
 import type { Recipe, RecipeStep, Ingredient } from '@/types';
 
 // ── Pure helpers (mirrored from RecipeDetailModal) ────────────────────────────
@@ -106,6 +110,8 @@ export function AddRecipeWizard({ visible, userId, onClose, onSuccess }: AddReci
   // Step 4
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [imageUri, setImageUri] = useState<string | null>(null);
+  const [imageUploading, setImageUploading] = useState(false);
 
   // Load ingredient names when wizard opens
   useEffect(() => {
@@ -123,6 +129,50 @@ export function AddRecipeWizard({ visible, userId, onClose, onSuccess }: AddReci
     setStepRows([{ instruction: '', timerMins: null }]);
     setActiveStepIdx(0);
     setSubmitError(null);
+    setImageUri(null);
+    setImageUploading(false);
+  }
+
+  async function handlePickImage() {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission needed', 'Allow photo library access to add a recipe photo.');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.85,
+      });
+      if (!result.canceled && result.assets[0]?.uri) {
+        setImageUri(result.assets[0].uri);
+      }
+    } catch {
+      Alert.alert('Could not open photo library', 'Please try again.');
+    }
+  }
+
+  async function uploadImage(uri: string): Promise<string | null> {
+    try {
+      setImageUploading(true);
+      const { blob, contentType } = await validateImageForUpload(uri, 5 * 1024 * 1024);
+      const path = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+      const { error: uploadError } = await supabase.storage
+        .from('recipe-images')
+        .upload(path, blob, { upsert: true, contentType });
+      if (uploadError) throw uploadError;
+      const { data } = supabase.storage.from('recipe-images').getPublicUrl(path);
+      return data.publicUrl;
+    } catch (err) {
+      if (err instanceof ImageValidationError) {
+        Alert.alert('Image not supported', err.userMessage);
+      }
+      return null;
+    } finally {
+      setImageUploading(false);
+    }
   }
 
   function handleDiscard() {
@@ -161,6 +211,12 @@ export function AddRecipeWizard({ visible, userId, onClose, onSuccess }: AddReci
         .filter((r) => r.instruction.trim() !== '')
         .map((r, i) => ({ order: i + 1, instruction: r.instruction.trim() }));
 
+      // Upload photo if user picked one — non-fatal if it fails.
+      let imageUrl: string | null = null;
+      if (imageUri) {
+        imageUrl = await uploadImage(imageUri);
+      }
+
       const supabaseId = await insertCommunityRecipe({
         title: name.trim(),
         description: description.trim() || null,
@@ -172,7 +228,14 @@ export function AddRecipeWizard({ visible, userId, onClose, onSuccess }: AddReci
         servings: servings ? parseInt(servings) : null,
         dietary_tags: [],
         submitted_by: userId,
-        image_url: null,
+        image_url: imageUrl,
+        is_public: isPublic,
+      });
+
+      // Fire-and-forget — computes macros + dietary tags, updates row.
+      enrichCommunityRecipe(supabaseId, {
+        title: name.trim(),
+        ingredients: cleanIngredients,
       });
 
       const newRecipe: Recipe = {
@@ -193,8 +256,10 @@ export function AddRecipeWizard({ visible, userId, onClose, onSuccess }: AddReci
         badge: 'none',
         avg_rating: 0,
         save_count: 0,
-        image_url: null,
+        image_url: imageUrl,
         submitted_by: userId,
+        is_public: isPublic,
+        moderation_status: 'approved',
       };
 
       onSuccess(newRecipe);
@@ -300,6 +365,10 @@ export function AddRecipeWizard({ visible, userId, onClose, onSuccess }: AddReci
               submitting={submitting}
               submitError={submitError}
               onSubmit={handleSubmit}
+              imageUri={imageUri}
+              imageUploading={imageUploading}
+              onPickImage={handlePickImage}
+              onRemoveImage={() => setImageUri(null)}
             />
           )}
         </KeyboardAvoidingView>
@@ -805,6 +874,7 @@ function Step3Steps({ colors, rows, setRows, activeStepIdx, setActiveStepIdx, on
 function Step4Review({
   colors, name, description, cuisine, prepTime, cookTime, servings,
   isPublic, ingredients, steps, submitting, submitError, onSubmit,
+  imageUri, imageUploading, onPickImage, onRemoveImage,
 }: any) {
   const totalMins = (parseInt(prepTime) || 0) + (parseInt(cookTime) || 0);
 
@@ -892,20 +962,42 @@ function Step4Review({
           </>
         )}
 
-        {/* Photo coming soon */}
-        <View style={{ borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.border, borderRadius: 12, padding: 20, alignItems: 'center', marginTop: 8, opacity: 0.45 }}>
-          <Ionicons name="camera-outline" size={28} color={colors.textMuted} />
-          <Text style={{ fontSize: 13, color: colors.textMuted, marginTop: 8 }}>Photo upload coming soon</Text>
-        </View>
-
-        {/* Auto-generate notice */}
-        {isPublic && (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12, backgroundColor: colors.card, borderRadius: 10, padding: 12 }}>
-            <Ionicons name="sparkles-outline" size={14} color={colors.primary} />
-            <Text style={{ flex: 1, fontSize: 12, color: colors.textMuted }}>
-              An image will be generated automatically after saving.
-            </Text>
+        {/* Photo upload */}
+        {imageUri ? (
+          <View style={{ marginTop: 8, borderRadius: 12, overflow: 'hidden', backgroundColor: colors.card }}>
+            <Image source={{ uri: imageUri }} style={{ width: '100%', height: 180 }} contentFit="cover" />
+            {imageUploading ? (
+              <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.35)', alignItems: 'center', justifyContent: 'center' }}>
+                <ActivityIndicator size="small" color="#fff" />
+              </View>
+            ) : null}
+            <Pressable
+              onPress={onRemoveImage}
+              disabled={imageUploading}
+              style={{
+                position: 'absolute', top: 8, right: 8,
+                backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 999,
+                paddingVertical: 6, paddingHorizontal: 10,
+                flexDirection: 'row', alignItems: 'center', gap: 4,
+              }}
+            >
+              <Ionicons name="trash-outline" size={14} color="#fff" />
+              <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>Remove</Text>
+            </Pressable>
           </View>
+        ) : (
+          <Pressable
+            onPress={onPickImage}
+            style={{
+              borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.border,
+              borderRadius: 12, padding: 24, alignItems: 'center', marginTop: 8,
+              backgroundColor: colors.card,
+            }}
+          >
+            <Ionicons name="camera-outline" size={28} color={colors.primary} />
+            <Text style={{ fontSize: 14, color: colors.text, marginTop: 8, fontWeight: '600' }}>Add a photo</Text>
+            <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>Optional — but recipes with photos get more saves</Text>
+          </Pressable>
         )}
 
         {submitError ? (

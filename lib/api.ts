@@ -1,7 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
-import type { Profile, Recipe, SwipeEvent, SavedRecipe, PantryItem, GroceryList, MealPlan, MealSlot, OnboardingState, Macros, AppMode, RecipeNote } from '@/types';
+import type { Profile, Recipe, SwipeEvent, SavedRecipe, PantryItem, GroceryList, MealPlan, MealSlot, OnboardingState, Macros, AppMode, RecipeNote, Review, CreatorStats } from '@/types';
 import type { BadgeStats } from '@/lib/badges';
+import { inferDietaryTags } from './dietaryClassifier';
 
 // ─── Macro AsyncStorage cache ─────────────────────────────────────────────────
 // Persists macro data across sessions so Spoonacular is never called twice for
@@ -215,7 +216,8 @@ export async function fetchDiscoverRecipes(dietaryGoals: string[] = []): Promise
 
   const { data, error } = await supabase
     .from('recipes')
-    .select('id, title, description, cuisine, source_type, dietary_tags, badge, avg_rating, save_count, image_url, external_id, prep_time_mins, cook_time_mins, servings, cost_per_serving, macros, ingredients, steps, meal_prep_friendly, skill_level')
+    .select('id, title, description, cuisine, source_type, dietary_tags, badge, avg_rating, save_count, image_url, external_id, prep_time_mins, cook_time_mins, servings, cost_per_serving, macros, ingredients, steps, meal_prep_friendly, skill_level, is_public, moderation_status, submitted_by, submitter:profiles_public!recipes_submitted_by_fkey(name, avatar_url, username)')
+    .or('source_type.neq.community,and(source_type.eq.community,is_public.eq.true,moderation_status.eq.approved)')
     .limit(2000);
 
   if (error) throw error;
@@ -263,6 +265,12 @@ export async function fetchDiscoverRecipes(dietaryGoals: string[] = []): Promise
         external_id: r.external_id,
         meal_prep_friendly: r.meal_prep_friendly ?? null,
         skill_level: r.skill_level ?? null,
+        is_public: r.is_public ?? true,
+        moderation_status: r.moderation_status ?? null,
+        submitted_by: r.submitted_by ?? null,
+        submitter_name: r.submitter?.name ?? null,
+        submitter_avatar: r.submitter?.avatar_url ?? null,
+        submitter_username: r.submitter?.username ?? null,
       } as Recipe)
     );
 
@@ -304,6 +312,17 @@ async function getCohortAffinities(cohortKey: string): Promise<Map<string, numbe
     .eq('cohort_key', cohortKey);
   const map = new Map<string, number>();
   for (const row of data ?? []) map.set(row.recipe_id, row.affinity_score);
+  return map;
+}
+
+export async function getUserRatings(userId: string): Promise<Map<string, number>> {
+  const { data } = await supabase
+    .from('saved_recipes')
+    .select('recipe_id, user_rating')
+    .eq('user_id', userId)
+    .not('user_rating', 'is', null);
+  const map = new Map<string, number>();
+  for (const row of data ?? []) map.set(row.recipe_id, row.user_rating);
   return map;
 }
 
@@ -688,6 +707,7 @@ export function scoreRecipe(
   interactionMap: Map<string, { grocery_add: number; cooked: number; unsave: number; view: number; lastCookedAt: string | null }>,
   pantrySet: Set<string>,
   leftoversSet?: Set<string>,
+  ratingMap?: Map<string, number>,
 ): number {
   // Bug 7 — session penalty: instantly exclude anything swiped this session
   const sid = recipe.supabase_id;
@@ -774,6 +794,14 @@ export function scoreRecipe(
       if (ix.unsave > 0) score -= 3;
       if (ix.view > 2 && !ix.grocery_add && !ix.cooked) score -= 2;
     }
+
+    // Personal rating signal — user's own star rating on this recipe.
+    // Range: 1★ → -4, 3★ → 0 (neutral), 5★ → +4.
+    // Stronger than the community signal since it's a direct personal preference.
+    if (ratingMap && sid) {
+      const userRating = ratingMap.get(sid);
+      if (userRating != null) score += (userRating - 3) * 2;
+    }
   }
 
   // Saved recipes are hard-excluded in fetchScoredDeck before scoring reaches here.
@@ -811,6 +839,13 @@ export function scoreRecipe(
     }
   }
 
+  // Recipe rating quality — only counts when there's enough signal (>=3 reviews)
+  // to avoid noise from a single 5★ outlier. Centred on 3★ (neutral); 1★ → -3,
+  // 5★ → +3. Modest cap so it competes with cuisine/dietary signals, not dominates.
+  if (recipe.rating_count != null && recipe.rating_count >= 3 && recipe.avg_rating != null) {
+    score += (recipe.avg_rating - 3) * 1.5;
+  }
+
   return score;
 }
 
@@ -826,7 +861,7 @@ export async function fetchScoredDeck(
   // Load persisted left-swipes from previous sessions into the session Set
   await loadPersistedLeftSwipes();
 
-  const [deck, swipes, affinityMap, interactionMap, pantryItems, trendingIds, leftoversSet] = await Promise.all([
+  const [deck, swipes, affinityMap, interactionMap, pantryItems, trendingIds, leftoversSet, ratingMap] = await Promise.all([
     fetchDiscoverRecipes(dietaryGoals),
     userId ? getRecentSwipes(userId) : Promise.resolve([]),
     userId
@@ -836,6 +871,7 @@ export async function fetchScoredDeck(
     userId ? getPantryItems(userId) : Promise.resolve([]),
     fetchTrendingRecipeIds(),
     userId ? fetchLeftoverNames(userId) : Promise.resolve(new Set<string>()),
+    userId ? getUserRatings(userId) : Promise.resolve(new Map<string, number>()),
   ]);
 
   const pantrySet = new Set(pantryItems.filter((p) => p.ingredient_name).map((p) => p.ingredient_name.toLowerCase()));
@@ -898,7 +934,7 @@ export async function fetchScoredDeck(
 
   let scored = filtered.map((r) => ({
     recipe: r,
-    score: scoreRecipe(r, profile, swipeMap, savedExternalIds, affinityMap, interactionMap, pantrySet, leftoversSet),
+    score: scoreRecipe(r, profile, swipeMap, savedExternalIds, affinityMap, interactionMap, pantrySet, leftoversSet, ratingMap),
   }));
 
   // Phase 2.5 — Meal Prep mode: only show explicitly flagged recipes
@@ -936,7 +972,7 @@ export async function fetchScoredDeck(
     console.warn(`[fetchScoredDeck] skill filter too aggressive — relaxing`);
     const rescored = afterSaved.map((r) => ({
       recipe: r,
-      score: scoreRecipe(r, profile, swipeMap, savedExternalIds, affinityMap, interactionMap, pantrySet, leftoversSet),
+      score: scoreRecipe(r, profile, swipeMap, savedExternalIds, affinityMap, interactionMap, pantrySet, leftoversSet, ratingMap),
     }));
     rescored.sort((a, b) => b.score - a.score);
     finalDeck = rescored;
@@ -946,7 +982,7 @@ export async function fetchScoredDeck(
     console.warn(`[fetchScoredDeck] very few unsaved recipes — re-including saved as last resort`);
     const rescored = afterDislikes.map((r) => ({
       recipe: r,
-      score: scoreRecipe(r, profile, swipeMap, savedExternalIds, affinityMap, interactionMap, pantrySet, leftoversSet),
+      score: scoreRecipe(r, profile, swipeMap, savedExternalIds, affinityMap, interactionMap, pantrySet, leftoversSet, ratingMap),
     }));
     rescored.sort((a, b) => b.score - a.score);
     finalDeck = rescored;
@@ -1270,6 +1306,157 @@ export async function setRecipeLiked(userId: string, externalId: string, liked: 
     .update({ liked })
     .eq('user_id', userId)
     .eq('recipe_id', recipeData.id);
+}
+
+// ─── Reviews ─────────────────────────────────────────────────────────────────
+
+export async function fetchRecipeReviews(recipeId: string): Promise<Review[]> {
+  const { data, error } = await supabase
+    .from('recipe_reviews')
+    .select('*, reviewer:profiles_public!recipe_reviews_user_id_fkey(name, username, avatar_url)')
+    .eq('recipe_id', recipeId)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map((r: any) => ({
+    id: r.id,
+    recipe_id: r.recipe_id,
+    user_id: r.user_id,
+    rating: r.rating,
+    review_text: r.review_text ?? null,
+    created_at: r.created_at,
+    updated_at: r.updated_at,
+    reviewer_name: r.reviewer?.name ?? null,
+    reviewer_username: r.reviewer?.username ?? null,
+    reviewer_avatar: r.reviewer?.avatar_url ?? null,
+  }));
+}
+
+export async function getUserReviewForRecipe(userId: string, recipeId: string): Promise<Review | null> {
+  const { data, error } = await supabase
+    .from('recipe_reviews')
+    .select('*, reviewer:profiles_public!recipe_reviews_user_id_fkey(name, username, avatar_url)')
+    .eq('user_id', userId)
+    .eq('recipe_id', recipeId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  return {
+    id: data.id,
+    recipe_id: data.recipe_id,
+    user_id: data.user_id,
+    rating: data.rating,
+    review_text: data.review_text ?? null,
+    created_at: data.created_at,
+    updated_at: data.updated_at,
+    reviewer_name: data.reviewer?.name ?? null,
+    reviewer_username: data.reviewer?.username ?? null,
+    reviewer_avatar: data.reviewer?.avatar_url ?? null,
+  };
+}
+
+export async function hasUserCookedRecipe(userId: string, recipeId: string): Promise<boolean> {
+  const { data } = await supabase
+    .from('recipe_interactions')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('recipe_id', recipeId)
+    .eq('interaction_type', 'cooked')
+    .limit(1)
+    .maybeSingle();
+  return data !== null;
+}
+
+export async function submitReview(
+  userId: string, recipeId: string, rating: number, reviewText: string | null
+): Promise<Review> {
+  const { data, error } = await supabase
+    .from('recipe_reviews')
+    .insert({ user_id: userId, recipe_id: recipeId, rating, review_text: reviewText ?? null })
+    .select('*, reviewer:profiles_public!recipe_reviews_user_id_fkey(name, username, avatar_url)')
+    .single();
+  if (error) throw error;
+  return {
+    id: data.id,
+    recipe_id: data.recipe_id,
+    user_id: data.user_id,
+    rating: data.rating,
+    review_text: data.review_text ?? null,
+    created_at: data.created_at,
+    updated_at: data.updated_at,
+    reviewer_name: data.reviewer?.name ?? null,
+    reviewer_username: data.reviewer?.username ?? null,
+    reviewer_avatar: data.reviewer?.avatar_url ?? null,
+  };
+}
+
+export async function updateReview(
+  reviewId: string, rating: number, reviewText: string | null
+): Promise<Review> {
+  const { data, error } = await supabase
+    .from('recipe_reviews')
+    .update({ rating, review_text: reviewText ?? null, updated_at: new Date().toISOString() })
+    .eq('id', reviewId)
+    .select('*, reviewer:profiles_public!recipe_reviews_user_id_fkey(name, username, avatar_url)')
+    .single();
+  if (error) throw error;
+  return {
+    id: data.id,
+    recipe_id: data.recipe_id,
+    user_id: data.user_id,
+    rating: data.rating,
+    review_text: data.review_text ?? null,
+    created_at: data.created_at,
+    updated_at: data.updated_at,
+    reviewer_name: data.reviewer?.name ?? null,
+    reviewer_username: data.reviewer?.username ?? null,
+    reviewer_avatar: data.reviewer?.avatar_url ?? null,
+  };
+}
+
+export async function deleteReview(reviewId: string): Promise<void> {
+  const { error } = await supabase.from('recipe_reviews').delete().eq('id', reviewId);
+  if (error) throw error;
+}
+
+export async function fetchCreatorStats(recipeId: string): Promise<CreatorStats> {
+  const [swipesRes, savesRes, interactionsRes, recipeRes] = await Promise.all([
+    supabase
+      .from('swipe_events')
+      .select('direction')
+      .eq('recipe_id', recipeId),
+    supabase
+      .from('saved_recipes')
+      .select('id', { count: 'exact', head: true })
+      .eq('recipe_id', recipeId),
+    supabase
+      .from('recipe_interactions')
+      .select('interaction_type')
+      .eq('recipe_id', recipeId)
+      .in('interaction_type', ['cooked', 'view']),
+    supabase
+      .from('recipes')
+      .select('avg_rating, rating_count')
+      .eq('id', recipeId)
+      .single(),
+  ]);
+
+  const swipes = swipesRes.data ?? [];
+  const right_swipes = swipes.filter((s: any) => s.direction === 'right').length;
+  const left_swipes = swipes.filter((s: any) => s.direction === 'left').length;
+  const saves = savesRes.count ?? 0;
+  const interactions = interactionsRes.data ?? [];
+  const cooks = interactions.filter((i: any) => i.interaction_type === 'cooked').length;
+  const views = interactions.filter((i: any) => i.interaction_type === 'view').length;
+
+  return {
+    right_swipes,
+    left_swipes,
+    saves,
+    cooks,
+    views,
+    avg_rating: Number(recipeRes.data?.avg_rating ?? 0),
+    rating_count: recipeRes.data?.rating_count ?? 0,
+  };
 }
 
 // Writes the user's post-cook star rating (1-5) to saved_recipes.user_rating.
@@ -1776,6 +1963,7 @@ interface CommunityRecipeInput {
   dietary_tags: string[];
   submitted_by: string;
   image_url: string | null;
+  is_public: boolean;
 }
 
 export async function updatePushToken(userId: string, token: string): Promise<void> {
@@ -1802,6 +1990,8 @@ export async function insertCommunityRecipe(input: CommunityRecipeInput): Promis
       dietary_tags: input.dietary_tags,
       submitted_by: input.submitted_by,
       image_url: input.image_url,
+      is_public: input.is_public,
+      moderation_status: 'approved',
       badge: 'none',
       avg_rating: 0,
       save_count: 0,
@@ -1810,4 +2000,41 @@ export async function insertCommunityRecipe(input: CommunityRecipeInput): Promis
     .single();
   if (error) throw error;
   return data.id;
+}
+
+// ─── Community recipe enrichment (post-insert, fire-and-forget) ───────────────
+// Computes macros via /api/macros (which caches to DB itself) and infers
+// dietary_tags client-side, persisting the tags. Caller should not await —
+// failures are non-fatal.
+export async function enrichCommunityRecipe(
+  recipeId: string,
+  payload: {
+    title: string;
+    ingredients: { name: string; quantity: string; unit: string }[];
+  }
+): Promise<void> {
+  try {
+    const dietary_tags = inferDietaryTags(payload.title, payload.ingredients);
+    await supabase.from('recipes').update({ dietary_tags }).eq('id', recipeId);
+  } catch {}
+
+  try {
+    const apiUrl = process.env.EXPO_PUBLIC_API_URL;
+    if (!apiUrl) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) return;
+    await fetch(`${apiUrl}/api/macros`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        supabaseId: recipeId,
+        recipeTitle: payload.title,
+        ingredients: payload.ingredients,
+      }),
+    });
+  } catch {}
 }
