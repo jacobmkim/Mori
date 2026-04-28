@@ -45,6 +45,20 @@
       ],
       "expo-notifications",
       "expo-web-browser",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Mori uses your photo library to add images to recipes you create and your profile picture."
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Mori needs photo library access to save badge cards and recipe screenshots.",
+          "savePhotosPermission": "Mori needs permission to save badge cards and recipe screenshots to your Photos.",
+          "isAccessMediaLocationEnabled": false
+        }
+      ],
       "@sentry/react-native",
       [
         "@sentry/react-native/expo",

@@ -574,6 +574,11 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
                   }
                 />
                 <SheetRow
+                  icon="shield-checkmark-outline"
+                  label="Privacy Policy"
+                  onPress={() => { onClose(); setTimeout(() => router.push('/privacy-policy'), 300); }}
+                />
+                <SheetRow
                   icon="log-out-outline"
                   label="Sign Out"
                   destructive

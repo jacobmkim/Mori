@@ -12,8 +12,8 @@ import { updatePushToken } from '@/lib/api';
 import { isResetPasswordUrl } from '@/lib/deepLink';
 
 Sentry.init({
-  dsn: 'https://59eecaa7b60a4f0a210f8c92fa782c67@o4511275352326144.ingest.us.sentry.io/4511275354423296',
-  enabled: !__DEV__,
+  dsn: process.env.EXPO_PUBLIC_SENTRY_DSN ?? '',
+  enabled: !__DEV__ && !!process.env.EXPO_PUBLIC_SENTRY_DSN,
   // PII off by default. With it on, Sentry attaches IP, UA, and request bodies
   // (including bearer tokens, OAuth codes, taste profiles). Re-enable only
   // after a privacy review and adding redaction in beforeSend.
