@@ -15,7 +15,7 @@
  */
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { timingSafeEqual } from 'crypto';
-import { captureException } from './_sentry';
+import { captureException, flushSentry } from './_sentry';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
@@ -32,12 +32,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const dsnPresent = !!process.env.SENTRY_DSN;
   const err = new Error(`sentry-test fired at ${new Date().toISOString()}`);
   captureException(err);
+  // Block the response until Sentry has actually flushed the event — without
+  // this the serverless function exits before the network call completes and
+  // the event is lost.
+  const flushed = dsnPresent ? await flushSentry(2000) : false;
 
   return res.status(500).json({
     error: 'Sentry test fired',
     captured: dsnPresent,
+    flushed,
     hint: dsnPresent
-      ? 'Check the mori-2g/react-native dashboard — event should arrive within ~1 minute.'
+      ? (flushed
+        ? 'Event flushed. Check mori-2g/react-native — should arrive within seconds.'
+        : 'Event sent but flush timed out — Sentry may have rate-limited or rejected it.')
       : 'SENTRY_DSN is not set on this deploy. captureException was a no-op.',
   });
 }
