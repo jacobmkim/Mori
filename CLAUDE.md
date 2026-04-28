@@ -44,7 +44,7 @@ Mori is a swipe-based recipe discovery app. Users swipe on recipe cards → save
 - Grocery List: grouped categories, checkboxes, copy-to-clipboard
 - Profile: AvatarButton → ProfileSheet, taste profile (monthly cron + update modal), pantry, preferences, editable display name, appearance toggle
 - 1,506 curated recipes; all have steps, macros, dietary_tags, meal_prep_friendly, gpt-image-1 images
-- Vercel functions: /api/macros, /api/taste-profile, /api/generate-recipe, /api/storage-tip (exactly 12 — Hobby plan limit; `_`-prefixed files don't count)
+- Vercel functions: /api/macros, /api/taste-profile, /api/generate-recipe, /api/storage-tip, /api/send-welcome-email, /api/sentry-test (10 user-facing + 2 cron; Hobby plan limit is 12 — Kroger functions removed 2026-04-28; `_`-prefixed files don't count)
 - app.json: name Mori, bundle ID app.getmori.mori
 - Landing page: getmori.app (Vercel), hello@getmori.app email routing. Screenshots + taste profile section updated. **Served from `public/index.html` — `landing/index.html` is a stale copy, do not edit it.**
 - App icon: italic m + spatula, linen #F8F3EC, 1024×1024
@@ -69,7 +69,7 @@ Mori is a swipe-based recipe discovery app. Users swipe on recipe cards → save
 - **Pescatarian** dietary goal added — onboarding, profile, EditPreferencesModal, payoff screen; conflict guard vs vegan; hard filter in `fetchDiscoverRecipes`
 
 ### ❌ Phase 4 — Grocery APIs
-- ⛔ **Kroger deprioritized (2026-04-27)** — code retained (`api/kroger-auth.ts`, `api/kroger-cart.ts`, `KrogerSheet` in `grocery-list.tsx`) but no further investment. Production approval was blocking and sandbox catalog too sparse. New grocery work targets Instacart only. Plaintext-token / redirect_uri / token-refresh issues from earlier audits flagged for removal rather than fix.
+- ⛔ **Kroger removed (2026-04-28)** — `api/kroger-auth.ts`, `api/kroger-cart.ts`, `supabase/add-kroger-tokens.sql`, and the `KrogerSheet` UI in `grocery-list.tsx` deleted. Freed two Vercel function slots for `send-welcome-email`. The `kroger_tokens` table itself was not dropped from Supabase — drop manually if you want the rows gone (`DROP TABLE kroger_tokens;`). All grocery flow now goes through Instacart.
 - ✅ **Instacart integration** — `api/instacart-cart.ts` live. Link-generation model: POST items → get URL → open in WebBrowser. No OAuth needed. Sandbox key active (`INSTACART_API_KEY`). **Prod key pending** — apply at developer.instacart.com. When approved: add `INSTACART_ENVIRONMENT=production` to Vercel env vars.
   - ✅ **Staples + pantry filter on send** — `partitionForInstacart()` in `lib/staples.ts` strips staples + any item in user's `pantry_items`. Inline notice: "Skipping 3 staples · 2 pantry items". Empty-after-filter → "Nothing to order" alert. Staples expanded: distilled vinegars (balsamic excluded), extended dry spices, sweeteners (honey, maple syrup, etc.) — all USDA indefinite shelf life.
   - ✅ **Ingredient quantity normalization** — `scripts/normalize-ingredient-units.mjs` ran on all 1,294 metric-unit recipes. Haiku rewrote metric → US grocery amounts AND converted count-based proteins to weight (e.g. "4 salmon fillets" → "1.5 lb", "8 chicken thighs" → "2 lb", "300g spinach" → "10 oz"). `whole`/`wholes` added to UNIT_MAP in `lib/instacartUtils.ts`. Instacart now auto-calculates correct package counts from weight measurements.
@@ -289,7 +289,10 @@ UNSPLASH_ACCESS_KEY=      # registered
 SEED_SECRET=              # Admin-only seed-recipes endpoint (generate: openssl rand -hex 32)
 INSTACART_PARTNER_ID=7220009  # Impact affiliate ID — already live in Vercel
 INSTACART_API_KEY=        # Phase 4
+RESEND_API_KEY=           # Welcome email at signup (api/send-welcome-email)
 ```
+
+**Resend setup:** the `from` address (`Mori <hello@getmori.app>`) requires `getmori.app` to be a verified sending domain in the Resend dashboard. Until that DNS is verified, the welcome email will 4xx — but the signup flow continues regardless (fire-and-forget).
 
 ---
 
@@ -303,10 +306,9 @@ Open items only. Resolved fixes are logged in `.claude/bugfixes.md`.
 
 ### 🔴 Open Security
 - [ ] No CSRF protection on public endpoints (`/api/waitlist`).
-- [ ] Kroger plaintext tokens (`kroger_tokens` table) — deprioritized; remove with Kroger.
+- [ ] `kroger_tokens` Supabase table still exists (Kroger code removed 2026-04-28) — drop manually with `DROP TABLE kroger_tokens;` to clear the plaintext-token rows.
 
 ### 🟡 Open Edge Cases
-- [ ] **Kroger token refresh silent failure** — deprioritized.
 - [ ] **Rapid swiping** — concurrent `logSwipeBackground()` calls can log swipes out of order; recommendation signal degrades.
 - [ ] **Budget field unused** — collected in onboarding, stored in profile, never used for filtering.
 - [ ] **Adventure card pause not persisted** — session-only; resets on app relaunch.

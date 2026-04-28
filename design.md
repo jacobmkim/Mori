@@ -30,8 +30,6 @@ Use these exact framings in all marketing content. Do not overclaim.
 
 > **Instacart note:** Mori generates an Instacart link. The user completes the order inside the Instacart app or browser. Mori does not place the order directly. Always frame as "sends to Instacart" or "one tap to Instacart."
 
-> **Kroger note:** Kroger integration is built but awaiting production API approval. Do not mention Kroger in any public-facing marketing until approved.
-
 ---
 
 ## Brand Identity
@@ -187,7 +185,6 @@ Never open with: "Mori is an AI-powered…" or "Introducing Mori…"
 - Never use sans-serif for recipe titles or anything expressive
 - Never say "AI" in consumer-facing copy unless explaining the taste profile specifically
 - Never claim groceries are delivered by Mori — Instacart handles fulfilment
-- Never mention Kroger until production API is approved
 - Never use the app icon on a non-linen background
 - Never recreate logos as SVG or inline code — use the PNG assets
 - Never make Mori feel like a diet app, calorie tracker, or fitness tool

@@ -2,6 +2,7 @@ import { View, Text, TextInput, Pressable, Alert, ActivityIndicator } from 'reac
 import { router } from 'expo-router';
 import { useForm, Controller } from 'react-hook-form';
 import { useState } from 'react';
+import * as Linking from 'expo-linking';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/hooks/useTheme';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,9 +23,11 @@ export default function ForgotPassword() {
   async function onSubmit(data: FormData) {
     setLoading(true);
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(data.email, {
-        redirectTo: 'mori://reset-password',
-      });
+      // `Linking.createURL` resolves to `mori:///reset-password` in TestFlight /
+      // production / dev builds, and `exp://…/--/reset-password` in Expo Go —
+      // so the same Supabase email works in every runtime.
+      const redirectTo = Linking.createURL('/reset-password');
+      const { error } = await supabase.auth.resetPasswordForEmail(data.email, { redirectTo });
       if (error) throw error;
       setSuccess(true);
     } catch (err: any) {

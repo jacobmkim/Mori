@@ -16,6 +16,20 @@ interface FormData {
   confirmPassword?: string;
 }
 
+async function sendWelcomeEmail(): Promise<void> {
+  const baseUrl = process.env.EXPO_PUBLIC_API_URL;
+  if (!baseUrl) return;
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token) return;
+  await fetch(`${baseUrl}/api/send-welcome-email`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${session.access_token}`,
+    },
+  });
+}
+
 export default function Account() {
   const colors = useTheme();
   const { onboarding, setProfile } = useUserStore();
@@ -52,11 +66,8 @@ export default function Account() {
           });
           setProfile(profile);
 
-          // Send confirmation email (optional — user can ignore)
-          supabase.auth.resend({ type: 'signup', email: data.email }).catch((err) => {
-            console.error('Failed to send confirmation email:', err);
-            // Non-fatal — continue to app even if email fails
-          });
+          // Fire-and-forget — never block signup completion on the welcome email.
+          sendWelcomeEmail().catch(() => {});
         }
         router.push('/onboarding/pantry');
       } else {

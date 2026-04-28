@@ -4,6 +4,8 @@ import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Linking } from 'react-native';
 import { router } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
 
 import * as Sentry from '@sentry/react-native';
 import { useUserStore } from '@/stores/userStore';
@@ -39,6 +41,26 @@ Sentry.init({
   },
 });
 
+// Fires Sentry.captureMessage('boot vX.Y.Z') exactly once per app version.
+// Confirms client-side wiring is live without flooding Sentry on every cold
+// start. AsyncStorage stores a single key per version so reinstalls / cache
+// clears will re-emit, which is fine — it's still scoped to one event per
+// install per release.
+async function emitBootHeartbeatOnce() {
+  try {
+    const version = Constants.expoConfig?.version ?? 'unknown';
+    const buildNumber = Constants.expoConfig?.ios?.buildNumber ?? '';
+    const tag = buildNumber ? `${version}+${buildNumber}` : version;
+    const key = `sentry_heartbeat_${tag}`;
+    const seen = await AsyncStorage.getItem(key);
+    if (seen) return;
+    await AsyncStorage.setItem(key, '1');
+    Sentry.captureMessage(`boot ${tag}`, 'info');
+  } catch {
+    // Heartbeat is verification-only — never escalate failures to the user.
+  }
+}
+
 function RootLayout() {
   const profile = useUserStore((s) => s.profile);
   const registeredFor = useRef<string | null>(null);
@@ -50,6 +72,10 @@ function RootLayout() {
       .then((token) => { if (token) updatePushToken(profile.id, token).catch(() => {}); })
       .catch(() => {});
   }, [profile?.id]);
+
+  useEffect(() => {
+    emitBootHeartbeatOnce();
+  }, []);
 
   useEffect(() => {
     const subscription = Linking.addEventListener('url', handleDeepLink);
