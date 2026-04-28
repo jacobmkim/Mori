@@ -583,15 +583,9 @@ export default function GroceryList() {
         const measurement = rawMeasurement && unitSystem === 'us'
           ? convertMeasurementToUs(rawMeasurement)
           : rawMeasurement;
-        let displayText: string;
-        if (measurement) {
-          const unitLabel = measurement.unit === 'each' ? '' : ` ${measurement.unit}`;
-          displayText = `${i.ingredient_name} ${measurement.quantity}${unitLabel}`.trim();
-        } else if (i.quantity) {
-          displayText = `${i.ingredient_name} ${i.quantity}${i.unit ? ' ' + i.unit : ''}`.trim();
-        } else {
-          displayText = i.ingredient_name;
-        }
+        const displayText = i.quantity
+          ? `${i.ingredient_name} ${i.quantity}${i.unit ? ' ' + i.unit : ''}`.trim()
+          : i.ingredient_name;
         return { name, displayText, ...(measurement ? { measurement } : {}) };
       });
 

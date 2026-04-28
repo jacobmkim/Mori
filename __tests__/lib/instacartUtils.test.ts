@@ -63,4 +63,48 @@ describe('parseGroceryMeasurement', () => {
   it('handles three-way combination', () => {
     expect(parseGroceryMeasurement('1 oz + 2 oz + 3 oz', '')).toEqual({ quantity: 6, unit: 'oz' });
   });
+
+  // ── Compound count + per-piece weight ────────────────────────────────────
+  it('parses "4 fillets, 7 oz each" as total weight in lb', () => {
+    expect(parseGroceryMeasurement('4 fillets, 7 oz each', '')).toEqual({ quantity: 1.75, unit: 'lb' });
+  });
+
+  it('parses "8 chicken thighs, 4 oz each" as total weight in lb', () => {
+    expect(parseGroceryMeasurement('8 chicken thighs, 4 oz each', '')).toEqual({ quantity: 2, unit: 'lb' });
+  });
+
+  it('parses "2 steaks (1 lb each)" as total weight', () => {
+    expect(parseGroceryMeasurement('2 steaks (1 lb each)', '')).toEqual({ quantity: 2, unit: 'lb' });
+  });
+
+  it('parses split-field "4 fillets" + "7 oz each"', () => {
+    expect(parseGroceryMeasurement('4 fillets', '7 oz each')).toEqual({ quantity: 1.75, unit: 'lb' });
+  });
+
+  it('parses "3 fillets, 5 oz each" → stays in oz when under 16', () => {
+    expect(parseGroceryMeasurement('3 fillets, 5 oz each', '')).toEqual({ quantity: 15, unit: 'oz' });
+  });
+
+  it('parses range per-piece "4 fillets (5-6 oz each)" using average', () => {
+    // (5+6)/2 = 5.5 per piece × 4 = 22 oz → 1.38 lb
+    expect(parseGroceryMeasurement('4 fillets (5-6 oz each)', '')).toEqual({ quantity: 1.38, unit: 'lb' });
+  });
+
+  it('parses range per-piece "4 fillets, 5-6 oz each" without parens', () => {
+    expect(parseGroceryMeasurement('4 fillets, 5-6 oz each', '')).toEqual({ quantity: 1.38, unit: 'lb' });
+  });
+
+  it('parses metric per-piece "4 fillets, 200g each" → converted to oz/lb', () => {
+    const result = parseGroceryMeasurement('4 fillets, 200g each', '');
+    expect(result?.unit).toBe('lb');
+    expect(result?.quantity).toBeCloseTo(1.76, 1);
+  });
+
+  it('falls back to count for bare "4 fillets" (no per-piece weight)', () => {
+    expect(parseGroceryMeasurement('4 fillets', '')).toEqual({ quantity: 4, unit: 'each' });
+  });
+
+  it('maps "fillet" unit to each', () => {
+    expect(parseGroceryMeasurement('4', 'fillets')).toEqual({ quantity: 4, unit: 'each' });
+  });
 });

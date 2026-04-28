@@ -37,7 +37,54 @@ const UNIT_MAP: Record<string, string> = {
   slice: 'each', slices: 'each',
   stalk: 'each', stalks: 'each',
   piece: 'each', pieces: 'each',
+  fillet: 'each', fillets: 'each',
+  filet: 'each', filets: 'each',
+  thigh: 'each', thighs: 'each',
+  breast: 'each', breasts: 'each',
+  steak: 'each', steaks: 'each',
+  drumstick: 'each', drumsticks: 'each',
+  wing: 'each', wings: 'each',
+  chop: 'each', chops: 'each',
 };
+
+const PER_PIECE_WEIGHT_UNITS: Record<string, string> = {
+  oz: 'oz', ounce: 'oz', ounces: 'oz',
+  lb: 'lb', lbs: 'lb', pound: 'lb', pounds: 'lb',
+  g: 'gram', gram: 'gram', grams: 'gram',
+  kg: 'kg', kilogram: 'kg', kilograms: 'kg',
+};
+
+/**
+ * Detects compound "N pieces, X oz each" patterns and returns the total weight.
+ * Examples:
+ *   "4 fillets, 7 oz each"      → { quantity: 1.75, unit: 'lb' }
+ *   "8 chicken thighs, 4 oz each" → { quantity: 2, unit: 'lb' }
+ *   "2 steaks (1 lb each)"        → { quantity: 2, unit: 'lb' }
+ *   "4 fillets 7oz"               → { quantity: 1.75, unit: 'lb' }
+ */
+function parseCountPlusWeight(s: string): { quantity: number; unit: string } | null {
+  // Accepts: "4 fillets, 7 oz each", "4 fillets (5-6 oz each)", "2 steaks (1 lb each)",
+  //          "8 thighs - 4 oz each", "4 fillets 200g each"
+  // Per-piece weight may be a single number or a range "5-6" — we use the average.
+  const re = /^([\d.]+)\s+([a-z][a-z\s]*?)[\s,(\-]+([\d.]+(?:\s*[-–]\s*[\d.]+)?)\s*(oz|ounce|ounces|lb|lbs|pound|pounds|g|gram|grams|kg|kilogram|kilograms)\b\s*(each|ea|apiece|per\s+piece)?\)?\s*$/i;
+  const m = s.trim().match(re);
+  if (!m) return null;
+  const count = parseFloat(m[1]);
+  const perRangeMatch = m[3].match(/^([\d.]+)\s*[-–]\s*([\d.]+)$/);
+  const perQty = perRangeMatch
+    ? (parseFloat(perRangeMatch[1]) + parseFloat(perRangeMatch[2])) / 2
+    : parseFloat(m[3]);
+  const perUnit = PER_PIECE_WEIGHT_UNITS[m[4].toLowerCase()];
+  if (!count || !perQty || !perUnit) return null;
+  const totalRaw = count * perQty;
+  const total = perUnit === 'gram' || perUnit === 'kg'
+    ? convertMeasurementToUs({ quantity: totalRaw, unit: perUnit })
+    : { quantity: totalRaw, unit: perUnit };
+  if (total.unit === 'oz' && total.quantity >= 16) {
+    return { quantity: +(total.quantity / 16).toFixed(2), unit: 'lb' };
+  }
+  return { quantity: +total.quantity.toFixed(2), unit: total.unit };
+}
 
 function parseFraction(s: string): number | null {
   const parts = s.split('/');
@@ -78,6 +125,12 @@ export function parseGroceryMeasurement(
   unitStr: string,
 ): { quantity: number; unit: string } | null {
   const trimUnit = unitStr?.trim() ?? '';
+  const trimQtyEarly = quantityStr?.trim() ?? '';
+
+  // Compound "N pieces, X oz each" — handle before unit-based path so split-field
+  // variants like quantity="4 fillets", unit="7 oz each" are caught too.
+  const compound = parseCountPlusWeight(trimUnit ? `${trimQtyEarly} ${trimUnit}` : trimQtyEarly);
+  if (compound) return compound;
 
   // Explicit unit field — Supabase recipes store quantity and unit separately
   if (trimUnit) {

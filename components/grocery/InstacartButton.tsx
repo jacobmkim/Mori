@@ -42,7 +42,7 @@ export function InstacartButton({ onPress, loading, disabled }: Props) {
         ? <ActivityIndicator size="small" color={textColor} />
         : (
           <Image
-            source={isDark ? require('@/assets/instacart-carrot-white.png') : require('@/assets/instacart-carrot.png')}
+            source={require('@/assets/instacart-carrot.png')}
             style={{ width: 22, height: 22 }}
             contentFit="contain"
           />
