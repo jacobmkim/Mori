@@ -21,11 +21,14 @@ function getSupabase() {
   return createClient(url, key);
 }
 
+type FlavourDna = Record<string, { score: number; note: string }>;
+type TasteProfileResult = { text: string; flavourDna?: FlavourDna };
+
 async function buildTasteProfileText(
   userId: string,
   sb: SupabaseClient,
   anthropic: Anthropic,
-): Promise<string | null> {
+): Promise<TasteProfileResult | null> {
   const [profileRes, swipesRes, interactionsRes] = await Promise.all([
     sb.from('profiles')
       .select('dietary_goals, cuisine_preferences, eating_style, skill_level')
