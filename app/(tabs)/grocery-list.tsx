@@ -18,6 +18,7 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { useGroceryStore } from '@/stores/groceryStore';
 import { useDiscoverStore } from '@/stores/discoverStore';
 import { fetchMacros, getPantryItems } from '@/lib/api';
+import { getApiBaseUrl } from '@/lib/apiBaseUrl';
 import { partitionForInstacart, isStaple } from '@/lib/staples';
 import { parseGroceryMeasurement, convertMeasurementToUs, formatGroceryQuantity } from '@/lib/instacartUtils';
 import { fetchMealDetail } from '@/lib/mealdb';
@@ -386,7 +387,6 @@ export default function GroceryList() {
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const baseUrl = process.env.EXPO_PUBLIC_API_URL;
 
       const instacartItems = sendable.map((i) => {
         const name = cleanForSearch(i.ingredient_name);
@@ -404,7 +404,7 @@ export default function GroceryList() {
         ? `Mori: ${selectedRecipes.slice(0, 2).map((r) => r.title).join(', ')}${selectedRecipes.length > 2 ? ` +${selectedRecipes.length - 2} more` : ''}`
         : 'Mori Grocery List';
 
-      const res = await fetch(`${baseUrl}/api/instacart-cart`, {
+      const res = await fetch(`${getApiBaseUrl()}/api/instacart-cart`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -9,6 +9,7 @@
 - Do not make changes unless 95% confident. Ask follow-up questions until that threshold is met.
 - Bug fix log lives at `.claude/bugfixes.md` — append an entry for every shipped fix batch.
 - Do not always agree with user! Look for missing edge cases things user has not thought of.
+- **Look for potential issues proactively, especially in invisible state.** When something works locally but breaks in TestFlight/prod, check config that lives outside the repo first: EAS dashboard env, Vercel env, Supabase RLS, EAS Secrets, custom domain → deployment binding. Don't theorize about code paths until you've verified config alignment. The local `.env` is NOT a source of truth for built apps.
 - **No binary scoring** — never use all-or-nothing pool inclusion as a feature signal. Use score bonuses/penalties so signals compete on merit (e.g. favourites_rotation gets +6 saved bonus, not unconditional deck inclusion).
 
 ### Security Commandments (April 2026)
@@ -21,8 +22,17 @@
 - **Never hardcode secrets** — all API keys, SEED_SECRET, etc. go in Vercel environment variables only
 - **Never expose .env** — confirm it's in .gitignore; rotate keys if ever committed to git
 
+### Pre-Ship Commandments (April 2026)
+- **Before any TestFlight or production build, run `eas env:list --environment production`** and cross-check it against every `process.env.EXPO_PUBLIC_*` reference in the client (`grep -rn "process\.env\.EXPO_PUBLIC_" --exclude-dir=node_modules`). Every referenced var must be present AND current. Pin critical ones in `eas.json` `build.<profile>.env` so they're source-controlled, not hidden dashboard state. Reason: `EXPO_PUBLIC_*` is Babel-inlined at bundle time on the EAS server, which never sees the gitignored local `.env`. Missing vars degrade to `undefined` and silently disable features (e.g. Sentry init guards on the DSN).
+- **Don't conflate EAS env with Vercel env.** EAS env = client-side `EXPO_PUBLIC_*` baked into the IPA. Vercel env = server-side keys read by API functions at runtime (Anthropic, Supabase service role, Instacart, Resend). Adding `INSTACART_API_KEY` to EAS does nothing; adding `EXPO_PUBLIC_API_URL` to Vercel does nothing. When debugging "feature X is broken in prod", first identify which side the failing code lives on.
+- **After modifying any Vercel function, smoke-test the deployed endpoint with curl** before declaring the change shipped. Probe for the expected status (e.g. 401 unauth, not 404 deployment-not-found) and the expected response shape. `vercel deploy` succeeding is not the same as the route being reachable.
+- **Async side effects in Vercel functions must `await` before `res.end()`.** Sentry, analytics, push-notification dispatch — all of it. Vercel kills the event loop on response, so fire-and-forget after the response is functionally a no-op. Use `try { … } finally { await Sentry.flush(2000); }` for ship-critical signals.
+- **For "broken in prod, works locally" bugs, check invisible state first** — in this order: EAS env, Vercel env, Supabase RLS policies, custom domain bindings, EAS Secrets. Read live state (`eas env:list`, Vercel dashboard, Supabase Studio) before reading code. Local source code matching expectations is not evidence that production matches.
+
 ## Applied Learning
-_(Add one-line bullets here only when a workaround is found or something fails repeatedly.)_
+- **2026-04-29 — EAS dashboard env drift caused TestFlight rebuild.** Local `.env` had `getmori.app`, EAS prod env still had retired `project-x-one-roan.vercel.app`. All API calls (taste-profile, macros, Instacart) returned `DEPLOYMENT_NOT_FOUND`. Fix path = update EAS env + pin in `eas.json` `env` blocks + add runtime fallback in `lib/apiBaseUrl.ts`.
+- **2026-04-29 — `EXPO_PUBLIC_SENTRY_DSN` was missing from EAS env entirely.** Client Sentry init in `app/_layout.tsx` guards on the DSN, so Sentry has been silently disabled in every TestFlight build. Fix = add to EAS prod + preview envs and pin in `eas.json`. The `SENTRY_AUTH_TOKEN`/`SENTRY_ORG`/`SENTRY_PROJECT` vars in EAS are build-time sourcemap-upload vars, not runtime DSN.
+- **2026-04-28 — Sentry events silently dropped on Vercel.** Functions returned before `Sentry.flush()`; Vercel kills the event loop on response. Fix = `await Sentry.flush(2000)` in a `finally`. Commit `a2645f2`.
 
 ---
 
@@ -288,7 +298,7 @@ See **`.claude/SECURITY_HARDENING_IMPLEMENTATION.md`** for full details (rate li
 # Client (EXPO_PUBLIC_ only)
 EXPO_PUBLIC_SUPABASE_URL=
 EXPO_PUBLIC_SUPABASE_ANON_KEY=
-EXPO_PUBLIC_API_URL=https://project-x-one-roan.vercel.app
+EXPO_PUBLIC_API_URL=https://getmori.app
 
 # Vercel only — never in client
 ANTHROPIC_API_KEY=

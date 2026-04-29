@@ -2,10 +2,11 @@ import { useEffect, useRef } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { Linking } from 'react-native';
+import { AppState, Linking } from 'react-native';
 import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
+import * as Updates from 'expo-updates';
 
 import * as Sentry from '@sentry/react-native';
 import { useUserStore } from '@/stores/userStore';
@@ -75,6 +76,29 @@ function RootLayout() {
 
   useEffect(() => {
     emitBootHeartbeatOnce();
+  }, []);
+
+  // Check for OTA updates whenever the app foregrounds. Cold-launch checks
+  // happen automatically via app.json `updates.checkAutomatically: ON_LOAD`,
+  // so this only covers long-running sessions where a user backgrounds the
+  // app for hours and we want to pick up a published JS bundle without
+  // forcing a manual restart.
+  useEffect(() => {
+    if (!Updates.isEnabled) return; // dev / Expo Go: skip silently
+    const sub = AppState.addEventListener('change', async (state) => {
+      if (state !== 'active') return;
+      try {
+        const result = await Updates.checkForUpdateAsync();
+        if (result.isAvailable) {
+          await Updates.fetchUpdateAsync();
+          await Updates.reloadAsync();
+        }
+      } catch {
+        // Update fetch failures are non-fatal — user keeps running on the
+        // currently embedded bundle. Don't surface to the UI.
+      }
+    });
+    return () => sub.remove();
   }, []);
 
   useEffect(() => {

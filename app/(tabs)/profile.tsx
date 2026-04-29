@@ -11,6 +11,7 @@ import { useSavedStore } from '@/stores/savedStore';
 import { supabase } from '@/lib/supabase';
 import { patchProfile, clearDiscoverCache, getPantryItems, addPantryItem, deletePantryItem, getAdventureCardsEnabled, setAdventureCardsEnabled, getUnitSystem, setUnitSystem, getFlaggedRecipes, clearFlaggedRecipes, fetchBadgeStats, getProfile, type FlaggedRecipe } from '@/lib/api';
 import { clearRecipeCache } from '@/lib/mealdb';
+import { getApiBaseUrl } from '@/lib/apiBaseUrl';
 import { useTheme } from '@/hooks/useTheme';
 import { useDiscoverStore, type AppearanceMode } from '@/stores/discoverStore';
 import { computeBadges } from '@/lib/badges';
@@ -620,8 +621,6 @@ export default function Profile() {
   }, [profile?.id])); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function runTasteProfileGeneration(userId: string) {
-    const baseUrl = process.env.EXPO_PUBLIC_API_URL;
-    if (!baseUrl) return;
     setTasteLoading(true);
     setTasteError(null);
     try {
@@ -632,7 +631,7 @@ export default function Profile() {
       }
       if (!session?.access_token) return;
 
-      const res = await fetch(`${baseUrl}/api/taste-profile`, {
+      const res = await fetch(`${getApiBaseUrl()}/api/taste-profile`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
         body: JSON.stringify({ userId }),

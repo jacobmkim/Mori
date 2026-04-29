@@ -3,6 +3,7 @@ import { supabase } from './supabase';
 import type { Profile, Recipe, SwipeEvent, SavedRecipe, PantryItem, GroceryList, MealPlan, MealSlot, OnboardingState, Macros, AppMode, RecipeNote, Review, CreatorStats } from '@/types';
 import type { BadgeStats } from '@/lib/badges';
 import { inferDietaryTags } from './dietaryClassifier';
+import { getApiBaseUrl } from './apiBaseUrl';
 
 // ─── Macro AsyncStorage cache ─────────────────────────────────────────────────
 // Persists macro data across sessions so Spoonacular is never called twice for
@@ -620,6 +621,17 @@ export async function extendLeftover(id: string, newSpoilsAt: string, newExtende
     .eq('id', id);
 }
 
+// Returns saved_at timestamps keyed by supabase recipe_id — used by the scorer
+// to apply a save-recency cooldown so just-saved recipes don't immediately
+// resurface on the next deck load.
+export async function getSavedAtMap(userId: string): Promise<Map<string, string>> {
+  const { data } = await supabase
+    .from('saved_recipes')
+    .select('recipe_id, saved_at')
+    .eq('user_id', userId);
+  return new Map((data ?? []).map((r: any) => [r.recipe_id as string, r.saved_at as string]));
+}
+
 // Returns active (non-expired, non-dismissed) leftover names as a lowercase Set.
 // Used by fetchScoredDeck — called once per deck load, passed into scoreRecipe.
 export async function fetchLeftoverNames(userId: string): Promise<Set<string>> {
@@ -708,6 +720,7 @@ export function scoreRecipe(
   pantrySet: Set<string>,
   leftoversSet?: Set<string>,
   ratingMap?: Map<string, number>,
+  savedAtMap?: Map<string, string>,
 ): number {
   // Bug 7 — session penalty: instantly exclude anything swiped this session
   const sid = recipe.supabase_id;
@@ -715,10 +728,27 @@ export function scoreRecipe(
 
   let score = Math.random() * 3; // jitter — shuffles similarly-scored recipes each session
 
-  // favourites_rotation: +6 for saved recipes so old favourites compete without dominating
-  if (profile?.eating_style === 'favourites_rotation') {
-    const key = recipe.external_id ?? recipe.supabase_id ?? '';
-    if (key && savedExternalIds.has(key)) score += 6;
+  // Currently-saved check — used by both the favourites_rotation bonus and to
+  // suppress double-counting the right-swipe boost on already-saved recipes.
+  const savedKey = recipe.external_id ?? recipe.supabase_id ?? '';
+  const isCurrentlySaved = !!savedKey && savedExternalIds.has(savedKey);
+
+  // favourites_rotation: +3 for saved recipes so old favourites compete without
+  // dominating. Combined with the saved-share cap in fetchScoredDeck, this
+  // gives rotation users 1-in-4 saved slots instead of a flooded deck.
+  if (profile?.eating_style === 'favourites_rotation' && isCurrentlySaved) {
+    score += 3;
+
+    // Save-recency cooldown — mirrors the cooked-recency penalty so users
+    // don't see a recipe they just saved on the very next deck reload.
+    if (sid && savedAtMap) {
+      const savedAtIso = savedAtMap.get(sid);
+      if (savedAtIso) {
+        const daysSinceSaved = (Date.now() - new Date(savedAtIso).getTime()) / 86_400_000;
+        if (daysSinceSaved < 3) score -= 15;
+        else if (daysSinceSaved < 14) score -= 6;
+      }
+    }
   }
 
   // Cohort affinity base (0.0–1.0, scaled up) — cold-start signal for new users
@@ -771,7 +801,9 @@ export function scoreRecipe(
       const daysSince = (Date.now() - new Date(swipe.swiped_at).getTime()) / 86_400_000;
       const decay = Math.exp(-daysSince / 30);
       if (swipe.direction === 'right') {
-        if (!ix || !ix.unsave) score += 5 * decay;
+        // Skip when currently saved — the save bonus already represents this signal,
+        // and stacking both was the dominant cause of saved recipes flooding the deck.
+        if ((!ix || !ix.unsave) && !isCurrentlySaved) score += 5 * decay;
       }
       if (swipe.direction === 'left') score -= 15 * decay;
     }
@@ -849,6 +881,43 @@ export function scoreRecipe(
   return score;
 }
 
+// Saved-share cap for favourites_rotation. Splits the scored deck into saved
+// vs. unsaved (preserving relative score order within each), then interleaves
+// so saved appears every 4th slot up to a 30% absolute ceiling. Excess saved
+// recipes are appended at the end so they're still reachable but don't crowd
+// out fresh discovery at the top.
+function capSavedShare(
+  scored: { recipe: Recipe; score: number }[],
+  savedExternalIds: Set<string>,
+): { recipe: Recipe; score: number }[] {
+  const isSaved = (r: Recipe): boolean => {
+    const k = r.external_id ?? r.supabase_id ?? '';
+    return !!k && savedExternalIds.has(k);
+  };
+  const saved: { recipe: Recipe; score: number }[] = [];
+  const unsaved: { recipe: Recipe; score: number }[] = [];
+  for (const s of scored) (isSaved(s.recipe) ? saved : unsaved).push(s);
+  if (saved.length === 0 || unsaved.length === 0) return scored;
+
+  const maxSaved = Math.max(1, Math.floor(scored.length * 0.3));
+  const savedToShow = saved.slice(0, maxSaved);
+  const savedOverflow = saved.slice(maxSaved);
+
+  // Interleave: saved at positions 3, 7, 11, … (every 4th slot ≈ 25%)
+  const result: { recipe: Recipe; score: number }[] = [];
+  let si = 0;
+  let ui = 0;
+  for (let pos = 0; ui < unsaved.length || si < savedToShow.length; pos++) {
+    const wantSaved = pos > 0 && pos % 4 === 3 && si < savedToShow.length;
+    if (wantSaved) result.push(savedToShow[si++]);
+    else if (ui < unsaved.length) result.push(unsaved[ui++]);
+    else if (si < savedToShow.length) result.push(savedToShow[si++]);
+  }
+  // Tail: anything trimmed by the 30% ceiling — still reachable on a long session
+  result.push(...savedOverflow);
+  return result;
+}
+
 // Fetches the discover deck and ranks it locally using a weighted scoring function.
 // No Vercel, no API calls — runs entirely on-device after one Supabase query + parallel signals.
 export async function fetchScoredDeck(
@@ -861,7 +930,7 @@ export async function fetchScoredDeck(
   // Load persisted left-swipes from previous sessions into the session Set
   await loadPersistedLeftSwipes();
 
-  const [deck, swipes, affinityMap, interactionMap, pantryItems, trendingIds, leftoversSet, ratingMap] = await Promise.all([
+  const [deck, swipes, affinityMap, interactionMap, pantryItems, trendingIds, leftoversSet, ratingMap, savedAtMap] = await Promise.all([
     fetchDiscoverRecipes(dietaryGoals),
     userId ? getRecentSwipes(userId) : Promise.resolve([]),
     userId
@@ -872,6 +941,7 @@ export async function fetchScoredDeck(
     fetchTrendingRecipeIds(),
     userId ? fetchLeftoverNames(userId) : Promise.resolve(new Set<string>()),
     userId ? getUserRatings(userId) : Promise.resolve(new Map<string, number>()),
+    userId ? getSavedAtMap(userId) : Promise.resolve(new Map<string, string>()),
   ]);
 
   const pantrySet = new Set(pantryItems.filter((p) => p.ingredient_name).map((p) => p.ingredient_name.toLowerCase()));
@@ -887,7 +957,9 @@ export async function fetchScoredDeck(
 
   // Exclude saved recipes — user already has them in their library.
   // favourites_rotation: saved recipes stay in the pool so the scorer can rank them;
-  // a +6 bonus in scoreRecipe surfaces old favourites without guaranteeing their position.
+  // a +3 bonus in scoreRecipe surfaces old favourites, a save-recency penalty
+  // suppresses just-saved recipes for 14 days, and a 30% saved-share cap below
+  // prevents saved from flooding the deck even if their scores top the leaderboard.
   const wantsRotation = profile?.eating_style === 'favourites_rotation';
   const afterSaved = (wantsRotation || savedExternalIds.size === 0) ? afterDislikes : afterDislikes.filter((r) =>
     !savedExternalIds.has(r.external_id ?? r.id ?? '')
@@ -934,7 +1006,7 @@ export async function fetchScoredDeck(
 
   let scored = filtered.map((r) => ({
     recipe: r,
-    score: scoreRecipe(r, profile, swipeMap, savedExternalIds, affinityMap, interactionMap, pantrySet, leftoversSet, ratingMap),
+    score: scoreRecipe(r, profile, swipeMap, savedExternalIds, affinityMap, interactionMap, pantrySet, leftoversSet, ratingMap, savedAtMap),
   }));
 
   // Phase 2.5 — Meal Prep mode: only show explicitly flagged recipes
@@ -945,7 +1017,11 @@ export async function fetchScoredDeck(
   scored.sort((a, b) => b.score - a.score);
 
   // Bug 3 fix — diversity pass (prevents monoculture for all users, stricter for variety)
-  const maxPerCuisine = profile?.eating_style === 'variety' ? 3 : 5;
+  // favourites_rotation gets the strictest cap: with +3 saved bonus the scorer would
+  // otherwise stack 5 saved recipes per cuisine to the top of the deck.
+  const maxPerCuisine = profile?.eating_style === 'variety' ? 3
+    : profile?.eating_style === 'favourites_rotation' ? 2
+    : 5;
   const cuisineCounts: Record<string, number> = {};
   const diverse: typeof scored = [];
   for (const entry of scored) {
@@ -972,7 +1048,7 @@ export async function fetchScoredDeck(
     console.warn(`[fetchScoredDeck] skill filter too aggressive — relaxing`);
     const rescored = afterSaved.map((r) => ({
       recipe: r,
-      score: scoreRecipe(r, profile, swipeMap, savedExternalIds, affinityMap, interactionMap, pantrySet, leftoversSet, ratingMap),
+      score: scoreRecipe(r, profile, swipeMap, savedExternalIds, affinityMap, interactionMap, pantrySet, leftoversSet, ratingMap, savedAtMap),
     }));
     rescored.sort((a, b) => b.score - a.score);
     finalDeck = rescored;
@@ -982,13 +1058,22 @@ export async function fetchScoredDeck(
     console.warn(`[fetchScoredDeck] very few unsaved recipes — re-including saved as last resort`);
     const rescored = afterDislikes.map((r) => ({
       recipe: r,
-      score: scoreRecipe(r, profile, swipeMap, savedExternalIds, affinityMap, interactionMap, pantrySet, leftoversSet, ratingMap),
+      score: scoreRecipe(r, profile, swipeMap, savedExternalIds, affinityMap, interactionMap, pantrySet, leftoversSet, ratingMap, savedAtMap),
     }));
     rescored.sort((a, b) => b.score - a.score);
     finalDeck = rescored;
   }
   if (finalDeck.length < 5) {
     console.warn(`[fetchScoredDeck] only ${finalDeck.length} recipes after all filters — very restrictive preferences`);
+  }
+
+  // Saved-share cap — favourites_rotation only. Prevents saved recipes from
+  // monopolising the top of the deck even when their scores top the leaderboard.
+  // Caps saved at ≤30% of slots and interleaves so saved appears every 4th slot.
+  // Skipped on tiny decks (last-resort relaxation already pulled saved back in
+  // because the unsaved pool was exhausted — capping further would empty it).
+  if (wantsRotation && savedExternalIds.size > 0 && finalDeck.length >= 8) {
+    finalDeck = capSavedShare(finalDeck, savedExternalIds);
   }
 
   console.log(`[fetchScoredDeck] ${finalDeck.length} recipes | top 5: ${finalDeck.slice(0, 5).map((s) => `${s.recipe.title} (${s.score.toFixed(1)})`).join(', ')}`);
@@ -1055,11 +1140,10 @@ export async function fetchRecommendedDeck(
   mode: 'spontaneous' | 'meal_prep',
   dietaryGoals: string[] = [],
 ): Promise<Recipe[]> {
-  const baseUrl = process.env.EXPO_PUBLIC_API_URL;
-  if (!baseUrl || !userId) return fetchDiscoverRecipes(dietaryGoals);
+  if (!userId) return fetchDiscoverRecipes(dietaryGoals);
 
   try {
-    const res = await fetch(`${baseUrl}/api/recommendations`, {
+    const res = await fetch(`${getApiBaseUrl()}/api/recommendations`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId, mode, limit: 50 }),
@@ -1794,30 +1878,27 @@ export async function fetchMacros(
   const cached = await getCachedMacros(recipeTitle);
   if (cached) return cached;
 
-  const baseUrl = process.env.EXPO_PUBLIC_API_URL;
-  if (baseUrl) {
-    try {
-      const res = await fetch(`${baseUrl}/api/macros`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          recipeTitle,
-          ingredients,
-          externalId: options?.externalId,
-          supabaseId: options?.supabaseId,
-        }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        const macros: Macros | null = data.macros ?? null;
-        if (macros) {
-          persistMacros(recipeTitle, macros); // fire-and-forget
-          return macros;
-        }
+  try {
+    const res = await fetch(`${getApiBaseUrl()}/api/macros`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        recipeTitle,
+        ingredients,
+        externalId: options?.externalId,
+        supabaseId: options?.supabaseId,
+      }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const macros: Macros | null = data.macros ?? null;
+      if (macros) {
+        persistMacros(recipeTitle, macros); // fire-and-forget
+        return macros;
       }
-    } catch {
-      // Fall through to local estimator
     }
+  } catch {
+    // Fall through to local estimator
   }
 
   // Local estimator — zero API calls, always works, marked isEstimated: true
@@ -2052,12 +2133,10 @@ export async function enrichCommunityRecipe(
   } catch {}
 
   try {
-    const apiUrl = process.env.EXPO_PUBLIC_API_URL;
-    if (!apiUrl) return;
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token;
     if (!token) return;
-    await fetch(`${apiUrl}/api/macros`, {
+    await fetch(`${getApiBaseUrl()}/api/macros`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

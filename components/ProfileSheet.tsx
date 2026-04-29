@@ -26,6 +26,7 @@ import {
   getProfile, fetchBadgeStats,
 } from '@/lib/api';
 import { clearRecipeCache } from '@/lib/mealdb';
+import { getApiBaseUrl } from '@/lib/apiBaseUrl';
 import { computeBadges, getShowcaseBadges } from '@/lib/badges';
 import type { Badge, BadgeStats } from '@/lib/badges';
 import type { Profile } from '@/types';
@@ -130,11 +131,6 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
   }
 
   async function runTasteProfileGeneration(userId: string) {
-    const baseUrl = process.env.EXPO_PUBLIC_API_URL;
-    if (!baseUrl) {
-      setTasteProfile('Config error — API URL not set.');
-      return;
-    }
     setTasteLoading(true);
 
     let session: any = null;
@@ -154,7 +150,7 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
     }
 
     try {
-      const res = await fetch(`${baseUrl}/api/taste-profile`, {
+      const res = await fetch(`${getApiBaseUrl()}/api/taste-profile`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

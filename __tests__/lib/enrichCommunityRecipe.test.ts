@@ -130,10 +130,13 @@ describe('enrichCommunityRecipe — macro fetch', () => {
     await expect(enrichCommunityRecipe(RECIPE_ID, PAYLOAD)).resolves.toBeUndefined();
   });
 
-  it('skips macro fetch when EXPO_PUBLIC_API_URL is not set', async () => {
+  it('falls back to https://getmori.app when EXPO_PUBLIC_API_URL is not set', async () => {
     delete process.env.EXPO_PUBLIC_API_URL;
     await enrichCommunityRecipe(RECIPE_ID, PAYLOAD);
-    expect(global.fetch).not.toHaveBeenCalled();
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://getmori.app/api/macros',
+      expect.any(Object),
+    );
   });
 
   it('skips macro fetch when auth session is null', async () => {

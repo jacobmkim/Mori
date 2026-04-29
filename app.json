@@ -2,7 +2,7 @@
   "expo": {
     "name": "Mori",
     "slug": "mori",
-    "version": "5.0.0",
+    "version": "5.0.1",
     "orientation": "portrait",
     "icon": "./assets/mori_icon.png",
     "scheme": "mori",
@@ -71,6 +71,14 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/0d817669-e2da-4a4a-b807-609d0e9a8354",
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 3000
     },
     "extra": {
       "supportUrl": "https://getmori.app/support",

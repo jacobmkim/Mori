@@ -23,6 +23,7 @@ import { PostCookLeftoversModal } from '@/components/PostCookLeftoversModal';
 import { useDiscoverStore } from '@/stores/discoverStore';
 import { getStaticSubs, getCachedSubs, fetchAndCacheSubs, type Swap } from '@/lib/substitutions';
 import { supabase } from '@/lib/supabase';
+import { getApiBaseUrl } from '@/lib/apiBaseUrl';
 import { MacroRow } from '@/components/ui/MacroRow';
 import { scaleMacros } from '@/lib/macroUtils';
 import { CookingMode } from '@/components/CookingMode';
@@ -293,15 +294,13 @@ export function RecipeDetailModal({
 
   useEffect(() => {
     if (!isCooked || !recipe || storageTips !== null || tipsLoading) return;
-    const baseUrl = process.env.EXPO_PUBLIC_API_URL;
-    if (!baseUrl) return;
     const ingredientNames = ((recipe.ingredients?.length ?? 0) > 0
       ? recipe.ingredients.map((i) => i.name)
       : (detail?.ingredients ?? []).map((i) => i.name)).slice(0, 8);
     if (ingredientNames.length === 0) return;
     setTipsLoading(true);
     supabase.auth.getSession().then(({ data: { session } }) => {
-      fetch(`${baseUrl}/api/storage-tip`, {
+      fetch(`${getApiBaseUrl()}/api/storage-tip`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -424,13 +423,11 @@ export function RecipeDetailModal({
 
     // 3. API fallback — Claude Haiku, rate-limited, result saved to cache
     setSwapData((prev) => ({ ...prev, [idx]: 'loading' }));
-    const baseUrl = process.env.EXPO_PUBLIC_API_URL;
-    if (!baseUrl) { setSwapData((prev) => ({ ...prev, [idx]: 'no_subs' })); return; }
 
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.access_token) { setSwapData((prev) => ({ ...prev, [idx]: 'no_subs' })); return; }
 
-    const { swaps, rateLimited } = await fetchAndCacheSubs(ingName, session.access_token, baseUrl);
+    const { swaps, rateLimited } = await fetchAndCacheSubs(ingName, session.access_token, getApiBaseUrl());
     if (rateLimited) {
       setSwapData((prev) => ({ ...prev, [idx]: 'unavailable' }));
     } else {

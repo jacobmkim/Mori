@@ -3,6 +3,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useForm, Controller } from 'react-hook-form';
 import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { getApiBaseUrl } from '@/lib/apiBaseUrl';
 import { patchProfile, getProfile } from '@/lib/api';
 import { useUserStore } from '@/stores/userStore';
 import { useSavedStore } from '@/stores/savedStore';
@@ -17,11 +18,9 @@ interface FormData {
 }
 
 async function sendWelcomeEmail(): Promise<void> {
-  const baseUrl = process.env.EXPO_PUBLIC_API_URL;
-  if (!baseUrl) return;
   const { data: { session } } = await supabase.auth.getSession();
   if (!session?.access_token) return;
-  await fetch(`${baseUrl}/api/send-welcome-email`, {
+  await fetch(`${getApiBaseUrl()}/api/send-welcome-email`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
