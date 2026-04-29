@@ -1,26 +1,23 @@
 import { useSavedStore } from '@/stores/savedStore';
 
 jest.mock('@/lib/api', () => ({
-  upsertRecipeByExternalId: jest.fn(),
   saveRecipe: jest.fn(),
   unsaveRecipe: jest.fn(),
   getSavedRecipesWithDetails: jest.fn(),
 }));
 
 import {
-  upsertRecipeByExternalId,
   saveRecipe,
   getSavedRecipesWithDetails,
 } from '@/lib/api';
 
-const mockUpsert = upsertRecipeByExternalId as jest.Mock;
 const mockSave = saveRecipe as jest.Mock;
 const mockLoad = getSavedRecipesWithDetails as jest.Mock;
 
-const makeRecipe = (id: string) => ({
+const makeRecipe = (id: string, opts: { supabase_id?: string | null } = {}) => ({
   id,
   title: `Recipe ${id}`,
-  supabase_id: `supabase-${id}`,
+  supabase_id: opts.supabase_id === null ? undefined : (opts.supabase_id ?? `supabase-${id}`),
   external_id: id,
   ingredients: [],
   steps: [],
@@ -49,7 +46,6 @@ describe('savedStore — addRecipe', () => {
   });
 
   it('does NOT call loadSavedRecipes after persisting (race condition fix)', async () => {
-    mockUpsert.mockResolvedValueOnce('supabase-r1');
     mockSave.mockResolvedValueOnce(undefined);
 
     const recipe = makeRecipe('r1');
@@ -61,8 +57,7 @@ describe('savedStore — addRecipe', () => {
     expect(mockLoad).not.toHaveBeenCalled();
   });
 
-  it('persists to Supabase when userId provided', async () => {
-    mockUpsert.mockResolvedValueOnce('supabase-r1');
+  it('calls saveRecipe directly with supabase_id when present (no upsert)', async () => {
     mockSave.mockResolvedValueOnce(undefined);
 
     const recipe = makeRecipe('r1');
@@ -70,8 +65,18 @@ describe('savedStore — addRecipe', () => {
 
     await new Promise((r) => setTimeout(r, 0));
 
-    expect(mockUpsert).toHaveBeenCalledWith(recipe);
     expect(mockSave).toHaveBeenCalledWith('user-1', 'supabase-r1');
+  });
+
+  it('skips DB sync when recipe has no supabase_id (still updates local state)', async () => {
+    const recipe = makeRecipe('r1', { supabase_id: null });
+    useSavedStore.getState().addRecipe(recipe, 'user-1');
+
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(mockSave).not.toHaveBeenCalled();
+    // Local store still updated optimistically.
+    expect(useSavedStore.getState().savedRecipes).toContainEqual(recipe);
   });
 
   it('skips Supabase call when no userId', async () => {
@@ -80,6 +85,6 @@ describe('savedStore — addRecipe', () => {
 
     await new Promise((r) => setTimeout(r, 0));
 
-    expect(mockUpsert).not.toHaveBeenCalled();
+    expect(mockSave).not.toHaveBeenCalled();
   });
 });

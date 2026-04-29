@@ -21,21 +21,7 @@ import { supabase } from '@/lib/supabase';
 import { AvatarButton } from '@/components/AvatarButton';
 import { RecipeDetailModal } from '@/components/RecipeDetailModal';
 import type { Recipe } from '@/types';
-
-const CUISINES = [
-  { label: 'Japanese', flag: '🇯🇵' },
-  { label: 'Indian', flag: '🇮🇳' },
-  { label: 'Mexican', flag: '🇲🇽' },
-  { label: 'Korean', flag: '🇰🇷' },
-  { label: 'French', flag: '🇫🇷' },
-  { label: 'Thai', flag: '🇹🇭' },
-  { label: 'Italian', flag: '🇮🇹' },
-  { label: 'Chinese', flag: '🇨🇳' },
-  { label: 'American', flag: '🇺🇸' },
-  { label: 'Spanish', flag: '🇪🇸' },
-  { label: 'Mediterranean', flag: '🫒' },
-  { label: 'Middle Eastern', flag: '🌙' },
-];
+import { CUISINES } from '@/constants/cuisines';
 
 const FILTER_CHIPS = ['All', 'Quick', 'High Protein', 'Meal Prep', 'Vegetarian', 'Vegan'];
 

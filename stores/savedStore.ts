@@ -3,7 +3,6 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Recipe } from '@/types';
 import {
-  upsertRecipeByExternalId,
   saveRecipe,
   unsaveRecipe as apiUnsaveRecipe,
   getSavedRecipesWithDetails,
@@ -40,11 +39,17 @@ export const useSavedStore = create<SavedStore>()(
           return { savedRecipes: newList, _removedPositions: newPositions };
         });
         // Persist to Supabase in the background; trust optimistic update — reloading
-        // here would race with in-flight removeRecipe calls and cause duplicates/lost saves
+        // here would race with in-flight removeRecipe calls and cause duplicates/lost saves.
+        // Recipes RLS only allows INSERT when submitted_by = auth.uid(), so client-side
+        // upserts of curated/imported rows are blocked. Every recipe in the deck already
+        // has supabase_id (set by fetchScoredDeck / fetchDiscoverRecipes); if it's missing,
+        // the recipe came from a path that bypassed Supabase and we can't sync the save.
         if (userId) {
-          upsertRecipeByExternalId(recipe)
-            .then((supabaseId) => saveRecipe(userId, supabaseId))
-            .catch(console.error);
+          if (recipe.supabase_id) {
+            saveRecipe(userId, recipe.supabase_id).catch(console.error);
+          } else if (__DEV__) {
+            console.warn('[savedStore] addRecipe: recipe missing supabase_id, skipping DB sync', recipe.id, recipe.title);
+          }
         }
       },
 

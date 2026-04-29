@@ -71,7 +71,7 @@ export default function ResetPassword() {
         }
 
         if (!accessToken || !refreshToken) {
-          console.log('No tokens found in URL');
+          if (__DEV__) console.log('No tokens found in URL');
           setTokenError(true);
           setLoading(false);
           return;

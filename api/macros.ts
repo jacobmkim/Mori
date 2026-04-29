@@ -13,6 +13,7 @@ interface MacroRequest {
   externalId?: string;  // TheMealDB ID — used to cache result in Supabase recipes table
   supabaseId?: string;  // Supabase UUID — used for community recipes (no external_id)
   recipeTitle: string;
+  servings?: number;
   ingredients: { name: string; quantity: string; unit: string }[];
 }
 
@@ -24,6 +25,82 @@ interface Macros {
   fibre: number;
   netCarbs?: number;
   isEstimated: boolean;
+}
+
+// Ingredients we treat as a meaningful protein source for the sanity check
+// below. If a recipe has none of these and Claude returns confidence=low with
+// >5g protein per serving, we assume hallucination.
+const PROTEIN_SOURCE_PATTERNS = [
+  // animal proteins
+  'chicken', 'beef', 'pork', 'lamb', 'turkey', 'duck', 'bacon', 'ham', 'sausage',
+  'fish', 'salmon', 'tuna', 'cod', 'trout', 'shrimp', 'prawn', 'crab', 'lobster',
+  'scallop', 'mussel', 'clam', 'oyster', 'anchovy', 'sardine',
+  // dairy + eggs
+  'egg', 'milk', 'yogurt', 'yoghurt', 'cheese', 'cream', 'butter', 'cottage', 'ricotta',
+  'mozzarella', 'parmesan', 'feta', 'cheddar', 'paneer',
+  // plant proteins
+  'tofu', 'tempeh', 'seitan', 'edamame',
+  'bean', 'lentil', 'chickpea', 'pea ', 'quinoa',
+  // nuts/seeds with meaningful protein
+  'almond', 'peanut', 'cashew', 'walnut', 'pistachio', 'pecan',
+  'tahini', 'hummus',
+  // protein powders / concentrates
+  'protein powder', 'whey',
+];
+
+function hasProteinSource(ingredients: { name: string }[]): boolean {
+  const blob = ingredients.map((i) => i.name.toLowerCase()).join(' | ');
+  return PROTEIN_SOURCE_PATTERNS.some((p) => blob.includes(p));
+}
+
+// Parses a quantity string into a number. Returns NaN for empty / unparseable
+// inputs (treated as "no quantity provided" by the gate below).
+function parseQty(raw: string): number {
+  const s = raw.trim();
+  if (!s) return NaN;
+  // mixed fractions ("1 1/2"), simple fractions ("1/2"), decimals ("0.5")
+  const mixed = s.match(/^(\d+)\s+(\d+)\/(\d+)$/);
+  if (mixed) return parseInt(mixed[1]) + parseInt(mixed[2]) / parseInt(mixed[3]);
+  const frac = s.match(/^(\d+)\/(\d+)$/);
+  if (frac) return parseInt(frac[1]) / parseInt(frac[2]);
+  const num = parseFloat(s);
+  return isNaN(num) ? NaN : num;
+}
+
+// Returns true when the ingredient list is too sparse for any honest macro
+// estimate. This is the most important guard — without it Claude makes up
+// numbers for "garlic" and similar single-ingredient submissions.
+function isTooSparseForMacros(ingredients: { name: string; quantity: string }[]): boolean {
+  if (ingredients.length < 3) return true;
+  const withQty = ingredients.filter((i) => !isNaN(parseQty(i.quantity))).length;
+  // Need at least half the rows to have a real quantity.
+  return withQty < Math.ceil(ingredients.length / 2);
+}
+
+// Catches Claude hallucinations by checking biological plausibility of the
+// returned macros. Returns true when the numbers are nonsense and should be
+// rejected (caller writes null to DB, UI hides macro pills).
+function isImplausibleMacros(
+  m: { calories: number; protein: number; carbohydrates: number; fat: number },
+  confidence: 'low' | 'medium' | 'high',
+  ingredients: { name: string }[],
+): boolean {
+  // Protein-cal can never exceed total calories (each gram = 4 kcal).
+  if (m.protein * 4 > m.calories * 1.1) return true;
+
+  // Atwater check: macros * their kcal/g should roughly match calories.
+  // Allow ±50% tolerance — Claude rounding + fibre/alcohol noise.
+  const macroCals = m.protein * 4 + m.carbohydrates * 4 + m.fat * 9;
+  if (macroCals > m.calories * 1.5 || (m.calories > 50 && macroCals < m.calories * 0.5)) {
+    return true;
+  }
+
+  // Low confidence + no protein source + non-trivial protein = hallucination.
+  if (confidence === 'low' && !hasProteinSource(ingredients) && m.protein > 5) {
+    return true;
+  }
+
+  return false;
 }
 
 // ─── Supabase cache ───────────────────────────────────────────────────────────
@@ -85,7 +162,8 @@ async function saveMacrosToDB(
 
 async function estimateWithClaude(
   title: string,
-  ingredients: MacroRequest['ingredients']
+  ingredients: MacroRequest['ingredients'],
+  servings: number,
 ): Promise<Macros | null> {
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) return null;
@@ -93,22 +171,35 @@ async function estimateWithClaude(
   const client = new Anthropic({ apiKey: key });
 
   const ingredientList = ingredients
-    .map((i) => `${i.quantity} ${i.unit} ${i.name}`.trim())
+    .map((i) => `${i.quantity} ${i.unit} ${i.name}`.trim().replace(/\s+/g, ' '))
     .join(', ');
 
-  const prompt = `Estimate the nutrition per serving for this recipe. Reply ONLY with a JSON object — no explanation, no markdown.
+  // Force a per-ingredient breakdown step before the final per-serving total.
+  // Confidence flag lets us reject hallucinations downstream when ingredients
+  // are too vague to support specific numbers.
+  const prompt = `You are a nutrition estimator. Estimate per-serving macros for this recipe.
 
 Recipe: ${title}
-Ingredients: ${ingredientList || 'not specified'}
-Assume 4 servings unless ingredients suggest otherwise.
+Servings: ${servings}
+Ingredients: ${ingredientList}
 
-JSON format:
-{"calories":0,"protein":0,"carbohydrates":0,"fat":0,"fibre":0}`;
+Steps:
+1. Estimate macros per ingredient as listed (use the quantities given — do NOT invent extra ingredients).
+2. Sum across ingredients to get whole-recipe macros.
+3. Divide by ${servings} to get per-serving macros.
+4. Set "confidence":
+   - "high" if every ingredient has a specific quantity and is unambiguous
+   - "medium" if most are quantified
+   - "low" if quantities are missing, vague, or the ingredient list is sparse
 
+Reply with ONLY a JSON object — no explanation, no markdown:
+{"calories":0,"protein":0,"carbohydrates":0,"fat":0,"fibre":0,"confidence":"low"}`;
+
+  let parsed: any;
   try {
     const message = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 128,
+      max_tokens: 200,
       messages: [{ role: 'user', content: prompt }],
     });
 
@@ -116,25 +207,32 @@ JSON format:
     const match = text.match(/\{[\s\S]*?\}/);
     if (!match) return null;
 
-    const parsed = JSON.parse(match[0]);
-    const calories = Math.round(parsed.calories ?? 0);
-    const protein = Math.round(parsed.protein ?? 0);
-    const carbohydrates = Math.round(parsed.carbohydrates ?? 0);
-    const fat = Math.round(parsed.fat ?? 0);
-    const fibre = Math.round(parsed.fibre ?? 0);
-
-    return {
-      calories,
-      protein,
-      carbohydrates,
-      fat,
-      fibre,
-      netCarbs: Math.max(0, carbohydrates - fibre),
-      isEstimated: true,
-    };
+    parsed = JSON.parse(match[0]);
   } catch {
     return null;
   }
+
+  const calories = Math.max(0, Math.round(parsed.calories ?? 0));
+  const protein = Math.max(0, Math.round(parsed.protein ?? 0));
+  const carbohydrates = Math.max(0, Math.round(parsed.carbohydrates ?? 0));
+  const fat = Math.max(0, Math.round(parsed.fat ?? 0));
+  const fibre = Math.max(0, Math.round(parsed.fibre ?? 0));
+  const confidence: 'low' | 'medium' | 'high' =
+    parsed.confidence === 'high' || parsed.confidence === 'medium' ? parsed.confidence : 'low';
+
+  if (isImplausibleMacros({ calories, protein, carbohydrates, fat }, confidence, ingredients)) {
+    return null;
+  }
+
+  return {
+    calories,
+    protein,
+    carbohydrates,
+    fat,
+    fibre,
+    netCarbs: Math.max(0, carbohydrates - fibre),
+    isEstimated: true,
+  };
 }
 
 // ─── Handler ──────────────────────────────────────────────────────────────────
@@ -150,7 +248,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // ── Input Validation ──────────────────────────────────────────────────
     const body = await validate(MacrosRequestSchema, req.body);
-    const { externalId, supabaseId, recipeTitle, ingredients } = body;
+    const { externalId, supabaseId, recipeTitle, ingredients, servings } = body;
+    const ings = (ingredients ?? []) as MacroRequest['ingredients'];
 
     // ── Rate Limiting (30 calls per user per day) ─────────────────────────
     const rateLimitResult = await rateLimitUser(userId, 'macros', 30, 86400);
@@ -168,14 +267,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (cached) return res.json({ macros: cached });
     }
 
-    // 2. Estimate with Claude Haiku — always labelled isEstimated: true
-    const estimated = await estimateWithClaude(recipeTitle, (ingredients ?? []) as MacroRequest['ingredients']);
+    // 2. Pre-flight gate — refuse to estimate when the ingredient list is too
+    //    sparse or unquantified. Without this, Claude hallucinates plausible
+    //    macros for what it imagines the recipe to be (e.g. "garlic" → 18g
+    //    protein because it mentally fills in a chicken dish).
+    if (isTooSparseForMacros(ings)) {
+      return res.json({ macros: null, reason: 'insufficient_ingredients' });
+    }
+
+    // 3. Estimate with Claude Haiku — always labelled isEstimated: true
+    const effectiveServings = servings && servings > 0 ? servings : 4;
+    const estimated = await estimateWithClaude(recipeTitle, ings, effectiveServings);
     if (estimated) {
       saveMacrosToDB(estimated, userId, externalId, supabaseId); // fire-and-forget
       return res.json({ macros: estimated });
     }
 
-    return res.status(500).json({ error: 'Could not estimate macros' });
+    // Claude returned null OR sanity bounds rejected the output — leave macros
+    // unset rather than caching nonsense.
+    return res.json({ macros: null, reason: 'estimate_unavailable' });
   } catch (err: unknown) {
     // Handle validation errors
     if (err instanceof ValidationError) {

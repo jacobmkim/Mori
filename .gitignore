@@ -2,12 +2,24 @@ node_modules/
 .expo/
 dist/
 web-build/
+
+# Env files (all variants) — keep .env.example tracked
 .env
+.env.*
+!.env.example
+
+# Native build outputs / signing material
+ios/
+android/
+GoogleService-Info.plist
+google-services.json
+*.xcuserstate
 *.jks
 *.p8
 *.p12
 *.key
 *.mobileprovision
+
 *.orig.*
 npm-debug.*
 yarn-debug.*
@@ -20,7 +32,6 @@ expo-env.d.ts
 # @end expo-cli
 .vercel
 
-.env.local
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
 .claude/worktrees/

@@ -20,13 +20,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks/useTheme';
 import { formatTime, formatCost, getTimeOfDay, getWeekStart } from '@/lib/utils';
 import { fetchMealDetail, type MealDetail } from '@/lib/mealdb';
-import { logSwipe, upsertRecipeByExternalId, setRecipeLiked, fetchMacros, estimateMacrosLocally, fetchScoredDeck, updateRecipeDetail, updateRecipeMacros, logInteraction, updateStreakAndCount, recordSessionSwipe, cancelLeftSwipe, recordAdventureCardLeftSwipe, clearSessionState, getCookedRecipeIds, flagRecipe } from '@/lib/api';
+import { logSwipe, setRecipeLiked, fetchMacros, estimateMacrosLocally, fetchScoredDeck, updateRecipeDetail, updateRecipeMacros, logInteraction, updateStreakAndCount, recordSessionSwipe, cancelLeftSwipe, recordAdventureCardLeftSwipe, clearSessionState, getCookedRecipeIds, flagRecipe, resolveSupabaseId } from '@/lib/api';
 import { computeBadges, getNewlyEarned } from '@/lib/badges';
 import type { Badge, BadgeStats } from '@/lib/badges';
 import { BadgeAchievementModal } from '@/components/badges/BadgeAchievementModal';
 import { RecipeDetailModal } from '@/components/RecipeDetailModal';
 import { LeftoversReminderModal } from '@/components/LeftoversReminderCard';
 import { HeadlineMacroPill, MacroRow } from '@/components/ui/MacroRow';
+import { scaleMacros } from '@/lib/macroUtils';
 import { MoriLogo } from '@/components/ui/MoriLogo';
 import { AvatarButton } from '@/components/AvatarButton';
 import { useSavedStore } from '@/stores/savedStore';
@@ -605,35 +606,33 @@ export default function Discover() {
     return () => { cancelled = true; };
   }, [currentIndex, recipes]);
 
-  // Resolves the Supabase UUID for a recipe — uses supabase_id directly if present
-  // (AI-generated and recommended recipes already have it), otherwise upserts via external_id.
-  function resolveSupabaseId(recipe: Recipe): Promise<string> {
-    if (recipe.supabase_id) return Promise.resolve(recipe.supabase_id);
-    return upsertRecipeByExternalId(recipe);
-  }
-
-  // Fire-and-forget: resolve Supabase UUID then log the swipe.
+  // Fire-and-forget: log the swipe to Supabase.
   // Never blocks the animation or the UI — errors are silently swallowed.
+  // Requires recipe.supabase_id; recipes RLS blocks client-side INSERTs of new rows
+  // (only submitted_by = auth.uid() is allowed), so we can no longer upsert from here.
+  // All deck-fetcher paths populate supabase_id; if it's missing the recipe came from
+  // a path that bypassed Supabase and we can't log the swipe.
   function logSwipeBackground(recipe: Recipe, direction: 'left' | 'right', currentMode: AppMode) {
     if (!userId) return;
     console.log(`[swipe] ${direction === 'right' ? '✓' : '✗'} "${recipe.title}" (${recipe.cuisine ?? 'unknown'})`);
     // Adventure card left-swipe → pause adventure cards for next 10 swipes
     if (recipe.isAdventure && direction === 'left') recordAdventureCardLeftSwipe();
-    resolveSupabaseId(recipe)
-      .then((supabaseId) => {
-        const cuisines = (recipe.cuisine ?? '').split(',').map((c: string) => c.trim()).filter(Boolean);
-        recordSessionSwipe(supabaseId, direction, cuisines);
-        return logSwipe({
-          user_id: userId,
-          recipe_id: supabaseId,
-          direction,
-          mode: currentMode,
-          time_of_day: getTimeOfDay(),
-          day_of_week: new Date().getDay(),
-          session_number: sessionNumber,
-        });
-      })
-      .catch(() => {}); // swipe logging is non-critical
+    const supabaseId = recipe.supabase_id;
+    if (!supabaseId) {
+      if (__DEV__) console.warn('[swipe] missing supabase_id, skipping DB log', recipe.id, recipe.title);
+      return;
+    }
+    const cuisines = (recipe.cuisine ?? '').split(',').map((c: string) => c.trim()).filter(Boolean);
+    recordSessionSwipe(supabaseId, direction, cuisines);
+    logSwipe({
+      user_id: userId,
+      recipe_id: supabaseId,
+      direction,
+      mode: currentMode,
+      time_of_day: getTimeOfDay(),
+      day_of_week: new Date().getDay(),
+      session_number: sessionNumber,
+    }).catch(() => {}); // swipe logging is non-critical
   }
 
   function handleSwipe(direction: 'left' | 'right', releaseX = 0, releaseY = 0) {
@@ -717,18 +716,6 @@ export default function Discover() {
     if (Number.isInteger(n) || Math.abs(n - Math.round(n)) < 0.05) return String(Math.round(n));
     return n.toFixed(1);
   }
-  function scaleDeckMacros(macros: Macros, ratio: number): Macros {
-    return {
-      calories: Math.round(macros.calories * ratio),
-      protein: Math.round(macros.protein * ratio * 10) / 10,
-      carbohydrates: Math.round(macros.carbohydrates * ratio * 10) / 10,
-      fat: Math.round(macros.fat * ratio * 10) / 10,
-      fibre: Math.round(macros.fibre * ratio * 10) / 10,
-      netCarbs: macros.netCarbs != null ? Math.round(macros.netCarbs * ratio * 10) / 10 : undefined,
-      isEstimated: macros.isEstimated,
-    };
-  }
-
   function scaleDeckMeasure(measure: string, ratio: number): string {
     if (!measure || ratio === 1) return measure;
     const parsed = parseLeadingNumber(measure.trim());
@@ -1283,7 +1270,7 @@ export default function Discover() {
             {topRecipe && (() => {
               const deckBaseServings = topRecipe.servings ?? 2;
               const deckRatio = deckServings / deckBaseServings;
-              const scaledMacros = topMacros ? scaleDeckMacros(topMacros, deckRatio) : null;
+              const scaledMacros = topMacros ? scaleMacros(topMacros, deckRatio) : null;
               const totalCost = topRecipe.cost_per_serving != null
                 ? formatCost(topRecipe.cost_per_serving * deckServings)
                 : null;

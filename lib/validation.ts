@@ -33,6 +33,7 @@ export const MacrosRequestSchema = z.object({
   externalId: z.string().max(50).optional(),
   supabaseId: UUIDSchema.optional(),
   recipeTitle: SafeStringSchema,
+  servings: z.number().int().min(1).max(50).optional(),
   ingredients: z
     .array(
       z.object({

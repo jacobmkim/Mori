@@ -157,18 +157,28 @@ export function AddRecipeWizard({ visible, userId, onClose, onSuccess }: AddReci
   async function uploadImage(uri: string): Promise<string | null> {
     try {
       setImageUploading(true);
-      const { blob, contentType } = await validateImageForUpload(uri, 5 * 1024 * 1024);
+      const { data, contentType } = await validateImageForUpload(uri, 5 * 1024 * 1024);
       const path = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
       const { error: uploadError } = await supabase.storage
         .from('recipe-images')
-        .upload(path, blob, { upsert: true, contentType });
+        .upload(path, data, { upsert: true, contentType });
       if (uploadError) throw uploadError;
-      const { data } = supabase.storage.from('recipe-images').getPublicUrl(path);
-      return data.publicUrl;
+      const { data: urlData } = supabase.storage.from('recipe-images').getPublicUrl(path);
+      return urlData.publicUrl;
     } catch (err) {
       if (err instanceof ImageValidationError) {
         Alert.alert('Image not supported', err.userMessage);
+        return null;
       }
+      // Surface non-validation failures (RLS denial, missing bucket, network)
+      // so users don't end up with a saved recipe missing the photo they
+      // attached. Previously this branch silently returned null.
+      const detail = err instanceof Error && err.message ? `\n\n${err.message}` : '';
+      Alert.alert(
+        'Could not upload photo',
+        `Please check your connection and try again.${detail}`,
+      );
+      if (__DEV__) console.warn('[AddRecipeWizard] image upload failed:', err);
       return null;
     } finally {
       setImageUploading(false);
@@ -211,11 +221,20 @@ export function AddRecipeWizard({ visible, userId, onClose, onSuccess }: AddReci
         .filter((r) => r.instruction.trim() !== '')
         .map((r, i) => ({ order: i + 1, instruction: r.instruction.trim() }));
 
-      // Upload photo if user picked one — non-fatal if it fails.
+      // Upload photo if user picked one. If the upload fails we abort the
+      // submit entirely — saving a recipe with a missing photo is a worse
+      // outcome than asking the user to retry. uploadImage already surfaces
+      // an alert before returning null.
       let imageUrl: string | null = null;
       if (imageUri) {
         imageUrl = await uploadImage(imageUri);
+        if (imageUrl === null) {
+          setSubmitError('Photo upload failed. Try again or remove the photo before saving.');
+          return;
+        }
       }
+
+      const parsedServings = servings ? parseInt(servings) : null;
 
       const supabaseId = await insertCommunityRecipe({
         title: name.trim(),
@@ -225,7 +244,7 @@ export function AddRecipeWizard({ visible, userId, onClose, onSuccess }: AddReci
         steps: cleanSteps,
         prep_time_mins: prepTime ? parseInt(prepTime) : null,
         cook_time_mins: cookTime ? parseInt(cookTime) : null,
-        servings: servings ? parseInt(servings) : null,
+        servings: parsedServings,
         dietary_tags: [],
         submitted_by: userId,
         image_url: imageUrl,
@@ -236,6 +255,7 @@ export function AddRecipeWizard({ visible, userId, onClose, onSuccess }: AddReci
       enrichCommunityRecipe(supabaseId, {
         title: name.trim(),
         ingredients: cleanIngredients,
+        servings: parsedServings,
       });
 
       const newRecipe: Recipe = {

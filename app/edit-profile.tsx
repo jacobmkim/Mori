@@ -76,11 +76,11 @@ export default function EditProfileScreen() {
     setAvatarLoading(true);
     try {
       // Avatars are tightly cropped + 1:1 + quality 0.7 → 2 MB cap is plenty.
-      const { blob, contentType } = await validateImageForUpload(uri, 2 * 1024 * 1024);
+      const { data, contentType } = await validateImageForUpload(uri, 2 * 1024 * 1024);
       const path = `${profile.id}/avatar.jpg`;
       const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(path, blob, { upsert: true, contentType });
+        .upload(path, data, { upsert: true, contentType });
       if (uploadError) throw uploadError;
       const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
       const avatar_url = `${urlData.publicUrl}?t=${Date.now()}`;

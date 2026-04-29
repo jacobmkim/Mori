@@ -40,7 +40,7 @@ Mori is a swipe-based recipe discovery app. Users swipe on recipe cards → save
 - Explore tab: editorial sections, filter chips
 - Recipes tab: Saved/Cooked/Mine sub-tabs; Saved has inline quick-filter chips (Meal Prep, Quick, High Protein, Low Carb); recipe cards show Meal Prep + Quick tags
 - Recipe Detail: full-screen modal, step cards, My Notes tab, cooking mode
-- Plan tab: weekly meal grid, Supabase-backed
+- Plan tab: calendar-style week view (week strip + selected-day detail), per-day macro line, weekly macro totals card, "Copy last week" / "Clear week" actions, "Hot meals" suggestions row when day has empty slots; Supabase-backed
 - Grocery List: grouped categories, checkboxes, copy-to-clipboard
 - Profile: AvatarButton → ProfileSheet, taste profile (monthly cron + update modal), pantry, preferences, editable display name, appearance toggle
 - 1,506 curated recipes; all have steps, macros, dietary_tags, meal_prep_friendly, gpt-image-1 images
@@ -51,7 +51,8 @@ Mori is a swipe-based recipe discovery app. Users swipe on recipe cards → save
 - TestFlight internal live; external submitted for Beta App Review
 - Add Recipe wizard (4-step): basics, ingredients w/ autocomplete, steps w/ timer hints, review + submit → community recipes. Public recipes appear in all Discover decks.
 - Unit system toggle (imperial/metric); ingredient substitutions (`lib/substitutions.ts`, ~125 entries)
-- Deck Servings Sheet on Discover: scaled macros + ingredients reactively (`scaleDeckMacros()`)
+- Deck Servings Sheet on Discover: scaled macros + ingredients reactively (`scaleMacros()` from `lib/macroUtils.ts`)
+- Plan-tab recipe picker: search + Filter sheet (Type / Cuisine / Total time / Skill); hybrid data source (Saved + lazy-loaded Browse-all from `fetchDiscoverRecipes`); tap row → `RecipeDetailModal` preview with "Add to {Day} · {Meal}" CTA (`slotContext` prop); "+" on row → quick-add to current slot. Shared `CUISINES` constant in `constants/cuisines.ts` (with explore.tsx); pure filter logic in `lib/pickerFilters.ts` with full unit-test coverage
 - Tutorial overlays: first-launch coach marks (`TutorialOverlay.tsx`) + meal prep tip
 - Privacy policy in-app (`app/privacy-policy.tsx`)
 - API security hardening: JWT auth, Zod validation, rate limiting on all endpoints
@@ -151,7 +152,12 @@ lib/
   instacartUtils.ts (parseGroceryMeasurement, convertMeasurementToUs, formatGroceryQuantity),
   imageUpload.ts (size + MIME validation; 5 MB recipes / 2 MB avatars),
   deepLink.ts (strict scheme/host check for reset-password — anti-phishing),
-  macrosOwnership.ts (canWriteMacros — IDOR gate for /api/macros)
+  macrosOwnership.ts (canWriteMacros — IDOR gate for /api/macros),
+  macroUtils.ts (scaleMacros, aggregateWeeklyMacros — used by Plan tab + Discover deck servings),
+  pickerFilters.ts (filterPickerRecipes — pure filter logic for the Plan-tab picker)
+
+constants/
+  theme.ts, cuisines.ts (12 cuisines + flag emojis — shared by explore + Plan picker)
 
 stores/
   userStore, savedStore (persists savedRecipes + _removedPositions),
@@ -177,7 +183,7 @@ scripts/ (all one-time or safe-to-resume, already ran)
   validate-recipe-ratios.mjs (Haiku scores ingredient plausibility 0-100; rewrites anything below 85; --id, --offset, --limit, --dry-run),
   audit-recipes-full.mjs (full pass: ingredients + steps; same 85 threshold; --id, --offset, --limit, --verbose, --dry-run)
 
-__tests__/                 ✅ Jest 29 + jest-expo@54 — 33 suites, 405 tests
+__tests__/                 ✅ Jest 29 + jest-expo@54 — 36 suites, 471 tests
   api/_apiAuth.test.ts     AuthError, extractBearerToken, handleAuthError
   api/_rateLimit.test.ts   rateLimitUser, rateLimitIP, getClientIP
   api/cronAuth.test.ts     CRON_SECRET only; SEED_SECRET rejected; timing-safe
@@ -203,6 +209,9 @@ __tests__/                 ✅ Jest 29 + jest-expo@54 — 33 suites, 405 tests
   lib/deepLink.test.ts     strict scheme/host; phishing payload rejection
   lib/imageUpload.test.ts  size cap, MIME allowlist, empty blob, video/HTML rejection
   lib/macrosOwnership.test.ts  curated backfill / own submission / IDOR rejection
+  lib/macroUtils.test.ts   scaleMacros + aggregateWeeklyMacros (per-day/per-week, rounding, null-skipping)
+  lib/pickerFilters.test.ts  search / cuisine / chips / time / skill / combined filters
+  api/macros.test.ts        sparse-recipe gate, implausible-macro post-validator, low-confidence reject
   stores/collectionsStore.test.ts
   stores/mealPlanStore.test.ts
   stores/groceryStore.test.ts
@@ -307,6 +316,8 @@ Open items only. Resolved fixes are logged in `.claude/bugfixes.md`.
 ### 🔴 Open Security
 - [ ] No CSRF protection on public endpoints (`/api/waitlist`).
 - [ ] `kroger_tokens` Supabase table still exists (Kroger code removed 2026-04-28) — drop manually with `DROP TABLE kroger_tokens;` to clear the plaintext-token rows.
+- [ ] **Review-cooked-required gate is RLS-only** — any signed-in user can self-INSERT a `recipe_interactions` row of type `'cooked'` via the anon key (schema.sql allows this), then submit a review. RLS gate on `recipe_reviews` trusts that row. **Cook-funnel trigger was planned (2026-04-28) but deferred** — production data shows only ~3% of cook interactions have a prior `'view'` row (legacy data + view logging gap), so the trigger would block legitimate cooks. Revisit in Phase 5 with a moderation queue or CAPTCHA-on-account-create approach.
+- [ ] **No moderation queue UI** — community recipe submissions now default to `moderation_status: 'pending'` (2026-04-28) and stay invisible until manually flipped via Supabase Studio. Build a simple admin screen + endpoint for approve/reject before submission volume grows.
 
 ### 🟡 Open Edge Cases
 - [ ] **Rapid swiping** — concurrent `logSwipeBackground()` calls can log swipes out of order; recommendation signal degrades.
@@ -314,9 +325,10 @@ Open items only. Resolved fixes are logged in `.claude/bugfixes.md`.
 - [ ] **Adventure card pause not persisted** — session-only; resets on app relaunch.
 
 ### Closed audit batches (see bugfixes.md)
+- 2026-04-28 — second audit batch: PAT removed from `.git/config` (was committed in remote URL); `.gitignore` tightened (`.env.*`, `ios/`, `android/`, `GoogleService-Info.plist`, `google-services.json`); stray prod log in `app/reset-password.tsx` wrapped in `__DEV__`; Instacart partner-ID UTM URL-encoded; rate-limit on `/api/admin-recipes` (defense-in-depth before secret check); community recipes default to `moderation_status: 'pending'` (was `'approved'` — auto-approval vector); **production RLS regression fixed**: `recipes` INSERT/UPDATE policies were still allowing `submitted_by IS NULL` (the `fix-recipes-rls.sql` one-shot migration was never applied) — `add-security-hardening-202604.sql` migration applied + folded into `schema.sql`; `recipe_flags` unique index `(flagged_by, recipe_id)` prevents flag-spam.
 - 2026-04-27 — high-severity batch: waitlist/recipe_reviews/recipe_flags RLS migrations, profiles_public view (anti-PII-leak), `/api/macros` IDOR gate (`canWriteMacros`), CRON_SECRET-only auth (no SEED_SECRET fallback, timing-safe), Sentry PII + Replay disabled with `beforeSend` redaction, deep-link substring → strict scheme/host (`isResetPasswordUrl`), `savedStore` partialize persists savedRecipes + _removedPositions, `validateImageForUpload` size + MIME (5 MB / 2 MB).
 - 2026-04-23 — offline banner, dislike retroactivity, Sentry init, deck exhaustion, InstacartButton dark icon, multi-unit combined qty, Instacart quantity normalization, leftover expiration on shelf-stable items, leftovers feature.
 - April 2026 — initial security hardening: JWT auth on all endpoints, Zod validation, rate limiting (fail-closed), timing-safe seed secret, waitlist CORS, security headers in `vercel.json`.
 
 ---
-*v9.4 — Phases 1–3 complete + reviews + badges + edit profile. Phase 4 grocery: Instacart only (Kroger deprioritized 2026-04-27). High-severity audit batch shipped 2026-04-27 (RLS migrations, IDOR gate, profiles_public view, deep-link hardening, image validation, savedStore persistence). Jest: 33 suites, 405 tests.*
+*v9.6 — Phases 1–3 complete + reviews + badges + edit profile + Plan-tab calendar overhaul (week strip, picker filter sheet, hot-meal suggestions, weekly + per-day macros, copy/clear week). Phase 4 grocery: Instacart only (Kroger deprioritized 2026-04-27). Second audit batch shipped 2026-04-28 (PAT removed, gitignore tightened, recipes RLS regression fixed, community recipes default `pending`, recipe_flags unique index, partner-ID encoding, admin-recipes rate limit). RLS fix shipped 2026-04-28: client-side `upsertRecipeByExternalId` removed from save/swipe paths — saves now persist via `supabase_id` only. Cook-funnel trigger deferred — see §9. Jest: 36 suites, 471 tests.*

@@ -98,7 +98,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const partnerId = process.env.INSTACART_PARTNER_ID;
     if (partnerId) {
       const sep = url.includes('?') ? '&' : '?';
-      url += `${sep}utm_campaign=instacart-idp&utm_medium=affiliate&utm_source=instacart_idp&utm_term=partnertype-mediapartner&utm_content=campaignid-20313_partnerid-${partnerId}`;
+      url += `${sep}utm_campaign=instacart-idp&utm_medium=affiliate&utm_source=instacart_idp&utm_term=partnertype-mediapartner&utm_content=campaignid-20313_partnerid-${encodeURIComponent(partnerId)}`;
     }
     return res.status(200).json({ url });
 

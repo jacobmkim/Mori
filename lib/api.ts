@@ -1494,8 +1494,36 @@ export async function unsaveRecipe(userId: string, recipeExternalId: string, sup
   }
 }
 
+// Returns the Supabase UUID for a Recipe loaded into in-memory state.
+// In the common case the deck loaders (`fetchDiscoverRecipes`,
+// `fetchScoredDeck`) already populate `supabase_id`, so this resolves
+// synchronously without a DB hit. Falls back to looking up by external_id
+// when the field is missing (rare — e.g. recipes hydrated from a stale
+// AsyncStorage cache that pre-dates the supabase_id field).
+//
+// Throws on failure. Callers that want fire-and-forget logging should
+// chain `.catch(() => {})` — interaction logs are non-critical.
+export async function resolveSupabaseId(recipe: Recipe): Promise<string> {
+  if (recipe.supabase_id) return recipe.supabase_id;
+  if (!recipe.external_id) {
+    throw new Error('resolveSupabaseId: recipe has neither supabase_id nor external_id');
+  }
+  const { data, error } = await supabase
+    .from('recipes')
+    .select('id')
+    .eq('external_id', recipe.external_id)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error(`resolveSupabaseId: no row for external_id=${recipe.external_id}`);
+  return data.id;
+}
+
 // Upserts a TheMealDB recipe into the recipes table by external_id.
 // Returns the Supabase UUID for that recipe row.
+// DEPRECATED — currently unreachable under recipes RLS, which only allows INSERT
+// when submitted_by = auth.uid() (see supabase/add-security-hardening-202604.sql).
+// Client-side upserts of curated/imported rows will be rejected. Kept for reference;
+// any future use must go through a server-side endpoint with the service-role key.
 export async function upsertRecipeByExternalId(recipe: Recipe): Promise<string> {
   const { data, error } = await supabase
     .from('recipes')
@@ -1991,7 +2019,11 @@ export async function insertCommunityRecipe(input: CommunityRecipeInput): Promis
       submitted_by: input.submitted_by,
       image_url: input.image_url,
       is_public: input.is_public,
-      moderation_status: 'approved',
+      // Default to 'pending' — admin must approve via Supabase Studio (or future
+      // moderation queue UI) before the recipe surfaces in Discover. The submitter
+      // still sees their own recipe under Recipes → Mine (filtered by submitted_by).
+      // Discover query in fetchDiscoverRecipes filters moderation_status = 'approved'.
+      moderation_status: 'pending',
       badge: 'none',
       avg_rating: 0,
       save_count: 0,
@@ -2011,6 +2043,7 @@ export async function enrichCommunityRecipe(
   payload: {
     title: string;
     ingredients: { name: string; quantity: string; unit: string }[];
+    servings?: number | null;
   }
 ): Promise<void> {
   try {
@@ -2034,6 +2067,7 @@ export async function enrichCommunityRecipe(
         supabaseId: recipeId,
         recipeTitle: payload.title,
         ingredients: payload.ingredients,
+        servings: payload.servings ?? undefined,
       }),
     });
   } catch {}

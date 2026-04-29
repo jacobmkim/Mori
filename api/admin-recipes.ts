@@ -16,6 +16,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import { timingSafeEqual } from 'crypto';
 import { captureException } from './_sentry';
+import { rateLimitIP, getClientIP } from './_rateLimit';
 
 function getSupabase() {
   const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
@@ -26,6 +27,13 @@ function getSupabase() {
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+
+  // ── Rate limit (defense-in-depth before secret check) ───────────────────────
+  const rl = await rateLimitIP(getClientIP(req), 'admin-recipes', 30, 3600);
+  if (!rl.success) {
+    res.setHeader('Retry-After', String(rl.retryAfter ?? 3600));
+    return res.status(429).json({ error: 'Too many requests' });
+  }
 
   // ── Auth ────────────────────────────────────────────────────────────────────
   const secret = req.headers['x-seed-secret'];

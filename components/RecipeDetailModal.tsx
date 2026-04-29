@@ -24,6 +24,7 @@ import { useDiscoverStore } from '@/stores/discoverStore';
 import { getStaticSubs, getCachedSubs, fetchAndCacheSubs, type Swap } from '@/lib/substitutions';
 import { supabase } from '@/lib/supabase';
 import { MacroRow } from '@/components/ui/MacroRow';
+import { scaleMacros } from '@/lib/macroUtils';
 import { CookingMode } from '@/components/CookingMode';
 import { useUserStore } from '@/stores/userStore';
 import type { Recipe, Macros, RecipeStep, Review, CreatorStats } from '@/types';
@@ -126,18 +127,6 @@ function normalizeMeasure(measure: string, system: 'us' | 'metric' = 'us'): stri
   return trailing ? `${converted} ${trailing}` : converted;
 }
 
-function scaleMacros(macros: Macros, ratio: number): Macros {
-  return {
-    calories: Math.round(macros.calories * ratio),
-    protein: Math.round(macros.protein * ratio * 10) / 10,
-    carbohydrates: Math.round(macros.carbohydrates * ratio * 10) / 10,
-    fat: Math.round(macros.fat * ratio * 10) / 10,
-    fibre: Math.round(macros.fibre * ratio * 10) / 10,
-    netCarbs: macros.netCarbs != null ? Math.round(macros.netCarbs * ratio * 10) / 10 : undefined,
-    isEstimated: macros.isEstimated,
-  };
-}
-
 // ── Extract a title from a step ───────────────────────────────────────────────
 // Uses AI-generated title if present, falls back to sentence extraction
 function extractStepTitle(step: RecipeStep): { title: string; detail: string } {
@@ -192,11 +181,16 @@ interface RecipeDetailModalProps {
   onAddToCart: (scaledIngredients: { name: string; measure: string }[]) => void;
   onRemoveFromCart?: () => void;
   onMarkCooked?: () => void;
+  // Optional slot-add CTA — when set (e.g. opened from the Plan tab picker),
+  // replaces the default save/grocery footer with a single "Add to {slot}" button.
+  slotContext?: string;
+  onAddToSlot?: () => void;
 }
 
 export function RecipeDetailModal({
   visible, recipe, detail, isSaved, isInCart, isCooked = false,
   onClose, onSaveToggle, onAddToCart, onRemoveFromCart, onMarkCooked,
+  slotContext, onAddToSlot,
 }: RecipeDetailModalProps) {
   const colors = useTheme();
   const userId = useUserStore((s) => s.profile?.id);
@@ -1172,28 +1166,44 @@ export function RecipeDetailModal({
             paddingHorizontal: 16, paddingTop: 12, paddingBottom: 32,
             flexDirection: 'row', gap: 12,
           }}>
-            <Pressable
-              onPress={() => isInCart ? onRemoveFromCart?.() : openServingsSheet()}
-              style={{
-                flex: 1, height: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center',
-                borderWidth: 1.5, borderColor: isInCart ? colors.error : colors.primary,
-              }}
-            >
-              <Text style={{ fontSize: 15, fontWeight: '600', color: isInCart ? colors.error : colors.primary }}>
-                {isInCart ? 'Remove from grocery' : 'Add to grocery'}
-              </Text>
-            </Pressable>
-            <Pressable
-              onPress={onSaveToggle}
-              style={{
-                flex: 1, height: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center',
-                backgroundColor: isSaved ? colors.primaryLight : colors.primary,
-              }}
-            >
-              <Text style={{ fontSize: 15, fontWeight: '600', color: isSaved ? colors.primary : 'white' }}>
-                {isSaved ? 'Saved ✓' : 'Save recipe'}
-              </Text>
-            </Pressable>
+            {slotContext && onAddToSlot ? (
+              <Pressable
+                onPress={onAddToSlot}
+                style={{
+                  flex: 1, height: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center',
+                  backgroundColor: colors.primary,
+                }}
+              >
+                <Text style={{ fontSize: 15, fontWeight: '600', color: 'white' }}>
+                  Add to {slotContext}
+                </Text>
+              </Pressable>
+            ) : (
+              <>
+                <Pressable
+                  onPress={() => isInCart ? onRemoveFromCart?.() : openServingsSheet()}
+                  style={{
+                    flex: 1, height: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center',
+                    borderWidth: 1.5, borderColor: isInCart ? colors.error : colors.primary,
+                  }}
+                >
+                  <Text style={{ fontSize: 15, fontWeight: '600', color: isInCart ? colors.error : colors.primary }}>
+                    {isInCart ? 'Remove from grocery' : 'Add to grocery'}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={onSaveToggle}
+                  style={{
+                    flex: 1, height: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center',
+                    backgroundColor: isSaved ? colors.primaryLight : colors.primary,
+                  }}
+                >
+                  <Text style={{ fontSize: 15, fontWeight: '600', color: isSaved ? colors.primary : 'white' }}>
+                    {isSaved ? 'Saved ✓' : 'Save recipe'}
+                  </Text>
+                </Pressable>
+              </>
+            )}
           </View>
 
           {/* Servings sheet — inline animated overlay (avoids nested Modal iOS bug) */}
