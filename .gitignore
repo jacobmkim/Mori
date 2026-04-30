@@ -6,6 +6,8 @@ web-build/
 # Env files (all variants) — keep .env.example tracked
 .env
 .env.*
+env
+env.*
 !.env.example
 
 # Native build outputs / signing material
@@ -35,3 +37,6 @@ expo-env.d.ts
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
 .claude/worktrees/
+
+# Local dev artifacts
+Debug Errors/
