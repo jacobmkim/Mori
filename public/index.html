@@ -42,6 +42,14 @@ button, a { touch-action: manipulation; -webkit-tap-highlight-color: transparent
   --bg-soft:     #FAFAF8;
   --linen:       #F8F3EC;
   --moss:        #2E5438;
+  /* Instacart brand */
+  --ic-orange:   #FF7009;
+  --ic-orange-dark: #E55A00;
+  --ic-cream:    #FFF4E6;
+  /* Accent + warm earth tones for backgrounds */
+  --warm-blush:  #F4ECE0;
+  --sage-light:  #DDE8DC;
+  --paper:       #FBF7F1;
 }
 
 body {
@@ -116,15 +124,32 @@ nav {
 .btn-outline:hover { background: var(--green-pale); }
 
 /* ── HERO ── */
+.hero-wrap {
+  position: relative;
+  background: linear-gradient(160deg, #F9FBF9 0%, #FFFFFF 50%, #FBF8F4 100%);
+  overflow: hidden;
+}
+.hero-wrap::before {
+  content: ''; position: absolute; pointer-events: none;
+  width: 600px; height: 600px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(46,125,50,0.08) 0%, transparent 70%);
+  top: -200px; right: -150px; filter: blur(20px);
+}
+.hero-wrap::after {
+  content: ''; position: absolute; pointer-events: none;
+  width: 500px; height: 500px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(248,243,236,0.9) 0%, transparent 70%);
+  bottom: -100px; left: -200px; filter: blur(30px);
+}
 .hero {
+  position: relative; z-index: 1;
   min-height: 100vh;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1.1fr 1fr;
   align-items: center;
   gap: 3rem;
-  padding: 8rem 6rem 4rem;
-  max-width: 1200px; margin: 0 auto;
-  background: linear-gradient(160deg, #F9FBF9 0%, #FFFFFF 50%, #FBF8F4 100%);
+  padding: 8rem 4rem 4rem;
+  max-width: 1320px; margin: 0 auto;
 }
 .hero-eyebrow {
   display: inline-flex; align-items: center; gap: 8px;
@@ -230,9 +255,23 @@ nav {
 .stat-label { font-size: 0.8rem; color: var(--text-muted); margin-top: 4px; }
 
 /* ── FEATURES ── */
+.features-wrap {
+  position: relative;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 0%, rgba(232,245,233,0.4) 0%, transparent 60%),
+    var(--bg);
+  overflow: hidden;
+}
+.features-wrap::before {
+  content: ''; position: absolute; pointer-events: none;
+  width: 320px; height: 320px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(248,243,236,0.7) 0%, transparent 70%);
+  top: 30%; right: -100px; filter: blur(20px);
+}
 .features {
-  padding: 5rem 2rem;
-  max-width: 1100px; margin: 0 auto;
+  position: relative; z-index: 1;
+  padding: 6rem 2rem;
+  max-width: 1240px; margin: 0 auto;
 }
 .section-eyebrow {
   display: inline-block; font-size: 0.72rem; font-weight: 500;
@@ -251,49 +290,72 @@ nav {
   max-width: 520px; line-height: 1.7; margin-bottom: 3.5rem;
 }
 
-.features-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 1.25rem; }
+.features-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 1.5rem; }
 .feature-card {
-  background: var(--bg-soft);
+  position: relative;
+  background: rgba(255,255,255,0.7);
   border: 1px solid var(--border);
-  border-radius: 18px; padding: 1.75rem;
-  transition: all 0.25s;
+  border-radius: 22px; padding: 2rem;
+  transition: all 0.35s cubic-bezier(.2,.8,.2,1);
+  backdrop-filter: blur(6px);
+  overflow: hidden;
+}
+.feature-card::before {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(135deg, rgba(46,125,50,0.04) 0%, transparent 60%);
+  opacity: 0; transition: opacity 0.35s;
+  pointer-events: none;
 }
 .feature-card:hover {
-  border-color: var(--green-light);
-  background: var(--green-pale);
-  transform: translateY(-3px);
-  box-shadow: 0 8px 24px rgba(46,125,50,0.08);
+  border-color: rgba(46,125,50,0.25);
+  background: #fff;
+  transform: translateY(-6px);
+  box-shadow: 0 16px 40px rgba(46,125,50,0.12), 0 4px 12px rgba(0,0,0,0.05);
 }
+.feature-card:hover::before { opacity: 1; }
+.feature-card:nth-child(2):hover { box-shadow: 0 16px 40px rgba(255,112,9,0.12), 0 4px 12px rgba(0,0,0,0.05); border-color: rgba(255,112,9,0.25); }
+.feature-card:nth-child(2):hover::before { background: linear-gradient(135deg, rgba(255,112,9,0.06) 0%, transparent 60%); }
 .feature-icon {
-  width: 40px; height: 40px; border-radius: 10px;
-  background: var(--green-light);
+  width: 48px; height: 48px; border-radius: 14px;
+  background: linear-gradient(135deg, var(--green-light) 0%, rgba(232,245,233,0.5) 100%);
   display: flex; align-items: center; justify-content: center;
-  font-size: 1rem; color: var(--green);
-  margin-bottom: 1rem; font-weight: 700;
+  font-size: 1.15rem; color: var(--green);
+  margin-bottom: 1.2rem; font-weight: 700;
+  box-shadow: 0 4px 12px rgba(46,125,50,0.08);
 }
-.feature-title { font-size: 0.95rem; font-weight: 500; margin-bottom: 0.4rem; color: var(--text); }
-.feature-desc { font-size: 0.855rem; font-weight: 300; color: var(--text-mid); line-height: 1.65; }
+.feature-title { font-size: 1.05rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--text); font-family: 'DM Sans', sans-serif; }
+.feature-desc { font-size: 0.9rem; font-weight: 400; color: var(--text-mid); line-height: 1.65; }
 
 /* ── SHOWCASE ── */
 .showcase {
-  background: var(--bg-soft);
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-  padding: 5rem 2rem; overflow: hidden;
+  position: relative;
+  background:
+    radial-gradient(ellipse 50% 70% at 0% 50%, rgba(46,84,56,0.06) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 70% at 100% 50%, rgba(255,112,9,0.05) 0%, transparent 60%),
+    var(--paper);
+  border-top: 1px solid rgba(46,84,56,0.08);
+  border-bottom: 1px solid rgba(46,84,56,0.08);
+  padding: 6rem 2rem; overflow: hidden;
 }
-.showcase-inner { max-width: 1100px; margin: 0 auto; }
+.showcase::before {
+  content: ''; position: absolute; pointer-events: none;
+  width: 100%; height: 1px; top: 0; left: 0;
+  background: linear-gradient(90deg, transparent, rgba(46,125,50,0.2), transparent);
+}
+.showcase-inner { position: relative; z-index: 1; max-width: 1240px; margin: 0 auto; }
 .screens-showcase {
-  display: flex; gap: 1.5rem;
+  display: flex; gap: 1.75rem;
   justify-content: center; align-items: flex-start;
-  padding: 0.5rem 2rem 1.5rem;
+  padding: 1rem 2rem 1.5rem;
 }
 .screen-phone-wrap { text-align: center; flex-shrink: 0; }
 .screen-phone {
-  width: 200px; border-radius: 28px; overflow: hidden;
+  width: 220px; border-radius: 30px; overflow: hidden;
   border: 1.5px solid rgba(0,0,0,0.07);
-  box-shadow: 0 20px 56px rgba(0,0,0,0.11), 0 4px 14px rgba(0,0,0,0.06);
+  box-shadow: 0 24px 60px rgba(0,0,0,0.13), 0 6px 16px rgba(0,0,0,0.06);
   cursor: zoom-in;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  background: #000;
+  transition: transform 0.4s cubic-bezier(.2,.8,.2,1), box-shadow 0.4s ease;
 }
 .screen-phone:hover {
   transform: translateY(-10px);
@@ -359,15 +421,28 @@ nav {
 
 /* ── TASTE PROFILE HIGHLIGHT ── */
 .profile-section {
-  background: var(--linen);
+  position: relative;
+  background:
+    radial-gradient(ellipse 60% 50% at 80% 0%, rgba(46,84,56,0.10) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 50% at 0% 100%, rgba(232,221,208,0.6) 0%, transparent 60%),
+    var(--linen);
   border-top: 1px solid #E8DDD0;
   border-bottom: 1px solid #E8DDD0;
-  padding: 5rem 2rem;
+  padding: 7rem 2rem;
+  overflow: hidden;
+}
+.profile-section::before {
+  content: ''; position: absolute; pointer-events: none;
+  width: 700px; height: 700px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(46,84,56,0.08) 0%, transparent 70%);
+  top: -250px; left: -250px; filter: blur(40px);
+  z-index: 0;
 }
 .profile-inner {
-  max-width: 1000px; margin: 0 auto;
-  display: grid; grid-template-columns: 1fr 1fr;
-  gap: 4rem; align-items: center;
+  position: relative; z-index: 1;
+  max-width: 1240px; margin: 0 auto;
+  display: grid; grid-template-columns: 1.05fr 1fr;
+  gap: 5rem; align-items: center;
 }
 .profile-quote {
   background: #fff;
@@ -384,7 +459,328 @@ nav {
   font-family: Georgia, serif;
 }
 .profile-text { padding-top: 1rem; }
-.profile-text .section-sub { margin-bottom: 0; }
+.profile-text .section-sub { margin-bottom: 2rem; }
+
+/* Flavour DNA bars */
+.dna-list { display: flex; flex-direction: column; gap: 1rem; margin-bottom: 2rem; }
+.dna-row {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  grid-template-rows: auto auto;
+  column-gap: 14px; row-gap: 4px;
+  align-items: center;
+}
+.dna-label {
+  font-family: 'Playfair Display', serif;
+  font-style: italic; font-weight: 700;
+  font-size: 0.95rem; color: var(--moss);
+  grid-row: 1 / 2;
+}
+.dna-bar {
+  position: relative; height: 6px; border-radius: 999px;
+  background: rgba(46,84,56,0.10);
+  grid-row: 1 / 2; overflow: hidden;
+}
+.dna-bar > span {
+  position: absolute; left: 0; top: 0; bottom: 0;
+  background: linear-gradient(90deg, var(--green) 0%, var(--green-mid) 100%);
+  border-radius: 999px;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 1.2s cubic-bezier(.2,.8,.2,1);
+}
+.dna-list.dna-active .dna-bar > span { transform: scaleX(1); }
+.dna-list .dna-row:nth-child(1) .dna-bar > span { transition-delay: 0.05s; }
+.dna-list .dna-row:nth-child(2) .dna-bar > span { transition-delay: 0.18s; }
+.dna-list .dna-row:nth-child(3) .dna-bar > span { transition-delay: 0.32s; }
+.dna-list .dna-row:nth-child(4) .dna-bar > span { transition-delay: 0.46s; }
+.dna-meta {
+  grid-column: 2 / 3; grid-row: 2 / 3;
+  font-size: 0.78rem; color: var(--text-mid);
+  letter-spacing: 0.02em;
+}
+.dna-meta em { font-family: 'Playfair Display', serif; font-style: italic; color: var(--text-muted); font-weight: 400; }
+
+/* Two-phone stack for taste profile */
+.profile-phones {
+  position: relative;
+  display: flex; justify-content: center; align-items: flex-start;
+  min-height: 660px;
+  padding: 1rem;
+}
+.profile-phones::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse at center, rgba(46,84,56,0.06) 0%, transparent 60%);
+  z-index: 0;
+}
+.profile-phone {
+  border-radius: 38px; overflow: hidden;
+  border: 1.5px solid rgba(0,0,0,0.07);
+  background: #000;
+}
+.profile-phone img { width: 100%; display: block; }
+.profile-phone-back {
+  position: absolute; left: 0; top: 60px;
+  width: 240px;
+  transform: rotate(-7deg);
+  box-shadow: -16px 24px 60px rgba(46,84,56,0.22);
+  opacity: 0.92;
+  z-index: 1;
+}
+.profile-phone-front {
+  position: relative;
+  width: 280px;
+  margin-left: 70px;
+  box-shadow:
+    24px 28px 80px rgba(46,84,56,0.28),
+    0 10px 24px rgba(0,0,0,0.10);
+  z-index: 2;
+  transform: rotate(2deg);
+}
+.profile-chip {
+  position: absolute; bottom: 20px; right: 10px; z-index: 3;
+  display: flex; align-items: center; gap: 14px;
+  background: #fff;
+  border: 1px solid #E8DDD0;
+  border-radius: 18px; padding: 14px 20px 14px 14px;
+  box-shadow: 0 18px 40px rgba(46,84,56,0.18), 0 4px 12px rgba(0,0,0,0.06);
+  max-width: 260px;
+}
+.profile-chip-icon {
+  width: 44px; height: 44px; border-radius: 12px;
+  background: linear-gradient(135deg, var(--green-light) 0%, rgba(232,245,233,0.5) 100%);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.3rem;
+  box-shadow: 0 4px 12px rgba(46,125,50,0.10);
+}
+.profile-chip-title { font-size: 0.95rem; font-weight: 700; color: var(--moss); font-family: 'Playfair Display',serif; font-style: italic; }
+.profile-chip-sub { font-size: 0.72rem; color: var(--text-muted); font-family: 'DM Sans',sans-serif; margin-top: 3px; }
+
+/* ── DUO SECTION (Plan + Grocery) ── */
+.duo-section {
+  position: relative;
+  background:
+    radial-gradient(ellipse 70% 50% at 85% 20%, rgba(255,112,9,0.06) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 15% 80%, rgba(46,125,50,0.07) 0%, transparent 60%),
+    var(--paper);
+  padding: 7rem 2rem;
+  overflow: hidden;
+}
+/* Decorative blob shapes */
+.duo-section::before,
+.duo-section::after {
+  content: ''; position: absolute; pointer-events: none;
+  border-radius: 50%;
+  filter: blur(40px); opacity: 0.45;
+  z-index: 0;
+}
+.duo-section::before {
+  width: 380px; height: 380px;
+  background: radial-gradient(circle, var(--green-light) 0%, transparent 70%);
+  top: -80px; right: -120px;
+}
+.duo-section::after {
+  width: 480px; height: 480px;
+  background: radial-gradient(circle, var(--ic-cream) 0%, transparent 70%);
+  bottom: -160px; left: -160px;
+}
+.duo-inner {
+  position: relative; z-index: 1;
+  max-width: 1240px; margin: 0 auto;
+  display: flex; flex-direction: column; gap: 7rem;
+}
+.duo-tile {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4rem; align-items: center;
+  position: relative;
+}
+.duo-tile-reverse { direction: rtl; }
+.duo-tile-reverse > * { direction: ltr; }
+.duo-text { padding: 1rem 0; max-width: 520px; }
+.duo-title {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(2rem, 3.6vw, 2.9rem);
+  font-weight: 700; line-height: 1.12;
+  color: var(--text);
+  margin-bottom: 1.25rem;
+}
+.duo-title em { font-style: italic; color: var(--green); }
+.duo-desc {
+  font-size: 1.08rem; font-weight: 300; line-height: 1.7;
+  color: var(--text-mid); margin-bottom: 2rem;
+  max-width: 480px;
+}
+.duo-list {
+  list-style: none; padding: 0; margin: 0;
+  display: flex; flex-direction: column; gap: 0.75rem;
+}
+.duo-list li {
+  display: flex; gap: 12px; align-items: flex-start;
+  font-size: 0.98rem; color: var(--text-mid);
+  font-family: 'DM Sans', sans-serif;
+  line-height: 1.55;
+}
+.duo-list li::before {
+  content: ''; flex-shrink: 0;
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--green);
+  margin-top: 9px;
+  box-shadow: 0 0 0 4px rgba(46,125,50,0.10);
+}
+.duo-list li span { display: none; }
+
+/* Backdrop card behind the phone — fills empty space */
+.duo-phone-wrap {
+  position: relative;
+  display: flex; justify-content: center; align-items: center;
+  min-height: 640px;
+  padding: 2.5rem;
+  will-change: transform;
+}
+.duo-phone-wrap::before {
+  content: '';
+  position: absolute; inset: 1.5rem;
+  border-radius: 36px;
+  background:
+    linear-gradient(135deg, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0.2) 100%);
+  border: 1px solid rgba(46,84,56,0.08);
+  backdrop-filter: blur(8px);
+  z-index: 0;
+}
+/* Variant: Instacart-tinted backdrop on the grocery tile */
+.duo-tile-grocery .duo-phone-wrap::before {
+  background:
+    linear-gradient(135deg, rgba(255,112,9,0.08) 0%, rgba(255,244,230,0.5) 100%);
+  border: 1px solid rgba(255,112,9,0.15);
+}
+.duo-phone {
+  position: relative; z-index: 1;
+  width: 300px; border-radius: 40px; overflow: hidden;
+  border: 1.5px solid rgba(0,0,0,0.07);
+  background: #000;
+  box-shadow:
+    0 40px 90px rgba(0,0,0,0.22),
+    0 12px 28px rgba(0,0,0,0.10),
+    0 0 0 1px rgba(255,255,255,0.06) inset;
+}
+.duo-phone img { width: 100%; display: block; }
+
+/* ── BIG floating chips ── */
+.duo-floater {
+  position: absolute;
+  background: #fff;
+  border: 1px solid rgba(0,0,0,0.06);
+  border-radius: 20px;
+  padding: 18px 22px;
+  box-shadow:
+    0 24px 56px rgba(0,0,0,0.14),
+    0 6px 14px rgba(0,0,0,0.06);
+  font-family: 'DM Sans', sans-serif;
+  z-index: 4;
+  display: flex; align-items: center; gap: 14px;
+  min-width: 180px;
+  will-change: transform;
+}
+.duo-floater-tl { top: 8%; left: -6%; }
+.duo-floater-br { bottom: 6%; right: -6%; }
+.duo-floater-icon {
+  width: 44px; height: 44px; border-radius: 12px;
+  background: var(--green-light);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.duo-floater-icon svg { width: 22px; height: 22px; color: var(--green); }
+.duo-floater-num {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.5rem; font-weight: 700; color: var(--text);
+  line-height: 1;
+}
+.duo-floater-num em { font-style: italic; color: var(--green); font-weight: 700; }
+.duo-floater-lbl {
+  font-size: 0.78rem; color: var(--text-muted);
+  margin-top: 6px; letter-spacing: 0.02em;
+  font-weight: 400;
+}
+
+/* Instacart-branded floater (the orange one) */
+.duo-floater-ic {
+  background: linear-gradient(135deg, #FF7009 0%, #E55A00 100%);
+  border: none;
+  color: #fff;
+  box-shadow:
+    0 24px 56px rgba(255,112,9,0.32),
+    0 6px 14px rgba(255,112,9,0.18);
+}
+.duo-floater-ic .duo-floater-icon {
+  background: #fff; /* white circle so the carrot pops */
+}
+.duo-floater-ic .duo-floater-icon svg { color: #FF7009; }
+.duo-floater-ic .duo-floater-num { color: #fff; font-weight: 700; }
+.duo-floater-ic .duo-floater-lbl { color: rgba(255,255,255,0.9); font-weight: 500; }
+
+/* Instacart carrot image inside the orange chip */
+.duo-floater-icon-img {
+  background: #fff;
+  padding: 6px;
+}
+.duo-floater-icon-img img {
+  width: 100%; height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+/* Dark "staples skipped" variant */
+.duo-floater-dark {
+  background: #0F1F12;
+  border: 1px solid #1F3322;
+  color: #E8F5E9;
+}
+.duo-floater-dark .duo-floater-icon { background: rgba(165,214,167,0.15); }
+.duo-floater-dark .duo-floater-icon svg { color: #A5D6A7; }
+.duo-floater-dark .duo-floater-num { color: #fff; }
+.duo-floater-dark .duo-floater-num em { color: #A5D6A7; }
+.duo-floater-dark .duo-floater-lbl { color: #9DB39E; }
+
+/* Small Instacart partnership badge under grocery title */
+.ic-partner-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--ic-cream);
+  border: 1px solid rgba(255,112,9,0.25);
+  color: var(--ic-orange-dark);
+  padding: 6px 12px 6px 8px;
+  border-radius: 999px;
+  font-size: 0.75rem; font-weight: 600;
+  font-family: 'DM Sans', sans-serif;
+  letter-spacing: 0.02em;
+  margin-bottom: 1rem;
+}
+.ic-partner-badge .ic-mark {
+  width: 18px; height: 18px;
+  display: block;
+  object-fit: contain;
+}
+
+@media (max-width: 900px) {
+  .duo-section { padding: 5rem 1.5rem; }
+  .duo-inner { gap: 5rem; }
+  .duo-tile, .duo-tile-reverse { grid-template-columns: 1fr; gap: 2.5rem; direction: ltr; }
+  .duo-text { text-align: center; margin: 0 auto; }
+  .duo-desc { margin-left: auto; margin-right: auto; }
+  .duo-list { display: inline-flex; text-align: left; margin: 0 auto; }
+  .duo-phone-wrap { min-height: 560px; }
+  .duo-floater-tl { left: -4%; top: 4%; }
+  .duo-floater-br { right: -4%; bottom: 4%; }
+}
+@media (max-width: 560px) {
+  .duo-phone { width: 240px; }
+  .duo-phone-wrap { min-height: 500px; padding: 1.5rem; }
+  .duo-floater { padding: 12px 16px; min-width: 150px; }
+  .duo-floater-icon { width: 36px; height: 36px; }
+  .duo-floater-num { font-size: 1.15rem; }
+  .duo-floater-lbl { font-size: 0.7rem; }
+}
 
 /* ── CTA ── */
 .cta-section {
@@ -462,321 +858,8 @@ footer {
   .steps { grid-template-columns: 1fr; gap: 1rem; }
   .screens-row { gap: 0.75rem; }
   .screen-item { width: 148px; }
-  .profile-inner { grid-template-columns: 1fr; gap: 2rem; }
-  footer { flex-direction: column; gap: 1rem; text-align: center; }
-  .footer-links { justify-content: center; }
-}
-@media (max-width: 560px) {
-  .features-grid { grid-template-columns: 1fr; }
-  nav { padding: 1rem 1.25rem; }
-  .nav-link { display: none; }
-  .screen-item { width: 120px; border-radius: 20px; }
-  .stats-inner { grid-template-columns: 1fr; gap: 1.5rem; }
-  /* Stack the email form vertically on small phones */
-  .hero-form, .cta-form {
-    flex-direction: column; align-items: stretch;
-  }
-  .hero-form .btn-primary, .cta-form .btn-white {
-    justify-content: center;
-  }
-  /* Safe area padding for notch/Dynamic Island */
-  nav { padding-top: max(1rem, env(safe-area-inset-top)); }
-  body { padding-bottom: env(safe-area-inset-bottom); }
-  /* Screens row: left-align so swipe feels natural */
-  .screens-row { justify-content: flex-start; padding-left: 1rem; padding-right: 1rem; }
-}
-</style>
-</head>
-<body>
-
-<!-- LIGHTBOX -->
-<div id="lightbox" onclick="closeLightbox()">
-  <img id="lightbox-img" src="" alt="">
-</div>
-
-<!-- NAV -->
-<nav>
-  <div class="nav-logo" style="line-height:0;">
-    <img src="mori-green.png" alt="Mori" width="152" height="38" style="display:block;">
-  </div>
-  <div class="nav-right">
-    <a href="#features" class="nav-link">Features</a>
-    <a href="#screens" class="nav-link">App</a>
-    <a href="https://testflight.apple.com/join/8MP7Q329" class="btn-primary" target="_blank" rel="noopener">Join the Beta</a>
-  </div>
-</nav>
-
-<!-- HERO -->
-<section class="hero">
-  <div class="hero-left">
-    <div class="launch-badge">
-      <div class="app-icon app-icon-sm">
-        <img src="mori_icon.png" width="40" height="40" alt="Mori" style="border-radius:10px;">
-      </div>
-      <span>Launching on iOS · Summer 2026</span>
-    </div>
-    <h1 class="hero-title">
-      <em>Mori.</em><br><nobr>Swipe. Order.</nobr><br>Cook.
-    </h1>
-    <p class="hero-brand-line">Rooted in your taste</p>
-    <p class="hero-sub">
-      Swipe through recipes personalised to you, save the ones you love, and order every ingredient in one tap. No more "what should I make tonight?"
-    </p>
-    <a href="https://testflight.apple.com/join/8MP7Q329" class="btn-primary" target="_blank" rel="noopener" style="display:inline-block;text-decoration:none;">Join the Beta</a>
-  </div>
-  <div class="hero-right" style="flex-direction:column;align-items:center;gap:1.5rem;">
-    <div class="phone-stack">
-      <div class="phone-back">
-        <img src="IMG_9179.PNG" alt="Mori discover screen dark mode">
-      </div>
-      <div class="phone-front">
-        <img src="IMG_9222.PNG" alt="Mori discover screen">
-      </div>
-    </div>
-    <!-- App icon floating badge — sits below phones, centered -->
-    <div style="display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #E0E0E0;border-radius:16px;padding:10px 16px 10px 10px;box-shadow:0 8px 24px rgba(0,0,0,0.1);align-self:center;margin-top:2.5rem;">
-      <div class="app-icon" style="width:48px;height:48px;border-radius:12px;">
-        <img src="mori_icon.png" width="48" height="48" alt="Mori" style="border-radius:12px;display:block;">
-      </div>
-      <div>
-        <div style="font-size:0.8rem;font-weight:500;color:#1A1A1A;font-family:'DM Sans',sans-serif;">Mori</div>
-        <div style="font-size:0.7rem;color:#888;font-family:'DM Sans',sans-serif;">Recipe discovery</div>
-      </div>
-      <div style="margin-left:8px;background:#2E7D32;color:#fff;font-size:0.65rem;font-weight:600;padding:4px 10px;border-radius:999px;font-family:'DM Sans',sans-serif;">GET</div>
-    </div>
-  </div>
-</section>
-
-<!-- STATS -->
-<div class="stats-bar reveal">
-  <div class="stats-inner">
-    <div>
-      <div class="stat-num">1,500+</div>
-      <div class="stat-label">Curated recipes at launch</div>
-    </div>
-    <div>
-      <div class="stat-num">1 tap</div>
-      <div class="stat-label">From grocery list to your door</div>
-    </div>
-    <div>
-      <div class="stat-num">Day 1</div>
-      <div class="stat-label">Personal from your first swipe</div>
-    </div>
-  </div>
-</div>
-
-<!-- FEATURES -->
-<section class="features" id="features">
-  <div class="reveal">
-    <div style="display:flex;align-items:center;gap:16px;margin-bottom:1rem;">
-      <img src="mori_icon.png" alt="Mori" style="width:48px;height:48px;border-radius:12px;flex-shrink:0;box-shadow:0 2px 6px rgba(46,84,56,0.08);">
-      <span class="section-eyebrow" style="margin-bottom:0;">Why Mori</span>
-    </div>
-    <h2 class="section-title">Everything in<br><em>its place</em></h2>
-    <p class="section-sub">From first swipe to groceries ordered — Mori handles the whole thing.</p>
-  </div>
-  <div class="features-grid reveal">
-    <div class="feature-card">
-      <div class="feature-icon">✦</div>
-      <h3 class="feature-title">Personal from day one</h3>
-      <p class="feature-desc">Tells it your cuisines, dietary goals, and pantry. Your first deck feels like it was made for you — because it was.</p>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon">
-        <svg width="20" height="14" viewBox="0 0 20 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M1 7h18M14 2l5 5-5 5M6 2L1 7l5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </div>
-      <h3 class="feature-title">Swipe to discover</h3>
-      <p class="feature-desc">Swipe right to save, left to pass. Mori learns from every interaction and gets sharper every session.</p>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon">◎</div>
-      <h3 class="feature-title">Macros that make sense</h3>
-      <p class="feature-desc">High protein? You see protein. Keto? You see net carbs. The right number, for your goal, every time.</p>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon">☰</div>
-      <h3 class="feature-title">One-tap grocery list</h3>
-      <p class="feature-desc">Select your meals and Mori builds a deduplicated, category-sorted grocery list. Order ingredients in one tap.</p>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon">◫</div>
-      <h3 class="feature-title">Meal Prep Mode</h3>
-      <p class="feature-desc">Plan your whole week. Swipe recipes into day and meal slots, set serving sizes, and get one consolidated grocery list.</p>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon">◉</div>
-      <h3 class="feature-title">Your taste profile</h3>
-      <p class="feature-desc">Mori reads your swipe history and tells you who you are in the kitchen. Updated every session.</p>
-    </div>
-  </div>
-</section>
-
-<!-- SCREENS -->
-<section class="showcase" id="screens">
-  <div class="showcase-inner">
-    <div class="reveal" style="text-align:center;margin-bottom:2.5rem;">
-      <span class="section-eyebrow">The app</span>
-      <h2 class="section-title" style="text-align:center;">Built for <em>real cooks</em></h2>
-      <p class="section-sub" style="margin:0 auto;">Every screen designed around the moment you're actually in.</p>
-    </div>
-    <div class="screens-showcase reveal">
-      <div class="screen-phone-wrap">
-        <div class="screen-phone" onclick="openLightbox('IMG_9222.PNG')"><img src="IMG_9222.PNG" alt="Discover"></div>
-        <p class="screen-phone-label">Discover</p>
-      </div>
-      <div class="screen-phone-wrap">
-        <div class="screen-phone" onclick="openLightbox('IMG_9188.PNG')"><img src="IMG_9188.PNG" alt="Meal Prep"></div>
-        <p class="screen-phone-label">Meal Prep</p>
-      </div>
-      <div class="screen-phone-wrap">
-        <div class="screen-phone" onclick="openLightbox('IMG_9186.PNG')"><img src="IMG_9186.PNG" alt="Explore"></div>
-        <p class="screen-phone-label">Explore</p>
-      </div>
-      <div class="screen-phone-wrap">
-        <div class="screen-phone" onclick="openLightbox('IMG_9182.PNG')"><img src="IMG_9182.PNG" alt="Meal plan"></div>
-        <p class="screen-phone-label">Meal plan</p>
-      </div>
-      <div class="screen-phone-wrap">
-        <div class="screen-phone" onclick="openLightbox('IMG_9190.PNG')"><img src="IMG_9190.PNG" alt="Grocery list"></div>
-        <p class="screen-phone-label">Grocery list</p>
-      </div>
-      <div class="screen-phone-wrap">
-        <div class="screen-phone" onclick="openLightbox('1775711632554.jpg')"><img src="1775711632554.jpg" alt="Cooking mode"></div>
-        <p class="screen-phone-label">Cooking mode</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- TASTE PROFILE HIGHLIGHT -->
-<section class="profile-section">
-  <div class="profile-inner reveal">
-    <div class="profile-text">
-      <span class="section-eyebrow">Your taste profile</span>
-      <h2 class="section-title">The app that<br><em>knows you</em></h2>
-      <p class="section-sub">After a few swipes, Mori reads your patterns and tells you exactly who you are in the kitchen — updated every session, getting sharper every time.</p>
-    </div>
-    <div style="display:flex;justify-content:center;">
-      <div style="width:220px;border-radius:32px;overflow:hidden;border:1.5px solid rgba(0,0,0,0.07);box-shadow:0 24px 64px rgba(46,84,56,0.15),0 6px 16px rgba(0,0,0,0.07);">
-        <img src="IMG_9221.PNG" alt="Mori taste profile" style="width:100%;display:block;">
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- HOW IT WORKS -->
-<section class="how">
-  <div class="reveal" style="text-align:center;">
-    <span class="section-eyebrow">How it works</span>
-    <h2 class="section-title" style="text-align:center;">Three steps to<br><em>dinner sorted</em></h2>
-  </div>
-  <div class="steps reveal">
-    <div class="step">
-      <div class="step-num">1</div>
-      <h3 class="step-title">Swipe your taste</h3>
-      <p class="step-desc">Swipe through recipes personalised to your cuisines, dietary goals, and what's already in your kitchen.</p>
-    </div>
-    <div class="step">
-      <div class="step-num">2</div>
-      <h3 class="step-title">Build your list</h3>
-      <p class="step-desc">Select the meals you want. Mori consolidates every ingredient, removes what you already have, and groups by category.</p>
-    </div>
-    <div class="step">
-      <div class="step-num">3</div>
-      <h3 class="step-title">Order in one tap</h3>
-      <p class="step-desc">Send your grocery list with one tap. Ingredients delivered in as fast as an hour. You just cook.</p>
-    </div>
-  </div>
-</section>
-
-<!-- CTA -->
-<section class="cta-section" id="beta">
-  <h2 class="cta-title">Ready to cook<br><em>differently?</em></h2>
-  <p class="cta-sub">Now in beta on iOS — join for free.</p>
-  <a href="https://testflight.apple.com/join/8MP7Q329" class="btn-white" target="_blank" rel="noopener" style="display:inline-block;text-decoration:none;">Join the Beta</a>
-</section>
-
-<!-- FOOTER -->
-<div style="border-top:1px solid var(--border);">
-  <footer>
-    <div style="display:flex;align-items:center;gap:10px;">
-      <img src="mori_icon.png" alt="Mori" style="width:32px;height:32px;border-radius:8px;">
-      <img src="mori-green.png" alt="Mori" width="88" height="22" style="display:block;">
-    </div>
-    <div class="footer-links">
-      <a href="/privacy" class="footer-link">Privacy Policy</a>
-      <a href="mailto:hello@getmori.app" class="footer-link">Contact</a>
-    </div>
-    <p class="footer-copy">© 2026 Mori. Swipe. Order. Cook.</p>
-  </footer>
-</div>
-
-<script>
-async function handleSubmit(e, id) {
-  e.preventDefault();
-  const form = document.getElementById(id + '-form');
-  const input = form.querySelector('input[type="email"]');
-  const msg = document.getElementById(id + '-msg');
-  const btn = form.querySelector('button[type="submit"]');
-  const email = input.value.trim();
-
-  btn.disabled = true;
-  btn.style.opacity = '0.7';
-
-  try {
-    const res = await fetch('/api/waitlist', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email }),
-    });
-    const data = await res.json();
-
-    if (res.ok && data.success) {
-      input.value = '';
-      msg.style.color = id === 'cta' ? 'rgba(255,255,255,0.8)' : '#2E7D32';
-      msg.textContent = "You're on the list — we'll be in touch before launch.";
-      setTimeout(() => { msg.textContent = ''; }, 5000);
-    } else {
-      msg.style.color = id === 'cta' ? 'rgba(255,100,100,0.9)' : '#D32F2F';
-      msg.textContent = data.error || 'Something went wrong. Try again.';
-    }
-  } catch {
-    msg.style.color = id === 'cta' ? 'rgba(255,100,100,0.9)' : '#D32F2F';
-    msg.textContent = 'Something went wrong. Try again.';
-  } finally {
-    btn.disabled = false;
-    btn.style.opacity = '1';
-  }
-}
-
-// ── Lightbox ──
-function openLightbox(src) {
-  const lb = document.getElementById('lightbox');
-  const img = document.getElementById('lightbox-img');
-  img.src = src;
-  lb.classList.add('open');
-  document.body.style.overflow = 'hidden';
-}
-function closeLightbox() {
-  document.getElementById('lightbox').classList.remove('open');
-  document.body.style.overflow = '';
-}
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
-
-const observer = new IntersectionObserver(entries => {
-  entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); observer.unobserve(e.target); } });
-}, { threshold: 0.1 });
-document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
-
-document.querySelectorAll('a[href^="#"]').forEach(a => {
-  a.addEventListener('click', e => {
-    e.preventDefault();
-    const t = document.querySelector(a.getAttribute('href'));
-    if (t) t.scrollIntoView({ behavior: 'smooth' });
-  });
-});
-</script>
-</body>
-</html>
+  .profile-inner { grid-template-columns: 1fr; gap: 3rem; }
+  .profile-text { text-align: center; }
+  .profile-text .section-sub { margin: 0 auto 2rem; }
+  .dna-list { max-width: 460px; margin-left: auto; margin-right: auto; margin-bottom: 2rem; }
+  .profile-quote { max-width: 460px; 
