@@ -9,10 +9,12 @@
  *   12.1 oz chicken    → 12 oz chicken
  *
  * Usage:
- *   node scripts/normalize-ingredient-units.mjs --dry-run        # preview, no writes
- *   node scripts/normalize-ingredient-units.mjs --limit 20       # test on 20 recipes
- *   node scripts/normalize-ingredient-units.mjs --metric-only    # only recipes w/ metric units
- *   node scripts/normalize-ingredient-units.mjs                  # full run (~1506 recipes)
+ *   node scripts/normalize-ingredient-units.mjs --dry-run              # preview, no writes
+ *   node scripts/normalize-ingredient-units.mjs --limit 20             # test on 20 recipes
+ *   node scripts/normalize-ingredient-units.mjs --metric-only          # only recipes w/ metric units
+ *   node scripts/normalize-ingredient-units.mjs --recent-hours 3       # only recipes inserted in last 3h
+ *   node scripts/normalize-ingredient-units.mjs --metric-only --recent-hours 3  # combine both
+ *   node scripts/normalize-ingredient-units.mjs                        # full run (all recipes)
  *
  * Safe to re-run. Skips recipes already tagged units_normalized=true (if column exists).
  * Cost: ~$0.02–0.05 for full run (Haiku, ~150 tokens/recipe).
@@ -43,6 +45,7 @@ const args        = process.argv.slice(2);
 const DRY_RUN     = args.includes('--dry-run');
 const METRIC_ONLY = args.includes('--metric-only');
 const LIMIT       = (() => { const i = args.indexOf('--limit'); return i >= 0 ? parseInt(args[i + 1], 10) : Infinity; })();
+const RECENT_HOURS = (() => { const i = args.indexOf('--recent-hours'); return i >= 0 ? parseInt(args[i + 1], 10) : null; })();
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
@@ -122,24 +125,24 @@ ${JSON.stringify(input, null, 2)}`
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 async function main() {
-  console.log(`Mode: ${DRY_RUN ? 'DRY RUN' : 'LIVE'} | Filter: ${METRIC_ONLY ? 'metric-only' : 'all'} | Limit: ${isFinite(LIMIT) ? LIMIT : 'none'}`);
+  console.log(`Mode: ${DRY_RUN ? 'DRY RUN' : 'LIVE'} | Filter: ${METRIC_ONLY ? 'metric-only' : 'all'} | Limit: ${isFinite(LIMIT) ? LIMIT : 'none'}${RECENT_HOURS ? ` | Recent: last ${RECENT_HOURS}h` : ''}`);
 
   // Paginate all recipes
   const PAGE = 200;
   let offset = 0;
   let all = [];
+  const cutoff = RECENT_HOURS ? new Date(Date.now() - RECENT_HOURS * 60 * 60 * 1000).toISOString() : null;
   while (true) {
-    const { data, error } = await sb
-      .from('recipes')
-      .select('id, title, ingredients')
-      .range(offset, offset + PAGE - 1);
+    let query = sb.from('recipes').select('id, title, ingredients');
+    if (cutoff) query = query.gte('created_at', cutoff);
+    const { data, error } = await query.range(offset, offset + PAGE - 1);
     if (error) { console.error('Fetch error:', error.message); process.exit(1); }
     if (!data || data.length === 0) break;
     all.push(...data);
     if (data.length < PAGE) break;
     offset += PAGE;
   }
-  console.log(`Fetched ${all.length} recipes`);
+  console.log(`Fetched ${all.length} recipes${cutoff ? ` (since ${cutoff})` : ''}`);
 
   // Filter
   const toProcess = all.filter(r => {

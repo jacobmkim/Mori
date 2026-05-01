@@ -347,16 +347,20 @@ export default function GroceryList() {
   }
 
   function cleanForSearch(name: string): string {
+    // Only strip words that are pure prep (verbs the cook does) or non-product-defining
+    // descriptors. Words like canned/frozen/dried/ground/crushed/whole identify a
+    // DIFFERENT product on Instacart (canned crushed tomatoes ≠ fresh tomatoes;
+    // ground beef ≠ steak; dried oregano ≠ fresh oregano) — never strip them.
     return name
       .replace(/\(.*?\)/g, '')
       // strip leading quantity + optional unit (e.g. "2 cups", "1/2 lb", "500g", "3")
       .replace(/^\d[\d\s/]*\s*(tsp|tbsp|teaspoon|tablespoon|cup|cups|oz|lb|lbs|g|kg|ml|l|clove|cloves|bunch|bunches|head|heads|piece|pieces|can|cans|stalk|stalks|sprig|sprigs|slice|slices)?\s*/i, '')
       // strip prep words after a comma ("onion, diced" → "onion")
-      .replace(/,\s*(diced|minced|chopped|sliced|grated|crushed|julienned|peeled|deveined|trimmed|cubed|shredded|melted|softened|beaten|divided|optional|to taste|for garnish|for serving|as needed).*/i, '')
+      .replace(/,\s*(diced|minced|chopped|sliced|grated|julienned|peeled|deveined|trimmed|cubed|shredded|melted|softened|beaten|divided|optional|to taste|for garnish|for serving|as needed).*/i, '')
       // strip prep words not after a comma ("diced onion" → "onion")
-      .replace(/\b(diced|minced|chopped|sliced|grated|crushed|julienned|peeled|deveined|trimmed|cubed|shredded|melted|softened|beaten|divided)\b/gi, '')
-      // strip common descriptor words
-      .replace(/\b(fresh|dried|ground|large|medium|small|whole|boneless|skinless|extra-virgin|raw|cooked|canned|frozen|organic|finely|roughly|thinly)\b/gi, '')
+      .replace(/\b(diced|minced|chopped|sliced|grated|julienned|peeled|deveined|trimmed|cubed|shredded|melted|softened|beaten|divided)\b/gi, '')
+      // strip non-product descriptors (size, prep adverbs, preference flags)
+      .replace(/\b(large|medium|small|extra-virgin|organic|finely|roughly|thinly)\b/gi, '')
       .replace(/\s{2,}/g, ' ')
       .trim();
   }

@@ -1,16 +1,18 @@
-// Generates full recipe content for new-recipes.csv and saves to new-recipes-draft.json (JSONL).
+// Generates full recipe content for a CSV input and saves to a JSONL draft file.
 // Nothing is saved to Supabase — this is a staging step before photos are added.
 //
 // Usage:
-//   node scripts/generate-new-recipes.mjs                    # generate all missing
-//   node scripts/generate-new-recipes.mjs --cuisine italian  # one cuisine only
-//   node scripts/generate-new-recipes.mjs --dry-run          # preview, don't generate
+//   node scripts/generate-new-recipes.mjs                                    # generate all missing
+//   node scripts/generate-new-recipes.mjs --cuisine italian                  # one cuisine only
+//   node scripts/generate-new-recipes.mjs --dry-run                          # preview, don't generate
+//   node scripts/generate-new-recipes.mjs --csv recipes_community.csv        # custom CSV path
+//   node scripts/generate-new-recipes.mjs --draft scripts/foo-draft.json     # custom draft output path
 //
 // Safe to re-run — skips:
 //   1. Titles already in Supabase recipes table
-//   2. Titles already saved in new-recipes-draft.json
+//   2. Titles already saved in the draft file
 //
-// Once all recipes have photos, run upload-new-recipes.mjs to push to Supabase.
+// Once all recipes are generated, run upload-new-recipes.mjs to push to Supabase.
 
 import { createClient } from '@supabase/supabase-js';
 import { readFileSync, writeFileSync, appendFileSync, existsSync } from 'fs';
@@ -29,6 +31,7 @@ const envVars = Object.fromEntries(
 const SUPABASE_URL = envVars['EXPO_PUBLIC_SUPABASE_URL'];
 const SERVICE_KEY  = envVars['SUPABASE_SERVICE_ROLE_KEY'];
 const API_URL      = envVars['EXPO_PUBLIC_API_URL'];
+const SEED_SECRET  = envVars['SEED_SECRET'];
 
 if (!SUPABASE_URL || !SERVICE_KEY) {
   console.error('Missing EXPO_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in .env');
@@ -36,6 +39,10 @@ if (!SUPABASE_URL || !SERVICE_KEY) {
 }
 if (!API_URL) {
   console.error('Missing EXPO_PUBLIC_API_URL in .env — deploy to Vercel first');
+  process.exit(1);
+}
+if (!SEED_SECRET) {
+  console.error('Missing SEED_SECRET in .env — required for unauthenticated bulk generation against /api/generate-recipe');
   process.exit(1);
 }
 
@@ -94,8 +101,9 @@ const args          = process.argv.slice(2);
 const isDryRun      = args.includes('--dry-run');
 const cuisineFilter = args.includes('--cuisine') ? args[args.indexOf('--cuisine') + 1] : null;
 const csvArg        = args.includes('--csv') ? args[args.indexOf('--csv') + 1] : null;
+const draftArg      = args.includes('--draft') ? args[args.indexOf('--draft') + 1] : null;
 const DELAY_MS      = 1200;
-const DRAFT_PATH    = resolve(process.cwd(), 'scripts', 'new-recipes-draft.json');
+const DRAFT_PATH    = resolve(process.cwd(), draftArg ?? 'scripts/new-recipes-draft.json');
 
 const DISHES = loadDishes();
 
@@ -104,8 +112,18 @@ const DISHES = loadDishes();
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 async function getExistingTitles() {
-  const { data } = await sb.from('recipes').select('title');
-  return new Set((data ?? []).map(r => r.title.toLowerCase().trim()));
+  const titles = [];
+  const PAGE = 1000;
+  let from = 0;
+  while (true) {
+    const { data, error } = await sb.from('recipes').select('title').range(from, from + PAGE - 1);
+    if (error) throw new Error(`Failed to fetch existing titles: ${error.message}`);
+    if (!data || data.length === 0) break;
+    titles.push(...data.map(r => r.title.toLowerCase().trim()));
+    if (data.length < PAGE) break;
+    from += PAGE;
+  }
+  return new Set(titles);
 }
 
 function loadDraftTitles(draftPath) {
@@ -138,7 +156,10 @@ async function generateDish(dish) {
 
   const response = await fetch(`${API_URL}/api/generate-recipe`, {
     method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type':   'application/json',
+      'x-seed-secret':  SEED_SECRET,
+    },
     body:    JSON.stringify(body),
   });
 

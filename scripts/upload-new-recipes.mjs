@@ -1,10 +1,14 @@
-// Uploads generated recipes from new-recipes-draft.json (JSONL) to Supabase.
+// Uploads generated recipes from a JSONL draft file to Supabase.
 // This is Phase 2 of the new-recipe backfill — run after generate-new-recipes.mjs.
 // Photos are added later via generate-images.mjs.
 //
 // Usage:
-//   node scripts/upload-new-recipes.mjs           # upload all new entries
-//   node scripts/upload-new-recipes.mjs --dry-run # preview without inserting
+//   node scripts/upload-new-recipes.mjs                                       # upload all new entries (curated, defaults)
+//   node scripts/upload-new-recipes.mjs --dry-run                             # preview without inserting
+//   node scripts/upload-new-recipes.mjs --draft scripts/foo.json              # custom draft path
+//   node scripts/upload-new-recipes.mjs --source community                    # set source_type (curated|community|imported)
+//   node scripts/upload-new-recipes.mjs --moderation-status pending           # set moderation_status (pending|approved|rejected)
+//   node scripts/upload-new-recipes.mjs --is-public true                      # set is_public (true|false)
 //
 // Resume-safe: fetches existing Supabase titles before each run; only inserts rows
 // whose title is not already in the DB (case-insensitive).
@@ -35,11 +39,46 @@ const sb = createClient(SUPABASE_URL, SERVICE_KEY);
 
 // ── Config ─────────────────────────────────────────────────────────────────────
 
-const DRAFT_PATH = resolve(process.cwd(), 'scripts', 'new-recipes-draft.json');
 const BATCH_SIZE = 50;
 
 const args     = process.argv.slice(2);
 const isDryRun = args.includes('--dry-run');
+
+function getFlag(name) {
+  const i = args.indexOf(name);
+  return i >= 0 ? args[i + 1] : null;
+}
+
+const DRAFT_PATH = resolve(
+  process.cwd(),
+  getFlag('--draft') ?? 'scripts/new-recipes-draft.json'
+);
+
+const SOURCE_TYPE = getFlag('--source') ?? 'curated';
+const MODERATION_STATUS = getFlag('--moderation-status'); // null → omit field
+const IS_PUBLIC_RAW = getFlag('--is-public');             // null → omit field
+const IS_PUBLIC = IS_PUBLIC_RAW === null
+  ? null
+  : IS_PUBLIC_RAW === 'true' ? true
+  : IS_PUBLIC_RAW === 'false' ? false
+  : 'INVALID';
+
+// Validate against schema CHECK constraints (supabase/schema.sql:64 + add-recipe-submission.sql)
+const VALID_SOURCES = ['curated', 'community', 'imported'];
+const VALID_MOD_STATUS = ['pending', 'approved', 'rejected'];
+
+if (!VALID_SOURCES.includes(SOURCE_TYPE)) {
+  console.error(`Invalid --source "${SOURCE_TYPE}". Must be one of: ${VALID_SOURCES.join(', ')}`);
+  process.exit(1);
+}
+if (MODERATION_STATUS !== null && !VALID_MOD_STATUS.includes(MODERATION_STATUS)) {
+  console.error(`Invalid --moderation-status "${MODERATION_STATUS}". Must be one of: ${VALID_MOD_STATUS.join(', ')}`);
+  process.exit(1);
+}
+if (IS_PUBLIC === 'INVALID') {
+  console.error(`Invalid --is-public "${IS_PUBLIC_RAW}". Must be "true" or "false".`);
+  process.exit(1);
+}
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -101,11 +140,11 @@ function buildRow(entry) {
   const mealPrepFriendly =
     recipe.meal_prep_friendly !== undefined ? recipe.meal_prep_friendly : (csvMealPrep ?? false);
 
-  return {
+  const row = {
     title:              recipe.title,
     description:        recipe.description ?? '',
     cuisine:            csvCuisine,               // preserve as-is (e.g. "cajun,italian")
-    source_type:        'curated',
+    source_type:        SOURCE_TYPE,
     ingredients:        recipe.ingredients ?? [],
     steps:              recipe.steps ?? [],
     prep_time_mins:     recipe.prep_time_mins ?? 0,
@@ -122,14 +161,22 @@ function buildRow(entry) {
     cost_per_serving:   parseFloat((3.5 + Math.random() * 6).toFixed(2)),
     image_url:          null,
   };
+
+  if (MODERATION_STATUS !== null) row.moderation_status = MODERATION_STATUS;
+  if (IS_PUBLIC !== null) row.is_public = IS_PUBLIC;
+
+  return row;
 }
 
 // ── Main ───────────────────────────────────────────────────────────────────────
 
 async function main() {
   console.log(`\nMori Recipe Uploader`);
-  console.log(`Draft: ${DRAFT_PATH}`);
-  console.log(`Mode:  ${isDryRun ? 'DRY RUN' : 'LIVE'}\n`);
+  console.log(`Draft:        ${DRAFT_PATH}`);
+  console.log(`Source:       ${SOURCE_TYPE}`);
+  console.log(`Moderation:   ${MODERATION_STATUS ?? '(omit — DB default)'}`);
+  console.log(`Is public:    ${IS_PUBLIC === null ? '(omit — DB default false)' : IS_PUBLIC}`);
+  console.log(`Mode:         ${isDryRun ? 'DRY RUN' : 'LIVE'}\n`);
 
   const entries = loadDraft();
   console.log(`Loaded ${entries.length} entries from draft file`);

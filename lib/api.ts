@@ -219,6 +219,7 @@ export async function fetchDiscoverRecipes(dietaryGoals: string[] = []): Promise
     .from('recipes')
     .select('id, title, description, cuisine, source_type, dietary_tags, badge, avg_rating, save_count, image_url, external_id, prep_time_mins, cook_time_mins, servings, cost_per_serving, macros, ingredients, steps, meal_prep_friendly, skill_level, is_public, moderation_status, submitted_by, submitter:profiles_public!recipes_submitted_by_fkey(name, avatar_url, username)')
     .or('source_type.neq.community,and(source_type.eq.community,is_public.eq.true,moderation_status.eq.approved)')
+    .is('deleted_at', null)
     .limit(2000);
 
   if (error) throw error;
@@ -408,6 +409,7 @@ async function fetchAdventureRecipe(
     .select('id, title, description, cuisine, source_type, dietary_tags, badge, avg_rating, save_count, image_url, external_id, prep_time_mins, cook_time_mins, servings, cost_per_serving, macros, ingredients, steps')
     .ilike('cuisine', cuisine)
     .not('external_id', 'is', null)
+    .is('deleted_at', null)
     .limit(10);
   const eligible = (data ?? []).filter((r: any) => {
     if (existingSupabaseIds.has(r.id)) return false;
@@ -1284,6 +1286,17 @@ export async function logInteraction(
 // ─── Streak + Count ───────────────────────────────────────────────────────────
 // Called fire-and-forget after every logInteraction(..., 'cooked').
 // Updates current_streak, longest_streak, last_cooked_date, meals_cooked_count.
+
+// Returns the streak that should be SHOWN to the user, not the stale DB value.
+// The DB only updates current_streak on the next cook (then resets to 1 if broken),
+// so without this helper a 10-day streak from 2 weeks ago still displays as "10d".
+// Live = last cook was today or yesterday. Anything else → 0 (flame-out).
+export function getEffectiveStreak(currentStreak: number | null | undefined, lastCookedDate: string | null | undefined): number {
+  if (!currentStreak || !lastCookedDate) return 0;
+  const today = new Date().toLocaleDateString('en-CA');
+  const yesterday = new Date(Date.now() - 86_400_000).toLocaleDateString('en-CA');
+  return lastCookedDate === today || lastCookedDate === yesterday ? currentStreak : 0;
+}
 
 export async function updateStreakAndCount(
   userId: string,

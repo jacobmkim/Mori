@@ -652,18 +652,14 @@ export default function Discover() {
     const exitId = ++exitIdRef.current;
     setExitCard({ recipe, detail: detailCache.current.get(recipe.id), position: exitPos });
 
-    // Increment immediately — the card has no running animation on its own
-    // position, so unmounting it won't cause a native-driver flash. The exit
-    // overlay (above) handles the visual fly-off on a separate ValueXY.
-    setCurrentIndex((prev) => prev + 1);
-
-    // Post-swipe button linger: hold color then fade over ~280ms
+    // Post-swipe button linger: hold color then fade over ~280ms.
+    // Native-driven so the JS thread stays free during the exit fly-off.
     if (direction === 'right') {
       heartPostGlow.setValue(1);
-      Animated.timing(heartPostGlow, { toValue: 0, duration: 280, delay: 180, useNativeDriver: false }).start();
+      Animated.timing(heartPostGlow, { toValue: 0, duration: 280, delay: 180, useNativeDriver: true }).start();
     } else {
       xPostGlow.setValue(1);
-      Animated.timing(xPostGlow, { toValue: 0, duration: 280, delay: 180, useNativeDriver: false }).start();
+      Animated.timing(xPostGlow, { toValue: 0, duration: 280, delay: 180, useNativeDriver: true }).start();
     }
 
     // Quick linear reset — fast enough that pill flash is imperceptible,
@@ -679,6 +675,12 @@ export default function Discover() {
     }).start(() => {
       // Only clear if this is still the latest exit card
       if (exitIdRef.current === exitId) setExitCard(null);
+    });
+
+    // Defer next-card mount one frame so the exit card's bridge handoff
+    // gets a clean commit before the new top card mounts.
+    requestAnimationFrame(() => {
+      setCurrentIndex((prev) => prev + 1);
     });
   }
 

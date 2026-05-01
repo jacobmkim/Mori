@@ -174,14 +174,15 @@ export default function Explore() {
     try {
       const [trendingIds, justAddedRes, quickRes, proteinRes, cookedRes] = await Promise.all([
         fetchTrendingRecipeIds(),
-        supabase.from('recipes').select('*').order('created_at', { ascending: false }).limit(10),
+        supabase.from('recipes').select('*').is('deleted_at', null).order('created_at', { ascending: false }).limit(10),
         supabase.from('recipes').select('*')
           .lte('prep_time_mins', 20)
           .lte('cook_time_mins', 20)
+          .is('deleted_at', null)
           .order('save_count', { ascending: false })
           .limit(6),
         dietaryGoals.includes('high_protein')
-          ? supabase.from('recipes').select('*').order('created_at', { ascending: false }).limit(10)
+          ? supabase.from('recipes').select('*').is('deleted_at', null).order('created_at', { ascending: false }).limit(10)
           : Promise.resolve({ data: [], error: null }),
         userId
           ? supabase.from('recipe_interactions')
@@ -197,7 +198,7 @@ export default function Explore() {
       if (trendingIds.size > 0) {
         const ids = [...trendingIds].slice(0, 10);
         const { data: trendRows } = await supabase
-          .from('recipes').select('*').in('id', ids);
+          .from('recipes').select('*').in('id', ids).is('deleted_at', null);
         setTrendingRecipes((trendRows ?? []).map(toRecipe));
       }
 
@@ -246,6 +247,7 @@ export default function Explore() {
           .from('recipes')
           .select('*')
           .ilike('title', `%${searchQuery}%`)
+          .is('deleted_at', null)
           .limit(40);
         setSearchResults((data ?? []).map(toRecipe));
       } catch { } finally { setSearchLoading(false); }

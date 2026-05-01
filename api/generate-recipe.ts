@@ -96,7 +96,7 @@ Respond with valid JSON only — no markdown, no explanation. Use this exact str
   "description": "One appetising sentence describing the dish.",
   "cuisine": "${req.cuisine}",
   "ingredients": [
-    { "name": "ingredient", "quantity": "200", "unit": "g" }
+    { "name": "ingredient", "quantity": "8", "unit": "oz" }
   ],
   "steps": [
     { "order": 1, "title": "Prepare ingredients", "instruction": "Step instruction here." }
@@ -119,7 +119,7 @@ Rules:
 - 6-12 ingredients
 - 4-8 steps
 - dietary_tags from: vegan, vegetarian, pescatarian, gluten_free, dairy_free, keto, high_protein, low_carb, paleo, halal
-- INGREDIENT FORMAT: quantity is a number, unit is a measurement ONLY (g, ml, kg, l, tsp, tbsp, cup, oz, lb, whole, slices, cloves, sprigs, leaves, cans, jars) — never put prep instructions (chopped, minced, diced, beaten) in the unit field. Put prep instructions in the step instructions instead. Examples: { "name": "onion", "quantity": "1", "unit": "medium" } NOT { "name": "onion", "quantity": "1", "unit": "medium, finely chopped" }
+- INGREDIENT FORMAT: quantity is a number, unit is a measurement ONLY (tsp, tbsp, cup, oz, lb, whole, medium, large, small, slices, cloves, sprigs, leaves, cans, jars, pinch, bunch) — use US/imperial measurements only, never metric (no g, ml, kg, l). Never put prep instructions (chopped, minced, diced, beaten) in the unit field. Put prep instructions in the step instructions instead. Examples: { "name": "onion", "quantity": "1", "unit": "medium" }, { "name": "chicken breast", "quantity": "1.5", "unit": "lb" }, { "name": "olive oil", "quantity": "2", "unit": "tbsp" } NOT { "name": "onion", "quantity": "1", "unit": "medium, finely chopped" }
 - meal_prep_friendly: true if the dish can be batch-cooked, stored 3-5 days in the fridge, and reheated without significant quality loss (curries, stews, grain bowls, roasted proteins, pasta bakes = true; delicate fish, dressed salads, fried foods, poached eggs, fresh pasta = false)
 - macros are per serving estimates
 - make it a real, cookable recipe a home cook would actually want to make
@@ -184,7 +184,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     } as GenerateRequest;
     const message = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 2048,
+      max_tokens: 3000,
       messages: [{ role: 'user', content: buildPrompt(generateRequest) }],
     });
 

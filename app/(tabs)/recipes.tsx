@@ -253,8 +253,15 @@ export default function Recipes() {
           {
             text: 'Delete', style: 'destructive',
             onPress: async () => {
-              for (const id of selectedIds) {
-                await supabase.from('recipes').delete().eq('id', id);
+              const ids = [...selectedIds];
+              const { error } = await supabase
+                .from('recipes')
+                .update({ deleted_at: new Date().toISOString() })
+                .in('id', ids)
+                .eq('submitted_by', userId ?? '');
+              if (error) {
+                Alert.alert('Could not delete', error.message);
+                return;
               }
               loadMineData();
               exitDeleteMode();
@@ -349,6 +356,7 @@ export default function Recipes() {
         .from('recipes')
         .select('*')
         .eq('submitted_by', userId)
+        .is('deleted_at', null)
         .order('created_at', { ascending: false });
       if (!data) return;
       setMineRecipes(data.map((r) => ({

@@ -23,7 +23,7 @@ import { supabase } from '@/lib/supabase';
 import {
   patchProfile, clearDiscoverCache,
   getAdventureCardsEnabled, setAdventureCardsEnabled,
-  getProfile, fetchBadgeStats,
+  getProfile, fetchBadgeStats, getEffectiveStreak,
 } from '@/lib/api';
 import { clearRecipeCache } from '@/lib/mealdb';
 import { getApiBaseUrl } from '@/lib/apiBaseUrl';
@@ -320,11 +320,11 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
                   <Text style={{ fontSize: 13, color: colors.textMuted }}>
                     {savedCount} recipe{savedCount !== 1 ? 's' : ''} saved
                   </Text>
-                  {(profile?.current_streak ?? 0) > 0 && (
+                  {getEffectiveStreak(profile?.current_streak, profile?.last_cooked_date) > 0 && (
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
                       <Text style={{ fontSize: 13 }}>🔥</Text>
                       <Text style={{ fontSize: 13, fontWeight: '600', color: colors.primary }}>
-                        {profile!.current_streak}-day streak
+                        {getEffectiveStreak(profile?.current_streak, profile?.last_cooked_date)}-day streak
                       </Text>
                     </View>
                   )}
@@ -343,15 +343,19 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
 
             {/* Stats */}
             <View style={{ flexDirection: 'row', paddingHorizontal: 16, gap: 8, paddingTop: 16, marginBottom: 16 }}>
-              {[
-                { label: 'Meals', value: profile?.meals_cooked_count ?? 0, icon: 'restaurant' },
-                { label: 'Saved', value: savedCount, icon: 'heart' },
-                { label: 'Streak', value: (profile?.current_streak ?? 0) > 0 ? `${profile!.current_streak}d` : '—', icon: 'flame' },
-                { label: 'Best', value: (profile?.longest_streak ?? 0) > 0 ? `${profile!.longest_streak}d` : '—', icon: 'trophy-outline' },
-              ].map((stat) => (
+              {(() => {
+                const effectiveStreak = getEffectiveStreak(profile?.current_streak, profile?.last_cooked_date);
+                const streakBroken = effectiveStreak === 0;
+                return [
+                  { label: 'Meals', value: profile?.meals_cooked_count ?? 0, icon: 'restaurant', dim: false },
+                  { label: 'Saved', value: savedCount, icon: 'heart', dim: false },
+                  { label: 'Streak', value: effectiveStreak > 0 ? `${effectiveStreak}d` : '0', icon: streakBroken ? 'flame-outline' : 'flame', dim: streakBroken },
+                  { label: 'Best', value: (profile?.longest_streak ?? 0) > 0 ? `${profile!.longest_streak}d` : '—', icon: 'trophy-outline', dim: false },
+                ];
+              })().map((stat) => (
                 <View key={stat.label} style={{ flex: 1, backgroundColor: colors.card, borderRadius: 12, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: colors.border }}>
-                  <Ionicons name={stat.icon as any} size={16} color={colors.primary} />
-                  <Text style={{ fontSize: 16, fontWeight: '700', color: colors.text, marginTop: 4 }}>{stat.value}</Text>
+                  <Ionicons name={stat.icon as any} size={16} color={stat.dim ? colors.textMuted : colors.primary} />
+                  <Text style={{ fontSize: 16, fontWeight: '700', color: stat.dim ? colors.textMuted : colors.text, marginTop: 4 }}>{stat.value}</Text>
                   <Text style={{ fontSize: 10, color: colors.textMuted, marginTop: 1 }}>{stat.label}</Text>
                 </View>
               ))}

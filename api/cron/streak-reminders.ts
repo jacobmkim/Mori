@@ -25,15 +25,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!verifyCronAuth(req)) return res.status(401).json({ error: 'Unauthorized' });
 
   const sb = getSupabase();
-  const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD UTC
+  const yesterday = new Date(Date.now() - 86_400_000).toLocaleDateString('en-CA');
 
-  // Users with an active streak who haven't cooked today yet
+  // Only users whose streak is still salvageable today — last cook = yesterday.
+  // A `last_cooked_date` older than yesterday means the streak has already broken
+  // (current_streak in the DB is stale until the next cook resets it), so a
+  // "streak at risk" push would be a lie.
   const { data: users, error } = await sb
     .from('profiles')
     .select('id, push_token, current_streak')
     .gt('current_streak', 0)
     .not('push_token', 'is', null)
-    .lt('last_cooked_date', today);
+    .eq('last_cooked_date', yesterday);
 
   if (error) return res.status(500).json({ error: 'Failed to fetch users' });
   if (!users?.length) return res.status(200).json({ sent: 0 });

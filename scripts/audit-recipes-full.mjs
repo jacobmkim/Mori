@@ -27,6 +27,7 @@
  *   node scripts/audit-recipes-full.mjs --offset 500      # resume
  *   node scripts/audit-recipes-full.mjs --verbose         # show all issues
  *   node scripts/audit-recipes-full.mjs                   # full run (~1539)
+ *   node scripts/audit-recipes-full.mjs --recent-hours 24 # only recipes inserted in last 24h
  *
  * Cost estimate: ~$1.50–2.00 for full run (Haiku, ~1200 tokens/recipe avg).
  */
@@ -53,12 +54,13 @@ const sb        = createClient(SUPABASE_URL, SERVICE_KEY);
 const anthropic = new Anthropic({ apiKey: ANTHROPIC_KEY });
 
 // ── CLI args ──────────────────────────────────────────────────────────────────
-const args      = process.argv.slice(2);
-const DRY_RUN   = args.includes('--dry-run');
-const VERBOSE   = args.includes('--verbose');
-const LIMIT     = (() => { const i = args.indexOf('--limit');  return i >= 0 ? parseInt(args[i + 1], 10) : Infinity; })();
-const START_OFF = (() => { const i = args.indexOf('--offset'); return i >= 0 ? parseInt(args[i + 1], 10) : 0; })();
-const SINGLE_ID = (() => { const i = args.indexOf('--id');     return i >= 0 ? args[i + 1] : null; })();
+const args         = process.argv.slice(2);
+const DRY_RUN      = args.includes('--dry-run');
+const VERBOSE      = args.includes('--verbose');
+const LIMIT        = (() => { const i = args.indexOf('--limit');        return i >= 0 ? parseInt(args[i + 1], 10) : Infinity; })();
+const START_OFF    = (() => { const i = args.indexOf('--offset');       return i >= 0 ? parseInt(args[i + 1], 10) : 0; })();
+const SINGLE_ID    = (() => { const i = args.indexOf('--id');           return i >= 0 ? args[i + 1] : null; })();
+const RECENT_HOURS = (() => { const i = args.indexOf('--recent-hours'); return i >= 0 ? parseInt(args[i + 1], 10) : null; })();
 
 const CONFIDENCE_THRESHOLD = 85;
 
@@ -211,7 +213,8 @@ function mergeSteps(original, corrected) {
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 async function main() {
-  console.log(`audit-recipes-full — threshold: ${CONFIDENCE_THRESHOLD} | mode: ${DRY_RUN ? 'DRY RUN' : 'LIVE'}`);
+  const cutoff = RECENT_HOURS ? new Date(Date.now() - RECENT_HOURS * 60 * 60 * 1000).toISOString() : null;
+  console.log(`audit-recipes-full — threshold: ${CONFIDENCE_THRESHOLD} | mode: ${DRY_RUN ? 'DRY RUN' : 'LIVE'}${cutoff ? ` | since: ${cutoff}` : ''}`);
 
   let recipes;
 
@@ -229,18 +232,20 @@ async function main() {
     let offset = START_OFF;
     const all  = [];
     while (true) {
-      const { data, error } = await sb
+      let query = sb
         .from('recipes')
         .select('id, title, servings, ingredients, steps')
-        .range(offset, offset + PAGE - 1)
-        .order('id');
+        .order('id')
+        .range(offset, offset + PAGE - 1);
+      if (cutoff) query = query.gte('created_at', cutoff);
+      const { data, error } = await query;
       if (error) { console.error('Fetch error:', error.message); process.exit(1); }
       if (!data || data.length === 0) break;
       all.push(...data);
       if (data.length < PAGE) break;
       offset += PAGE;
     }
-    console.log(`Fetched ${all.length} recipes${START_OFF > 0 ? ` (from offset ${START_OFF})` : ''}`);
+    console.log(`Fetched ${all.length} recipes${START_OFF > 0 ? ` (from offset ${START_OFF})` : ''}${cutoff ? ` (since ${cutoff})` : ''}`);
 
     recipes = all.filter(r =>
       Array.isArray(r.ingredients) && r.ingredients.length > 0 &&

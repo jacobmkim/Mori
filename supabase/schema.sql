@@ -79,7 +79,8 @@ CREATE TABLE recipes (
   image_url text,
   spoonacular_id text,
   external_id text UNIQUE,
-  created_at timestamp with time zone DEFAULT now()
+  created_at timestamp with time zone DEFAULT now(),
+  deleted_at timestamp with time zone
 );
 
 -- ─── Swipe Events ─────────────────────────────────────────────────────────────
@@ -270,6 +271,7 @@ CREATE INDEX idx_meal_plans_user_id ON meal_plans(user_id);
 CREATE INDEX idx_recipes_cuisine ON recipes(cuisine);
 CREATE INDEX idx_recipes_badge ON recipes(badge);
 CREATE INDEX idx_recipes_external_id ON recipes(external_id);
+CREATE INDEX idx_recipes_active ON recipes(created_at DESC) WHERE deleted_at IS NULL;
 CREATE INDEX idx_user_cohorts_user_id ON user_cohorts(user_id);
 CREATE INDEX idx_recipe_cohort_affinities_cohort ON recipe_cohort_affinities(cohort_key);
 CREATE INDEX idx_recipe_interactions_user_id ON recipe_interactions(user_id);
