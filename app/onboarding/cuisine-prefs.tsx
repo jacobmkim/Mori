@@ -4,7 +4,7 @@ import { useRef, useState, useEffect } from 'react';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useUserStore } from '@/stores/userStore';
-import { useTheme } from '@/hooks/useTheme';
+import { ONBOARDING_PALETTE as colors, ONBOARDING_TYPE as TYPE } from '@/constants/onboardingPalette';
 import ProgressBar from '@/components/onboarding/ProgressBar';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -46,7 +46,6 @@ function CuisineCard({
   topDragX?: Animated.Value;
   entryX?: number;
 }) {
-  const colors = useTheme();
   const position = useRef(new Animated.ValueXY()).current;
   const [isUndoEntry, setIsUndoEntry] = useState(entryX != null);
 
@@ -191,7 +190,6 @@ interface ExitCard {
 }
 
 export default function CuisinePrefs() {
-  const colors = useTheme();
   const { setOnboardingField } = useUserStore();
   const [index, setIndex] = useState(0);
   const [exitCard, setExitCard] = useState<ExitCard | null>(null);
@@ -200,6 +198,10 @@ export default function CuisinePrefs() {
   const currentIndexRef = useRef(index);
   currentIndexRef.current = index;
   const undoEntryXRef = useRef<number | null>(null);
+  // Locks once the deck commits to the final navigation. Prevents rapid taps
+  // on the last card from re-entering the if-branch (which doesn't setIndex)
+  // and queuing a duplicate router.push + duplicate liked.current entry.
+  const navigatedRef = useRef(false);
 
   const topDragX = useRef(new Animated.Value(0)).current;
 
@@ -231,6 +233,7 @@ export default function CuisinePrefs() {
   }, []);
 
   function handleSwipe(direction: 'like' | 'pass', cardPosition: Animated.ValueXY) {
+    if (navigatedRef.current) return;
     const cuisine = CUISINES[currentIndexRef.current];
     if (direction === 'like') {
       liked.current = [...liked.current, cuisine.id];
@@ -243,7 +246,10 @@ export default function CuisinePrefs() {
     const flyTo = { x: direction === 'like' ? SCREEN_WIDTH * 1.5 : -SCREEN_WIDTH * 1.5, y: 0 };
 
     if (next >= CUISINES.length) {
-      // Last card — navigate after fly-off completes
+      // Last card — lock further taps before the spring starts so the second
+      // rapid tap can't re-enter this branch (currentIndexRef stays at the
+      // last index because we never setIndex here).
+      navigatedRef.current = true;
       Animated.spring(cardPosition, {
         toValue: flyTo,
         useNativeDriver: true,
@@ -300,11 +306,14 @@ export default function CuisinePrefs() {
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ProgressBar current={3} total={8} />
 
-      <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12 }}>
-        <Text style={{ fontSize: 26, fontWeight: '800', color: colors.text, marginBottom: 4 }}>
+      <View style={{ paddingHorizontal: 24, paddingTop: 16, paddingBottom: 16 }}>
+        <Text style={{ ...TYPE.eyebrow, color: colors.primary, marginBottom: 8 }}>
+          Step 03 · Cuisines
+        </Text>
+        <Text style={{ ...TYPE.heading, color: colors.text, marginBottom: 6 }}>
           Which cuisines do you love?
         </Text>
-        <Text style={{ fontSize: 15, color: colors.textMuted }}>
+        <Text style={{ ...TYPE.subhead, color: colors.textMuted }}>
           Swipe right to like, left to pass.
         </Text>
       </View>
@@ -412,7 +421,10 @@ export default function CuisinePrefs() {
             <Ionicons name="heart" size={26} color={colors.primary} />
           </Pressable>
         </View>
-        <Text style={{ color: colors.textMuted, fontSize: 13 }}>
+        <Text style={{
+          color: colors.textMuted, fontSize: 11, fontFamily: 'System',
+          fontWeight: '500', letterSpacing: 1.6, textTransform: 'uppercase',
+        }}>
           {index + 1} of {CUISINES.length}
         </Text>
       </View>

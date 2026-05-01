@@ -1,8 +1,8 @@
 import { View, Text, ScrollView, Pressable, TextInput } from 'react-native';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useUserStore } from '@/stores/userStore';
-import { useTheme } from '@/hooks/useTheme';
+import { ONBOARDING_PALETTE as colors, ONBOARDING_TYPE as TYPE } from '@/constants/onboardingPalette';
 import ProgressBar from '@/components/onboarding/ProgressBar';
 
 const GOALS = [
@@ -20,10 +20,10 @@ const GOALS = [
 ];
 
 export default function DietaryGoals() {
-  const colors = useTheme();
   const { onboarding, setOnboardingField } = useUserStore();
   const [selected, setSelected] = useState<string[]>(onboarding.dietary_goals);
   const [extraText, setExtraText] = useState<string>(onboarding.dietary_extra_preferences ?? '');
+  const navigatedRef = useRef(false);
 
   function toggle(id: string) {
     setSelected((prev) =>
@@ -32,8 +32,9 @@ export default function DietaryGoals() {
   }
 
   function handleNext() {
+    if (navigatedRef.current) return;
+    navigatedRef.current = true;
     setOnboardingField('dietary_goals', selected);
-    // Free text is passed verbatim to Claude at recommendation time — no preprocessing
     setOnboardingField('dietary_extra_preferences', extraText.trim() || null);
     router.push('/onboarding/ingredient-dislikes');
   }
@@ -44,13 +45,16 @@ export default function DietaryGoals() {
 
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 24, paddingBottom: 24 }}
+        contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 24 }}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={{ fontSize: 26, fontWeight: '800', color: colors.text, marginBottom: 6 }}>
+        <Text style={{ ...TYPE.eyebrow, color: colors.primary, marginBottom: 10 }}>
+          Step 01 · Diet
+        </Text>
+        <Text style={{ ...TYPE.heading, color: colors.text, marginBottom: 8 }}>
           Any dietary goals or allergies?
         </Text>
-        <Text style={{ fontSize: 15, color: colors.textMuted, marginBottom: 24, lineHeight: 22 }}>
+        <Text style={{ ...TYPE.subhead, color: colors.textMuted, marginBottom: 28 }}>
           Select all that apply. We'll filter recipes to match.
         </Text>
 
@@ -64,7 +68,7 @@ export default function DietaryGoals() {
                 onPress={() => toggle(goal.id)}
                 style={{
                   width: '47%',
-                  backgroundColor: isSelected ? colors.primaryLight : colors.card,
+                  backgroundColor: isSelected ? colors.cardSelected : colors.card,
                   borderColor: isSelected ? colors.primary : colors.border,
                   borderWidth: 1.5,
                   borderRadius: 14,
@@ -79,8 +83,9 @@ export default function DietaryGoals() {
                 <Text
                   style={{
                     flex: 1,
+                    fontFamily: 'System',
                     fontSize: 14,
-                    fontWeight: isSelected ? '700' : '500',
+                    fontWeight: isSelected ? '600' : '500',
                     color: isSelected ? colors.primary : colors.text,
                   }}
                 >
@@ -95,15 +100,15 @@ export default function DietaryGoals() {
         </View>
 
         {/* Optional free text — niche needs Claude reads at recommendation time */}
-        <View style={{ marginTop: 24 }}>
-          <Text style={{ fontSize: 14, fontWeight: '600', color: colors.text, marginBottom: 8 }}>
-            Anything else? <Text style={{ color: colors.textMuted, fontWeight: '400' }}>(optional)</Text>
+        <View style={{ marginTop: 28 }}>
+          <Text style={{ ...TYPE.eyebrow, color: colors.textMuted, marginBottom: 8 }}>
+            Anything else? (optional)
           </Text>
           <TextInput
             value={extraText}
             onChangeText={setExtraText}
             placeholder="e.g. low sodium, diabetic friendly, low FODMAP..."
-            placeholderTextColor={colors.textMuted}
+            placeholderTextColor={colors.textSubtle}
             multiline
             numberOfLines={3}
             style={{
@@ -117,23 +122,24 @@ export default function DietaryGoals() {
               color: colors.text,
               lineHeight: 22,
               textAlignVertical: 'top',
+              fontFamily: 'System',
             }}
           />
         </View>
       </ScrollView>
 
-      <View style={{ paddingHorizontal: 20, paddingBottom: 36, paddingTop: 12, backgroundColor: colors.background }}>
+      <View style={{ paddingHorizontal: 24, paddingBottom: 32, paddingTop: 12, backgroundColor: colors.background }}>
         <Pressable
           onPress={handleNext}
-          style={{
-            backgroundColor: colors.primary,
+          style={({ pressed }) => ({
+            backgroundColor: pressed ? colors.primaryDeep : colors.primary,
             borderRadius: 14,
             paddingVertical: 18,
             alignItems: 'center',
-          }}
+          })}
         >
-          <Text style={{ color: '#fff', fontSize: 17, fontWeight: '700' }}>
-            {selected.length === 0 ? 'Skip for now' : `Continue (${selected.length} selected)`}
+          <Text style={{ ...TYPE.cta, color: colors.inverse }}>
+            {selected.length === 0 ? 'Skip for now' : `Continue · ${selected.length} selected`}
           </Text>
         </Pressable>
       </View>

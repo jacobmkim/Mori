@@ -1,98 +1,163 @@
 import { View, Text, Pressable } from 'react-native';
 import { router } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MoriLogo } from '@/components/ui/MoriLogo';
-import { useTheme } from '@/hooks/useTheme';
+
+// Brand-locked palette for the welcome cover.
+// design.md: linen + moss soul, Georgia italic for expressive content.
+const LINEN = '#F8F3EC';
+const MOSS = '#2E5438';
+const FOREST = '#1E4D35';
+const INK = '#2C2C24';
+const MUTED = 'rgba(44,44,36,0.62)';
 
 export default function Welcome() {
-  const colors = useTheme();
   return (
-    <View style={{ flex: 1, backgroundColor: '#111' }}>
-      {/* Hero image */}
-      <Image
-        source={{ uri: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=900' }}
-        style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
-        contentFit="cover"
-        transition={400}
-      />
-
-      {/* Dark overlay — heavy enough to let text breathe */}
-      <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.55)' }} />
-      <LinearGradient
-        colors={['rgba(0,0,0,0.2)', 'rgba(0,0,0,0.5)', 'rgba(0,0,0,0.97)']}
-        locations={[0, 0.45, 1]}
-        style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
-      />
-
+    <View style={{ flex: 1, backgroundColor: LINEN }}>
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
-        {/* Logo */}
-        <View style={{ paddingHorizontal: 28, paddingTop: 36 }}>
-          <MoriLogo size="lg" showTagline />
+        {/* Editorial top bar: small logo left, issue meta right */}
+        <View style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          paddingHorizontal: 24,
+          paddingTop: 12,
+        }}>
+          <View style={{ marginLeft: -16 }}>
+            <MoriLogo size="sm" tone="green" />
+          </View>
           <Text style={{
-            color: 'rgba(255,255,255,0.5)', fontSize: 11,
-            letterSpacing: 2.5, textTransform: 'uppercase', marginTop: 8,
+            fontSize: 10, color: MUTED,
+            letterSpacing: 1.6, textTransform: 'uppercase',
+            fontFamily: 'System', fontWeight: '500',
+          }}>
+            Vol. 01 · 2026
+          </Text>
+        </View>
+
+        {/* Hairline divider — editorial cue */}
+        <View style={{
+          height: 1, backgroundColor: 'rgba(44,44,36,0.12)',
+          marginHorizontal: 24, marginTop: 14,
+        }} />
+
+        {/* Eyebrow label */}
+        <View style={{ paddingHorizontal: 28, paddingTop: 22 }}>
+          <Text style={{
+            fontSize: 11, color: MOSS,
+            letterSpacing: 2.4, textTransform: 'uppercase',
+            fontFamily: 'System', fontWeight: '600',
+          }}>
+            Recipe Discovery
+          </Text>
+        </View>
+
+        {/* Centred content block — hero + cover photo + caption float between eyebrow and CTA */}
+        <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: 28 }}>
+          {/* Hero headline — two-line cover layout */}
+          <Text style={{
+            color: INK, fontSize: 48, lineHeight: 54,
+            fontFamily: 'Georgia', fontStyle: 'italic', fontWeight: '400',
+            letterSpacing: -0.5,
+          }}>
+            Swipe. Order.
+          </Text>
+          <Text style={{
+            color: INK, fontSize: 48, lineHeight: 54,
+            fontFamily: 'Georgia', fontStyle: 'italic', fontWeight: '400',
+            letterSpacing: -0.5,
+          }}>
+            Cook.
+          </Text>
+          <Text style={{
+            color: MOSS, fontSize: 16, marginTop: 10,
             fontFamily: 'Georgia', fontStyle: 'italic',
           }}>
-            Rooted in your taste
+            Rooted in your taste.
+          </Text>
+
+          {/* Cover photo */}
+          <View style={{
+            borderRadius: 20,
+            overflow: 'hidden',
+            backgroundColor: '#E8DDD0',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 8 },
+            shadowOpacity: 0.12,
+            shadowRadius: 18,
+            elevation: 6,
+            aspectRatio: 16 / 11,
+            marginTop: 22,
+          }}>
+            <Image
+              source={{ uri: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=900&q=80' }}
+              style={{ width: '100%', height: '100%' }}
+              contentFit="cover"
+              transition={300}
+            />
+            {/* Caption strip — editorial photo credit feel */}
+            <View style={{
+              position: 'absolute', bottom: 0, left: 0, right: 0,
+              paddingHorizontal: 16, paddingVertical: 10,
+              flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+              backgroundColor: 'rgba(248,243,236,0.94)',
+            }}>
+              <Text style={{
+                fontSize: 11, color: INK,
+                letterSpacing: 1.4, textTransform: 'uppercase',
+                fontFamily: 'System', fontWeight: '600',
+              }}>
+                On the cover
+              </Text>
+              <Text style={{
+                fontSize: 13, color: MOSS,
+                fontFamily: 'Georgia', fontStyle: 'italic',
+              }}>
+                Tonight's possibilities
+              </Text>
+            </View>
+          </View>
+
+          <Text style={{
+            color: MUTED, fontSize: 14, lineHeight: 20, marginTop: 14,
+            fontFamily: 'System', fontWeight: '400',
+          }}>
+            A quiet forest of recipes you'll actually want to cook. Swipe what you love — send the list to Instacart.
           </Text>
         </View>
 
-        {/* Text block — vertically centred */}
-        <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: 28 }}>
-          <Text style={{ color: '#FFFFFF', fontSize: 32, fontWeight: '800', lineHeight: 40, marginBottom: 12 }}>
-            Cook smarter.{'\n'}Waste less.{'\n'}Eat better.
-          </Text>
-          <Text style={{ color: 'rgba(255,255,255,0.72)', fontSize: 15, lineHeight: 23, maxWidth: 300 }}>
-            Swipe recipes you love. Get ingredients delivered in one tap.
-          </Text>
-        </View>
-
-        {/* Button block — sits in lower portion, above the very bottom */}
-        <View style={{ paddingHorizontal: 28, paddingBottom: 56 }}>
+        {/* CTA + sign in */}
+        <View style={{ paddingHorizontal: 28, paddingTop: 14, paddingBottom: 24 }}>
           <Pressable
             onPress={() => router.push('/onboarding/dietary-goals')}
-            style={{
-              backgroundColor: colors.primary,
+            style={({ pressed }) => ({
+              backgroundColor: pressed ? FOREST : MOSS,
               borderRadius: 14,
-              paddingVertical: 20,
+              paddingVertical: 18,
               alignItems: 'center',
-              borderWidth: 1.5,
-              borderColor: 'rgba(255,255,255,0.3)',
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 4 },
-              shadowOpacity: 0.4,
-              shadowRadius: 12,
-              elevation: 10,
-            }}
+            })}
           >
-            <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '800', letterSpacing: 0.3 }}>
-              Get Started
+            <Text style={{
+              color: LINEN, fontSize: 16, fontWeight: '600',
+              fontFamily: 'System', letterSpacing: 0.4,
+            }}>
+              Begin
             </Text>
           </Pressable>
 
           <Pressable
             onPress={() => router.push('/onboarding/account?signin=1')}
-            style={{ alignItems: 'center', paddingVertical: 16 }}
+            style={{ alignItems: 'center', paddingVertical: 14 }}
           >
-            <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 15 }}>
+            <Text style={{
+              color: MUTED, fontSize: 14,
+              fontFamily: 'System', fontWeight: '400',
+            }}>
               Already have an account?{' '}
-              <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>Sign in</Text>
+              <Text style={{ color: MOSS, fontWeight: '600' }}>Sign in</Text>
             </Text>
           </Pressable>
-
-          {/* DEV ONLY — skip straight to app */}
-          {__DEV__ && (
-            <Pressable
-              onPress={() => router.replace('/(tabs)/discover')}
-              style={{ alignItems: 'center', marginTop: 20, paddingVertical: 8 }}
-            >
-              <Text style={{ color: 'rgba(255,255,100,0.7)', fontSize: 12, fontWeight: '600' }}>
-                ⚡ DEV: Skip to App
-              </Text>
-            </Pressable>
-          )}
         </View>
       </SafeAreaView>
     </View>

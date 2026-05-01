@@ -20,9 +20,14 @@ const BANNER_WHITE = require('../../assets/mori-white.png');
 interface MoriLogoProps {
   showTagline?: boolean;
   size?: 'sm' | 'md' | 'lg';
+  // Override the auto-selected wordmark colour. Default 'auto' keeps the
+  // theme-aware behaviour (green on light, dark on dark, white when tagline
+  // is shown). Pass an explicit value when the surrounding surface needs a
+  // specific contrast — e.g. 'green' on a dark hero image.
+  tone?: 'auto' | 'green' | 'dark' | 'white';
 }
 
-export function MoriLogo({ showTagline = false, size = 'md' }: MoriLogoProps) {
+export function MoriLogo({ showTagline = false, size = 'md', tone = 'auto' }: MoriLogoProps) {
   const systemScheme = useColorScheme();
   const appearanceMode = useDiscoverStore((s) => s.appearanceMode);
   const colors = useTheme();
@@ -35,11 +40,21 @@ export function MoriLogo({ showTagline = false, size = 'md' }: MoriLogoProps) {
   const widths  = { sm: 148, md: 208, lg: 268 };
   const heights = { sm: 37,  md: 52,  lg: 67  };
 
-  const source = showTagline
-    ? BANNER_WHITE
-    : isDark
-      ? BANNER_DARK
-      : BANNER_GREEN;
+  // Resolve which PNG to load. Explicit tone wins; otherwise fall back to the
+  // showTagline-and-theme heuristic so existing call sites are unaffected.
+  const source =
+    tone === 'green' ? BANNER_GREEN :
+    tone === 'dark'  ? BANNER_DARK  :
+    tone === 'white' ? BANNER_WHITE :
+    showTagline      ? BANNER_WHITE :
+    isDark           ? BANNER_DARK  :
+                       BANNER_GREEN;
+
+  // Match the tagline colour to the wordmark for visual coherence — moss
+  // green when the wordmark is green, white when it's white/dark.
+  const taglineColor =
+    tone === 'green' || tone === 'white' || tone === 'dark' ? 'rgba(255,255,255,0.65)' :
+    colors.textMuted;
 
   return (
     <View style={{ alignItems: 'flex-start' }}>
@@ -49,8 +64,8 @@ export function MoriLogo({ showTagline = false, size = 'md' }: MoriLogoProps) {
         contentFit="contain"
       />
       {showTagline && (
-        <Text style={[styles.tagline, { color: colors.textMuted }]}>
-          SWIPE. COOK. ORDER.
+        <Text style={[styles.tagline, { color: taglineColor }]}>
+          SWIPE. ORDER. COOK.
         </Text>
       )}
     </View>

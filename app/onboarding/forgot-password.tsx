@@ -2,9 +2,10 @@ import { View, Text, TextInput, Pressable, Alert, ActivityIndicator } from 'reac
 import { router } from 'expo-router';
 import { useForm, Controller } from 'react-hook-form';
 import { useState } from 'react';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Linking from 'expo-linking';
 import { supabase } from '@/lib/supabase';
-import { useTheme } from '@/hooks/useTheme';
+import { ONBOARDING_PALETTE as colors, ONBOARDING_TYPE as TYPE } from '@/constants/onboardingPalette';
 import { Ionicons } from '@expo/vector-icons';
 
 interface FormData {
@@ -12,7 +13,6 @@ interface FormData {
 }
 
 export default function ForgotPassword() {
-  const colors = useTheme();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
@@ -23,9 +23,6 @@ export default function ForgotPassword() {
   async function onSubmit(data: FormData) {
     setLoading(true);
     try {
-      // `Linking.createURL` resolves to `mori:///reset-password` in TestFlight /
-      // production / dev builds, and `exp://…/--/reset-password` in Expo Go —
-      // so the same Supabase email works in every runtime.
       const redirectTo = Linking.createURL('/reset-password');
       const { error } = await supabase.auth.resetPasswordForEmail(data.email, { redirectTo });
       if (error) throw error;
@@ -40,46 +37,52 @@ export default function ForgotPassword() {
   if (success) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.background }}>
-        <View style={{ paddingHorizontal: 24, paddingTop: 16, paddingBottom: 24 }}>
-          <Pressable onPress={() => router.back()} style={{ width: 40, height: 40, justifyContent: 'center' }}>
-            <Ionicons name="chevron-back" size={24} color={colors.text} />
-          </Pressable>
-        </View>
+        <SafeAreaView edges={['top']}>
+          <View style={{ paddingHorizontal: 24, paddingTop: 8 }}>
+            <Pressable
+              onPress={() => router.back()}
+              hitSlop={12}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 4, alignSelf: 'flex-start' }}
+            >
+              <Text style={{ fontSize: 22, color: colors.text, lineHeight: 22 }}>‹</Text>
+              <Text style={{
+                fontSize: 11, color: colors.text,
+                letterSpacing: 1.6, textTransform: 'uppercase',
+                fontFamily: 'System', fontWeight: '600',
+              }}>
+                Back
+              </Text>
+            </Pressable>
+          </View>
+        </SafeAreaView>
 
         <View style={{ flex: 1, paddingHorizontal: 24, justifyContent: 'center', alignItems: 'center', gap: 24 }}>
-          <View style={{ alignItems: 'center', gap: 12 }}>
-            <View
-              style={{
-                width: 80,
-                height: 80,
-                borderRadius: 40,
-                backgroundColor: colors.card,
-                justifyContent: 'center',
-                alignItems: 'center',
-              }}
-            >
-              <Ionicons name="checkmark-circle" size={48} color={colors.primary} />
-            </View>
-            <Text style={{ fontSize: 24, fontWeight: '700', color: colors.text, textAlign: 'center' }}>
-              Check your inbox
-            </Text>
-            <Text style={{ fontSize: 15, color: colors.textMuted, textAlign: 'center' }}>
-              We sent a password reset link to {watch('email')}
-            </Text>
+          <View style={{
+            width: 80, height: 80, borderRadius: 40,
+            backgroundColor: colors.cardSelected,
+            justifyContent: 'center', alignItems: 'center',
+          }}>
+            <Ionicons name="checkmark-circle" size={48} color={colors.primary} />
           </View>
+          <Text style={{ ...TYPE.heading, color: colors.text, textAlign: 'center', fontSize: 26, lineHeight: 32 }}>
+            Check your inbox
+          </Text>
+          <Text style={{ ...TYPE.subhead, color: colors.textMuted, textAlign: 'center' }}>
+            We sent a password reset link to {watch('email')}
+          </Text>
         </View>
 
-        <View style={{ paddingHorizontal: 24, paddingBottom: 40 }}>
+        <View style={{ paddingHorizontal: 24, paddingBottom: 32 }}>
           <Pressable
             onPress={() => router.back()}
-            style={{
-              backgroundColor: colors.primary,
+            style={({ pressed }) => ({
+              backgroundColor: pressed ? colors.primaryDeep : colors.primary,
               borderRadius: 14,
               paddingVertical: 18,
               alignItems: 'center',
-            }}
+            })}
           >
-            <Text style={{ color: 'white', fontSize: 17, fontWeight: '700' }}>
+            <Text style={{ ...TYPE.cta, color: colors.inverse }}>
               Back to Sign In
             </Text>
           </Pressable>
@@ -90,76 +93,92 @@ export default function ForgotPassword() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <View style={{ paddingHorizontal: 24, paddingTop: 16, paddingBottom: 24 }}>
-        <Pressable onPress={() => router.back()} style={{ width: 40, height: 40, justifyContent: 'center' }}>
-          <Ionicons name="chevron-back" size={24} color={colors.text} />
-        </Pressable>
-      </View>
+      <SafeAreaView edges={['top']}>
+        <View style={{ paddingHorizontal: 24, paddingTop: 8 }}>
+          <Pressable
+            onPress={() => router.back()}
+            hitSlop={12}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 4, alignSelf: 'flex-start' }}
+          >
+            <Text style={{ fontSize: 22, color: colors.text, lineHeight: 22 }}>‹</Text>
+            <Text style={{
+              fontSize: 11, color: colors.text,
+              letterSpacing: 1.6, textTransform: 'uppercase',
+              fontFamily: 'System', fontWeight: '600',
+            }}>
+              Back
+            </Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
 
-      <View style={{ flex: 1, paddingHorizontal: 24 }}>
-        <Text style={{ fontSize: 28, fontWeight: '800', color: colors.text, marginBottom: 8 }}>
+      <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 28 }}>
+        <Text style={{ ...TYPE.eyebrow, color: colors.primary, marginBottom: 10 }}>
+          Reset
+        </Text>
+        <Text style={{ ...TYPE.heading, color: colors.text, marginBottom: 8 }}>
           Forgot password?
         </Text>
-        <Text style={{ fontSize: 15, color: colors.textMuted, marginBottom: 32 }}>
+        <Text style={{ ...TYPE.subhead, color: colors.textMuted, marginBottom: 28 }}>
           We'll send a reset link to your email.
         </Text>
 
-        <View style={{ gap: 16 }}>
-          <View>
-            <Text style={{ color: colors.text, fontSize: 14, fontWeight: '500', marginBottom: 8 }}>
-              Email
-            </Text>
-            <Controller
-              control={control}
-              name="email"
-              rules={{
-                required: 'Email is required',
-                pattern: { value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: 'Invalid email' },
-              }}
-              render={({ field: { onChange, value } }) => (
-                <TextInput
-                  value={value}
-                  onChangeText={onChange}
-                  placeholder="you@example.com"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoComplete="email"
-                  style={{
-                    backgroundColor: colors.card,
-                    borderColor: errors.email ? colors.error : colors.border,
-                    borderWidth: 1.5,
-                    borderRadius: 14,
-                    padding: 16,
-                    fontSize: 16,
-                    color: colors.text,
-                  }}
-                />
-              )}
-            />
-            {errors.email && (
-              <Text style={{ color: colors.error, fontSize: 13, marginTop: 4 }}>
-                {errors.email.message}
-              </Text>
+        <View>
+          <Text style={{ ...TYPE.eyebrow, color: colors.textMuted, marginBottom: 8 }}>
+            Email
+          </Text>
+          <Controller
+            control={control}
+            name="email"
+            rules={{
+              required: 'Email is required',
+              pattern: { value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: 'Invalid email' },
+            }}
+            render={({ field: { onChange, value } }) => (
+              <TextInput
+                value={value}
+                onChangeText={onChange}
+                placeholder="you@example.com"
+                placeholderTextColor={colors.textSubtle}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoComplete="email"
+                style={{
+                  backgroundColor: colors.card,
+                  borderColor: errors.email ? colors.error : colors.border,
+                  borderWidth: 1.5,
+                  borderRadius: 14,
+                  padding: 16,
+                  fontSize: 16,
+                  color: colors.text,
+                  fontFamily: 'System',
+                }}
+              />
             )}
-          </View>
+          />
+          {errors.email && (
+            <Text style={{ color: colors.error, fontSize: 13, marginTop: 4, fontFamily: 'System' }}>
+              {errors.email.message}
+            </Text>
+          )}
         </View>
       </View>
 
-      <View style={{ paddingHorizontal: 24, paddingBottom: 40 }}>
+      <View style={{ paddingHorizontal: 24, paddingBottom: 32 }}>
         <Pressable
           onPress={handleSubmit(onSubmit)}
           disabled={loading}
-          style={{
-            backgroundColor: colors.primary,
+          style={({ pressed }) => ({
+            backgroundColor: pressed ? colors.primaryDeep : colors.primary,
             borderRadius: 14,
             paddingVertical: 18,
             alignItems: 'center',
-          }}
+          })}
         >
           {loading ? (
-            <ActivityIndicator color="white" />
+            <ActivityIndicator color={colors.inverse} />
           ) : (
-            <Text style={{ color: 'white', fontSize: 17, fontWeight: '700' }}>
+            <Text style={{ ...TYPE.cta, color: colors.inverse }}>
               Send Reset Link
             </Text>
           )}

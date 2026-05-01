@@ -7,7 +7,7 @@ import { getApiBaseUrl } from '@/lib/apiBaseUrl';
 import { patchProfile, getProfile } from '@/lib/api';
 import { useUserStore } from '@/stores/userStore';
 import { useSavedStore } from '@/stores/savedStore';
-import { useTheme } from '@/hooks/useTheme';
+import { ONBOARDING_PALETTE as colors, ONBOARDING_TYPE as TYPE } from '@/constants/onboardingPalette';
 import ProgressBar from '@/components/onboarding/ProgressBar';
 import { MoriLogo } from '@/components/ui/MoriLogo';
 
@@ -30,7 +30,6 @@ async function sendWelcomeEmail(): Promise<void> {
 }
 
 export default function Account() {
-  const colors = useTheme();
   const { onboarding, setProfile } = useUserStore();
   const loadSavedRecipes = useSavedStore((s) => s.loadSavedRecipes);
   const { signin } = useLocalSearchParams<{ signin?: string }>();
@@ -68,7 +67,7 @@ export default function Account() {
           // Fire-and-forget — never block signup completion on the welcome email.
           sendWelcomeEmail().catch(() => {});
         }
-        router.push('/onboarding/pantry');
+        router.push('/onboarding/profile-identity');
       } else {
         const { data: authData, error } = await supabase.auth.signInWithPassword({
           email: data.email,
@@ -83,7 +82,6 @@ export default function Account() {
           } catch {
             // Profile fetch failure is non-fatal — continue to app
           }
-          // Restore saved recipes on sign-in
           loadSavedRecipes(authData.user.id);
         }
         router.replace('/(tabs)/discover');
@@ -95,6 +93,16 @@ export default function Account() {
     }
   }
 
+  const inputStyle = {
+    backgroundColor: colors.card,
+    borderWidth: 1.5,
+    borderRadius: 14,
+    padding: 16,
+    fontSize: 16,
+    color: colors.text,
+    fontFamily: 'System',
+  };
+
   return (
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: colors.background }}
@@ -102,184 +110,177 @@ export default function Account() {
     >
       <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
         <View style={{ flex: 1 }}>
-      <ProgressBar current={8} total={8} />
-      <ScrollView
-        contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 40 }}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        {mode === 'signup' && (
-          <View style={{ marginBottom: 32, alignItems: 'center' }}>
-            <MoriLogo size="md" />
-          </View>
-        )}
-        <Text style={{ fontSize: 28, fontWeight: '800', color: colors.text, marginBottom: 8 }}>
-          {mode === 'signup' ? "Let's get cooking" : 'Welcome back, chef'}
-        </Text>
-        <Text style={{ fontSize: 15, color: colors.textMuted, marginBottom: 32 }}>
-          {mode === 'signup' ? 'Secure your account to save your favorites.' : 'Sign in to your recipe collection.'}
-        </Text>
+          <ProgressBar current={8} total={8} />
 
-        <View style={{ gap: 16, marginBottom: 32 }}>
-          <View>
-            <Text style={{ color: colors.text, fontSize: 14, fontWeight: '500', marginBottom: 8 }}>
-              Email
-            </Text>
-            <Controller
-              control={control}
-              name="email"
-              rules={{
-                required: 'Email is required',
-                pattern: { value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: 'Invalid email' },
-              }}
-              render={({ field: { onChange, value } }) => (
-                <TextInput
-                  value={value}
-                  onChangeText={onChange}
-                  placeholder="you@example.com"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoComplete="email"
-                  style={{
-                    backgroundColor: colors.card,
-                    borderColor: errors.email ? colors.error : colors.border,
-                    borderWidth: 1.5,
-                    borderRadius: 14,
-                    padding: 16,
-                    fontSize: 16,
-                    color: colors.text,
-                  }}
-                />
-              )}
-            />
-            {errors.email && (
-              <Text style={{ color: colors.error, fontSize: 13, marginTop: 4 }}>
-                {errors.email.message}
-              </Text>
+          <ScrollView
+            contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 40 }}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            {mode === 'signup' && (
+              <View style={{ marginBottom: 28, alignItems: 'center' }}>
+                <MoriLogo size="md" tone="green" />
+              </View>
             )}
-          </View>
 
-          <View>
-            <Text style={{ color: colors.text, fontSize: 14, fontWeight: '500', marginBottom: 8 }}>
-              Password
+            <Text style={{ ...TYPE.eyebrow, color: colors.primary, marginBottom: 10 }}>
+              Step 08 · Account
             </Text>
-            <Controller
-              control={control}
-              name="password"
-              rules={{
-                required: 'Password is required',
-                minLength: { value: 8, message: 'Minimum 8 characters' },
-              }}
-              render={({ field: { onChange, value } }) => (
-                <TextInput
-                  value={value}
-                  onChangeText={onChange}
-                  placeholder="Minimum 8 characters"
-                  secureTextEntry
-                  autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
-                  style={{
-                    backgroundColor: colors.card,
-                    borderColor: errors.password ? colors.error : colors.border,
-                    borderWidth: 1.5,
-                    borderRadius: 14,
-                    padding: 16,
-                    fontSize: 16,
-                    color: colors.text,
-                  }}
-                />
-              )}
-            />
-            {errors.password && (
-              <Text style={{ color: colors.error, fontSize: 13, marginTop: 4 }}>
-                {errors.password.message}
-              </Text>
-            )}
-          </View>
+            <Text style={{ ...TYPE.heading, color: colors.text, marginBottom: 8 }}>
+              {mode === 'signup' ? "Let's get cooking" : 'Welcome back, chef'}
+            </Text>
+            <Text style={{ ...TYPE.subhead, color: colors.textMuted, marginBottom: 28 }}>
+              {mode === 'signup' ? 'Secure your account to save your favorites.' : 'Sign in to your recipe collection.'}
+            </Text>
 
-          {mode === 'signup' && (
-            <View>
-              <Text style={{ color: colors.text, fontSize: 14, fontWeight: '500', marginBottom: 8 }}>
-                Confirm Password
-              </Text>
-              <Controller
-                control={control}
-                name="confirmPassword"
-                rules={{
-                  required: 'Please confirm your password',
-                  validate: (v) => v === getValues('password') || 'Passwords do not match',
-                }}
-                render={({ field: { onChange, value } }) => (
-                  <TextInput
-                    value={value}
-                    onChangeText={onChange}
-                    placeholder="Re-enter your password"
-                    secureTextEntry
-                    autoComplete="new-password"
-                    style={{
-                      backgroundColor: colors.card,
-                      borderColor: errors.confirmPassword ? colors.error : colors.border,
-                      borderWidth: 1.5,
-                      borderRadius: 14,
-                      padding: 16,
-                      fontSize: 16,
-                      color: colors.text,
-                    }}
-                  />
-                )}
-              />
-              {errors.confirmPassword && (
-                <Text style={{ color: colors.error, fontSize: 13, marginTop: 4 }}>
-                  {errors.confirmPassword.message}
+            <View style={{ gap: 16, marginBottom: 28 }}>
+              <View>
+                <Text style={{ ...TYPE.eyebrow, color: colors.textMuted, marginBottom: 8 }}>
+                  Email
                 </Text>
+                <Controller
+                  control={control}
+                  name="email"
+                  rules={{
+                    required: 'Email is required',
+                    pattern: { value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: 'Invalid email' },
+                  }}
+                  render={({ field: { onChange, value } }) => (
+                    <TextInput
+                      value={value}
+                      onChangeText={onChange}
+                      placeholder="you@example.com"
+                      placeholderTextColor={colors.textSubtle}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      autoComplete="email"
+                      style={{
+                        ...inputStyle,
+                        borderColor: errors.email ? colors.error : colors.border,
+                      }}
+                    />
+                  )}
+                />
+                {errors.email && (
+                  <Text style={{ color: colors.error, fontSize: 13, marginTop: 4, fontFamily: 'System' }}>
+                    {errors.email.message}
+                  </Text>
+                )}
+              </View>
+
+              <View>
+                <Text style={{ ...TYPE.eyebrow, color: colors.textMuted, marginBottom: 8 }}>
+                  Password
+                </Text>
+                <Controller
+                  control={control}
+                  name="password"
+                  rules={{
+                    required: 'Password is required',
+                    minLength: { value: 8, message: 'Minimum 8 characters' },
+                  }}
+                  render={({ field: { onChange, value } }) => (
+                    <TextInput
+                      value={value}
+                      onChangeText={onChange}
+                      placeholder="Minimum 8 characters"
+                      placeholderTextColor={colors.textSubtle}
+                      secureTextEntry
+                      autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+                      style={{
+                        ...inputStyle,
+                        borderColor: errors.password ? colors.error : colors.border,
+                      }}
+                    />
+                  )}
+                />
+                {errors.password && (
+                  <Text style={{ color: colors.error, fontSize: 13, marginTop: 4, fontFamily: 'System' }}>
+                    {errors.password.message}
+                  </Text>
+                )}
+              </View>
+
+              {mode === 'signup' && (
+                <View>
+                  <Text style={{ ...TYPE.eyebrow, color: colors.textMuted, marginBottom: 8 }}>
+                    Confirm Password
+                  </Text>
+                  <Controller
+                    control={control}
+                    name="confirmPassword"
+                    rules={{
+                      required: 'Please confirm your password',
+                      validate: (v) => v === getValues('password') || 'Passwords do not match',
+                    }}
+                    render={({ field: { onChange, value } }) => (
+                      <TextInput
+                        value={value}
+                        onChangeText={onChange}
+                        placeholder="Re-enter your password"
+                        placeholderTextColor={colors.textSubtle}
+                        secureTextEntry
+                        autoComplete="new-password"
+                        style={{
+                          ...inputStyle,
+                          borderColor: errors.confirmPassword ? colors.error : colors.border,
+                        }}
+                      />
+                    )}
+                  />
+                  {errors.confirmPassword && (
+                    <Text style={{ color: colors.error, fontSize: 13, marginTop: 4, fontFamily: 'System' }}>
+                      {errors.confirmPassword.message}
+                    </Text>
+                  )}
+                </View>
               )}
             </View>
-          )}
-        </View>
 
-        <View style={{ gap: 12 }}>
-          <Pressable
-            onPress={handleSubmit(onSubmit)}
-            disabled={loading}
-            style={{
-              backgroundColor: colors.primary,
-              borderRadius: 14,
-              paddingVertical: 18,
-              alignItems: 'center',
-            }}
-          >
-            {loading ? (
-              <ActivityIndicator color={colors.white} />
-            ) : (
-              <Text style={{ color: 'white', fontSize: 17, fontWeight: '700' }}>
-                {mode === 'signup' ? 'Create Account' : 'Sign In'}
-              </Text>
-            )}
-          </Pressable>
+            <View style={{ gap: 12 }}>
+              <Pressable
+                onPress={handleSubmit(onSubmit)}
+                disabled={loading}
+                style={({ pressed }) => ({
+                  backgroundColor: pressed ? colors.primaryDeep : colors.primary,
+                  borderRadius: 14,
+                  paddingVertical: 18,
+                  alignItems: 'center',
+                })}
+              >
+                {loading ? (
+                  <ActivityIndicator color={colors.inverse} />
+                ) : (
+                  <Text style={{ ...TYPE.cta, color: colors.inverse }}>
+                    {mode === 'signup' ? 'Create Account' : 'Sign In'}
+                  </Text>
+                )}
+              </Pressable>
 
-          {mode === 'signin' && (
-            <Pressable
-              onPress={() => router.push('/onboarding/forgot-password')}
-              style={{ alignItems: 'center', paddingVertical: 8 }}
-            >
-              <Text style={{ color: colors.primary, fontSize: 14, fontWeight: '600' }}>
-                Forgot password?
-              </Text>
-            </Pressable>
-          )}
+              {mode === 'signin' && (
+                <Pressable
+                  onPress={() => router.push('/onboarding/forgot-password')}
+                  style={{ alignItems: 'center', paddingVertical: 8 }}
+                >
+                  <Text style={{ color: colors.primary, fontSize: 14, fontWeight: '600', fontFamily: 'System' }}>
+                    Forgot password?
+                  </Text>
+                </Pressable>
+              )}
 
-          <Pressable
-            onPress={() => setMode(mode === 'signup' ? 'signin' : 'signup')}
-            style={{ alignItems: 'center', paddingVertical: 8 }}
-          >
-            <Text style={{ color: colors.textMuted, fontSize: 14 }}>
-              {mode === 'signup' ? 'Already have an account? ' : "Don't have an account? "}
-              <Text style={{ color: colors.primary, fontWeight: '600' }}>
-                {mode === 'signup' ? 'Sign in' : 'Sign up'}
-              </Text>
-            </Text>
-          </Pressable>
-        </View>
-      </ScrollView>
+              <Pressable
+                onPress={() => setMode(mode === 'signup' ? 'signin' : 'signup')}
+                style={{ alignItems: 'center', paddingVertical: 8 }}
+              >
+                <Text style={{ color: colors.textMuted, fontSize: 14, fontFamily: 'System' }}>
+                  {mode === 'signup' ? 'Already have an account? ' : "Don't have an account? "}
+                  <Text style={{ color: colors.primary, fontWeight: '600' }}>
+                    {mode === 'signup' ? 'Sign in' : 'Sign up'}
+                  </Text>
+                </Text>
+              </Pressable>
+            </View>
+          </ScrollView>
         </View>
       </TouchableWithoutFeedback>
     </KeyboardAvoidingView>

@@ -1,8 +1,8 @@
 import { View, Text, ScrollView, Pressable } from 'react-native';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useUserStore } from '@/stores/userStore';
-import { useTheme } from '@/hooks/useTheme';
+import { ONBOARDING_PALETTE as colors, ONBOARDING_TYPE as TYPE } from '@/constants/onboardingPalette';
 import ProgressBar from '@/components/onboarding/ProgressBar';
 
 const STYLES = [
@@ -29,13 +29,13 @@ const STYLES = [
 type EatingStyleId = typeof STYLES[number]['id'];
 
 export default function EatingStyle() {
-  const colors = useTheme();
   const { setOnboardingField } = useUserStore();
   const [selected, setSelected] = useState<EatingStyleId | null>(null);
+  const navigatedRef = useRef(false);
 
   function handleNext() {
-    if (!selected) return;
-    // Saved as eating_style — AI uses this to shape the weekly recipe stack weighting
+    if (!selected || navigatedRef.current) return;
+    navigatedRef.current = true;
     setOnboardingField('eating_style', selected);
     router.push('/onboarding/cook-frequency');
   }
@@ -46,17 +46,19 @@ export default function EatingStyle() {
 
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 24, paddingBottom: 24 }}
+        contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 24 }}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={{ fontSize: 26, fontWeight: '800', color: colors.text, marginBottom: 6 }}>
+        <Text style={{ ...TYPE.eyebrow, color: colors.primary, marginBottom: 10 }}>
+          Step 04 · Style
+        </Text>
+        <Text style={{ ...TYPE.heading, color: colors.text, marginBottom: 8 }}>
           What does a good week of eating look like?
         </Text>
-        <Text style={{ fontSize: 15, color: colors.textMuted, marginBottom: 28, lineHeight: 22 }}>
+        <Text style={{ ...TYPE.subhead, color: colors.textMuted, marginBottom: 28 }}>
           We'll shape your recipe stack around your style.
         </Text>
 
-        {/* Three large single-select cards */}
         <View style={{ gap: 14 }}>
           {STYLES.map((style) => {
             const isSelected = selected === style.id;
@@ -65,8 +67,8 @@ export default function EatingStyle() {
                 key={style.id}
                 onPress={() => setSelected(style.id)}
                 style={{
-                  backgroundColor: isSelected ? colors.primaryLight : colors.card,
-                  borderWidth: 2,
+                  backgroundColor: isSelected ? colors.cardSelected : colors.card,
+                  borderWidth: 1.5,
                   borderColor: isSelected ? colors.primary : colors.border,
                   borderRadius: 16,
                   padding: 20,
@@ -75,27 +77,30 @@ export default function EatingStyle() {
                   gap: 16,
                 }}
               >
-                <Text style={{ fontSize: 38 }}>{style.icon}</Text>
+                <Text style={{ fontSize: 36 }}>{style.icon}</Text>
                 <View style={{ flex: 1 }}>
                   <Text style={{
-                    fontSize: 16, fontWeight: '700', lineHeight: 22, marginBottom: 5,
+                    fontFamily: 'System',
+                    fontSize: 16, fontWeight: '600', lineHeight: 22, marginBottom: 4,
                     color: isSelected ? colors.primary : colors.text,
                   }}>
                     {style.title}
                   </Text>
-                  <Text style={{ fontSize: 13, color: colors.textMuted, lineHeight: 19 }}>
+                  <Text style={{
+                    fontFamily: 'System',
+                    fontSize: 13, color: colors.textMuted, lineHeight: 19,
+                  }}>
                     {style.description}
                   </Text>
                 </View>
-                {/* Selection indicator */}
                 <View style={{
-                  width: 24, height: 24, borderRadius: 12,
+                  width: 22, height: 22, borderRadius: 11,
                   backgroundColor: isSelected ? colors.primary : 'transparent',
-                  borderWidth: 2, borderColor: isSelected ? colors.primary : colors.border,
+                  borderWidth: 1.5, borderColor: isSelected ? colors.primary : colors.border,
                   alignItems: 'center', justifyContent: 'center',
                 }}>
                   {isSelected && (
-                    <Text style={{ color: 'white', fontSize: 13, fontWeight: '800' }}>✓</Text>
+                    <Text style={{ color: colors.inverse, fontSize: 12, fontWeight: '700' }}>✓</Text>
                   )}
                 </View>
               </Pressable>
@@ -104,18 +109,19 @@ export default function EatingStyle() {
         </View>
       </ScrollView>
 
-      <View style={{ paddingHorizontal: 20, paddingBottom: 36, paddingTop: 12, backgroundColor: colors.background }}>
+      <View style={{ paddingHorizontal: 24, paddingBottom: 32, paddingTop: 12, backgroundColor: colors.background }}>
         <Pressable
           onPress={handleNext}
           disabled={!selected}
-          style={{
-            backgroundColor: selected ? colors.primary : colors.border,
+          style={({ pressed }) => ({
+            backgroundColor: pressed && selected ? colors.primaryDeep : colors.primary,
             borderRadius: 14,
             paddingVertical: 18,
             alignItems: 'center',
-          }}
+            opacity: selected ? 1 : 0.4,
+          })}
         >
-          <Text style={{ color: selected ? '#fff' : colors.textMuted, fontSize: 17, fontWeight: '700' }}>
+          <Text style={{ ...TYPE.cta, color: colors.inverse }}>
             Continue
           </Text>
         </Pressable>
