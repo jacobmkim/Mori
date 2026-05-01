@@ -36,6 +36,7 @@ import { useUserStore } from '@/stores/userStore';
 import { useDiscoverStore } from '@/stores/discoverStore';
 import { useMealPlanStore } from '@/stores/mealPlanStore';
 import { TutorialOverlay, shouldShowTutorial } from '@/components/TutorialOverlay';
+import { EmailVerifyBanner } from '@/components/EmailVerifyBanner';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Recipe, AppMode, Macros, MealType } from '@/types';
 
@@ -814,6 +815,7 @@ export default function Discover() {
           <Text style={{ color: 'white', fontSize: 13, fontWeight: '600' }}>No internet connection</Text>
         </View>
       )}
+      <EmailVerifyBanner />
       {/* Header */}
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 }}>
         <MoriLogo size="sm" />

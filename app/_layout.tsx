@@ -4,7 +4,6 @@ import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AppState, Linking } from 'react-native';
 import { router } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import * as Updates from 'expo-updates';
 
@@ -12,7 +11,7 @@ import * as Sentry from '@sentry/react-native';
 import { useUserStore } from '@/stores/userStore';
 import { registerForPushNotifications } from '@/lib/notifications';
 import { updatePushToken } from '@/lib/api';
-import { isResetPasswordUrl } from '@/lib/deepLink';
+import { isResetPasswordUrl, isVerifyEmailUrl } from '@/lib/deepLink';
 
 Sentry.init({
   dsn: process.env.EXPO_PUBLIC_SENTRY_DSN ?? '',
@@ -42,21 +41,16 @@ Sentry.init({
   },
 });
 
-// Fires Sentry.captureMessage('boot vX.Y.Z') exactly once per app version.
-// Confirms client-side wiring is live without flooding Sentry on every cold
-// start. AsyncStorage stores a single key per version so reinstalls / cache
-// clears will re-emit, which is fine — it's still scoped to one event per
-// install per release.
+// Tags every Sentry event with the build identifier and drops a breadcrumb
+// on cold start. No standalone issue is created — boot info is only surfaced
+// when attached to a real error event.
 async function emitBootHeartbeatOnce() {
   try {
     const version = Constants.expoConfig?.version ?? 'unknown';
     const buildNumber = Constants.expoConfig?.ios?.buildNumber ?? '';
     const tag = buildNumber ? `${version}+${buildNumber}` : version;
-    const key = `sentry_heartbeat_${tag}`;
-    const seen = await AsyncStorage.getItem(key);
-    if (seen) return;
-    await AsyncStorage.setItem(key, '1');
-    Sentry.captureMessage(`boot ${tag}`, 'info');
+    Sentry.setTag('boot', tag);
+    Sentry.addBreadcrumb({ category: 'boot', message: `boot ${tag}`, level: 'info' });
   } catch {
     // Heartbeat is verification-only — never escalate failures to the user.
   }
@@ -107,11 +101,20 @@ function RootLayout() {
   }, []);
 
   function handleDeepLink(event: { url: string }) {
-    if (!isResetPasswordUrl(event.url)) return;
-    router.push({
-      pathname: '/reset-password',
-      params: { token: event.url },
-    });
+    if (isResetPasswordUrl(event.url)) {
+      router.push({
+        pathname: '/reset-password',
+        params: { token: event.url },
+      });
+      return;
+    }
+    if (isVerifyEmailUrl(event.url)) {
+      router.push({
+        pathname: '/verify-email',
+        params: { url: event.url },
+      });
+      return;
+    }
   }
 
   return (
@@ -122,6 +125,7 @@ function RootLayout() {
         <Stack.Screen name="onboarding" />
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="reset-password" />
+        <Stack.Screen name="verify-email" />
         <Stack.Screen name="privacy-policy" options={{ presentation: 'modal' }} />
         <Stack.Screen name="edit-profile" options={{ presentation: 'modal' }} />
       </Stack>

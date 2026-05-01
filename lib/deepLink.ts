@@ -41,3 +41,44 @@ export function isResetPasswordUrl(input: unknown): boolean {
 
   return false;
 }
+
+// Mirrors `isResetPasswordUrl`. Verify links carry a `?token=<uuid>` query
+// param that the app forwards to the server for consumption.
+export function isVerifyEmailUrl(input: unknown): boolean {
+  if (typeof input !== 'string' || input.length === 0) return false;
+  let url: URL;
+  try {
+    url = new URL(input);
+  } catch {
+    return false;
+  }
+
+  if (url.protocol === 'mori:') {
+    if (url.hostname === 'verify-email') return true;
+    if (url.hostname === '' && (url.pathname === '/verify-email' || url.pathname === '/verify-email/')) return true;
+    return false;
+  }
+
+  const isDev = typeof __DEV__ !== 'undefined' && __DEV__;
+  if (isDev && url.protocol === 'exp:') {
+    return url.pathname === '/--/verify-email' || url.pathname === '/--/verify-email/';
+  }
+
+  return false;
+}
+
+// Extract a `token` query param from a verify-email URL, validating shape
+// (UUID v4-ish: 36 chars, hex + dashes). Returns null on missing or malformed.
+export function extractVerifyToken(input: unknown): string | null {
+  if (typeof input !== 'string' || input.length === 0) return null;
+  let url: URL;
+  try {
+    url = new URL(input);
+  } catch {
+    return null;
+  }
+  const token = url.searchParams.get('token');
+  if (!token) return null;
+  if (!/^[0-9a-fA-F-]{36}$/.test(token)) return null;
+  return token;
+}

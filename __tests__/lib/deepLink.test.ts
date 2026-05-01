@@ -12,7 +12,7 @@
  * __DEV__) `exp://<host>/--/reset-password`.
  */
 
-import { isResetPasswordUrl } from '@/lib/deepLink';
+import { isResetPasswordUrl, isVerifyEmailUrl, extractVerifyToken } from '@/lib/deepLink';
 
 describe('isResetPasswordUrl — accepts legitimate Mori reset-password links', () => {
   it('accepts mori://reset-password with access/refresh token fragment', () => {
@@ -114,5 +114,75 @@ describe('isResetPasswordUrl — rejects malformed input', () => {
 
   it('rejects unrelated custom schemes', () => {
     expect(isResetPasswordUrl('myapp://reset-password')).toBe(false);
+  });
+});
+
+describe('isVerifyEmailUrl — accepts legitimate Mori verify-email links', () => {
+  it('accepts mori://verify-email with token query', () => {
+    expect(isVerifyEmailUrl('mori://verify-email?token=11111111-2222-3333-4444-555555555555')).toBe(true);
+  });
+
+  it('accepts mori://verify-email with no query', () => {
+    expect(isVerifyEmailUrl('mori://verify-email')).toBe(true);
+  });
+
+  it('accepts path-based mori:///verify-email', () => {
+    expect(isVerifyEmailUrl('mori:///verify-email?token=11111111-2222-3333-4444-555555555555')).toBe(true);
+  });
+
+  it('accepts mori:///verify-email/ trailing slash', () => {
+    expect(isVerifyEmailUrl('mori:///verify-email/')).toBe(true);
+  });
+
+  it('accepts exp://host:port/--/verify-email in dev', () => {
+    expect(isVerifyEmailUrl('exp://192.168.1.5:8081/--/verify-email?token=abc')).toBe(true);
+  });
+});
+
+describe('isVerifyEmailUrl — rejects phishing / wrong-shape payloads', () => {
+  it('rejects https URL embedding the deep link as a query', () => {
+    expect(isVerifyEmailUrl('https://evil.com/?x=mori://verify-email')).toBe(false);
+  });
+
+  it('rejects mori host that contains verify-email as a substring', () => {
+    expect(isVerifyEmailUrl('mori://verify-email.evil.com')).toBe(false);
+  });
+
+  it('rejects mori URLs with a different path', () => {
+    expect(isVerifyEmailUrl('mori:///profile')).toBe(false);
+  });
+
+  it('rejects empty / non-string / unparseable input', () => {
+    expect(isVerifyEmailUrl('')).toBe(false);
+    expect(isVerifyEmailUrl(null as any)).toBe(false);
+    expect(isVerifyEmailUrl('not a url')).toBe(false);
+  });
+
+  it('rejects reset-password URLs', () => {
+    expect(isVerifyEmailUrl('mori://reset-password')).toBe(false);
+  });
+});
+
+describe('extractVerifyToken — pulls + validates UUID-shaped token', () => {
+  it('extracts a valid UUID token', () => {
+    const url = 'mori://verify-email?token=11111111-2222-3333-4444-555555555555';
+    expect(extractVerifyToken(url)).toBe('11111111-2222-3333-4444-555555555555');
+  });
+
+  it('rejects missing token', () => {
+    expect(extractVerifyToken('mori://verify-email')).toBeNull();
+  });
+
+  it('rejects malformed (too short) token', () => {
+    expect(extractVerifyToken('mori://verify-email?token=abc')).toBeNull();
+  });
+
+  it('rejects token with non-hex chars', () => {
+    expect(extractVerifyToken('mori://verify-email?token=zzzzzzzz-2222-3333-4444-555555555555')).toBeNull();
+  });
+
+  it('rejects non-string / unparseable input', () => {
+    expect(extractVerifyToken(null as any)).toBeNull();
+    expect(extractVerifyToken('not a url')).toBeNull();
   });
 });

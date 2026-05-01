@@ -40,6 +40,7 @@ export interface Profile {
   push_token: string | null;
   notify_creator_events: boolean;
   last_creator_digest_at: string | null;
+  email_verified_at: string | null;
 }
 
 // ─── Macros ───────────────────────────────────────────────────────────────────

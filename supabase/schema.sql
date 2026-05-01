@@ -37,8 +37,15 @@ CREATE TABLE profiles (
   total_sessions integer DEFAULT 0,
   taste_profile jsonb,
   onboarding_complete boolean DEFAULT false,
+  email_verified_at timestamptz,
+  email_verification_token uuid,
+  email_verification_sent_at timestamptz,
   created_at timestamp with time zone DEFAULT now()
 );
+
+CREATE INDEX IF NOT EXISTS idx_profiles_email_verification_token
+  ON profiles(email_verification_token)
+  WHERE email_verification_token IS NOT NULL;
 
 -- Auto-create profile row on sign up
 CREATE OR REPLACE FUNCTION handle_new_user()
