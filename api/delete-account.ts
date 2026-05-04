@@ -95,10 +95,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(500).json({ error: 'Account verification failed' });
   }
 
-  const { error: signInErr } = await anon.auth.signInWithPassword({ email, password });
-  if (signInErr) {
+  // Three independent checks against a wrong password slipping through:
+  //   1. Supabase didn't return an auth error
+  //   2. A real session was created (not a no-op success)
+  //   3. The signed-in user's id matches the JWT-asserted userId (anti-spoof)
+  // Any failure → 401. We then sign out the anon client to discard the
+  // session token we just minted (defensive — the token has no further use).
+  const { data: signInData, error: signInErr } =
+    await anon.auth.signInWithPassword({ email, password });
+
+  const passwordValid =
+    !signInErr &&
+    !!signInData?.session &&
+    !!signInData?.user &&
+    signInData.user.id === userId;
+
+  if (!passwordValid) {
+    if (process.env.NODE_ENV === 'development') {
+      // eslint-disable-next-line no-console
+      console.error('[delete-account] password check failed', {
+        hasError: !!signInErr,
+        errCode: signInErr?.code,
+        errMsg: signInErr?.message,
+        hasSession: !!signInData?.session,
+        hasUser: !!signInData?.user,
+        userIdMatch: signInData?.user?.id === userId,
+      });
+    }
     return res.status(401).json({ error: 'Incorrect password' });
   }
+
+  await anon.auth.signOut().catch(() => {});
 
   // Hard-delete private user data. Errors are logged but don't abort the
   // deletion — the user-facing promise is "your data is gone", and a partial
