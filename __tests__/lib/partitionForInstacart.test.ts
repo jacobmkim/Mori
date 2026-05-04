@@ -12,7 +12,7 @@ describe('partitionForInstacart', () => {
       'chicken breast', 'broccoli', 'soy sauce',
     ]);
     expect(result.skippedStaples).toBe(0);
-    expect(result.skippedPantry).toBe(0);
+    expect(result.pantryHints.size).toBe(0);
   });
 
   it('buckets staples under skippedStaples', () => {
@@ -20,15 +20,17 @@ describe('partitionForInstacart', () => {
     const result = partitionForInstacart(items, new Set());
     expect(result.sendable.map((i) => i.ingredient_name)).toEqual(['chicken breast']);
     expect(result.skippedStaples).toBe(2);
-    expect(result.skippedPantry).toBe(0);
+    expect(result.pantryHints.size).toBe(0);
   });
 
-  it('buckets pantry matches under skippedPantry', () => {
+  it('includes pantry matches in sendable, names them in pantryHints', () => {
     const items = mk(['soy sauce', 'rice vinegar', 'chicken breast']);
     const result = partitionForInstacart(items, new Set(['soy sauce', 'rice vinegar']));
-    expect(result.sendable.map((i) => i.ingredient_name)).toEqual(['chicken breast']);
+    expect(result.sendable.map((i) => i.ingredient_name)).toEqual([
+      'soy sauce', 'rice vinegar', 'chicken breast',
+    ]);
     expect(result.skippedStaples).toBe(0);
-    expect(result.skippedPantry).toBe(2);
+    expect(Array.from(result.pantryHints).sort()).toEqual(['rice vinegar', 'soy sauce']);
   });
 
   it('counts an item only once when it is both a staple and in pantry', () => {
@@ -36,21 +38,29 @@ describe('partitionForInstacart', () => {
     const result = partitionForInstacart(items, new Set(['salt']));
     expect(result.sendable.map((i) => i.ingredient_name)).toEqual(['chicken breast']);
     expect(result.skippedStaples).toBe(1);
-    expect(result.skippedPantry).toBe(0);
+    expect(result.pantryHints.has('salt')).toBe(false);
+  });
+
+  it('pantryHints excludes staples even when both match', () => {
+    const items = mk(['salt', 'soy sauce']);
+    const result = partitionForInstacart(items, new Set(['salt', 'soy sauce']));
+    expect(result.sendable.map((i) => i.ingredient_name)).toEqual(['soy sauce']);
+    expect(result.skippedStaples).toBe(1);
+    expect(Array.from(result.pantryHints)).toEqual(['soy sauce']);
   });
 
   it('pantry match is case- and whitespace-insensitive', () => {
     const items = mk(['  Soy Sauce ', 'TAHINI']);
     const result = partitionForInstacart(items, new Set(['soy sauce', 'tahini']));
-    expect(result.sendable).toEqual([]);
-    expect(result.skippedPantry).toBe(2);
+    expect(result.sendable.map((i) => i.ingredient_name)).toEqual(['  Soy Sauce ', 'TAHINI']);
+    expect(Array.from(result.pantryHints).sort()).toEqual(['soy sauce', 'tahini']);
   });
 
   it('returns all-zero counts on empty input', () => {
     const result = partitionForInstacart([], new Set(['soy sauce']));
     expect(result.sendable).toEqual([]);
     expect(result.skippedStaples).toBe(0);
-    expect(result.skippedPantry).toBe(0);
+    expect(result.pantryHints.size).toBe(0);
   });
 
   it('preserves original item references in sendable (not copies)', () => {

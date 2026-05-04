@@ -30,7 +30,7 @@ describe('isStaple — exact matches', () => {
 
   it('trims and lowercases before matching', () => {
     expect(isStaple('  Salt  ')).toBe(true);
-    expect(isStaple('BUTTER')).toBe(true);
+    expect(isStaple('GARLIC POWDER')).toBe(true);
     expect(isStaple('Olive Oil')).toBe(true);
   });
 
@@ -69,6 +69,16 @@ describe('isStaple — non-staples (must be tracked as leftovers)', () => {
     expect(isStaple('heavy cream')).toBe(false);
     expect(isStaple('milk')).toBe(false);
     expect(isStaple('cheddar cheese')).toBe(false);
+    expect(isStaple('butter')).toBe(false);
+    expect(isStaple('unsalted butter')).toBe(false);
+  });
+
+  it('returns false for fresh garlic (only garlic powder is a staple)', () => {
+    expect(isStaple('garlic')).toBe(false);
+    expect(isStaple('garlic clove')).toBe(false);
+    expect(isStaple('garlic cloves')).toBe(false);
+    expect(isStaple('minced garlic')).toBe(false);
+    expect(isStaple('garlic powder')).toBe(true);
   });
 });
 

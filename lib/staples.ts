@@ -32,9 +32,11 @@ export const STAPLES: ReadonlySet<string> = new Set([
   'brown sugar', 'light brown sugar', 'dark brown sugar',
   'baking soda', 'bicarbonate of soda', 'baking powder', 'cornstarch', 'corn starch',
   'cornflour',
-  // Common shelf-stable
-  'butter', 'unsalted butter', 'salted butter',
-  'garlic', 'garlic clove', 'garlic cloves', 'minced garlic', 'garlic powder',
+  // Fresh / fridge-tracked items that previously slipped into STAPLES — REMOVED:
+  //   - butter (1–2 month shelf life once opened, runs out routinely)
+  //   - fresh garlic / garlic cloves / minced garlic (bulbs spoil in 1–2 weeks once peeled)
+  // Only the dried/powdered/processed forms are shelf-stable enough to auto-skip.
+  'garlic powder',
   // Dried spices — almost never "leftover" in a meaningful way
   'cumin', 'ground cumin', 'cumin seeds',
   'paprika', 'smoked paprika', 'sweet paprika', 'hot paprika',
@@ -139,29 +141,33 @@ export function isStaple(name: string): boolean {
   return false;
 }
 
-// Splits a list of grocery items into what we should send to Instacart vs what to
-// skip silently. Staples take precedence over pantry matches so a salt-in-pantry
-// entry doesn't inflate the "pantry items" count — it reads as a staple either way.
+// Splits a list of grocery items into what we'll send by default vs what to
+// auto-skip. Staples (USDA-shelf-stable, large containers — see STAPLES set above)
+// auto-skip; pantry matches go through as a *hint* — sent by default, with the
+// caller free to render an opt-out affordance per item. Staples take precedence
+// over pantry membership: a salt-in-pantry entry reads as a staple, never both.
 export function partitionForInstacart<T extends { ingredient_name: string }>(
   items: T[],
   pantryNames: ReadonlySet<string>,
-): { sendable: T[]; skippedStaples: number; skippedPantry: number; skippedItems: T[] } {
+): {
+  sendable: T[];                     // includes pantry hints by default
+  pantryHints: ReadonlySet<string>;  // normalized (trimmed + lowercased) names of sendable items in pantry
+  skippedStaples: number;
+  skippedItems: T[];                 // staples only — feeds the "Add back" modal
+} {
   const sendable: T[] = [];
   const skippedItems: T[] = [];
+  const pantryHints = new Set<string>();
   let skippedStaples = 0;
-  let skippedPantry = 0;
   for (const item of items) {
     if (isStaple(item.ingredient_name)) {
       skippedStaples++;
       skippedItems.push(item);
       continue;
     }
-    if (pantryNames.has(item.ingredient_name.trim().toLowerCase())) {
-      skippedPantry++;
-      skippedItems.push(item);
-      continue;
-    }
     sendable.push(item);
+    const key = item.ingredient_name.trim().toLowerCase();
+    if (pantryNames.has(key)) pantryHints.add(key);
   }
-  return { sendable, skippedStaples, skippedPantry, skippedItems };
+  return { sendable, pantryHints, skippedStaples, skippedItems };
 }

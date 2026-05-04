@@ -19,7 +19,7 @@ import { useGroceryStore } from '@/stores/groceryStore';
 import { useDiscoverStore } from '@/stores/discoverStore';
 import { fetchMacros, getPantryItems } from '@/lib/api';
 import { getApiBaseUrl } from '@/lib/apiBaseUrl';
-import { partitionForInstacart, isStaple } from '@/lib/staples';
+import { partitionForInstacart } from '@/lib/staples';
 import { parseGroceryMeasurement, convertMeasurementToUs, formatGroceryQuantity } from '@/lib/instacartUtils';
 import { fetchMealDetail } from '@/lib/mealdb';
 import { supabase } from '@/lib/supabase';
@@ -33,15 +33,15 @@ import type { GroceryItem, Recipe, Macros } from '@/types';
 
 const CATEGORIES = ['Produce', 'Meat & Seafood', 'Dairy', 'Pantry', 'Frozen', 'Other'];
 
-function formatSkipLine(staples: number, pantry: number): string {
-  if (staples > 0 && pantry > 0) {
-    return `Skipping ${staples} staple${staples === 1 ? '' : 's'} · ${pantry} pantry item${pantry === 1 ? '' : 's'}`;
-  }
-  if (staples > 0) {
-    return `Skipping ${staples} staple${staples === 1 ? '' : 's'} you likely have`;
-  }
-  return `Skipping ${pantry} item${pantry === 1 ? '' : 's'} already in your pantry`;
+function formatSkipLine(staples: number): string {
+  return `Skipping ${staples} staple${staples === 1 ? '' : 's'} you likely have`;
 }
+
+// Pantry hints use a normalized (trimmed + lowercased) key so they line up with
+// pantryHints from partitionForInstacart. forcedStaples below uses the raw
+// ingredient_name to match the staples-modal Add toggle — keep these conventions
+// separate or the toggles silently no-op.
+const normKey = (i: { ingredient_name: string }) => i.ingredient_name.trim().toLowerCase();
 
 function categorize(name: string): string {
   const n = name.toLowerCase();
@@ -232,7 +232,12 @@ export default function GroceryList() {
   const [instacartError, setInstacartError] = useState<string | null>(null);
   const [pantryNames, setPantryNames] = useState<Set<string>>(() => new Set());
   const [skippedModalVisible, setSkippedModalVisible] = useState(false);
-  const [forcedItems, setForcedItems] = useState<Set<string>>(() => new Set());
+  // forcedStaples: raw ingredient_name keys; resets per session (not persisted).
+  const [forcedStaples, setForcedStaples] = useState<Set<string>>(() => new Set());
+  // skippedPantry: normalized keys (see normKey); resets per session.
+  const [skippedPantry, setSkippedPantry] = useState<Set<string>>(() => new Set());
+  // Confirm dialog shown right before sending to Instacart when items are being left out.
+  const [confirmSend, setConfirmSend] = useState<{ sendable: GroceryItem[]; skipped: GroceryItem[] } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -299,17 +304,14 @@ export default function GroceryList() {
   const checkedCount = items.filter((i) => i.checked).length;
   const uncheckedCount = items.length - checkedCount;
 
-  const { skippedStaples, skippedPantry, skippedItems } = useMemo(
+  const { pantryHints, skippedItems } = useMemo(
     () => partitionForInstacart(items.filter((i) => !i.checked), pantryNames),
     [items, pantryNames],
   );
 
-  // Counts for notice — subtract items the user manually added back
+  // Notice line counts only staples the user hasn't pulled back via the modal.
   const displayedSkippedStaples = skippedItems.filter(
-    (i) => isStaple(i.ingredient_name) && !forcedItems.has(i.ingredient_name),
-  ).length;
-  const displayedSkippedPantry = skippedItems.filter(
-    (i) => !isStaple(i.ingredient_name) && !forcedItems.has(i.ingredient_name),
+    (i) => !forcedStaples.has(i.ingredient_name),
   ).length;
 
   // Build a quick lookup: recipeId → title
@@ -369,30 +371,14 @@ export default function GroceryList() {
     return items.filter((i) => !i.checked).map((i) => cleanForSearch(i.ingredient_name));
   }
 
-  async function handleInstacartOrder() {
-    const uncheckedItems = items.filter((i) => !i.checked);
-    if (uncheckedItems.length === 0) {
-      Alert.alert('No items', 'All items are already checked off.');
-      return;
-    }
-
-    const { sendable: baseSendable, skippedItems: allSkipped } = partitionForInstacart(uncheckedItems, pantryNames);
-    const sendable = [
-      ...baseSendable,
-      ...allSkipped.filter((i) => forcedItems.has(i.ingredient_name)),
-    ];
-    if (sendable.length === 0) {
-      Alert.alert('Nothing to order', 'All remaining items are staples or already in your pantry.');
-      return;
-    }
-
+  async function submitToInstacart(itemsToSend: GroceryItem[]) {
     setInstacartLoading(true);
     setInstacartError(null);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
 
-      const instacartItems = sendable.map((i) => {
+      const instacartItems = itemsToSend.map((i) => {
         const name = cleanForSearch(i.ingredient_name);
         const rawMeasurement = parseGroceryMeasurement(i.quantity, i.unit);
         const measurement = rawMeasurement && unitSystem === 'us'
@@ -425,6 +411,54 @@ export default function GroceryList() {
     } finally {
       setInstacartLoading(false);
     }
+  }
+
+  async function handleInstacartOrder() {
+    const uncheckedItems = items.filter((i) => !i.checked);
+    if (uncheckedItems.length === 0) {
+      Alert.alert('No items', 'All items are already checked off.');
+      return;
+    }
+
+    const { sendable: baseSendable, skippedItems: allStaples } = partitionForInstacart(uncheckedItems, pantryNames);
+    const finalSendable = [
+      ...baseSendable.filter((i) => !skippedPantry.has(normKey(i))),
+      ...allStaples.filter((i) => forcedStaples.has(i.ingredient_name)),
+    ];
+
+    if (finalSendable.length === 0) {
+      const droppedNames = uncheckedItems.map((i) => i.ingredient_name);
+      const previewNames = droppedNames.slice(0, 3).join(', ');
+      const more = droppedNames.length > 3 ? ` …and ${droppedNames.length - 3} more` : '';
+      const hasStaples = allStaples.length > 0;
+      const buttons: { text: string; style?: 'cancel' | 'default'; onPress?: () => void }[] = [
+        { text: 'Cancel', style: 'cancel' },
+      ];
+      if (hasStaples) {
+        buttons.push({ text: 'Review', onPress: () => setSkippedModalVisible(true) });
+      }
+      buttons.push({ text: 'Send anyway', onPress: () => submitToInstacart(uncheckedItems) });
+      Alert.alert(
+        'Cart would be empty',
+        `These items would be skipped: ${previewNames}${more}. Send them anyway?`,
+        buttons,
+      );
+      return;
+    }
+
+    // Surface what's being left out so the user can catch surprises (e.g. fresh
+    // garlic that only lives in STAPLES, or a pantry hint they actively skipped)
+    // before the browser opens.
+    const skippedFromCart = [
+      ...allStaples.filter((i) => !forcedStaples.has(i.ingredient_name)),
+      ...baseSendable.filter((i) => skippedPantry.has(normKey(i))),
+    ];
+    if (skippedFromCart.length > 0) {
+      setConfirmSend({ sendable: finalSendable, skipped: skippedFromCart });
+      return;
+    }
+
+    await submitToInstacart(finalSendable);
   }
 
   function handleClearAll() {
@@ -638,24 +672,39 @@ export default function GroceryList() {
             }}>
               {category}
             </Text>
-            {grouped[category].map((item) => (
-              <GroceryRow
-                key={item.ingredient_name}
-                item={item}
-                recipeMap={recipeMap}
-                editMode={editMode}
-                unitSystem={unitSystem}
-                onToggle={() => {
-                  toggleItem(item.ingredient_name);
-                  setCheckUndoName(item.ingredient_name);
-                  setCheckUndoKey((k) => k + 1);
-                }}
-                onDelete={() => {
-                  const deleted = deleteItem(item.ingredient_name);
-                  if (deleted) triggerUndo([deleted]);
-                }}
-              />
-            ))}
+            {grouped[category].map((item) => {
+              const key = normKey(item);
+              const inPantry = pantryHints.has(key);
+              const pantrySkipped = skippedPantry.has(key);
+              return (
+                <GroceryRow
+                  key={item.ingredient_name}
+                  item={item}
+                  recipeMap={recipeMap}
+                  editMode={editMode}
+                  unitSystem={unitSystem}
+                  inPantry={inPantry}
+                  pantrySkipped={pantrySkipped}
+                  onTogglePantrySkip={() => {
+                    setSkippedPantry((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(key)) next.delete(key);
+                      else next.add(key);
+                      return next;
+                    });
+                  }}
+                  onToggle={() => {
+                    toggleItem(item.ingredient_name);
+                    setCheckUndoName(item.ingredient_name);
+                    setCheckUndoKey((k) => k + 1);
+                  }}
+                  onDelete={() => {
+                    const deleted = deleteItem(item.ingredient_name);
+                    if (deleted) triggerUndo([deleted]);
+                  }}
+                />
+              );
+            })}
           </View>
         ))}
 
@@ -743,6 +792,9 @@ export default function GroceryList() {
                 recipeMap={recipeMap}
                 editMode={editMode}
                 unitSystem={unitSystem}
+                inPantry={false}
+                pantrySkipped={false}
+                onTogglePantrySkip={() => {}}
                 onToggle={() => toggleItem(item.ingredient_name)}
                 onDelete={() => {
                   const deleted = deleteItem(item.ingredient_name);
@@ -777,22 +829,21 @@ export default function GroceryList() {
               paddingHorizontal: 20, paddingVertical: 14,
             }}>
               <Text style={{ fontSize: 17, fontWeight: '700', color: colors.text }}>
-                Skipped items
+                Staples we skipped
               </Text>
               <Pressable onPress={() => setSkippedModalVisible(false)} hitSlop={12}>
                 <Ionicons name="close" size={22} color={colors.textMuted} />
               </Pressable>
             </View>
             <Text style={{ fontSize: 13, color: colors.textMuted, paddingHorizontal: 20, marginBottom: 12 }}>
-              These won't be sent to Instacart. Tap Add to include any you need.
+              These won't be sent. Tap Add to include any you need.
             </Text>
             <ScrollView
               contentContainerStyle={{ paddingHorizontal: 20, gap: 6, paddingBottom: 8 }}
               showsVerticalScrollIndicator={false}
             >
               {skippedItems.map((item) => {
-                const isStapleItem = isStaple(item.ingredient_name);
-                const forced = forcedItems.has(item.ingredient_name);
+                const forced = forcedStaples.has(item.ingredient_name);
                 return (
                   <View key={item.ingredient_name} style={{
                     flexDirection: 'row', alignItems: 'center', gap: 10,
@@ -800,20 +851,17 @@ export default function GroceryList() {
                     paddingHorizontal: 14, paddingVertical: 10,
                   }}>
                     <Ionicons
-                      name={isStapleItem ? 'flame-outline' : 'cube-outline'}
+                      name="flame-outline"
                       size={16}
                       color={colors.textMuted}
                     />
                     <Text style={{ flex: 1, fontSize: 14, color: colors.text }}>
                       {item.ingredient_name}
                     </Text>
-                    <Text style={{ fontSize: 11, color: colors.textMuted, marginRight: 6 }}>
-                      {isStapleItem ? 'staple' : 'pantry'}
-                    </Text>
                     <Pressable
                       onPress={() => {
                         const name = item.ingredient_name;
-                        setForcedItems((prev) => {
+                        setForcedStaples((prev) => {
                           const next = new Set(prev);
                           if (next.has(name)) next.delete(name);
                           else next.add(name);
@@ -837,6 +885,125 @@ export default function GroceryList() {
                 );
               })}
             </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Pre-send confirm sheet — Mori-styled */}
+      <Modal
+        visible={confirmSend !== null}
+        animationType="slide"
+        transparent
+        presentationStyle="overFullScreen"
+        onRequestClose={() => setConfirmSend(null)}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }}>
+          <Pressable style={{ ...StyleSheet.absoluteFillObject }} onPress={() => setConfirmSend(null)} />
+          <View style={{
+            backgroundColor: colors.card,
+            borderTopLeftRadius: 24, borderTopRightRadius: 24,
+            paddingBottom: 36, maxHeight: '70%',
+          }}>
+            <View style={{
+              width: 36, height: 4, borderRadius: 2, backgroundColor: colors.border,
+              alignSelf: 'center', marginTop: 12, marginBottom: 18,
+            }} />
+
+            <View style={{ paddingHorizontal: 24, marginBottom: 16 }}>
+              <Text style={{
+                fontFamily: 'Georgia',
+                fontStyle: 'italic',
+                fontWeight: '700',
+                fontSize: 24,
+                color: colors.text,
+                marginBottom: 6,
+              }}>
+                Leaving these out
+              </Text>
+              <Text style={{
+                fontSize: 13,
+                color: colors.textMuted,
+                lineHeight: 18,
+              }}>
+                {confirmSend ? `${confirmSend.skipped.length} item${confirmSend.skipped.length === 1 ? '' : 's'} won't be in your Instacart cart. Sending ${confirmSend.sendable.length}.` : ''}
+              </Text>
+            </View>
+
+            <ScrollView
+              contentContainerStyle={{ paddingHorizontal: 24, gap: 6, paddingBottom: 8 }}
+              showsVerticalScrollIndicator={false}
+              style={{ maxHeight: 280 }}
+            >
+              {confirmSend?.skipped.map((item) => {
+                const isPantrySkip = skippedPantry.has(normKey(item));
+                return (
+                  <View key={item.ingredient_name} style={{
+                    flexDirection: 'row', alignItems: 'center', gap: 10,
+                    backgroundColor: colors.background, borderRadius: 12,
+                    paddingHorizontal: 14, paddingVertical: 11,
+                  }}>
+                    <Ionicons
+                      name={isPantrySkip ? 'home-outline' : 'flame-outline'}
+                      size={15}
+                      color={colors.textMuted}
+                    />
+                    <Text style={{ flex: 1, fontSize: 15, color: colors.text }}>
+                      {item.ingredient_name}
+                    </Text>
+                    <Text style={{
+                      fontSize: 10,
+                      fontWeight: '600',
+                      letterSpacing: 0.4,
+                      color: colors.textMuted,
+                      textTransform: 'uppercase',
+                    }}>
+                      {isPantrySkip ? 'pantry' : 'staple'}
+                    </Text>
+                  </View>
+                );
+              })}
+            </ScrollView>
+
+            <View style={{
+              flexDirection: 'row',
+              gap: 10,
+              paddingHorizontal: 24,
+              paddingTop: 18,
+            }}>
+              <Pressable
+                onPress={() => setConfirmSend(null)}
+                style={{
+                  flex: 1,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  borderRadius: 14,
+                  paddingVertical: 14,
+                  alignItems: 'center',
+                }}
+              >
+                <Text style={{ color: colors.text, fontSize: 15, fontWeight: '600' }}>
+                  Cancel
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  const pending = confirmSend;
+                  setConfirmSend(null);
+                  if (pending) submitToInstacart(pending.sendable);
+                }}
+                style={{
+                  flex: 1,
+                  backgroundColor: colors.primary,
+                  borderRadius: 14,
+                  paddingVertical: 14,
+                  alignItems: 'center',
+                }}
+              >
+                <Text style={{ color: 'white', fontSize: 15, fontWeight: '600' }}>
+                  Continue
+                </Text>
+              </Pressable>
+            </View>
           </View>
         </View>
       </Modal>
@@ -886,15 +1053,13 @@ export default function GroceryList() {
             {instacartError}
           </Text>
         )}
-        {(skippedItems.length > 0) && (
+        {displayedSkippedStaples > 0 && (
           <Pressable
             onPress={() => setSkippedModalVisible(true)}
             style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 }}
           >
             <Text style={{ color: colors.textMuted, fontSize: 12 }}>
-              {(displayedSkippedStaples + displayedSkippedPantry) > 0
-                ? formatSkipLine(displayedSkippedStaples, displayedSkippedPantry)
-                : 'All skipped items added back'}
+              {formatSkipLine(displayedSkippedStaples)}
             </Text>
             <Ionicons name="information-circle-outline" size={13} color={colors.textMuted} />
           </Pressable>
@@ -916,6 +1081,9 @@ function GroceryRow({
   recipeMap,
   editMode,
   unitSystem,
+  inPantry,
+  pantrySkipped,
+  onTogglePantrySkip,
   onToggle,
   onDelete,
 }: {
@@ -923,6 +1091,9 @@ function GroceryRow({
   recipeMap: Record<string, string>;
   editMode: boolean;
   unitSystem: 'us' | 'metric';
+  inPantry: boolean;
+  pantrySkipped: boolean;
+  onTogglePantrySkip: () => void;
   onToggle: () => void;
   onDelete: () => void;
 }) {
@@ -974,7 +1145,7 @@ function GroceryRow({
       )}
 
       {/* Name + source label */}
-      <View style={{ flex: 1 }}>
+      <View style={{ flex: 1, opacity: pantrySkipped ? 0.55 : 1 }}>
         <Text style={{
           fontSize: 15,
           color: item.checked ? colors.textMuted : colors.text,
@@ -988,6 +1159,31 @@ function GroceryRow({
           </Text>
         )}
       </View>
+
+      {/* Pantry hint pill */}
+      {inPantry && !item.checked && !editMode && (
+        <Pressable
+          onPress={onTogglePantrySkip}
+          hitSlop={8}
+          style={{
+            paddingHorizontal: 8,
+            paddingVertical: 3,
+            borderRadius: 10,
+            borderWidth: 1,
+            borderColor: pantrySkipped ? colors.primary : colors.border,
+            backgroundColor: pantrySkipped ? colors.primaryLight : 'transparent',
+          }}
+        >
+          <Text style={{
+            fontSize: 10,
+            fontWeight: '600',
+            color: pantrySkipped ? colors.primary : colors.textMuted,
+            letterSpacing: 0.3,
+          }}>
+            {pantrySkipped ? 'SKIPPED — TAP TO SEND' : 'IN PANTRY'}
+          </Text>
+        </Pressable>
+      )}
 
       {/* Quantity */}
       {(item.quantity || item.unit) ? (
