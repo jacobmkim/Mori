@@ -1,51 +1,23 @@
 # Mori — CLAUDE.md
 
-## Current Priority — App Store v1 Submission
+## Current Priority — Awaiting App Store Review
 
-Top priority right now is shipping Mori v1 (free tier, no Mori+) to the App Store.
+**Mori v1 submitted for review on 2026-05-04.** Free tier only, no Mori+. Available in **US + Canada** only. Now waiting on Apple.
 
-### Code work — SHIPPED to `main` (2026-05-03 → 2026-05-04)
-Commits on `origin/main`: `082257a` → `1bbfe61` → `603754c` → `f99a586`.
-- `app.json` — `ios.privacyManifests` block declares UserDefaults (`CA92.1`), FileTimestamp (`C617.1`), SystemBootTime (`35F9.1`), DiskSpace (`E174.1`).
-- `api/delete-account.ts` — POST endpoint, JWT auth, password reauth (3 independent guards: no-error + session-minted + user-id-matches-JWT), ordered deletes across all user-owned tables (`recipe_flags` uses `flagged_by`, others `user_id`), de-attributes + soft-deletes user-submitted community recipes, then `auth.admin.deleteUser`.
-- `supabase/add-account-deletion.sql` — applied. `ON DELETE CASCADE` on all user-owned FKs.
-- `lib/api.ts` — `deleteMyAccount(password)` client wrapper.
-- `app/help.tsx` — Help screen: Contact (mailto bug/feature/question, prefilled w/ version + user ID + platform), FAQ (collapsible), How to use, Privacy Policy link.
-- `components/ProfileSheet.tsx` — `Help & Support` row replaces standalone Privacy Policy row; Delete Account row at bottom of overview tab + `DeleteAccountModal` (warn → password reauth → success).
-- `app/privacy-policy.tsx` — fixed pre-existing crash (`const { colors } = useTheme()` → `const colors = useTheme()`); deletion section now points at in-app flow.
-- `public/privacy.html` — section 8 references in-app delete flow.
-- **Cook flow regression fixed across all tabs** — `recipes.tsx`, `explore.tsx`, `plan.tsx` were missing `onMarkCooked` on `<RecipeDetailModal>`. Each now logs the interaction, calls `updateStreakAndCount`, and shows new badges via `BadgeAchievementModal`. Previously only Discover-tab cooks updated streak.
+### What shipped
+- Code on `origin/main`: `082257a` → `1bbfe61` → `603754c` → `f99a586`. Privacy Manifest, in-app account deletion (Guideline 5.1.1(v)), Help screen, cook-flow streak/badges fix across all tabs.
+- Reviewer demo account seeded — see [.claude/apple-review-info.md](.claude/apple-review-info.md). Do NOT touch `apple-review@getmori.app` until v1 is approved.
+- App Store Connect: 10 screenshots in 6.9" slot (resized from 6.3" via `scripts/resize-screenshots.ps1`, 24-bit RGB, no alpha), App Privacy nutrition labels (Linked: yes / Tracking: no for all 9 data types), Age rating with UGC + moderation, Free Apps Agreement Active (Paid Apps NOT signed — defer until Mori+).
+- Reviewer notes paste verbatim from [.claude/apple-review-info.md](.claude/apple-review-info.md).
 
-### Pre-final-build checklist (run before `eas build --profile production --platform ios`)
+### While waiting (do not break)
+- Don't touch `apple-review@getmori.app` — Apple may sign in multiple times during review.
+- Don't push to `main` if it would change behaviour reviewers test (delete-account, cook flow, Help screen, Instacart cart). Bug-fix-only commits to other surfaces are fine but trigger no rebuild without reason.
+- Mori+ work continues on `mori-plus` branch only. Do NOT merge to `main` until v1 is approved.
 
-- [x] Vercel Pro on plan.
-- [x] `supabase/add-account-deletion.sql` applied in production.
-- [x] `/api/delete-account` deployed in production (`curl -i -X POST https://getmori.app/api/delete-account` → 401).
-- [x] Reviewer demo account seeded — see [.claude/apple-review-info.md](.claude/apple-review-info.md).
-- [x] Account deletion smoke-tested in Expo Go (correct password deletes, wrong password rejected, all user-owned rows cleaned up via SQL verification).
-- [x] Help screen + Privacy Policy modal verified working.
-- [x] Cook flow → streak + badges fire from every tab (Discover, Recipes, Explore, Plan).
-- [ ] **Run `eas env:list --environment production`** and confirm: `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`, `EXPO_PUBLIC_API_URL=https://getmori.app`, `EXPO_PUBLIC_SENTRY_DSN`, `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT` all present. Missing `EXPO_PUBLIC_*` vars Babel-inline as `undefined` → silent feature failures.
-- [ ] Confirm `getmori.app/privacy` and `getmori.app/support` resolve in a browser (App Store Connect references both).
-- [ ] Mori-plus drift on `main` (modified `app/_layout.tsx`, `eas.json`, `stores/userStore.ts`, `public/index.html` + untracked `lib/featureFlags.ts`, `lib/revenueCat.ts`) is **NOT committed** — `git archive HEAD` excludes uncommitted modifications, so EAS Build won't include them. Verify with `git diff HEAD --name-only` before triggering the build; nothing tied to `mori-plus` should appear in the diff base.
-
-### App Store Connect setup (after build is in TestFlight)
-- Deselect EU storefronts (skips DSA Trader Status declaration).
-- App Privacy nutrition labels — match `public/privacy.html` exactly. Declare **NO** Purchases for v1.
-- App metadata: name, subtitle (≤30), description (≤4000), keywords (≤100 bytes), support URL, marketing URL, primary category **Food & Drink**.
-- 5–8 iPhone 6.9" (1320×2868) screenshots.
-- Age rating questionnaire — UGC: yes, moderation: yes (content reviewed via `moderation_status` field).
-- Copyright: `© 2026 Mori`.
-- App Review Information — paste demo creds + notes from [.claude/apple-review-info.md](.claude/apple-review-info.md).
-- **Do NOT mention Mori+ anywhere in v1 metadata** (Guideline 2.3.10 — inaccurate metadata).
-
-### Submit
-- `eas build --profile production --platform ios`
-- Wait for TestFlight Internal — install on device, smoke-test deletion + cook + Help one more time.
-- `eas submit --profile production --platform ios`
-- App Store Connect → **Submit for Review**.
-
-After the TestFlight upload Apple will email any additional missing required-reason API categories — add them to `app.json`'s `privacyManifests` block and rebuild if needed.
+### If Apple rejects
+- Most common: missing Required Reason API category in Privacy Manifest. Apple's rejection email lists the missing code → add to `app.json`'s `ios.privacyManifests` block → `eas build` → `eas submit` → resubmit. No metadata change needed.
+- Metadata rejection: edit in ASC, no rebuild needed.
 
 ### v1.1 (Mori+) — paid IAP submission rules
 When ready to ship the `mori-plus` branch:
@@ -92,6 +64,7 @@ Mori+ stays on the `mori-plus` branch and ships as v1.1 after v1 is approved. Do
 - **2026-04-29 — EAS dashboard env drift caused TestFlight rebuild.** Local `.env` had `getmori.app`, EAS prod env still had retired `project-x-one-roan.vercel.app`. All API calls (taste-profile, macros, Instacart) returned `DEPLOYMENT_NOT_FOUND`. Fix path = update EAS env + pin in `eas.json` `env` blocks + add runtime fallback in `lib/apiBaseUrl.ts`.
 - **2026-04-29 — `EXPO_PUBLIC_SENTRY_DSN` was missing from EAS env entirely.** Client Sentry init in `app/_layout.tsx` guards on the DSN, so Sentry has been silently disabled in every TestFlight build. Fix = add to EAS prod + preview envs and pin in `eas.json`. The `SENTRY_AUTH_TOKEN`/`SENTRY_ORG`/`SENTRY_PROJECT` vars in EAS are build-time sourcemap-upload vars, not runtime DSN.
 - **2026-04-28 — Sentry events silently dropped on Vercel.** Functions returned before `Sentry.flush()`; Vercel kills the event loop on response. Fix = `await Sentry.flush(2000)` in a `finally`. Commit `a2645f2`.
+- **2026-05-04 — App Store screenshot uploads must be 24-bit RGB, no alpha.** Apple's Media Manager rejects PNGs with alpha channels even if they look identical. Default `System.Drawing.Bitmap` ctor on Windows creates 32bpp ARGB. Fix in `scripts/resize-screenshots.ps1` = pass `[PixelFormat]::Format24bppRgb` to the Bitmap ctor + `Graphics.Clear(White)` before drawing. Also: iloveimg.com preserves aspect ratio and outputs off-by-a-few-pixels dimensions → Apple rejects "wrong dimensions." Always force exact target pixels.
 
 ---
 
@@ -112,7 +85,7 @@ Mori is a swipe-based recipe discovery app. Users swipe on recipe cards → save
 - Plan tab: calendar-style week view (week strip + selected-day detail), per-day macro line, weekly macro totals card, "Copy last week" / "Clear week" actions, "Hot meals" suggestions row when day has empty slots; Supabase-backed
 - Grocery List: grouped categories, checkboxes, copy-to-clipboard
 - Profile: AvatarButton → ProfileSheet, taste profile (monthly cron + update modal), pantry, preferences, editable display name, appearance toggle
-- 1,506 curated recipes; all have steps, macros, dietary_tags, meal_prep_friendly, gpt-image-1 images
+- 2,600+ curated recipes (live count: 2,619 as of 2026-05-04 — verify with `node scripts/count-recipes.mjs`); all have steps, macros, dietary_tags, meal_prep_friendly, gpt-image-1 images
 - Vercel functions: /api/macros, /api/taste-profile, /api/generate-recipe, /api/storage-tip, /api/send-welcome-email, /api/sentry-test (10 user-facing + 2 cron; Hobby plan limit is 12 — Kroger functions removed 2026-04-28; `_`-prefixed files don't count)
 - app.json: name Mori, bundle ID app.getmori.mori
 - Landing page: getmori.app (Vercel), hello@getmori.app email routing. Screenshots + taste profile section updated. **Served from `public/index.html` — `landing/index.html` is a stale copy, do not edit it.**

@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Mori — Swipe. Order. Cook.</title>
-<meta name="description" content="The recipe app that learns your taste. Swipe through personalised recipes, build a smart grocery list, and order ingredients in one tap.">
+<meta name="description" content="The recipe app that learns your taste. Swipe through personalised recipes, build a smart grocery list, and order ingredients in one tap. Mori+ adds AI weekly meal planning, Sunday recipe drops, and a macro coach — coming summer 2026.">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Mori">
@@ -782,6 +782,128 @@ nav {
   .duo-floater-lbl { font-size: 0.7rem; }
 }
 
+/* ── MORI+ ── */
+.plus-section {
+  background:
+    radial-gradient(ellipse 50% 40% at 100% 0%, rgba(46,84,56,0.10) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 50% at 0% 100%, rgba(232,221,208,0.6) 0%, transparent 60%),
+    var(--linen);
+  border-top: 1px solid #E8DDD0;
+  border-bottom: 1px solid #E8DDD0;
+  padding: 6rem 2rem;
+}
+.plus-inner { max-width: 1100px; margin: 0 auto; }
+.plus-eyebrow { display: flex; align-items: center; gap: 12px; margin-bottom: 1.25rem; }
+.plus-badge {
+  width: 28px; height: 28px; border-radius: 8px;
+  background: var(--moss); color: #fff;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: 'Playfair Display', serif;
+  font-style: italic; font-size: 1.2rem; font-weight: 700;
+  line-height: 1;
+}
+.plus-title {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(2rem, 4.5vw, 3.25rem);
+  font-weight: 700; color: var(--moss); line-height: 1.05;
+  margin-bottom: 1.25rem; letter-spacing: -0.02em;
+}
+.plus-title em { font-style: italic; font-weight: 400; }
+.plus-sub {
+  font-size: 1.05rem; line-height: 1.6;
+  color: var(--text-mid); font-weight: 300;
+  max-width: 680px; margin-bottom: 3.5rem;
+}
+.plus-grid {
+  display: grid; grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem; margin-bottom: 4rem;
+}
+.plus-card {
+  background: #fff;
+  border: 1px solid rgba(46,84,56,0.12);
+  border-radius: 18px;
+  padding: 2rem 1.75rem;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.plus-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px rgba(46,84,56,0.12);
+}
+.plus-icon {
+  width: 40px; height: 40px;
+  border-radius: 10px;
+  background: var(--linen);
+  border: 1px solid #E8DDD0;
+  color: var(--moss);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.1rem;
+  margin-bottom: 1rem;
+}
+.plus-card-title {
+  font-family: 'Playfair Display', serif;
+  font-style: italic; font-size: 1.25rem;
+  color: var(--moss); margin-bottom: 0.5rem;
+  font-weight: 400;
+}
+.plus-card-desc {
+  font-size: 0.9rem; line-height: 1.6;
+  color: var(--text-mid); font-weight: 300;
+}
+.plus-cta {
+  background: var(--moss); color: #fff;
+  border-radius: 24px;
+  padding: 3rem 2.5rem;
+  text-align: center;
+}
+.plus-cta-title {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(1.4rem, 3vw, 1.85rem);
+  font-weight: 700;
+  margin-bottom: 0.5rem; line-height: 1.2;
+}
+.plus-cta-title em { font-style: italic; color: #D4C9B5; font-weight: 400; }
+.plus-cta-sub {
+  font-size: 0.875rem; color: rgba(255,255,255,0.75);
+  margin-bottom: 1.75rem; font-weight: 300;
+}
+.plus-form {
+  display: flex; gap: 8px; max-width: 420px; margin: 0 auto;
+}
+.plus-form input {
+  flex: 1; background: rgba(255,255,255,0.12);
+  border: 1.5px solid rgba(255,255,255,0.3);
+  border-radius: 999px; padding: 0.75rem 1.2rem;
+  font-family: 'DM Sans', sans-serif; font-size: 1rem; /* 16px min — prevents iOS auto-zoom */
+  color: #fff; outline: none; transition: all 0.2s;
+  -webkit-appearance: none;
+}
+.plus-form input::placeholder { color: rgba(255,255,255,0.5); }
+.plus-form input:focus { border-color: rgba(255,255,255,0.65); }
+.plus-form button {
+  background: #fff; color: var(--moss);
+  border: none; padding: 0.75rem 1.4rem;
+  border-radius: 999px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.875rem; font-weight: 500;
+  cursor: pointer; white-space: nowrap;
+  min-height: 44px;
+  transition: all 0.2s;
+}
+.plus-form button:hover { background: #F1F0EA; }
+.plus-msg {
+  margin-top: 0.875rem; font-size: 0.8rem;
+  min-height: 1em;
+  color: rgba(255,255,255,0.85);
+}
+@media (max-width: 768px) {
+  .plus-section { padding: 4rem 1.25rem; }
+  .plus-grid { grid-template-columns: 1fr; gap: 1rem; margin-bottom: 2.5rem; }
+  .plus-card { padding: 1.5rem 1.25rem; }
+  .plus-cta { padding: 2.25rem 1.5rem; border-radius: 20px; }
+  .plus-form { flex-direction: column; }
+  .plus-form button { width: 100%; }
+}
+
 /* ── CTA ── */
 .cta-section {
   padding: 6rem 2rem; text-align: center;
@@ -910,6 +1032,7 @@ footer {
   <div class="nav-right">
     <a href="#features" class="nav-link">Features</a>
     <a href="#screens" class="nav-link">App</a>
+    <a href="#plus" class="nav-link">Mori+</a>
     <a href="https://testflight.apple.com/join/8MP7Q329" class="btn-primary js-beta-cta" data-placement="nav" target="_blank" rel="noopener">Join the Beta</a>
   </div>
 </nav>
@@ -961,7 +1084,7 @@ footer {
 <div class="stats-bar reveal">
   <div class="stats-inner">
     <div>
-      <div class="stat-num">1,500+</div>
+      <div class="stat-num">2,500+</div>
       <div class="stat-label">Curated recipes, every one tested</div>
     </div>
     <div>
@@ -1231,6 +1354,51 @@ footer {
   </div>
 </section>
 
+<!-- MORI+ -->
+<section class="plus-section" id="plus">
+  <div class="plus-inner reveal">
+    <div class="plus-eyebrow">
+      <span class="plus-badge">+</span>
+      <span class="section-eyebrow" style="margin:0;color:var(--moss);">Mori+ · Coming summer 2026</span>
+    </div>
+    <h2 class="plus-title">Your kitchen,<br><em>on autopilot.</em></h2>
+    <p class="plus-sub">The free Mori finds you recipes. Mori+ runs your week. AI builds the meal plan, a fresh recipe pack lands every Sunday morning, and a coach quietly keeps you on macros.</p>
+
+    <div class="plus-grid">
+      <div class="plus-card">
+        <div class="plus-icon">✦</div>
+        <h3 class="plus-card-title">Build your week</h3>
+        <p class="plus-card-desc">One tap. AI fills the empty meal slots from your saved library, leftovers, pantry, and macro targets — in seconds, not Sunday-night-spreadsheet minutes.</p>
+      </div>
+      <div class="plus-card">
+        <div class="plus-icon">◉</div>
+        <h3 class="plus-card-title">Sunday Drop</h3>
+        <p class="plus-card-desc">Seven new personalised recipes hit your phone every Sunday morning. Tuned to your taste, the season, and what you've actually been cooking.</p>
+      </div>
+      <div class="plus-card">
+        <div class="plus-icon">◫</div>
+        <h3 class="plus-card-title">Cook what you have</h3>
+        <p class="plus-card-desc">Mori+ generates dinners using only what's in your kitchen — a half-pack of salmon, the broccoli that's about to turn, the lemon you forgot. Minimal extra grocery runs.</p>
+      </div>
+      <div class="plus-card">
+        <div class="plus-icon">◎</div>
+        <h3 class="plus-card-title">Macro coach</h3>
+        <p class="plus-card-desc">Set a goal, log a meal, get gap-filling dinner suggestions. The weekly review tells you which days you nailed it and which Wednesday was just two crackers.</p>
+      </div>
+    </div>
+
+    <div class="plus-cta">
+      <h3 class="plus-cta-title"><em>Founders</em> get a lifetime offer.</h3>
+      <p class="plus-cta-sub">First 60 days after launch · $79.99 once · No renewal · Limited.</p>
+      <form id="plus-form" class="plus-form" data-source="mori-plus-founders" onsubmit="handleSubmit(event, 'plus')" novalidate>
+        <input type="email" required placeholder="you@example.com" aria-label="Email" autocomplete="email" inputmode="email">
+        <button type="submit">Notify me</button>
+      </form>
+      <p id="plus-msg" class="plus-msg" role="status" aria-live="polite"></p>
+    </div>
+  </div>
+</section>
+
 <!-- CTA -->
 <section class="cta-section" id="beta">
   <h2 class="cta-title">Stop staring<br><em>at the fridge.</em></h2>
@@ -1262,6 +1430,13 @@ async function handleSubmit(e, id) {
   const msg = document.getElementById(id + '-msg');
   const btn = form.querySelector('button[type="submit"]');
   const email = input.value.trim();
+  // Forms tag themselves with data-source so a single /api/waitlist endpoint
+  // can segment signups (e.g. 'mori-plus-founders'). Until the dedicated
+  // founders_waitlist endpoint ships, this rides on the existing waitlist
+  // table's `name` column — query by name to extract the founders cohort.
+  const source = form.dataset.source || null;
+  // Visual style flips per-surface: dark sections use light error/success text.
+  const onDarkBg = id === 'cta' || id === 'plus';
 
   btn.disabled = true;
   btn.style.opacity = '0.7';
@@ -1270,21 +1445,24 @@ async function handleSubmit(e, id) {
     const res = await fetch('/api/waitlist', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email }),
+      body: JSON.stringify(source ? { email, name: source } : { email }),
     });
     const data = await res.json();
 
     if (res.ok && data.success) {
       input.value = '';
-      msg.style.color = id === 'cta' ? 'rgba(255,255,255,0.8)' : '#2E7D32';
-      msg.textContent = "You're on the list — we'll be in touch before launch.";
-      setTimeout(() => { msg.textContent = ''; }, 5000);
+      msg.style.color = onDarkBg ? 'rgba(255,255,255,0.85)' : '#2E7D32';
+      msg.textContent = id === 'plus'
+        ? "You're on the founders list — we'll email you when Mori+ launches."
+        : "You're on the list — we'll be in touch before launch.";
+      track(id === 'plus' ? 'plus_waitlist_signup' : 'waitlist_signup', { placement: id });
+      setTimeout(() => { msg.textContent = ''; }, 6000);
     } else {
-      msg.style.color = id === 'cta' ? 'rgba(255,100,100,0.9)' : '#D32F2F';
+      msg.style.color = onDarkBg ? 'rgba(255,170,170,0.95)' : '#D32F2F';
       msg.textContent = data.error || 'Something went wrong. Try again.';
     }
   } catch {
-    msg.style.color = id === 'cta' ? 'rgba(255,100,100,0.9)' : '#D32F2F';
+    msg.style.color = onDarkBg ? 'rgba(255,170,170,0.95)' : '#D32F2F';
     msg.textContent = 'Something went wrong. Try again.';
   } finally {
     btn.disabled = false;
