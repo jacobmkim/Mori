@@ -34,9 +34,10 @@ if (!OPENAI_KEY) { console.error('Missing OPENAI_API_KEY in .env'); process.exit
 
 const sb = createClient(SUPABASE_URL, SERVICE_KEY);
 const args = process.argv.slice(2);
-const MISSING_ONLY = args.includes('--missing');
-const TEST_MODE    = args.includes('--test');    // only process 10 random recipes
-const CLEANSE      = args.includes('--cleanse'); // wipe all existing images first
+const MISSING_ONLY    = args.includes('--missing');
+const TEST_MODE       = args.includes('--test');    // only process 10 random recipes
+const CLEANSE         = args.includes('--cleanse'); // wipe all existing images first
+const INCLUDE_MEALDB  = args.includes('--include-mealdb'); // also process recipes with external_id
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
@@ -107,14 +108,21 @@ async function uploadToSupabase(imageUrl, recipeId) {
     buffer = await res.arrayBuffer();
   }
 
+  // Sniff actual format — gpt-image-1 returns PNG. Anthropic vision strictly validates
+  // magic bytes vs declared MIME, so we must label correctly.
+  const bytes = new Uint8Array(buffer instanceof ArrayBuffer ? buffer : buffer.buffer);
+  const isPng = bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47;
+  const ext = isPng ? 'png' : 'jpg';
+  const contentType = isPng ? 'image/png' : 'image/jpeg';
+
   // Test mode uses a timestamped folder so CDN doesn't serve stale cached images
   const folder = TEST_MODE ? `test-${Date.now()}` : 'generated';
-  const path = `${folder}/${recipeId}.jpg`;
+  const path = `${folder}/${recipeId}.${ext}`;
 
   const { data, error } = await sb.storage
     .from('recipe-images')
     .upload(path, buffer, {
-      contentType: 'image/jpeg',
+      contentType,
       upsert: true,
     });
 
@@ -144,9 +152,9 @@ async function main() {
   // ── Fetch recipes ────────────────────────────────────────────────────────────
   let query = sb
     .from('recipes')
-    .select('id, title, cuisine, description, ingredients, steps')
-    .is('external_id', null);
+    .select('id, title, cuisine, description, ingredients, steps');
 
+  if (!INCLUDE_MEALDB) query = query.is('external_id', null);
   if (MISSING_ONLY || CLEANSE) query = query.is('image_url', null);
   if (TEST_MODE) query = query.limit(50);
   else query = query.order('created_at', { ascending: true });

@@ -46,22 +46,32 @@ const DRY_RUN   = args.includes('--dry-run');
 const VERBOSE   = args.includes('--verbose');
 const LIMIT     = (() => { const i = args.indexOf('--limit');  return i >= 0 ? parseInt(args[i + 1], 10) : Infinity; })();
 const START_OFF = (() => { const i = args.indexOf('--offset'); return i >= 0 ? parseInt(args[i + 1], 10) : 0; })();
+const THRESHOLD = (() => { const i = args.indexOf('--threshold'); return i >= 0 ? parseInt(args[i + 1], 10) : 80; })();
 
-const CONFIDENCE_THRESHOLD = 80;
+const CONFIDENCE_THRESHOLD = THRESHOLD;
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-// ── Fetch image as base64 ─────────────────────────────────────────────────────
-async function fetchImageBase64(url) {
+// ── Fetch image + sniff actual MIME (Supabase mislabels PNG as JPEG) ──────────
+function sniffMime(bytes) {
+  if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return 'image/png';
+  if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return 'image/jpeg';
+  if (bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46) return 'image/gif';
+  if (bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46) return 'image/webp';
+  return 'image/jpeg';
+}
+
+async function fetchImage(url) {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`HTTP ${res.status} fetching image`);
   const buffer = await res.arrayBuffer();
-  return Buffer.from(buffer).toString('base64');
+  const bytes = new Uint8Array(buffer);
+  return { base64: Buffer.from(buffer).toString('base64'), mediaType: sniffMime(bytes) };
 }
 
 // ── Haiku vision audit ────────────────────────────────────────────────────────
 async function auditImage(title, imageUrl) {
-  const base64 = await fetchImageBase64(imageUrl);
+  const { base64, mediaType } = await fetchImage(imageUrl);
 
   const msg = await anthropic.messages.create({
     model: 'claude-haiku-4-5-20251001',
@@ -71,7 +81,7 @@ async function auditImage(title, imageUrl) {
       content: [
         {
           type: 'image',
-          source: { type: 'base64', media_type: 'image/jpeg', data: base64 },
+          source: { type: 'base64', media_type: mediaType, data: base64 },
         },
         {
           type: 'text',

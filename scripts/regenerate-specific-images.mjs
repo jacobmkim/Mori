@@ -82,9 +82,14 @@ async function uploadToSupabase(imageUrl, recipeId) {
     if (!res.ok) throw new Error(`Fetch image failed: ${res.status}`);
     buffer = await res.arrayBuffer();
   }
-  const path = `generated/${recipeId}.jpg`;
+  const bytes = new Uint8Array(buffer instanceof ArrayBuffer ? buffer : buffer.buffer);
+  const isPng = bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47;
+  const ext = isPng ? 'png' : 'jpg';
+  const contentType = isPng ? 'image/png' : 'image/jpeg';
+
+  const path = `generated/${recipeId}.${ext}`;
   const { error } = await sb.storage.from('recipe-images').upload(path, buffer, {
-    contentType: 'image/jpeg',
+    contentType,
     upsert: true,
   });
   if (error) throw new Error(`Storage upload failed: ${error.message}`);
