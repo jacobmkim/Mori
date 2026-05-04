@@ -4,35 +4,48 @@
 
 Top priority right now is shipping Mori v1 (free tier, no Mori+) to the App Store.
 
-### Code work — DONE 2026-05-03 (on `main`, uncommitted)
-- `app.json` — `ios.privacyManifests` block declares UserDefaults / FileTimestamp / SystemBootTime / DiskSpace required reasons.
-- `api/delete-account.ts` — POST endpoint, JWT auth, password reauth, ordered deletes across all user-owned tables, de-attributes + soft-deletes user-submitted community recipes, then `auth.admin.deleteUser`. **Pushes Vercel function count to 13 → Hobby plan limit is 12, so deploy will fail until Vercel is upgraded to Pro.**
-- `supabase/add-account-deletion.sql` — adds `ON DELETE CASCADE` to all user-owned FKs (defense-in-depth; the API does ordered deletes already).
+### Code work — SHIPPED to `main` (2026-05-03 → 2026-05-04)
+Commits on `origin/main`: `082257a` → `1bbfe61` → `603754c` → `f99a586`.
+- `app.json` — `ios.privacyManifests` block declares UserDefaults (`CA92.1`), FileTimestamp (`C617.1`), SystemBootTime (`35F9.1`), DiskSpace (`E174.1`).
+- `api/delete-account.ts` — POST endpoint, JWT auth, password reauth (3 independent guards: no-error + session-minted + user-id-matches-JWT), ordered deletes across all user-owned tables (`recipe_flags` uses `flagged_by`, others `user_id`), de-attributes + soft-deletes user-submitted community recipes, then `auth.admin.deleteUser`.
+- `supabase/add-account-deletion.sql` — applied. `ON DELETE CASCADE` on all user-owned FKs.
 - `lib/api.ts` — `deleteMyAccount(password)` client wrapper.
-- `app/help.tsx` — Help screen: Contact (mailto bug/feature/question with prefilled version + user ID + platform), FAQ (collapsible), How to use, Privacy Policy link.
-- `components/ProfileSheet.tsx` — Privacy Policy row replaced with `Help & Support` (deep-links to `/help`); Delete Account row at the very bottom of the overview tab + `DeleteAccountModal` (warn step → password reauth step).
-- `app/privacy-policy.tsx` — fixed pre-existing crash (`const { colors } = useTheme()` → `const colors = useTheme()`); updated retention/deletion section to point at the in-app flow.
-- `public/privacy.html` — section 8 updated to reference the in-app delete flow.
+- `app/help.tsx` — Help screen: Contact (mailto bug/feature/question, prefilled w/ version + user ID + platform), FAQ (collapsible), How to use, Privacy Policy link.
+- `components/ProfileSheet.tsx` — `Help & Support` row replaces standalone Privacy Policy row; Delete Account row at bottom of overview tab + `DeleteAccountModal` (warn → password reauth → success).
+- `app/privacy-policy.tsx` — fixed pre-existing crash (`const { colors } = useTheme()` → `const colors = useTheme()`); deletion section now points at in-app flow.
+- `public/privacy.html` — section 8 references in-app delete flow.
+- **Cook flow regression fixed across all tabs** — `recipes.tsx`, `explore.tsx`, `plan.tsx` were missing `onMarkCooked` on `<RecipeDetailModal>`. Each now logs the interaction, calls `updateStreakAndCount`, and shows new badges via `BadgeAchievementModal`. Previously only Discover-tab cooks updated streak.
 
-### Manual / external work — REMAINING (only you can do)
-- Vercel Pro: ✅ on plan (commercial-use compliant + 1000-function ceiling).
-- Supabase: still on Free. Auto-pause risk during Apple review is mitigated by the daily `streak-reminders` cron at `0 19 * * *` UTC, which keeps the DB warm. Watch storage/bandwidth post-launch and upgrade to Pro at first sign of strain.
-- Apply `supabase/add-account-deletion.sql` in Supabase SQL Editor.
-- New `eas build --profile production --platform ios` (last TestFlight build predates the v1 App Store changes; that build cannot ship to App Store).
-- Optional: push the new build to TestFlight first, smoke-test deletion flow on a real device.
-- App Store Connect:
-  - Deselect EU storefronts (skips DSA Trader Status declaration).
-  - Fill App Privacy nutrition labels to match `public/privacy.html` exactly. Declare NO Purchases for v1.
-  - App metadata (name, subtitle, description, keywords ≤100 bytes, support/marketing URLs, primary category Food & Drink).
-  - 5–8 iPhone 6.9" (1320×2868) screenshots.
-  - Age rating questionnaire (UGC: yes, moderation: yes — content reviewed via `moderation_status` field).
-  - Copyright: `© 2026 Mori`.
-  - Pre-seeded reviewer Supabase account (8–12 saves, populated pantry, completed taste profile, one cooked recipe for streak).
-  - Demo account creds + walkthrough notes. Mention "Supabase email-only auth, exempt from Guideline 4.8."
-  - **Do NOT mention Mori+ anywhere in v1 metadata** (Guideline 2.3.10 — inaccurate metadata).
-- `eas submit --profile production --platform ios` → Submit for Review.
+### Pre-final-build checklist (run before `eas build --profile production --platform ios`)
 
-After the next TestFlight upload Apple will email any additional missing required-reason API categories — use that to expand the privacy manifest if needed.
+- [x] Vercel Pro on plan.
+- [x] `supabase/add-account-deletion.sql` applied in production.
+- [x] `/api/delete-account` deployed in production (`curl -i -X POST https://getmori.app/api/delete-account` → 401).
+- [x] Reviewer demo account seeded — see [.claude/apple-review-info.md](.claude/apple-review-info.md).
+- [x] Account deletion smoke-tested in Expo Go (correct password deletes, wrong password rejected, all user-owned rows cleaned up via SQL verification).
+- [x] Help screen + Privacy Policy modal verified working.
+- [x] Cook flow → streak + badges fire from every tab (Discover, Recipes, Explore, Plan).
+- [ ] **Run `eas env:list --environment production`** and confirm: `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`, `EXPO_PUBLIC_API_URL=https://getmori.app`, `EXPO_PUBLIC_SENTRY_DSN`, `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT` all present. Missing `EXPO_PUBLIC_*` vars Babel-inline as `undefined` → silent feature failures.
+- [ ] Confirm `getmori.app/privacy` and `getmori.app/support` resolve in a browser (App Store Connect references both).
+- [ ] Mori-plus drift on `main` (modified `app/_layout.tsx`, `eas.json`, `stores/userStore.ts`, `public/index.html` + untracked `lib/featureFlags.ts`, `lib/revenueCat.ts`) is **NOT committed** — `git archive HEAD` excludes uncommitted modifications, so EAS Build won't include them. Verify with `git diff HEAD --name-only` before triggering the build; nothing tied to `mori-plus` should appear in the diff base.
+
+### App Store Connect setup (after build is in TestFlight)
+- Deselect EU storefronts (skips DSA Trader Status declaration).
+- App Privacy nutrition labels — match `public/privacy.html` exactly. Declare **NO** Purchases for v1.
+- App metadata: name, subtitle (≤30), description (≤4000), keywords (≤100 bytes), support URL, marketing URL, primary category **Food & Drink**.
+- 5–8 iPhone 6.9" (1320×2868) screenshots.
+- Age rating questionnaire — UGC: yes, moderation: yes (content reviewed via `moderation_status` field).
+- Copyright: `© 2026 Mori`.
+- App Review Information — paste demo creds + notes from [.claude/apple-review-info.md](.claude/apple-review-info.md).
+- **Do NOT mention Mori+ anywhere in v1 metadata** (Guideline 2.3.10 — inaccurate metadata).
+
+### Submit
+- `eas build --profile production --platform ios`
+- Wait for TestFlight Internal — install on device, smoke-test deletion + cook + Help one more time.
+- `eas submit --profile production --platform ios`
+- App Store Connect → **Submit for Review**.
+
+After the TestFlight upload Apple will email any additional missing required-reason API categories — add them to `app.json`'s `privacyManifests` block and rebuild if needed.
 
 ### v1.1 (Mori+) — paid IAP submission rules
 When ready to ship the `mori-plus` branch:
@@ -128,7 +141,7 @@ Mori is a swipe-based recipe discovery app. Users swipe on recipe cards → save
 ### ❌ Phase 4 — Grocery APIs
 - ⛔ **Kroger removed (2026-04-28)** — `api/kroger-auth.ts`, `api/kroger-cart.ts`, `supabase/add-kroger-tokens.sql`, and the `KrogerSheet` UI in `grocery-list.tsx` deleted. Freed two Vercel function slots for `send-welcome-email`. The `kroger_tokens` table itself was not dropped from Supabase — drop manually if you want the rows gone (`DROP TABLE kroger_tokens;`). All grocery flow now goes through Instacart.
 - ✅ **Instacart integration** — `api/instacart-cart.ts` live. Link-generation model: POST items → get URL → open in WebBrowser. No OAuth needed. Sandbox key active (`INSTACART_API_KEY`). **Prod key pending** — apply at developer.instacart.com. When approved: add `INSTACART_ENVIRONMENT=production` to Vercel env vars.
-  - ✅ **Staples + pantry filter on send** — `partitionForInstacart()` in `lib/staples.ts` strips staples + any item in user's `pantry_items`. Inline notice: "Skipping 3 staples · 2 pantry items". Empty-after-filter → "Nothing to order" alert. Staples expanded: distilled vinegars (balsamic excluded), extended dry spices, sweeteners (honey, maple syrup, etc.) — all USDA indefinite shelf life.
+  - ✅ **Staples filter + pantry hints on send** — `partitionForInstacart()` in `lib/staples.ts` auto-strips staples (USDA-shelf-stable; distilled vinegars excl. balsamic, dry spices, sweeteners, etc.). Pantry items are a *hint* (2026-05-04 after user reported eggs being silently stripped from a Korean egg soufflé cart): sent by default, with an inline `IN PANTRY` / `SKIPPED — TAP TO SEND` pill on each row so the user can opt out per-item. Notice line shows only "Skipping N staples you likely have". Empty-after-filter alert names the dropped items + offers "Send anyway" override.
   - ✅ **Ingredient quantity normalization** — `scripts/normalize-ingredient-units.mjs` ran on all 1,294 metric-unit recipes. Haiku rewrote metric → US grocery amounts AND converted count-based proteins to weight (e.g. "4 salmon fillets" → "1.5 lb", "8 chicken thighs" → "2 lb", "300g spinach" → "10 oz"). `whole`/`wholes` added to UNIT_MAP in `lib/instacartUtils.ts`. Instacart now auto-calculates correct package counts from weight measurements.
   - ✅ **Structured qty/unit spike** — `lib/instacartUtils.ts` (`parseGroceryMeasurement`, `convertMeasurementToUs`, `formatGroceryQuantity`). Grocery list passes structured `measurement` field to Instacart + converts metric → US when `unitSystem === 'us'`.
   - ⏳ **Product preferences (organic / brand)** — no UX yet. Defer until post-launch signal justifies.
@@ -256,7 +269,7 @@ __tests__/                 ✅ Jest 29 + jest-expo@54 — 36 suites, 471 tests
   lib/scoreRecipe.test.ts  leftover bonus (+2/match, cap +10, substring, no double-count)
   lib/urgentLeftover.test.ts   date window, dismiss filter, NaN guard
   lib/instacartUtils.test.ts   parse/format/convert measurement
-  lib/partitionForInstacart.test.ts  staples + pantry filter on send
+  lib/partitionForInstacart.test.ts  staples auto-skip; pantry items go into sendable + named in pantryHints
   lib/badges.test.ts       milestone unlock + streak math
   lib/communityVisibility.test.ts  is_public + moderation_status filtering
   lib/enrichCommunityRecipe.test.ts  Haiku post-processing
