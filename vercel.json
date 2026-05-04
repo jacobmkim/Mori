@@ -41,6 +41,8 @@
     }
   ],
   "rewrites": [
-    { "source": "/privacy", "destination": "/privacy.html" }
+    { "source": "/privacy", "destination": "/privacy.html" },
+    { "source": "/verify-email", "destination": "/verify-email.html" },
+    { "source": "/support", "destination": "/support.html" }
   ]
 }

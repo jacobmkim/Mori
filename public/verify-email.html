@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex" />
+  <title>Verify email — Mori</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro", "Segoe UI", Roboto, sans-serif;
+      font-size: 16px;
+      line-height: 1.6;
+      color: #2E5438;
+      background: #F8F3EC;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1rem;
+    }
+    .card {
+      max-width: 440px;
+      width: 100%;
+      background: #FFFFFF;
+      border-radius: 16px;
+      padding: 2.5rem 2rem;
+      text-align: center;
+    }
+    .wordmark {
+      font-family: Georgia, serif;
+      font-style: italic;
+      font-size: 22px;
+      color: #2E5438;
+      letter-spacing: -0.05em;
+      margin-bottom: 2rem;
+    }
+    .icon {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      margin: 0 auto 1.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 40px;
+      line-height: 1;
+    }
+    .icon.success { background: #E8F1E9; color: #2E5438; }
+    .icon.warn    { background: #F1ECE2; color: #7A8073; }
+    .icon.error   { background: #F4E4E4; color: #B33A3A; }
+    h1 {
+      font-family: Georgia, serif;
+      font-style: italic;
+      font-size: 28px;
+      font-weight: 400;
+      margin-bottom: 0.75rem;
+      color: #2E5438;
+    }
+    p { color: #2E5438; margin-bottom: 0.75rem; }
+    .muted { color: #7A8073; font-size: 14px; }
+    .spinner {
+      width: 36px;
+      height: 36px;
+      border: 3px solid #E8E2D2;
+      border-top-color: #2E5438;
+      border-radius: 50%;
+      margin: 0 auto 1.25rem;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    [hidden] { display: none !important; }
+    footer {
+      margin-top: 1.5rem;
+      font-size: 12px;
+      color: #7A8073;
+    }
+    footer a { color: #2E5438; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="wordmark">mori</div>
+
+    <div id="state-loading">
+      <div class="spinner" aria-hidden="true"></div>
+      <p class="muted">Verifying your email…</p>
+    </div>
+
+    <div id="state-success" hidden>
+      <div class="icon success" aria-hidden="true">✓</div>
+      <h1>Email verified</h1>
+      <p>Thanks — your account is all set.</p>
+      <p class="muted">You can close this tab and head back to Mori.</p>
+    </div>
+
+    <div id="state-expired" hidden>
+      <div class="icon warn" aria-hidden="true">⏱</div>
+      <h1>Link expired</h1>
+      <p>Verification links last 24 hours.</p>
+      <p class="muted">Open Mori and tap <strong>Resend</strong> on the verification banner to get a new one.</p>
+    </div>
+
+    <div id="state-invalid" hidden>
+      <div class="icon error" aria-hidden="true">!</div>
+      <h1>Couldn't verify</h1>
+      <p>This link looks invalid or has already been used.</p>
+      <p class="muted">If you still see the verification banner, open Mori and tap <strong>Resend</strong>.</p>
+    </div>
+
+    <div id="state-error" hidden>
+      <div class="icon error" aria-hidden="true">!</div>
+      <h1>Something went wrong</h1>
+      <p class="muted">Check your connection and try again.</p>
+      <p style="margin-top: 1rem;">
+        <button id="retry" type="button" style="background:#2E5438;color:#fff;border:0;border-radius:12px;padding:12px 24px;font-size:15px;font-weight:600;cursor:pointer;">Try again</button>
+      </p>
+    </div>
+
+    <noscript>
+      <div class="icon warn" aria-hidden="true">⚠</div>
+      <h1>JavaScript required</h1>
+      <p class="muted">Please open this link in a browser with JavaScript enabled.</p>
+    </noscript>
+  </div>
+
+  <footer>
+    <a href="/">getmori.app</a>
+  </footer>
+
+  <script>
+    (function () {
+      var states = {
+        loading: document.getElementById('state-loading'),
+        success: document.getElementById('state-success'),
+        expired: document.getElementById('state-expired'),
+        invalid: document.getElementById('state-invalid'),
+        error:   document.getElementById('state-error'),
+      };
+
+      function show(name) {
+        Object.keys(states).forEach(function (k) {
+          if (states[k]) states[k].hidden = (k !== name);
+        });
+      }
+
+      function getToken() {
+        var params = new URLSearchParams(window.location.search);
+        var t = params.get('token');
+        if (!t) return null;
+        return /^[0-9a-fA-F-]{36}$/.test(t) ? t : null;
+      }
+
+      function verify() {
+        show('loading');
+        var token = getToken();
+        if (!token) { show('invalid'); return; }
+
+        fetch('/api/send-welcome-email?token=' + encodeURIComponent(token), {
+          method: 'GET',
+          headers: { 'Accept': 'application/json' },
+          credentials: 'omit',
+        })
+          .then(function (res) {
+            if (res.ok)            { show('success'); return; }
+            if (res.status === 410) { show('expired'); return; }
+            if (res.status === 400 || res.status === 404) { show('invalid'); return; }
+            show('error');
+          })
+          .catch(function () { show('error'); });
+      }
+
+      var retry = document.getElementById('retry');
+      if (retry) retry.addEventListener('click', verify);
+
+      verify();
+    })();
+  </script>
+</body>
+</html>
