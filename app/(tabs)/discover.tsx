@@ -434,18 +434,12 @@ export default function Discover() {
     extrapolate: 'clamp',
   })).current;
 
-  // Next card (stackIndex=1) scales up, slides up, and fades in as you drag
+  // Next card (stackIndex=1) scales up as you drag — sits centered behind the top card
+  // so it stays fully hidden at rest (scale alone provides the depth cue).
   const nextCardScale = useRef(
     swipeProgress.interpolate({
       inputRange: [0, 1],
       outputRange: [(CARD_WIDTH - 8) / CARD_WIDTH, 1],
-    })
-  ).current;
-
-  const nextCardTranslateY = useRef(
-    swipeProgress.interpolate({
-      inputRange: [0, 1],
-      outputRange: [8, 0],
     })
   ).current;
 
@@ -960,7 +954,6 @@ export default function Discover() {
                       transform: [
                         { scaleX: nextCardScale },
                         { scaleY: nextCardScale },
-                        { translateY: nextCardTranslateY },
                       ],
                     }]}
                   >
@@ -985,7 +978,6 @@ export default function Discover() {
                     transform: [
                       { scaleX: (CARD_WIDTH - 8) / CARD_WIDTH },
                       { scaleY: (CARD_WIDTH - 8) / CARD_WIDTH },
-                      { translateY: 16 },
                     ],
                   }]}
                 >
