@@ -13,13 +13,15 @@ import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks/useTheme';
 import { formatTime } from '@/lib/utils';
-import { fetchTrendingRecipeIds, logInteraction } from '@/lib/api';
+import { fetchTrendingRecipeIds, logInteraction, resolveSupabaseId, updateStreakAndCount } from '@/lib/api';
 import { useUserStore } from '@/stores/userStore';
 import { useSavedStore } from '@/stores/savedStore';
 import { useGroceryStore } from '@/stores/groceryStore';
 import { supabase } from '@/lib/supabase';
 import { AvatarButton } from '@/components/AvatarButton';
 import { RecipeDetailModal } from '@/components/RecipeDetailModal';
+import { BadgeAchievementModal } from '@/components/badges/BadgeAchievementModal';
+import { getNewlyEarned, type Badge, type BadgeStats } from '@/lib/badges';
 import type { Recipe } from '@/types';
 import { CUISINES } from '@/constants/cuisines';
 
@@ -159,6 +161,7 @@ export default function Explore() {
 
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [detailVisible, setDetailVisible] = useState(false);
+  const [badgeQueue, setBadgeQueue] = useState<Badge[]>([]);
 
   const isSaved = useCallback((r: Recipe) =>
     savedRecipes.some((s) => s.supabase_id === r.supabase_id || s.id === r.id),
@@ -526,7 +529,30 @@ export default function Explore() {
           addFromDetail(selectedRecipe, scaledIngredients);
         }}
         onRemoveFromCart={() => { if (selectedRecipe) removeRecipeFromList(selectedRecipe.id); }}
+        onMarkCooked={() => {
+          if (!selectedRecipe || !userId) return;
+          const profile = useUserStore.getState().profile;
+          const preCooked = profile?.meals_cooked_count ?? 0;
+          const preLongest = profile?.longest_streak ?? 0;
+          resolveSupabaseId(selectedRecipe)
+            .then((supabaseId) => {
+              logInteraction(userId, supabaseId, 'cooked').catch(() => {});
+              updateStreakAndCount(userId).then((updates) => {
+                if (updates && profile) {
+                  useUserStore.getState().setProfile({ ...profile, ...updates });
+                  const base: Partial<BadgeStats> = { distinctCuisines: 0, cookedMealPrep: false, recipesSubmitted: 0 };
+                  const prevStats: BadgeStats = { totalCooked: preCooked, longestStreak: preLongest, ...base } as BadgeStats;
+                  const nextStats: BadgeStats = { totalCooked: updates.meals_cooked_count, longestStreak: updates.longest_streak, ...base } as BadgeStats;
+                  const newBadges = getNewlyEarned(prevStats, nextStats);
+                  if (newBadges.length) setBadgeQueue(newBadges);
+                }
+              }).catch(() => {});
+            })
+            .catch(() => {});
+        }}
       />
+
+      <BadgeAchievementModal queue={badgeQueue} onQueueChange={setBadgeQueue} />
 
     </SafeAreaView>
   );

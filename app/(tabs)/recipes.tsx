@@ -13,7 +13,9 @@ import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks/useTheme';
 import { formatTime } from '@/lib/utils';
-import { logInteraction, setRecipeLiked } from '@/lib/api';
+import { logInteraction, setRecipeLiked, resolveSupabaseId, updateStreakAndCount } from '@/lib/api';
+import { getNewlyEarned, type Badge, type BadgeStats } from '@/lib/badges';
+import { BadgeAchievementModal } from '@/components/badges/BadgeAchievementModal';
 
 // ── Filter constants ───────────────────────────────────────────────────────────
 const CUISINE_OPTIONS = [
@@ -275,6 +277,7 @@ export default function Recipes() {
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [detailVisible, setDetailVisible] = useState(false);
   const [isCooked, setIsCooked] = useState(false);
+  const [badgeQueue, setBadgeQueue] = useState<Badge[]>([]);
   const [wizardVisible, setWizardVisible] = useState(false);
   const [savedToastVisible, setSavedToastVisible] = useState(false);
   const savedToastOpacity = useRef(new Animated.Value(0)).current;
@@ -800,7 +803,31 @@ export default function Recipes() {
           addFromDetail(selectedRecipe, scaledIngredients);
         }}
         onRemoveFromCart={() => { if (selectedRecipe) removeRecipeFromList(selectedRecipe.id); }}
+        onMarkCooked={() => {
+          if (!selectedRecipe || !userId) return;
+          setIsCooked(true);
+          const profile = useUserStore.getState().profile;
+          const preCooked = profile?.meals_cooked_count ?? 0;
+          const preLongest = profile?.longest_streak ?? 0;
+          resolveSupabaseId(selectedRecipe)
+            .then((supabaseId) => {
+              logInteraction(userId, supabaseId, 'cooked').catch(() => {});
+              updateStreakAndCount(userId).then((updates) => {
+                if (updates && profile) {
+                  useUserStore.getState().setProfile({ ...profile, ...updates });
+                  const base: Partial<BadgeStats> = { distinctCuisines: 0, cookedMealPrep: false, recipesSubmitted: 0 };
+                  const prevStats: BadgeStats = { totalCooked: preCooked, longestStreak: preLongest, ...base } as BadgeStats;
+                  const nextStats: BadgeStats = { totalCooked: updates.meals_cooked_count, longestStreak: updates.longest_streak, ...base } as BadgeStats;
+                  const newBadges = getNewlyEarned(prevStats, nextStats);
+                  if (newBadges.length) setBadgeQueue(newBadges);
+                }
+              }).catch(() => {});
+            })
+            .catch(() => {});
+        }}
       />
+
+      <BadgeAchievementModal queue={badgeQueue} onQueueChange={setBadgeQueue} />
 
       {/* Add Recipe Wizard */}
       <AddRecipeWizard
