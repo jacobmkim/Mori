@@ -38,21 +38,24 @@ function getAnonClient() {
 }
 
 // Tables that store private user data — wiped on account deletion.
-// Ordered so children precede parents; missing tables are tolerated (some
-// migrations may not have been applied to every environment yet).
-const USER_OWNED_TABLES = [
-  'recipe_notes',
-  'recipe_reviews',
-  'recipe_flags',
-  'recipe_interactions',
-  'swipe_events',
-  'saved_recipes',
-  'pantry_items',
-  'grocery_lists',
-  'meal_plans',
-  'collections',
-  'user_cohorts',
-  'user_leftovers',
+// Each entry is [tableName, userIdColumnName]; recipe_flags uses `flagged_by`
+// (not `user_id`) per add-recipe-flags.sql, so we can't assume a uniform col.
+// Ordered so children precede parents; missing tables/cols are tolerated
+// (PG codes 42P01 = no such relation, 42703 = no such column — defensive
+// against migrations that may not have been applied to every environment).
+const USER_OWNED_TABLES: Array<[string, string]> = [
+  ['recipe_notes', 'user_id'],
+  ['recipe_reviews', 'user_id'],
+  ['recipe_flags', 'flagged_by'],
+  ['recipe_interactions', 'user_id'],
+  ['swipe_events', 'user_id'],
+  ['saved_recipes', 'user_id'],
+  ['pantry_items', 'user_id'],
+  ['grocery_lists', 'user_id'],
+  ['meal_plans', 'user_id'],
+  ['collections', 'user_id'],
+  ['user_cohorts', 'user_id'],
+  ['user_leftovers', 'user_id'],
 ];
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -130,10 +133,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Hard-delete private user data. Errors are logged but don't abort the
   // deletion — the user-facing promise is "your data is gone", and a partial
   // failure on a child row shouldn't block removing the auth user.
-  for (const table of USER_OWNED_TABLES) {
-    const { error } = await service.from(table).delete().eq('user_id', userId);
-    if (error && error.code !== '42P01') {
+  for (const [table, column] of USER_OWNED_TABLES) {
+    const { error } = await service.from(table).delete().eq(column, userId);
+    if (error && error.code !== '42P01' && error.code !== '42703') {
       // 42P01 = relation does not exist (table not present in this env)
+      // 42703 = column does not exist (schema drift between env and code)
       captureException(new Error(`delete-account: ${table} delete failed — ${error.message}`));
     }
   }
