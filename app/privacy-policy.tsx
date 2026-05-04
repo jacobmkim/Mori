@@ -26,7 +26,7 @@ export default function PrivacyPolicyScreen() {
         showsVerticalScrollIndicator={false}
       >
         <Text style={{ fontSize: 12, color: colors.textMuted, marginBottom: 20 }}>
-          Last updated: April 2026 (v3 — Recipe submissions & photos)
+          Last updated: May 2026 (v4 — Reviews, leftovers, push, diagnostics)
         </Text>
 
         <Section title="Overview" colors={colors}>
@@ -67,6 +67,36 @@ export default function PrivacyPolicyScreen() {
           <BulletItem colors={colors} label="Profile photo">
             If you set a profile picture, it is shown next to community recipes you submit.
           </BulletItem>
+          <BulletItem colors={colors} label="Display name & username">
+            Your display name appears on community recipes you publish. Your @username is a unique
+            handle on your profile. Both are editable in Profile → Edit Profile (usernames are
+            rate-limited to one change per 30 days).
+          </BulletItem>
+          <BulletItem colors={colors} label="Reviews & recipe flags">
+            If you write a review on a recipe you've cooked, the rating, text, and your display
+            name are visible to other users on that recipe page. If you flag a recipe as
+            inaccurate, the flag is recorded against your account so we can prevent abuse.
+          </BulletItem>
+          <BulletItem colors={colors} label="Streaks & badges">
+            We track how many days in a row you've cooked, the date of your most recent cook, and
+            which badges you've unlocked. Used to show progress in your profile and to send streak
+            reminders if you've enabled push.
+          </BulletItem>
+          <BulletItem colors={colors} label="Leftovers">
+            If you log leftovers after cooking, the ingredient names and approximate spoil dates are
+            stored to power expiry reminders and to bias future recommendations toward what you
+            already have.
+          </BulletItem>
+          <BulletItem colors={colors} label="Push notification token">
+            If you grant push permission, Expo issues an anonymous device token that we store
+            against your account. We use it to send streak reminders, monthly taste-profile
+            updates, and badge unlocks. Revoking iOS notification permission stops all sends.
+          </BulletItem>
+          <BulletItem colors={colors} label="Diagnostic data">
+            We use Sentry to capture crashes and unhandled errors so we can fix bugs. Personally
+            identifiable information (IP, headers, device IDs) is filtered out client-side before
+            events are sent. Session replay is disabled.
+          </BulletItem>
         </Section>
 
         <Section title="What We Don't Collect" colors={colors}>
@@ -81,14 +111,22 @@ export default function PrivacyPolicyScreen() {
           to your taste, generating personalised content (taste profiles, macro estimates, storage
           tips) via AI, and enabling features like meal planning and grocery lists.
 
-          {'\n\n'}AI-generated content (taste profiles, macro estimates) is produced by Anthropic's
-          Claude. Your recipe interactions are sent to our server to generate these insights but are
-          not stored by Anthropic.
+          {'\n\n'}AI-generated content (taste profiles, macro estimates, storage tips, recipe
+          validation) is produced by Anthropic's Claude. Your recipe interactions are sent to our
+          server to generate these insights but are not stored by Anthropic.
 
           {'\n\n'}Your Taste Profile is refreshed automatically once a month using your latest
           activity. If it has changed since you last opened the app, a brief in-app notice will show
           you the update. No personal data leaves our servers for this feature — the profile is
           generated server-side and stored in your account only.
+
+          {'\n\n'}If you grant push permission, we send transactional notifications: a daily
+          streak-at-risk reminder (only if your streak would break that night), a monthly notice
+          when your taste profile updates, and badge-unlock alerts. We do not send marketing or
+          promotional pushes. Revoke at any time in iOS Settings.
+
+          {'\n\n'}Transactional email is sent via Resend (welcome / verify-email at signup, password
+          reset). We do not send marketing email.
         </Section>
 
         <Section title="Data Storage" colors={colors}>
@@ -108,13 +146,30 @@ export default function PrivacyPolicyScreen() {
         </Section>
 
         <Section title="Third-Party Services" colors={colors}>
-          <BulletItem colors={colors} label="Supabase">Authentication and data storage.</BulletItem>
+          <BulletItem colors={colors} label="Supabase">Authentication, data storage, recipe image hosting.</BulletItem>
           <BulletItem colors={colors} label="Anthropic (Claude)">
-            AI content generation. Requests include recipe/preference context but no identifying
-            personal information.
+            AI content generation (taste profile, macros, storage tips, recipe validation). Requests
+            include recipe/preference context but no identifying personal information.
           </BulletItem>
           <BulletItem colors={colors} label="Vercel">
             Serverless API hosting. Logs standard request metadata (IP, timestamp) for up to 30 days.
+          </BulletItem>
+          <BulletItem colors={colors} label="Expo Push Service">
+            Delivers push notifications using an anonymous device token. No account data is sent.
+          </BulletItem>
+          <BulletItem colors={colors} label="Resend">
+            Transactional email delivery (welcome / verify-email, password reset). Receives only
+            your email address and the message body.
+          </BulletItem>
+          <BulletItem colors={colors} label="Sentry">
+            Crash and error diagnostics. PII (IP, headers, request bodies) is stripped client-side
+            before events are sent; session replay is disabled.
+          </BulletItem>
+          <BulletItem colors={colors} label="Instacart">
+            When you tap "Send to Instacart", your grocery list (ingredient names and quantities
+            only) is sent to Instacart to pre-fill a cart. Checkout happens in Instacart and is
+            governed by Instacart's privacy policy. Mori receives an affiliate commission via
+            Impact on attributed orders; the affiliate parameters are appended to the cart URL.
           </BulletItem>
         </Section>
 

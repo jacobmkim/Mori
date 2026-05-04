@@ -98,7 +98,7 @@
 
   <main>
     <h1>Privacy Policy</h1>
-    <p class="meta">Last updated: April 2026 (updated for community recipes)</p>
+    <p class="meta">Last updated: May 2026 (v4 — Reviews, leftovers, push, diagnostics)</p>
 
     <p>Mori ("we", "our", or "us") is a recipe discovery app built by an independent developer. This policy explains what data we collect, how we use it, and your rights. We keep this simple because we genuinely don't collect more than we need.</p>
 
@@ -112,7 +112,15 @@
       <li><strong>Pantry items</strong> — ingredients you add manually or select during onboarding.</li>
       <li><strong>Meal plans and grocery lists</strong> — saved to your account so they persist across sessions.</li>
       <li><strong>Recipe notes</strong> — personal notes, substitutions, quick-tags, and ratings you write on recipes you have cooked. Visible only to you.</li>
-      <li><strong>User-submitted recipes</strong> — if you use the Add Recipe feature, the title, ingredients, steps, description, and optional photo you provide are stored. Public recipes are visible to all users and may appear in other users' Discover feeds. Private recipes are visible only to you.</li>
+      <li><strong>User-submitted recipes</strong> — if you use the Add Recipe feature, the title, ingredients, steps, description, and optional photo you provide are stored. Public recipes are visible to all users and may appear in other users' Discover feeds, with your display name shown alongside them. Private recipes are visible only to you. You can edit or delete your recipes at any time from the "Mine" tab.</li>
+      <li><strong>Recipe photos</strong> — if you add a photo to a recipe, the image is uploaded to our storage bucket and shown to other users when the recipe is Public. We access your photo library only when you tap "Add a photo" — we do not scan, browse, or store any other images.</li>
+      <li><strong>Profile photo</strong> — optional. If you set a profile picture, it is shown next to community recipes you submit and on your profile.</li>
+      <li><strong>Display name and username</strong> — your display name appears on community recipes you publish. Your @username is a unique handle on your profile (rate-limited to one change per 30 days).</li>
+      <li><strong>Reviews and recipe flags</strong> — if you write a review on a recipe you've cooked, the rating, text, and your display name are visible to other users. If you flag a recipe as inaccurate, the flag is recorded against your account so we can prevent abuse.</li>
+      <li><strong>Streaks and badges</strong> — number of consecutive cooking days, the date of your most recent cook, and badges you've unlocked. Used to show progress in your profile and to power streak reminders.</li>
+      <li><strong>Leftovers</strong> — if you log leftovers after cooking, the ingredient names and approximate spoil dates are stored to power expiry reminders and to bias future recommendations toward what you already have.</li>
+      <li><strong>Push notification token</strong> — if you grant push permission, Expo issues an anonymous device token that we store against your account. Used to send streak reminders, monthly taste-profile updates, and badge unlocks. Revoke at any time in iOS Settings.</li>
+      <li><strong>Diagnostic data</strong> — anonymised crash and error reports collected via Sentry. IP addresses, request headers, and request bodies are stripped client-side before events are sent; session replay is disabled.</li>
     </ul>
 
     <h2>2. What we do not collect</h2>
@@ -132,9 +140,12 @@
       <li><strong>Taste profile</strong> — your swipe history is sent to Anthropic's API (see Section 4) to generate a short personalised paragraph describing your cooking style.</li>
       <li><strong>Macro estimates</strong> — a recipe's ingredient list is sent to Anthropic's API to estimate nutritional values. Results are stored against the recipe and shared across all users who view that recipe. No personal account data is included in this request.</li>
       <li><strong>Storage tips</strong> — after you mark a recipe as cooked, the recipe title is sent to Anthropic's API to generate storage and usage suggestions.</li>
-      <li><strong>Community recipe distribution</strong> — public recipes you submit are added to the shared recipe database and may be surfaced in the Discover feed for all Mori users. Your display name is not attached to community recipes in the current version.</li>
+      <li><strong>Community recipe distribution</strong> — public recipes you submit are added to the shared recipe database and may be surfaced in the Discover feed for all Mori users. Your display name (and profile photo, if set) is shown alongside the recipe.</li>
       <li><strong>Recipe validation</strong> — when you submit a public recipe using the Add Recipe feature, the recipe content is sent to Anthropic's API to check accuracy before publication. Your name and account details are not included.</li>
-      <li><strong>Account management</strong> — your email is used to authenticate your account. We do not send marketing emails without your explicit consent.</li>
+      <li><strong>Account management</strong> — your email is used to authenticate your account. Transactional emails (welcome / verify-email at signup, password reset) are sent via Resend. We do not send marketing emails.</li>
+      <li><strong>Push notifications</strong> — if you grant permission, we send a daily streak-at-risk reminder (only if your streak would break that night), a monthly notice when your taste profile updates, and badge-unlock alerts. We do not send marketing or promotional pushes.</li>
+      <li><strong>Reviews and flags</strong> — reviews are publicly visible alongside the recipe and your display name. Flags are visible only to us and are used to remove inaccurate community submissions.</li>
+      <li><strong>Crash diagnostics</strong> — Sentry receives stack traces and minimal runtime context to help us fix bugs. PII is filtered before events are sent.</li>
     </ul>
 
     <h2>4. AI features and Anthropic</h2>
@@ -150,15 +161,25 @@
 
     <h2>5. Grocery delivery</h2>
 
-    <p>You can send your grocery list to Instacart to pre-populate a cart. When you tap to order, your grocery list — a list of ingredient names only — is sent to Instacart. You complete checkout inside Instacart's app or website. Instacart's own privacy policy governs that interaction. Mori will receive an affiliate commission on attributed orders.</p>
+    <p>You can send your grocery list to Instacart to pre-populate a cart. When you tap to order, your grocery list — ingredient names and quantities only — is sent to Instacart. You complete checkout inside Instacart's app or website. Instacart's own privacy policy governs that interaction. Mori receives an affiliate commission on attributed orders via Impact; affiliate parameters are appended to the cart URL.</p>
 
     <ul>
       <li><a href="https://www.instacart.com/privacy" target="_blank" rel="noopener">Instacart Privacy Policy</a></li>
     </ul>
 
-    <h2>6. Data storage</h2>
+    <h2>6. Data storage and processors</h2>
 
-    <p>Your data is stored on <a href="https://supabase.com/privacy" target="_blank" rel="noopener">Supabase</a>, a hosted PostgreSQL provider. Data is stored in the United States. Row-level security ensures you can only read and write your own data.</p>
+    <p>Your data is stored on <a href="https://supabase.com/privacy" target="_blank" rel="noopener">Supabase</a>, a hosted PostgreSQL provider. Data is stored in the United States. Row-level security ensures you can only read and write your own data. Recipe images and profile photos are stored in Supabase Storage.</p>
+
+    <p>Other processors:</p>
+    <ul>
+      <li><strong>Vercel</strong> — serverless API hosting. Standard request metadata (IP, timestamp) retained up to 30 days.</li>
+      <li><strong>Anthropic (Claude)</strong> — AI content generation. See Section 4.</li>
+      <li><strong>Expo Push Service</strong> — delivers iOS push notifications using an anonymous device token.</li>
+      <li><strong>Resend</strong> — transactional email delivery (welcome / verify-email, password reset). Receives only your email address and the message body.</li>
+      <li><strong>Sentry</strong> — crash and error diagnostics. PII (IP, headers, request bodies) is stripped client-side before events are sent; session replay is disabled.</li>
+      <li><strong>Instacart / Impact</strong> — grocery cart hand-off and affiliate attribution. See Section 5.</li>
+    </ul>
 
     <h2>7. App Store privacy details</h2>
 
@@ -166,8 +187,8 @@
 
     <ul>
       <li><strong>Data used to track you:</strong> None. Mori does not use your data to track you across third-party apps or websites.</li>
-      <li><strong>Data linked to you:</strong> Email address, usage data (swipes, interactions), preferences (dietary goals, cuisines), and user-generated content (notes, submitted recipes).</li>
-      <li><strong>Data not linked to you:</strong> Recipe nutritional estimates (stored per recipe, not per user).</li>
+      <li><strong>Data linked to you:</strong> Email address, name / username, photos (profile + recipe), usage data (swipes, interactions, streaks, badges), preferences (dietary goals, cuisines, pantry, leftovers), user-generated content (notes, submitted recipes, reviews, flags), purchase / order data is <em>not</em> collected (Instacart handles checkout), and an Expo push token if you enable notifications.</li>
+      <li><strong>Data not linked to you:</strong> Recipe nutritional estimates (stored per recipe, not per user); diagnostic crash data (PII stripped before send).</li>
     </ul>
 
     <h2>8. Data retention and deletion</h2>
