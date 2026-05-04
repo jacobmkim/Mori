@@ -1,5 +1,51 @@
 # Mori — CLAUDE.md
 
+## Current Priority — App Store v1 Submission
+
+Top priority right now is shipping Mori v1 (free tier, no Mori+) to the App Store.
+
+### Code work — DONE 2026-05-03 (on `main`, uncommitted)
+- `app.json` — `ios.privacyManifests` block declares UserDefaults / FileTimestamp / SystemBootTime / DiskSpace required reasons.
+- `api/delete-account.ts` — POST endpoint, JWT auth, password reauth, ordered deletes across all user-owned tables, de-attributes + soft-deletes user-submitted community recipes, then `auth.admin.deleteUser`. **Pushes Vercel function count to 13 → Hobby plan limit is 12, so deploy will fail until Vercel is upgraded to Pro.**
+- `supabase/add-account-deletion.sql` — adds `ON DELETE CASCADE` to all user-owned FKs (defense-in-depth; the API does ordered deletes already).
+- `lib/api.ts` — `deleteMyAccount(password)` client wrapper.
+- `app/help.tsx` — Help screen: Contact (mailto bug/feature/question with prefilled version + user ID + platform), FAQ (collapsible), How to use, Privacy Policy link.
+- `components/ProfileSheet.tsx` — Privacy Policy row replaced with `Help & Support` (deep-links to `/help`); Delete Account row at the very bottom of the overview tab + `DeleteAccountModal` (warn step → password reauth step).
+- `app/privacy-policy.tsx` — fixed pre-existing crash (`const { colors } = useTheme()` → `const colors = useTheme()`); updated retention/deletion section to point at the in-app flow.
+- `public/privacy.html` — section 8 updated to reference the in-app delete flow.
+
+### Manual / external work — REMAINING (only you can do)
+- Vercel Pro: ✅ on plan (commercial-use compliant + 1000-function ceiling).
+- Supabase: still on Free. Auto-pause risk during Apple review is mitigated by the daily `streak-reminders` cron at `0 19 * * *` UTC, which keeps the DB warm. Watch storage/bandwidth post-launch and upgrade to Pro at first sign of strain.
+- Apply `supabase/add-account-deletion.sql` in Supabase SQL Editor.
+- New `eas build --profile production --platform ios` (last TestFlight build predates the v1 App Store changes; that build cannot ship to App Store).
+- Optional: push the new build to TestFlight first, smoke-test deletion flow on a real device.
+- App Store Connect:
+  - Deselect EU storefronts (skips DSA Trader Status declaration).
+  - Fill App Privacy nutrition labels to match `public/privacy.html` exactly. Declare NO Purchases for v1.
+  - App metadata (name, subtitle, description, keywords ≤100 bytes, support/marketing URLs, primary category Food & Drink).
+  - 5–8 iPhone 6.9" (1320×2868) screenshots.
+  - Age rating questionnaire (UGC: yes, moderation: yes — content reviewed via `moderation_status` field).
+  - Copyright: `© 2026 Mori`.
+  - Pre-seeded reviewer Supabase account (8–12 saves, populated pantry, completed taste profile, one cooked recipe for streak).
+  - Demo account creds + walkthrough notes. Mention "Supabase email-only auth, exempt from Guideline 4.8."
+  - **Do NOT mention Mori+ anywhere in v1 metadata** (Guideline 2.3.10 — inaccurate metadata).
+- `eas submit --profile production --platform ios` → Submit for Review.
+
+After the next TestFlight upload Apple will email any additional missing required-reason API categories — use that to expand the privacy manifest if needed.
+
+### v1.1 (Mori+) — paid IAP submission rules
+When ready to ship the `mori-plus` branch:
+- Sign **Paid Apps Agreement** + Tax forms (W-9) + Banking. Cannot ship IAP without all three Active.
+- Apply to **App Store Small Business Program** (15% rate vs 30%, automatic for new devs).
+- Configure subscription products in App Store Connect: `mori_plus_monthly`, `mori_plus_annual`, `mori_plus_lifetime`.
+- Update App Privacy form — add Purchases → Purchase History (Linked to user, App Functionality).
+- Cardinal rule: **paywall NEW features only, never existing free ones**. Swipe / save / plan / grocery / Instacart stay free forever. Mori+ adds Auto Plan, Sunday Drops, Generate from Pantry, Macro Coach, Saved Decks. Drift from this = Guideline 3.1.2 rejection.
+- IAP review is **separate** from binary review. Both must pass; both submitted together.
+- Once Paid Apps Agreement is signed there's no clean revert to "free only" — sign only when ready to ship Mori+ binary.
+
+Mori+ stays on the `mori-plus` branch and ships as v1.1 after v1 is approved. Do NOT pull Mori+ code onto `main` until then.
+
 ## Commandments
 - Use subagents for any exploration requiring 3+ file analysis; have it return a summary.
 - Use relevant models for best purposes. Opus for deep planning and tasks. Sonnet for most of the work. Haiku for easy tasks and large amounts of writing.

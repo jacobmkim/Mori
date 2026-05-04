@@ -2164,3 +2164,34 @@ export async function enrichCommunityRecipe(
     });
   } catch {}
 }
+
+// ─── Account deletion (Apple 5.1.1(v)) ────────────────────────────────────────
+
+export type DeleteAccountResult =
+  | { ok: true }
+  | { ok: false; reason: 'unauthenticated' | 'wrong_password' | 'rate_limited' | 'server_error' };
+
+export async function deleteMyAccount(password: string): Promise<DeleteAccountResult> {
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token;
+  if (!token) return { ok: false, reason: 'unauthenticated' };
+
+  let res: Response;
+  try {
+    res = await fetch(`${getApiBaseUrl()}/api/delete-account`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ password }),
+    });
+  } catch {
+    return { ok: false, reason: 'server_error' };
+  }
+
+  if (res.ok) return { ok: true };
+  if (res.status === 401) return { ok: false, reason: 'wrong_password' };
+  if (res.status === 429) return { ok: false, reason: 'rate_limited' };
+  return { ok: false, reason: 'server_error' };
+}

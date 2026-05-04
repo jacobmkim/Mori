@@ -5,7 +5,7 @@ import { router } from 'expo-router';
 import { useTheme } from '@/hooks/useTheme';
 
 export default function PrivacyPolicyScreen() {
-  const { colors } = useTheme();
+  const colors = useTheme();
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
@@ -98,8 +98,13 @@ export default function PrivacyPolicyScreen() {
         </Section>
 
         <Section title="Data Retention & Deletion" colors={colors}>
-          You may request deletion of your account and all associated data at any time by emailing
-          us at hello@getmori.app. We will process deletion requests within 30 days.
+          You can delete your account and all associated data at any time from inside the app:
+          tap your avatar to open Profile, scroll to the bottom, and tap "Delete Account". This
+          immediately removes your account, swipes, saves, plans, pantry, notes, and reviews.
+          Recipes you submitted to the community are de-attributed and retired.
+
+          {'\n\n'}If you can't access the app, email us at hello@getmori.app and we will process
+          the request within 7 days.
         </Section>
 
         <Section title="Third-Party Services" colors={colors}>
@@ -137,7 +142,7 @@ export default function PrivacyPolicyScreen() {
 
 function Section({
   title, children, colors,
-}: { title: string; children: React.ReactNode; colors: ReturnType<typeof useTheme>['colors'] }) {
+}: { title: string; children: React.ReactNode; colors: ReturnType<typeof useTheme> }) {
   return (
     <View style={{ marginBottom: 24 }}>
       <Text style={{
@@ -154,7 +159,7 @@ function Section({
 
 function BulletItem({
   label, children, colors,
-}: { label?: string; children: React.ReactNode; colors: ReturnType<typeof useTheme>['colors'] }) {
+}: { label?: string; children: React.ReactNode; colors: ReturnType<typeof useTheme> }) {
   return (
     <Text style={{ fontSize: 14, color: colors.textMuted, lineHeight: 22, marginBottom: 6 }}>
       {'• '}

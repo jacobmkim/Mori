@@ -5,6 +5,7 @@
  */
 import {
   View, Text, Modal, Pressable, ScrollView, Alert, ActivityIndicator, Switch,
+  TextInput, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
@@ -24,6 +25,7 @@ import {
   patchProfile, clearDiscoverCache,
   getAdventureCardsEnabled, setAdventureCardsEnabled,
   getProfile, fetchBadgeStats, getEffectiveStreak,
+  deleteMyAccount,
 } from '@/lib/api';
 import { clearRecipeCache } from '@/lib/mealdb';
 import { getApiBaseUrl } from '@/lib/apiBaseUrl';
@@ -107,6 +109,7 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
     totalCooked: 0, longestStreak: 0, distinctCuisines: 0, cookedMealPrep: false, recipesSubmitted: 0,
   });
   const [previewQueue, setPreviewQueue] = useState<Badge[]>([]);
+  const [deleteVisible, setDeleteVisible] = useState(false);
 
   async function handleShareImage() {
     if (!cardRef.current || !tasteProfile) return;
@@ -574,9 +577,9 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
                   }
                 />
                 <SheetRow
-                  icon="shield-checkmark-outline"
-                  label="Privacy Policy"
-                  onPress={() => { onClose(); setTimeout(() => router.push('/privacy-policy'), 300); }}
+                  icon="help-circle-outline"
+                  label="Help & Support"
+                  onPress={() => { onClose(); setTimeout(() => router.push('/help' as any), 300); }}
                 />
                 <SheetRow
                   icon="log-out-outline"
@@ -706,6 +709,28 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
                 </View>
               </View>
             )}
+
+            {/* Danger zone — Delete Account at the very bottom */}
+            <View style={{ paddingHorizontal: 16, marginBottom: 8, marginTop: 8 }}>
+              <View style={{
+                backgroundColor: colors.card, borderRadius: 12,
+                borderWidth: 1, borderColor: colors.border, overflow: 'hidden',
+              }}>
+                <SheetRow
+                  icon="trash-outline"
+                  label="Delete Account"
+                  destructive
+                  onPress={() => { onClose(); setTimeout(() => setDeleteVisible(true), 300); }}
+                  last
+                />
+              </View>
+              <Text style={{
+                fontSize: 11, color: colors.textMuted, textAlign: 'center',
+                marginTop: 10, paddingHorizontal: 12, lineHeight: 16,
+              }}>
+                Permanently removes your account and all data. This cannot be undone.
+              </Text>
+            </View>
             </>)}
           </ScrollView>
         </View>
@@ -795,6 +820,18 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
         />
       )}
       <PantryModal visible={pantryVisible} onClose={() => setPantryVisible(false)} />
+      <DeleteAccountModal
+        visible={deleteVisible}
+        onClose={() => setDeleteVisible(false)}
+        onDeleted={() => {
+          setDeleteVisible(false);
+          setProfile(null);
+          useLeftoversStore.getState().reset();
+          useGroceryStore.getState().clearAll();
+          onClose();
+          router.replace('/onboarding/welcome');
+        }}
+      />
     </>
   );
 }
@@ -837,5 +874,187 @@ function PrefLine({ label, value }: { label: string; value: string }) {
       <Text style={{ fontSize: 12, color: colors.textMuted, width: 48 }}>{label}</Text>
       <Text style={{ fontSize: 12, color: colors.text, fontWeight: '500', flex: 1 }}>{value}</Text>
     </View>
+  );
+}
+
+function DeleteAccountModal({
+  visible, onClose, onDeleted,
+}: { visible: boolean; onClose: () => void; onDeleted: () => void }) {
+  const colors = useTheme();
+  const [step, setStep] = useState<'warn' | 'confirm'>('warn');
+  const [password, setPassword] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  // Reset whenever the modal opens.
+  useEffect(() => {
+    if (visible) {
+      setStep('warn');
+      setPassword('');
+      setErr(null);
+      setBusy(false);
+    }
+  }, [visible]);
+
+  async function handleDelete() {
+    if (!password) {
+      setErr('Enter your password to confirm.');
+      return;
+    }
+    setBusy(true);
+    setErr(null);
+    const result = await deleteMyAccount(password);
+    setBusy(false);
+    if (result.ok) {
+      onDeleted();
+      return;
+    }
+    if (result.reason === 'wrong_password') setErr('Incorrect password. Try again.');
+    else if (result.reason === 'rate_limited') setErr('Too many attempts. Try again later.');
+    else if (result.reason === 'unauthenticated') setErr('Session expired. Sign out and back in, then try again.');
+    else setErr('Could not delete account. Email hello@getmori.app for help.');
+  }
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="pageSheet"
+      onRequestClose={onClose}
+    >
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{ flex: 1, backgroundColor: colors.background }}
+      >
+        <View style={{
+          flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+          paddingHorizontal: 16, paddingVertical: 12,
+          borderBottomWidth: 1, borderBottomColor: colors.border,
+        }}>
+          <Text style={{ fontSize: 17, fontWeight: '600', color: colors.text }}>Delete Account</Text>
+          <Pressable onPress={onClose} hitSlop={10} disabled={busy}>
+            <Ionicons name="close" size={24} color={colors.text} />
+          </Pressable>
+        </View>
+
+        <ScrollView contentContainerStyle={{ padding: 20 }} keyboardShouldPersistTaps="handled">
+          {step === 'warn' ? (
+            <>
+              <View style={{
+                backgroundColor: colors.errorBg, borderRadius: 12, padding: 16, marginBottom: 20,
+                borderWidth: 1, borderColor: colors.error,
+              }}>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: colors.error, marginBottom: 8 }}>
+                  This action cannot be undone.
+                </Text>
+                <Text style={{ fontSize: 13, color: colors.text, lineHeight: 20 }}>
+                  Deleting your account will immediately and permanently remove:
+                </Text>
+              </View>
+
+              <View style={{ marginBottom: 20, gap: 8 }}>
+                {[
+                  'Your profile, email, and password',
+                  'All swipe history and saved recipes',
+                  'Your meal plans, pantry, and grocery lists',
+                  'Your notes, reviews, and badges',
+                  'Recipes you submitted to the community (de-attributed and retired)',
+                ].map((item, i) => (
+                  <View key={i} style={{ flexDirection: 'row', gap: 8 }}>
+                    <Text style={{ color: colors.textMuted }}>•</Text>
+                    <Text style={{ flex: 1, fontSize: 13, color: colors.text, lineHeight: 19 }}>{item}</Text>
+                  </View>
+                ))}
+              </View>
+
+              <Pressable
+                onPress={() => setStep('confirm')}
+                style={{
+                  backgroundColor: colors.error, borderRadius: 12,
+                  paddingVertical: 14, alignItems: 'center', marginBottom: 12,
+                }}
+              >
+                <Text style={{ color: 'white', fontSize: 15, fontWeight: '700' }}>
+                  Continue
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={onClose}
+                style={{
+                  backgroundColor: colors.card, borderRadius: 12,
+                  borderWidth: 1, borderColor: colors.border,
+                  paddingVertical: 14, alignItems: 'center',
+                }}
+              >
+                <Text style={{ color: colors.text, fontSize: 15, fontWeight: '600' }}>
+                  Cancel
+                </Text>
+              </Pressable>
+            </>
+          ) : (
+            <>
+              <Text style={{ fontSize: 14, color: colors.text, marginBottom: 8 }}>
+                Enter your password to confirm deletion.
+              </Text>
+              <Text style={{ fontSize: 12, color: colors.textMuted, marginBottom: 16, lineHeight: 18 }}>
+                We re-verify your password to make sure no one else can delete your account from your unlocked phone.
+              </Text>
+
+              <TextInput
+                value={password}
+                onChangeText={setPassword}
+                placeholder="Password"
+                placeholderTextColor={colors.textMuted}
+                secureTextEntry
+                autoCapitalize="none"
+                autoComplete="current-password"
+                editable={!busy}
+                style={{
+                  backgroundColor: colors.card, borderRadius: 12,
+                  borderWidth: 1, borderColor: colors.border,
+                  paddingHorizontal: 14, paddingVertical: 12,
+                  fontSize: 15, color: colors.text, marginBottom: 12,
+                }}
+              />
+
+              {err && (
+                <Text style={{ fontSize: 13, color: colors.error, marginBottom: 12 }}>{err}</Text>
+              )}
+
+              <Pressable
+                onPress={handleDelete}
+                disabled={busy}
+                style={{
+                  backgroundColor: colors.error, borderRadius: 12,
+                  paddingVertical: 14, alignItems: 'center', marginBottom: 12,
+                  opacity: busy ? 0.6 : 1,
+                }}
+              >
+                {busy ? (
+                  <ActivityIndicator color="white" />
+                ) : (
+                  <Text style={{ color: 'white', fontSize: 15, fontWeight: '700' }}>
+                    Delete my account
+                  </Text>
+                )}
+              </Pressable>
+              <Pressable
+                onPress={onClose}
+                disabled={busy}
+                style={{
+                  backgroundColor: colors.card, borderRadius: 12,
+                  borderWidth: 1, borderColor: colors.border,
+                  paddingVertical: 14, alignItems: 'center',
+                }}
+              >
+                <Text style={{ color: colors.text, fontSize: 15, fontWeight: '600' }}>
+                  Cancel
+                </Text>
+              </Pressable>
+            </>
+          )}
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </Modal>
   );
 }
