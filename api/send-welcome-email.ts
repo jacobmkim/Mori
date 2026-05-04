@@ -25,7 +25,7 @@ import { rateLimitUser, rateLimitIP, getClientIP } from './_rateLimit';
 import { captureException } from './_sentry';
 
 const FROM_ADDRESS = 'Mori <hello@getmori.app>';
-const VERIFY_DEEP_LINK = 'mori://verify-email';
+const VERIFY_URL = 'https://getmori.app/verify-email';
 const TOKEN_TTL_HOURS = 24;
 
 function getServiceClient() {
@@ -195,7 +195,7 @@ async function handleSend(req: VercelRequest, res: VercelResponse) {
     return res.status(500).json({ error: 'Failed to send welcome email' });
   }
 
-  const verifyUrl = `${VERIFY_DEEP_LINK}?token=${token}`;
+  const verifyUrl = `${VERIFY_URL}?token=${token}`;
 
   const resendRes = await fetch('https://api.resend.com/emails', {
     method: 'POST',
