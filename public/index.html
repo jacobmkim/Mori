@@ -9,6 +9,9 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Mori">
 <meta name="theme-color" content="#2E7D32">
+<link rel="icon" type="image/png" href="/mori_icon.png">
+<link rel="apple-touch-icon" href="/mori_icon.png">
+<meta name="apple-itunes-app" content="app-id=6761498088">
 <!-- Google tag (gtag.js) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-QDT5NHPKW5"></script>
 <script>
@@ -1033,7 +1036,7 @@ footer {
     <a href="#features" class="nav-link">Features</a>
     <a href="#screens" class="nav-link">App</a>
     <a href="#plus" class="nav-link">Mori+</a>
-    <a href="https://testflight.apple.com/join/8MP7Q329" class="btn-primary js-beta-cta" data-placement="nav" target="_blank" rel="noopener">Join the Beta</a>
+    <a href="https://apps.apple.com/app/mori-recipe-discovery/id6761498088" class="btn-primary js-appstore-cta" data-placement="nav" target="_blank" rel="noopener">Download</a>
   </div>
 </nav>
 
@@ -1045,7 +1048,7 @@ footer {
       <div class="app-icon app-icon-sm">
         <img src="mori_icon.png" width="40" height="40" alt="Mori" style="border-radius:10px;">
       </div>
-      <span>Launching on iOS · Summer 2026</span>
+      <span>Now on the App Store · iOS</span>
     </div>
     <h1 class="hero-title">
       <em>Mori.</em><br><nobr>Swipe. Order.</nobr><br>Cook.
@@ -1054,7 +1057,7 @@ footer {
     <p class="hero-sub">
       A recipe app with opinions about you. Swipe a few times and Mori figures out your kitchen — what you'd actually cook, the staples already in your pantry, the cuisines you keep cheating on. Then it builds the grocery list and ships it.
     </p>
-    <a href="https://testflight.apple.com/join/8MP7Q329" class="btn-primary js-beta-cta" data-placement="hero" target="_blank" rel="noopener" style="display:inline-block;text-decoration:none;">Join the Beta</a>
+    <a href="https://apps.apple.com/app/mori-recipe-discovery/id6761498088" class="btn-primary js-appstore-cta" data-placement="hero" target="_blank" rel="noopener" style="display:inline-block;text-decoration:none;">Download on the App Store</a>
   </div>
   <div class="hero-right" style="flex-direction:column;align-items:center;gap:1.5rem;">
     <div class="phone-stack">
@@ -1084,7 +1087,7 @@ footer {
 <div class="stats-bar reveal">
   <div class="stats-inner">
     <div>
-      <div class="stat-num">2,500+</div>
+      <div class="stat-num">2,600+</div>
       <div class="stat-label">Curated recipes, every one tested</div>
     </div>
     <div>
@@ -1402,9 +1405,9 @@ footer {
 <!-- CTA -->
 <section class="cta-section" id="beta">
   <h2 class="cta-title">Stop staring<br><em>at the fridge.</em></h2>
-  <p class="cta-sub">Mori is in TestFlight on iOS. Free, no waitlist.</p>
-  <a href="https://testflight.apple.com/join/8MP7Q329" class="btn-white js-beta-cta" data-placement="cta_section" target="_blank" rel="noopener" style="display:inline-block;text-decoration:none;">Join the Beta</a>
-  <p class="cta-note">iOS 16+ · Takes about 30 seconds</p>
+  <p class="cta-sub">Mori is live on the App Store. Free.</p>
+  <a href="https://apps.apple.com/app/mori-recipe-discovery/id6761498088" class="btn-white js-appstore-cta" data-placement="cta_section" target="_blank" rel="noopener" style="display:inline-block;text-decoration:none;">Download on the App Store</a>
+  <p class="cta-note">iOS 16+ · Free, no waitlist</p>
 </section>
 
 <!-- FOOTER -->
@@ -1569,13 +1572,13 @@ document.querySelectorAll('a[href^="#"]').forEach(a => {
   });
 });
 
-// ── GA: track Beta CTA clicks ──
-// Fires `beta_click` with placement so you can compare nav vs hero vs cta_section.
-document.querySelectorAll('.js-beta-cta').forEach(a => {
+// ── GA: track App Store CTA clicks ──
+// Fires `appstore_click` with placement so you can compare nav vs hero vs cta_section.
+document.querySelectorAll('.js-appstore-cta').forEach(a => {
   a.addEventListener('click', () => {
-    track('beta_click', {
+    track('appstore_click', {
       placement: a.dataset.placement || 'unknown',
-      destination: 'testflight',
+      destination: 'appstore',
       transport_type: 'beacon',
     });
   });
