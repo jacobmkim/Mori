@@ -123,6 +123,21 @@ Rules:
 - meal_prep_friendly: true if the dish can be batch-cooked, stored 3-5 days in the fridge, and reheated without significant quality loss (curries, stews, grain bowls, roasted proteins, pasta bakes = true; delicate fish, dressed salads, fried foods, poached eggs, fresh pasta = false)
 - macros are per serving estimates
 - make it a real, cookable recipe a home cook would actually want to make
+- COOKING-CORRECTNESS RULE: Times and ratios must be realistic. A home cook following the recipe verbatim must produce a finished, safe-to-eat dish. Apply these floors strictly:
+  • Pan-sear cubed potato (~1") all-pan: 18-22 min @ medium-high covered-then-uncovered. Under 15 min = raw centers. If shorter, parboil 8 min first then sear 6 min.
+  • Roast cubed potato @ 425F: 30-40 min, flipped halfway. Under 25 min = firm/raw.
+  • Pan-sear chicken breast (1" thick): 5-7 min/side, internal 165F. Under 4 min/side = raw center.
+  • Thick proteins (>=1.5"): use sear-then-roast (2-3 min/side sear, finish 6-10 min @ 400F). All-pan burns the crust before the center cooks.
+  • Braise tough cuts (chuck, beef shoulder, pork shoulder, lamb shoulder): minimum 1.5 h covered @ 300-325F with liquid. Sheet-pan roasting these cuts at 400F dry will not cook them through.
+  • Caramelized onions: minimum 30-35 min low heat. Under 15 min = sweated, not caramelized.
+  • Rice pilaf/biryani: 2:1 liquid:rice, 18 min covered + 10 min off-heat rest. Biryani dum needs additional 15-20 min sealed steaming.
+  • Honey/maple/sugar glazes: total sweetener <= 25% of liquid by volume. Honey above 30% reduces to candy and scorches at medium heat.
+  • Pan sauce: deglaze, reduce by half, mount cold butter OFF heat. Boiling after butter breaks the emulsion.
+  • Garlic burns in 30-45 sec at high heat - add AFTER onions are sweated, never at the start.
+  • Always rest red meat >=5 min after cooking. Do not rest fish.
+  • Total time check: prep_time_mins + cook_time_mins must reflect what the steps actually require. If the steps add up to 70 min of active + passive time, do not claim 40 min.
+  • Every ingredient in the list must appear in at least one step. Every ingredient referenced in a step must be in the ingredients list (no phantom eggs, phantom stock, phantom paprika).
+  • If a step calls for a quantity (e.g. "2 cups stock"), that quantity must be declared in the ingredients list.
 - TITLE RULE: Always use the common English name. If the dish has a well-known foreign name, put the English name first and the foreign name in parentheses. Examples: "Braised Veal Shanks (Osso Buco)", "Hunter's Chicken (Pollo alla Cacciatora)", "Creamy Rice Pudding (Arroz con Leche)". Never use a foreign-language title alone.
 - INGREDIENT RULE: Every ingredient must be available at a mainstream grocery store (Walmart, Kroger, Safeway). Use store-cupboard shortcuts where needed — Thai curry paste (jar) instead of fresh lemongrass + galangal; fish sauce and coconut milk are fine; chicken or vegetable stock instead of dashi; canned chipotle in adobo instead of dried whole chipotles; garam masala + cumin + turmeric instead of hard-to-find whole spices. If a traditional ingredient isn't on a standard grocery shelf, use the closest accessible substitute that preserves the dish's flavour. The test: a home cook should be able to buy every ingredient in a single trip to their local supermarket.
 - STEP TITLE RULE: Each step must have a 3-5 word title that starts with an action verb and captures the key action. Examples: "Prepare egg mixture", "Simmer until thickened", "Cook and stir vegetables", "Rest before serving". Do NOT just copy the first few words of the instruction.
