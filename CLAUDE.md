@@ -1,23 +1,20 @@
 # Mori — CLAUDE.md
 
-## Current Priority — Awaiting App Store Review
+## Current Priority — v1 Live, Bug-Fix Pass
 
-**Mori v1 submitted for review on 2026-05-04.** Free tier only, no Mori+. Available in **US + Canada** only. Now waiting on Apple.
+**Mori v1 live in the US + CA App Store as of 2026-05-05.** Free tier only. Mori+ stays on the `mori-plus` branch until v1.1.
 
-### What shipped
+**Right now: bug-fix pass on the live Mori (free tier), not Mori+.** Bug fixes land on `main` and ship via normal `eas build` + `eas submit` cadence (each submission triggers a fresh App Store Review — keep the `apple-review@getmori.app` demo account intact).
+
+### What shipped (v1)
 - Code on `origin/main`: `082257a` → `1bbfe61` → `603754c` → `f99a586`. Privacy Manifest, in-app account deletion (Guideline 5.1.1(v)), Help screen, cook-flow streak/badges fix across all tabs.
-- Reviewer demo account seeded — see [.claude/apple-review-info.md](.claude/apple-review-info.md). Do NOT touch `apple-review@getmori.app` until v1 is approved.
 - App Store Connect: 10 screenshots in 6.9" slot (resized from 6.3" via `scripts/resize-screenshots.ps1`, 24-bit RGB, no alpha), App Privacy nutrition labels (Linked: yes / Tracking: no for all 9 data types), Age rating with UGC + moderation, Free Apps Agreement Active (Paid Apps NOT signed — defer until Mori+).
-- Reviewer notes paste verbatim from [.claude/apple-review-info.md](.claude/apple-review-info.md).
+- Reviewer demo account ([.claude/apple-review-info.md](.claude/apple-review-info.md)) preserved for any future re-review. Safe to touch but no reason to.
 
-### While waiting (do not break)
-- Don't touch `apple-review@getmori.app` — Apple may sign in multiple times during review.
-- Don't push to `main` if it would change behaviour reviewers test (delete-account, cook flow, Help screen, Instacart cart). Bug-fix-only commits to other surfaces are fine but trigger no rebuild without reason.
-- Mori+ work continues on `mori-plus` branch only. Do NOT merge to `main` until v1 is approved.
-
-### If Apple rejects
-- Most common: missing Required Reason API category in Privacy Manifest. Apple's rejection email lists the missing code → add to `app.json`'s `ios.privacyManifests` block → `eas build` → `eas submit` → resubmit. No metadata change needed.
-- Metadata rejection: edit in ASC, no rebuild needed.
+### Post-approval housekeeping
+- Production builds now flow through normal EAS submit. Bump version + buildNumber in `app.json` for each new release.
+- Bug-fix and feature work on `main` is unblocked. Continue to honour the Pre-Ship Commandments (EAS env audit, Vercel function smoke-test, etc.) before each `eas submit`.
+- Monitor crash-free rate in Sentry + Apple's first-week analytics (acquisition, retention, crash %). Flag any regression-class issue early.
 
 ### v1.1 (Mori+) — paid IAP submission rules
 When ready to ship the `mori-plus` branch:
@@ -29,7 +26,7 @@ When ready to ship the `mori-plus` branch:
 - IAP review is **separate** from binary review. Both must pass; both submitted together.
 - Once Paid Apps Agreement is signed there's no clean revert to "free only" — sign only when ready to ship Mori+ binary.
 
-Mori+ stays on the `mori-plus` branch and ships as v1.1 after v1 is approved. Do NOT pull Mori+ code onto `main` until then.
+v1 is approved. Mori+ on the `mori-plus` branch is now cleared to merge to `main` and ship as v1.1 whenever the paid-apps prerequisites above are signed and the IAP review is queued.
 
 ## Commandments
 - Use subagents for any exploration requiring 3+ file analysis; have it return a summary.
