@@ -14,6 +14,7 @@ jest.mock('@/lib/api', () => ({
 
 import { useLeftoversStore } from '@/stores/leftoversStore';
 import { useGroceryStore } from '@/stores/groceryStore';
+import { useActiveCookStore } from '@/stores/activeCookStore';
 
 // ─── leftoversStore.reset ─────────────────────────────────────────────────────
 
@@ -97,10 +98,19 @@ describe('groceryStore.clearAll', () => {
 // ─── Sign-out isolation contract ─────────────────────────────────────────────
 
 describe('sign-out data isolation', () => {
-  it('both stores expose a clear action callable on sign-out', () => {
+  it('all per-user stores expose a clear action callable on sign-out', () => {
     // Verify the exact actions that ProfileSheet.handleSignOut now calls exist
     expect(typeof useLeftoversStore.getState().reset).toBe('function');
     expect(typeof useGroceryStore.getState().clearAll).toBe('function');
+    expect(typeof useActiveCookStore.getState().reset).toBe('function');
+  });
+
+  it('second user sees no active cook session after reset', () => {
+    useActiveCookStore.getState().startCook('recipe-1', 1);
+    useActiveCookStore.getState().setStep(3);
+    useActiveCookStore.getState().reset();
+    expect(useActiveCookStore.getState().recipeId).toBeNull();
+    expect(useActiveCookStore.getState().stepIndex).toBe(0);
   });
 
   it('second user sees empty leftovers after reset', () => {

@@ -14,6 +14,9 @@ import type { Recipe, RecipeStep } from '@/types';
 
 // Prevents screen sleep while cooking — install expo-keep-awake if not present
 import { useKeepAwake } from 'expo-keep-awake';
+import { useActiveCookStore } from '@/stores/activeCookStore';
+import { stepAdvanceHaptic, timerDoneHaptic } from '@/lib/haptics';
+import { playTimerChime } from '@/lib/sound';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -104,6 +107,8 @@ function StepTimer({ minutes }: { minutes: number }) {
           if (prev <= 1) {
             clearInterval(intervalRef.current!);
             setRunning(false);
+            timerDoneHaptic();
+            playTimerChime();
             return 0;
           }
           return prev - 1;
@@ -201,21 +206,40 @@ interface CookingModeProps {
   steps: RecipeStep[];
   rawIngredients?: { name: string; measure: string }[];
   ratio?: number;
+  initialStep?: number;
   onClose: () => void;
   onMarkCooked?: () => void;
 }
 
 // ── Main component ─────────────────────────────────────────────────────────────
-export function CookingMode({ recipe, steps, rawIngredients, ratio = 1, onClose, onMarkCooked }: CookingModeProps) {
+export function CookingMode({ recipe, steps, rawIngredients, ratio = 1, initialStep = 0, onClose, onMarkCooked }: CookingModeProps) {
   useKeepAwake();
 
-  const [currentStep, setCurrentStep] = useState(0);
+  const sortedSteps = [...steps].sort((a, b) => a.order - b.order);
+  const total = sortedSteps.length;
+  const safeInitial = Math.max(0, Math.min(initialStep, Math.max(0, total - 1)));
+
+  const [currentStep, setCurrentStep] = useState(safeInitial);
   const [markedCooked, setMarkedCooked] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   const flatListRef = useRef<FlatList>(null);
 
-  const sortedSteps = [...steps].sort((a, b) => a.order - b.order);
-  const total = sortedSteps.length;
+  const startCook = useActiveCookStore((s) => s.startCook);
+  const setStoreStep = useActiveCookStore((s) => s.setStep);
+  const endCook = useActiveCookStore((s) => s.endCook);
+
+  // Mark this recipe as the active cook session so a backgrounded app can
+  // recover here on next foreground. We start at safeInitial because the user
+  // may have just been resumed back to this exact step.
+  useEffect(() => {
+    startCook(recipe.id, ratio);
+    if (safeInitial > 0) setStoreStep(safeInitial);
+    // Note: cleanup intentionally does NOT call endCook — backgrounding
+    // unmounts this component and we want the session to survive.
+    // endCook is only called via explicit close / mark cooked below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recipe.id]);
+
   const step = sortedSteps[currentStep];
   const isFirst = currentStep === 0;
   const isLast = currentStep === total - 1;
@@ -223,16 +247,33 @@ export function CookingMode({ recipe, steps, rawIngredients, ratio = 1, onClose,
 
   function goToStep(index: number) {
     setCurrentStep(index);
+    setStoreStep(index);
     flatListRef.current?.scrollToIndex({ index, animated: true });
     scrollRef.current?.scrollTo({ y: 0, animated: false });
   }
 
-  function goNext() { if (currentStep < total - 1) goToStep(currentStep + 1); }
-  function goBack() { if (currentStep > 0) goToStep(currentStep - 1); }
+  function goNext() {
+    if (currentStep < total - 1) {
+      stepAdvanceHaptic();
+      goToStep(currentStep + 1);
+    }
+  }
+  function goBack() {
+    if (currentStep > 0) {
+      stepAdvanceHaptic();
+      goToStep(currentStep - 1);
+    }
+  }
+
+  function handleClose() {
+    endCook();
+    onClose();
+  }
 
   function handleMarkCooked() {
     setMarkedCooked(true);
     onMarkCooked?.();
+    endCook();
     // Close cooking mode after a brief pause so user sees the checkmark confirmation
     setTimeout(onClose, 700);
   }
@@ -258,7 +299,7 @@ export function CookingMode({ recipe, steps, rawIngredients, ratio = 1, onClose,
               </Text>
             </View>
             <Pressable
-              onPress={onClose}
+              onPress={handleClose}
               hitSlop={10}
               style={{
                 width: 36, height: 36, borderRadius: 18,
@@ -299,7 +340,9 @@ export function CookingMode({ recipe, steps, rawIngredients, ratio = 1, onClose,
             onMomentumScrollEnd={(e) => {
               const page = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
               if (page !== currentStep) {
+                stepAdvanceHaptic();
                 setCurrentStep(page);
+                setStoreStep(page);
               }
             }}
             renderItem={({ item: s, index: i }) => {

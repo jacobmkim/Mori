@@ -22,6 +22,7 @@ import { formatTime, formatCost, getTimeOfDay, getWeekStart } from '@/lib/utils'
 import { fetchMealDetail, type MealDetail } from '@/lib/mealdb';
 import { logSwipe, setRecipeLiked, fetchMacros, estimateMacrosLocally, fetchScoredDeck, updateRecipeDetail, updateRecipeMacros, logInteraction, updateStreakAndCount, recordSessionSwipe, cancelLeftSwipe, recordAdventureCardLeftSwipe, clearSessionState, getCookedRecipeIds, flagRecipe, resolveSupabaseId } from '@/lib/api';
 import { computeBadges, getNewlyEarned } from '@/lib/badges';
+import { rightSwipeHaptic, leftSwipeHaptic } from '@/lib/haptics';
 import type { Badge, BadgeStats } from '@/lib/badges';
 import { BadgeAchievementModal } from '@/components/badges/BadgeAchievementModal';
 import { RecipeDetailModal } from '@/components/RecipeDetailModal';
@@ -633,6 +634,7 @@ export default function Discover() {
   function handleSwipe(direction: 'left' | 'right', releaseX = 0, releaseY = 0) {
     const recipe = recipes[currentIndexRef.current];
     if (!recipe) return;
+    if (direction === 'right') rightSwipeHaptic(); else leftSwipeHaptic();
     // Ensure topDragX is at the swipe direction value so button flash fires on button-tap swipes too
     topDragX.setValue(direction === 'right' ? SCREEN_WIDTH : -SCREEN_WIDTH);
     if (direction === 'right') {

@@ -12,6 +12,8 @@ import { useUserStore } from '@/stores/userStore';
 import { registerForPushNotifications } from '@/lib/notifications';
 import { updatePushToken } from '@/lib/api';
 import { isResetPasswordUrl, isVerifyEmailUrl } from '@/lib/deepLink';
+import { initRevenueCat } from '@/lib/revenueCat';
+import { ResumeCookHandler } from '@/components/ResumeCookHandler';
 
 Sentry.init({
   dsn: process.env.EXPO_PUBLIC_SENTRY_DSN ?? '',
@@ -59,6 +61,7 @@ async function emitBootHeartbeatOnce() {
 function RootLayout() {
   const profile = useUserStore((s) => s.profile);
   const registeredFor = useRef<string | null>(null);
+  const rcInitedFor = useRef<string | null>(null);
 
   useEffect(() => {
     if (!profile?.id || registeredFor.current === profile.id) return;
@@ -66,6 +69,15 @@ function RootLayout() {
     registerForPushNotifications()
       .then((token) => { if (token) updatePushToken(profile.id, token).catch(() => {}); })
       .catch(() => {});
+  }, [profile?.id]);
+
+  // Mori+ — configure RevenueCat once we know who the user is. The wrapper is
+  // a no-op when the kill switch is off OR the API key is missing, so this is
+  // safe to leave wired before launch day.
+  useEffect(() => {
+    if (rcInitedFor.current === (profile?.id ?? null)) return;
+    rcInitedFor.current = profile?.id ?? null;
+    initRevenueCat(profile?.id ?? null).catch(() => {});
   }, [profile?.id]);
 
   useEffect(() => {
@@ -129,6 +141,7 @@ function RootLayout() {
         <Stack.Screen name="privacy-policy" options={{ presentation: 'modal' }} />
         <Stack.Screen name="edit-profile" options={{ presentation: 'modal' }} />
       </Stack>
+      <ResumeCookHandler />
     </GestureHandlerRootView>
   );
 }

@@ -19,6 +19,7 @@ import { useUserStore } from '@/stores/userStore';
 import { useSavedStore } from '@/stores/savedStore';
 import { useLeftoversStore } from '@/stores/leftoversStore';
 import { useGroceryStore } from '@/stores/groceryStore';
+import { useActiveCookStore } from '@/stores/activeCookStore';
 import { useDiscoverStore, type AppearanceMode, type UnitSystem } from '@/stores/discoverStore';
 import { supabase } from '@/lib/supabase';
 import {
@@ -250,6 +251,7 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
           setProfile(null);
           useLeftoversStore.getState().reset();
           useGroceryStore.getState().clearAll();
+          useActiveCookStore.getState().reset();
           router.replace('/onboarding/welcome');
         },
       },
@@ -828,6 +830,7 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
           setProfile(null);
           useLeftoversStore.getState().reset();
           useGroceryStore.getState().clearAll();
+          useActiveCookStore.getState().reset();
           onClose();
           router.replace('/onboarding/welcome');
         }}

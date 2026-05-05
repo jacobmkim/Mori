@@ -27,6 +27,8 @@ import { getApiBaseUrl } from '@/lib/apiBaseUrl';
 import { MacroRow } from '@/components/ui/MacroRow';
 import { scaleMacros } from '@/lib/macroUtils';
 import { CookingMode } from '@/components/CookingMode';
+import { timerDoneHaptic } from '@/lib/haptics';
+import { playTimerChime } from '@/lib/sound';
 import { useUserStore } from '@/stores/userStore';
 import type { Recipe, Macros, RecipeStep, Review, CreatorStats } from '@/types';
 import type { MealDetail } from '@/lib/mealdb';
@@ -186,12 +188,16 @@ interface RecipeDetailModalProps {
   // replaces the default save/grocery footer with a single "Add to {slot}" button.
   slotContext?: string;
   onAddToSlot?: () => void;
+  // When set, opens directly into CookingMode at the given step. Used by the
+  // ResumeCookHandler to drop the user back into a cook session they
+  // backgrounded out of.
+  autoOpenCookingAtStep?: number;
 }
 
 export function RecipeDetailModal({
   visible, recipe, detail, isSaved, isInCart, isCooked = false,
   onClose, onSaveToggle, onAddToCart, onRemoveFromCart, onMarkCooked,
-  slotContext, onAddToSlot,
+  slotContext, onAddToSlot, autoOpenCookingAtStep,
 }: RecipeDetailModalProps) {
   const colors = useTheme();
   const userId = useUserStore((s) => s.profile?.id);
@@ -284,10 +290,22 @@ export function RecipeDetailModal({
     }
   }, [visible, recipe?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Auto-open CookingMode when ResumeCookHandler restores a session.
+  useEffect(() => {
+    if (visible && recipe && typeof autoOpenCookingAtStep === 'number') {
+      setCookingModeVisible(true);
+    }
+  }, [visible, recipe?.id, autoOpenCookingAtStep]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Timer countdown
   useEffect(() => {
     if (!timerRunning || timerSeconds === null) return;
-    if (timerSeconds <= 0) { setTimerRunning(false); return; }
+    if (timerSeconds <= 0) {
+      setTimerRunning(false);
+      timerDoneHaptic();
+      playTimerChime();
+      return;
+    }
     const t = setTimeout(() => setTimerSeconds((s) => (s ?? 1) - 1), 1000);
     return () => clearTimeout(t);
   }, [timerRunning, timerSeconds]);
@@ -1282,6 +1300,7 @@ export function RecipeDetailModal({
                 measure: normalizeMeasure('measure' in ing ? (ing as any).measure : (ing as any).quantity ?? '', unitSystem),
               }))}
               ratio={ratio}
+              initialStep={autoOpenCookingAtStep}
               onClose={() => setCookingModeVisible(false)}
               onMarkCooked={() => {
                 if (onMarkCooked) onMarkCooked(); // fire parent for interaction logging
