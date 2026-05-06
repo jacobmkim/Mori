@@ -12,14 +12,16 @@
       "distribution": "internal",
       "channel": "preview",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://getmori.app"
+        "EXPO_PUBLIC_API_URL": "https://getmori.app",
+        "EXPO_PUBLIC_MORI_PLUS_ENABLED": "false"
       }
     },
     "production": {
       "autoIncrement": true,
       "channel": "production",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://getmori.app"
+        "EXPO_PUBLIC_API_URL": "https://getmori.app",
+        "EXPO_PUBLIC_MORI_PLUS_ENABLED": "false"
       }
     }
   },

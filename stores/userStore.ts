@@ -8,6 +8,9 @@ interface UserStore {
   isLoading: boolean;
   error: string | null;
   profileSheetOpen: boolean;
+  // Mori+ entitlement, mirrored from RevenueCat customer info. Source of truth
+  // for client-side UI gating; server-side gating reads profiles.is_premium.
+  isPremium: boolean;
 
   setProfile: (profile: Profile | null) => void;
   setSessionNumber: (n: number) => void;
@@ -16,6 +19,7 @@ interface UserStore {
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   setProfileSheetOpen: (open: boolean) => void;
+  setPremium: (isPremium: boolean) => void;
 }
 
 const defaultOnboarding: OnboardingState = {
@@ -37,9 +41,11 @@ export const useUserStore = create<UserStore>((set) => ({
   isLoading: false,
   error: null,
   profileSheetOpen: false,
+  isPremium: false,
 
   setProfile: (profile) => set({ profile }),
   setSessionNumber: (sessionNumber) => set({ sessionNumber }),
+  setPremium: (isPremium) => set({ isPremium }),
 
   setOnboardingField: (key, value) =>
     set((state) => ({
