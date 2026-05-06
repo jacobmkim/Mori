@@ -534,7 +534,7 @@ export default function Plan() {
               <Pressable
                 key={mealType}
                 onPress={() => {
-                  if (recipe) return;
+                  if (recipe) { setPreviewRecipe(recipe); return; }
                   if (isDeleted) { handleRemove(selectedDay, mealType); return; }
                   setPickerOpen({ day: selectedDay, mealType });
                 }}

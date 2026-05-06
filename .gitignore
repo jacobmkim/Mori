@@ -40,3 +40,10 @@ expo-env.d.ts
 
 # Local dev artifacts
 Debug Errors/
+
+# Script run artifacts (transient, regenerated on each run)
+scripts/.locks/
+scripts/reports/
+scripts/*-log.txt
+scripts/*-err.txt
+scripts/new-recipes-*-draft.json
