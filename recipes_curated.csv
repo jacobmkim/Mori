@@ -1,0 +1,1093 @@
+title,cuisine,meal_prep_friendly,difficulty,approx_time_mins
+Cilantro Lime Chicken Burrito Bowl,mexican,true,beginner,30
+Chipotle Chicken Quinoa Bowl,mexican,true,beginner,30
+Hot Honey Chicken Rice Bowl,american,true,beginner,25
+Buffalo Chicken Rice Bowl with Blue Cheese,american,true,beginner,25
+Greek Yogurt Marinated Chicken Bowl,greek,true,home_cook,30
+Mediterranean Lemon Chicken Quinoa Bowl,mediterranean,true,home_cook,30
+Pesto Chicken and Farro Bowl,italian,true,home_cook,30
+Sweet Chili Chicken Rice Bowl,thai,true,beginner,25
+Coconut Curry Chicken Bowl with Jasmine Rice,thai,true,home_cook,30
+Hawaiian BBQ Chicken Rice Bowl,hawaiian,true,beginner,25
+Cuban Mojo Chicken Rice Bowl,cuban,true,home_cook,35
+Peruvian Aji Verde Chicken Bowl,peruvian,true,home_cook,35
+Brazilian Chicken and Black Bean Rice Bowl,brazilian,true,home_cook,35
+Lemongrass Chicken Vermicelli Bowl,vietnamese,true,home_cook,30
+Vietnamese Chicken Banh Mi Bowl,vietnamese,true,home_cook,30
+Filipino Adobo Chicken Rice Bowl,filipino,true,home_cook,35
+Persian Saffron Chicken Rice Bowl,persian,true,home_cook,40
+Indian Tandoori Chicken Basmati Bowl,indian,true,home_cook,35
+Jamaican Jerk Chicken Rice Bowl,jamaican,true,home_cook,35
+Moroccan Spiced Chicken Couscous Bowl,moroccan,true,home_cook,35
+Spanish Paprika Chicken Rice Bowl,spanish,true,home_cook,30
+Lebanese Chicken Shawarma Rice Bowl,middle eastern,true,home_cook,30
+Garlic Parmesan Chicken Rice Bowl,american,true,beginner,25
+Honey Mustard Chicken and Wild Rice Bowl,american,true,beginner,30
+Maple Dijon Chicken and Brown Rice Bowl,american,true,beginner,30
+Chimichurri Chicken Rice Bowl,argentine,true,home_cook,30
+Cajun Chicken and Dirty Rice Bowl,cajun,true,home_cook,30
+Bourbon Chicken Rice Bowl,american,true,beginner,25
+Sticky Sesame Chicken Bowl,asian,true,beginner,25
+Honey Sesame Chicken Bowl,asian,true,beginner,25
+Pineapple Teriyaki Chicken Bowl,japanese,true,beginner,30
+Coconut Lime Chicken Rice Bowl,thai,true,home_cook,30
+Smoky Paprika Chicken and Rice Bowl,spanish,true,beginner,30
+Sun-Dried Tomato Chicken Orzo Bowl,mediterranean,true,home_cook,30
+Olive and Feta Chicken Rice Bowl,greek,true,home_cook,30
+Spinach Artichoke Chicken Rice Bowl,american,true,home_cook,30
+Bang Bang Chicken Rice Bowl,asian,true,beginner,25
+Firecracker Chicken Rice Bowl,asian,true,beginner,25
+Cashew Chicken Stir-Fry Rice Bowl,chinese,true,beginner,25
+Mongolian Beef Rice Bowl,chinese,true,beginner,25
+Japanese Yakiniku Beef Rice Bowl,japanese,true,home_cook,30
+Pepper Lunch Beef Rice Bowl,japanese,true,beginner,20
+Sloppy Joe Rice Bowl,american,true,beginner,25
+Cheeseburger Rice Bowl,american,true,beginner,25
+Philly Cheesesteak Rice Bowl,american,true,beginner,25
+Korean Ground Beef Bibimbap Bowl,korean,true,home_cook,30
+Mexican Taco Beef Rice Bowl with Lime Crema,mexican,true,beginner,25
+Cuban Picadillo Rice Bowl,cuban,true,beginner,30
+Brazilian Feijoada Rice Bowl,brazilian,true,home_cook,45
+Hawaiian Loco Moco Rice Bowl,hawaiian,true,beginner,25
+Sukiyaki-Style Beef Rice Bowl,japanese,true,home_cook,30
+Vietnamese Shaking Beef Rice Bowl,vietnamese,true,home_cook,30
+Thai Basil Steak Rice Bowl,thai,true,home_cook,25
+Ginger Beef and Broccoli Rice Bowl,chinese,true,beginner,25
+Steak Fajita Rice Bowl with Charred Peppers,mexican,true,home_cook,30
+Carne Asada Burrito Bowl,mexican,true,home_cook,35
+Cheesy Taco Beef Skillet Rice Bowl,mexican,true,beginner,25
+Spicy Gochujang Beef Rice Bowl,korean,true,beginner,25
+Beef Larb Rice Bowl,thai,true,home_cook,25
+Ground Beef Banh Mi Bowl,vietnamese,true,home_cook,30
+Indonesian Beef Rendang Rice Bowl,indonesian,true,confident_chef,90
+Filipino Beef Tapa Rice Bowl,filipino,true,home_cook,30
+Beef Bulgogi Bibimbap Bowl,korean,true,home_cook,30
+Ground Turkey Burrito Bowl with Lime Rice,mexican,true,beginner,25
+Buffalo Turkey Rice Bowl,american,true,beginner,25
+Ground Turkey Greek Bowl with Feta and Olives,greek,true,beginner,25
+Mediterranean Ground Turkey Quinoa Bowl,mediterranean,true,beginner,25
+Ground Turkey Bibimbap Bowl,korean,true,home_cook,30
+Sweet and Spicy Pork Rice Bowl,asian,true,home_cook,30
+Korean Spicy Pork Bibimbap Bowl,korean,true,home_cook,30
+Cuban Mojo Pork Rice Bowl,cuban,true,home_cook,35
+Hawaiian Kalua Pork Rice Bowl,hawaiian,true,home_cook,35
+Filipino Sisig Rice Bowl,filipino,true,home_cook,35
+Miso Glazed Salmon Rice Bowl,japanese,true,home_cook,25
+Sushi-Style Salmon Poke Bowl,hawaiian,true,beginner,20
+Spicy Tuna Poke Bowl,hawaiian,true,beginner,20
+Hawaiian Ahi Poke Bowl,hawaiian,true,beginner,20
+Salmon Avocado Rice Bowl,japanese,true,beginner,20
+Teriyaki Salmon Sushi Bowl,japanese,true,beginner,25
+Furikake Salmon Rice Bowl,japanese,true,beginner,25
+Cajun Salmon Rice Bowl with Corn,cajun,true,beginner,25
+Honey Garlic Salmon Rice Bowl,asian,true,beginner,25
+Lemon Dill Salmon Rice Bowl,scandinavian,true,beginner,25
+Spicy Shrimp Rice Bowl with Mango,asian,true,beginner,25
+Coconut Shrimp Rice Bowl,thai,true,home_cook,25
+Tofu Banh Mi Rice Bowl,vietnamese,true,home_cook,30
+Crispy Tofu Teriyaki Rice Bowl,japanese,true,home_cook,30
+Korean Gochujang Tofu Rice Bowl,korean,true,home_cook,30
+Buffalo Cauliflower Rice Bowl,american,true,beginner,30
+Mediterranean Falafel Rice Bowl,middle eastern,true,home_cook,35
+Vegan Buddha Bowl with Tahini Drizzle,mediterranean,true,beginner,30
+Roasted Vegetable and Lentil Rice Bowl,mediterranean,true,beginner,35
+Sweet Potato and Black Bean Rice Bowl,mexican,true,beginner,30
+Air Fryer Honey Garlic Chicken Thighs,asian,true,beginner,25
+Air Fryer Lemon Pepper Chicken Wings,american,true,beginner,25
+Air Fryer Buffalo Chicken Wings,american,true,beginner,25
+Air Fryer Korean Fried Chicken Wings,korean,true,beginner,25
+Air Fryer Parmesan Crusted Chicken Tenders,american,true,beginner,20
+Air Fryer Crispy Chicken Cutlets,american,true,beginner,20
+Air Fryer Chicken Fajitas,mexican,true,beginner,20
+Air Fryer Whole Roasted Chicken,american,true,home_cook,65
+Air Fryer BBQ Chicken Drumsticks,american,true,beginner,30
+Air Fryer Teriyaki Chicken Bites,japanese,true,beginner,20
+Air Fryer Cajun Chicken Bites,cajun,true,beginner,20
+Air Fryer Italian Herb Chicken Breasts,italian,true,beginner,25
+Air Fryer Greek Chicken Souvlaki,greek,true,beginner,20
+Air Fryer Garlic Parmesan Chicken Wings,american,true,beginner,25
+Air Fryer Lemon Herb Chicken Thighs,mediterranean,true,beginner,25
+Air Fryer Chicken Shawarma Bites,middle eastern,true,beginner,20
+Air Fryer Tandoori Chicken Tenders,indian,true,beginner,25
+Air Fryer Jerk Chicken Wings,jamaican,true,beginner,25
+Air Fryer Sticky Sesame Chicken,asian,true,beginner,20
+Air Fryer Coconut Chicken Tenders,thai,true,beginner,20
+Air Fryer Nashville Hot Chicken Tenders,american,true,beginner,25
+Air Fryer Chicken Quesadillas,mexican,true,beginner,15
+Air Fryer Pesto Chicken Breasts,italian,true,beginner,25
+Air Fryer Chicken Egg Rolls,chinese,true,home_cook,25
+Air Fryer Chipotle Lime Chicken,mexican,true,beginner,25
+Air Fryer Steak Bites,american,true,beginner,15
+Air Fryer Korean BBQ Steak Bites,korean,true,beginner,20
+Air Fryer Teriyaki Beef Skewers,japanese,true,beginner,20
+Air Fryer Mongolian Beef Bites,chinese,true,beginner,20
+Air Fryer Cheeseburger Sliders,american,true,beginner,15
+Air Fryer Pork Belly Bites,asian,true,home_cook,30
+Air Fryer Honey Garlic Pork Chops,asian,true,beginner,20
+Air Fryer Bacon-Wrapped Pork Tenderloin,american,true,beginner,30
+Air Fryer Pork Schnitzel,german,true,beginner,20
+Air Fryer Italian Sausage and Peppers,italian,true,beginner,25
+Air Fryer Crispy Salmon Fillets,american,true,beginner,15
+Air Fryer Bang Bang Shrimp,asian,true,beginner,15
+Air Fryer Coconut Shrimp,thai,true,beginner,15
+Air Fryer Lemon Garlic Shrimp Skewers,mediterranean,true,beginner,12
+Air Fryer Cajun Salmon Bites,cajun,true,beginner,12
+Air Fryer Miso Glazed Cod,japanese,true,beginner,15
+Air Fryer Crispy Fish Tacos,mexican,true,beginner,20
+Air Fryer Shrimp Po'Boy Sliders,cajun,true,beginner,20
+Air Fryer Crab Cakes,american,true,beginner,20
+Air Fryer Tilapia with Lemon Pepper,american,true,beginner,15
+Air Fryer Crispy Brussels Sprouts with Balsamic,american,true,beginner,18
+Air Fryer Garlic Parmesan Asparagus,italian,true,beginner,12
+Air Fryer Sweet Potato Fries,american,true,beginner,18
+Air Fryer Crispy Smashed Potatoes,american,true,beginner,30
+Air Fryer Honey Sriracha Cauliflower Bites,asian,true,beginner,18
+Air Fryer Buffalo Cauliflower Wings,american,true,beginner,20
+Air Fryer Bang Bang Cauliflower,asian,true,beginner,18
+Air Fryer Roasted Broccoli with Lemon,american,true,beginner,12
+Air Fryer Crispy Chickpeas,mediterranean,true,beginner,18
+Air Fryer Zucchini Fries with Marinara,italian,true,beginner,15
+Air Fryer Stuffed Bell Peppers,american,true,beginner,30
+Air Fryer Mushroom Skewers,american,true,beginner,12
+Air Fryer Honey Glazed Carrots,american,true,beginner,15
+Air Fryer Acorn Squash Wedges,american,true,beginner,25
+Air Fryer Garlic Butter Green Beans,american,true,beginner,12
+Air Fryer Roasted Beets with Goat Cheese,mediterranean,true,beginner,30
+Air Fryer Crispy Tofu Cubes,asian,true,beginner,18
+Air Fryer Eggplant Parmesan Bites,italian,true,beginner,20
+Air Fryer Crispy Kale Chips,american,true,beginner,8
+Air Fryer Avocado Fries,american,true,beginner,12
+Air Fryer Bacon and Egg Cups,american,true,beginner,12
+Air Fryer Breakfast Sausage Patties,american,true,beginner,12
+Air Fryer French Toast Sticks,american,true,beginner,12
+Air Fryer Egg Bites with Spinach and Cheese,american,true,beginner,15
+Air Fryer Hash Browns,american,true,beginner,18
+Air Fryer Hard-Boiled Eggs,american,true,beginner,15
+Air Fryer Bagel Bites,american,false,beginner,8
+Air Fryer Cinnamon Apple Chips,american,true,beginner,15
+Air Fryer Mozzarella Sticks,italian,false,beginner,12
+Air Fryer Stuffed Mushrooms,american,true,beginner,18
+Air Fryer Jalapeno Poppers,mexican,false,beginner,12
+Air Fryer Pizza Rolls,italian,true,beginner,10
+Air Fryer Buffalo Cauliflower Pizza Bites,american,true,beginner,15
+Air Fryer Veggie Spring Rolls,asian,true,home_cook,18
+Air Fryer Empanadas,latin american,true,home_cook,20
+Bacon and Cheddar Egg Muffins,american,true,beginner,25
+Spinach and Feta Egg Bites,american,true,beginner,25
+Sausage and Pepper Egg Muffins,american,true,beginner,25
+Mushroom and Swiss Egg Muffins,american,true,beginner,25
+Ham and Cheese Egg Cups,american,true,beginner,25
+Mediterranean Egg Muffins with Sun-Dried Tomatoes,mediterranean,true,beginner,25
+Tex-Mex Egg Muffins with Salsa,mexican,true,beginner,25
+Caprese Egg Bites with Mozzarella,italian,true,beginner,25
+Broccoli Cheddar Egg Bites,american,true,beginner,25
+Goat Cheese and Roasted Pepper Egg Cups,mediterranean,true,beginner,25
+Bacon Avocado Egg Cups,american,true,beginner,25
+Smoked Salmon and Dill Egg Cups,scandinavian,true,beginner,25
+Make-Ahead Veggie Frittata Squares,italian,true,beginner,35
+Sheet Pan Eggs with Vegetables and Bacon,american,true,beginner,25
+Sheet Pan Pancakes with Berries,american,true,beginner,25
+Freezer Breakfast Burrito with Sausage,mexican,true,beginner,30
+Freezer Breakfast Burrito with Bacon and Egg,mexican,true,beginner,30
+Chorizo and Egg Breakfast Burrito,mexican,true,beginner,30
+Veggie Black Bean Breakfast Burrito,mexican,true,beginner,30
+Southwest Breakfast Wrap with Sweet Potato,mexican,true,beginner,30
+California Breakfast Burrito with Avocado and Salsa,mexican,true,beginner,30
+Breakfast Quesadilla with Eggs and Cheese,mexican,true,beginner,15
+Spinach and Egg Breakfast Wrap,american,true,beginner,15
+Buffalo Chicken Breakfast Burrito,american,true,beginner,25
+Smoked Salmon Bagel Wrap,american,false,beginner,8
+Peanut Butter Banana Overnight Oats,american,true,beginner,5
+Apple Cinnamon Overnight Oats,american,true,beginner,5
+Strawberry Vanilla Overnight Oats,american,true,beginner,5
+Blueberry Almond Overnight Oats,american,true,beginner,5
+Chocolate Peanut Butter Overnight Oats,american,true,beginner,5
+Coconut Mango Overnight Oats,american,true,beginner,5
+Pumpkin Spice Overnight Oats,american,true,beginner,5
+Carrot Cake Overnight Oats,american,true,beginner,5
+Tiramisu Overnight Oats,italian,true,beginner,5
+Matcha Overnight Oats with Honey,japanese,true,beginner,5
+Baked Oatmeal with Berries,american,true,beginner,35
+Steel-Cut Oats with Apple and Cinnamon,american,true,beginner,30
+Savory Oatmeal with Egg and Spinach,american,true,beginner,15
+Greek Yogurt Parfait Cups with Granola,american,true,beginner,5
+Chia Pudding with Mango and Coconut,american,true,beginner,5
+Acai Smoothie Bowl with Granola,american,true,beginner,8
+Green Smoothie Bowl with Spinach and Banana,american,true,beginner,8
+Peanut Butter Protein Smoothie Bowl,american,true,beginner,8
+Tropical Mango Smoothie Bowl,american,true,beginner,8
+Dragon Fruit Smoothie Bowl,american,true,beginner,8
+Protein Pancakes with Cottage Cheese,american,true,beginner,20
+Banana Oat Pancakes for Freezing,american,true,beginner,20
+Whole Wheat Blueberry Pancakes for Freezing,american,true,beginner,25
+Make-Ahead Breakfast Sandwiches with Sausage,american,true,beginner,25
+Make-Ahead Bacon Egg and Cheese Bagel Sandwiches,american,true,beginner,25
+Make-Ahead Turkey Sausage Breakfast Sandwiches,american,true,beginner,25
+Sausage Egg and Hashbrown Casserole,american,true,beginner,60
+Tater Tot Breakfast Casserole,american,true,beginner,60
+French Toast Casserole with Berries,french,true,home_cook,60
+Cheesy Bacon and Hash Brown Bake,american,true,beginner,50
+Sheet Pan Bacon Egg and Cheese Biscuits,american,true,beginner,30
+Spinach Mushroom Crustless Quiche,french,true,beginner,50
+Ham and Cheese Crustless Quiche,french,true,beginner,50
+Meal Prep Avocado Toast Boards,american,true,beginner,5
+Mason Jar Greek Salad with Chicken,greek,true,beginner,20
+Mason Jar Cobb Salad,american,true,beginner,20
+Mason Jar Southwest Chicken Salad,mexican,true,beginner,20
+Mason Jar Asian Chicken Salad with Sesame Dressing,asian,true,beginner,20
+Mason Jar Caprese Pasta Salad,italian,true,beginner,20
+Mason Jar Mediterranean Chickpea Salad,mediterranean,true,beginner,15
+Mason Jar Buffalo Chicken Salad with Ranch,american,true,beginner,20
+Mason Jar BLT Salad with Avocado,american,true,beginner,15
+Mason Jar Thai Peanut Chicken Salad,thai,true,beginner,25
+Mason Jar Tex-Mex Quinoa Salad,mexican,true,beginner,25
+Mason Jar Caesar Salad with Grilled Chicken,italian,true,beginner,20
+Mason Jar Nicoise Salad,french,true,beginner,20
+Mason Jar Tuna Salad with White Beans,italian,true,beginner,12
+Mason Jar Strawberry Spinach Salad with Goat Cheese,american,true,beginner,15
+Mason Jar Apple Walnut Salad with Blue Cheese,american,true,beginner,15
+Crunchy Asian Chicken Salad with Cabbage,asian,true,beginner,25
+Spicy Thai Beef Salad with Mint and Lime,thai,true,home_cook,25
+Vietnamese Lemongrass Beef Salad,vietnamese,true,home_cook,25
+Korean Bulgogi Beef Salad,korean,true,home_cook,25
+Smoked Salmon and Dill Pasta Salad,scandinavian,true,beginner,20
+Chickpea Tuna Salad with Lemon and Capers,mediterranean,true,beginner,12
+Crunchy Broccoli Salad with Bacon and Cranberries,american,true,beginner,15
+Roasted Sweet Potato and Kale Salad,american,true,beginner,35
+Quinoa Tabbouleh with Chickpeas,middle eastern,true,beginner,25
+Farro Salad with Roasted Vegetables and Feta,mediterranean,true,home_cook,35
+Watermelon Feta Mint Salad,greek,true,beginner,10
+Burrata and Peach Summer Salad,italian,true,beginner,10
+Wedge Salad with Blue Cheese and Bacon,american,true,beginner,15
+Detox Kale and Quinoa Power Salad,american,true,beginner,25
+Chopped Italian Antipasto Salad,italian,true,beginner,20
+Greek Orzo Salad with Olives and Feta,greek,true,beginner,25
+Green Goddess Chicken Salad with Crispy Chickpeas,american,true,beginner,25
+Strawberry Avocado Spinach Salad,american,true,beginner,12
+Beet and Goat Cheese Quinoa Salad,mediterranean,true,home_cook,35
+Roasted Cauliflower and Lentil Power Salad,mediterranean,true,beginner,35
+Crunchy Cabbage and Edamame Salad,asian,true,beginner,15
+Black Bean Corn and Avocado Salad,mexican,true,beginner,12
+Peruvian Quinoa Salad with Aji Verde,peruvian,true,beginner,25
+Brazilian Hearts of Palm Salad,brazilian,true,beginner,12
+Filipino Atchara Mango Slaw,filipino,true,beginner,15
+Buffalo Chicken Caesar Wrap,american,true,beginner,15
+Mediterranean Hummus and Veggie Wrap,mediterranean,true,beginner,10
+Greek Chicken Tzatziki Wrap,greek,true,beginner,25
+Turkey Club Wrap with Avocado,american,true,beginner,10
+Spicy Tuna Avocado Wrap,japanese,true,beginner,10
+Thai Peanut Chicken Wrap,thai,true,beginner,20
+Korean Bulgogi Beef Wrap,korean,true,home_cook,25
+Banh Mi Chicken Wrap,vietnamese,true,home_cook,25
+Falafel Wrap with Tahini Sauce,middle eastern,true,home_cook,30
+Chicken Shawarma Lavash Wrap,middle eastern,true,home_cook,30
+Italian Sub Wrap with Pepperoncini,italian,true,beginner,10
+Veggie Hummus Pinwheels,mediterranean,true,beginner,10
+Spinach Feta Pinwheels,greek,true,beginner,10
+Smoked Salmon Cream Cheese Pinwheels,american,true,beginner,10
+Buffalo Chicken Pinwheels with Ranch,american,true,beginner,15
+BBQ Chicken Wrap with Slaw,american,true,beginner,20
+Chickpea Salad Wrap (Vegan Tuna Salad),american,true,beginner,12
+Caprese Wrap with Pesto,italian,true,beginner,8
+Cuban Sandwich Wrap,cuban,true,beginner,15
+Hawaiian BBQ Pork Wrap with Pineapple,hawaiian,true,home_cook,25
+Buffalo Chicken Sliders with Blue Cheese,american,true,beginner,25
+BBQ Pulled Chicken Sliders,american,true,beginner,25
+Italian Beef Sandwiches with Giardiniera,italian,true,home_cook,240
+Chicken Bacon Ranch Sliders,american,true,beginner,25
+Pesto Turkey Caprese Sandwich,italian,true,beginner,10
+Bahn Mi Pork Belly Sandwich,vietnamese,true,home_cook,30
+Korean Fried Chicken Sandwich,korean,true,home_cook,30
+Spicy Crispy Chicken Sandwich with Pickles,american,true,home_cook,25
+Cuban Pressed Sandwich with Mojo Pork,cuban,true,home_cook,30
+Chopped Italian Sub Sandwich,italian,true,beginner,12
+Chickpea Salad Sandwich (Smashed Chickpea),american,true,beginner,10
+Tuna Melt Sandwich with Cheddar,american,true,beginner,15
+Avocado BLT Sandwich on Sourdough,american,true,beginner,12
+French Onion Grilled Cheese Sandwich,french,true,beginner,15
+Sheet Pan Honey Garlic Salmon and Broccoli,asian,true,beginner,25
+Sheet Pan Lemon Pepper Chicken with Asparagus,american,true,beginner,30
+Sheet Pan Greek Chicken with Olives and Feta,greek,true,beginner,35
+Sheet Pan Italian Sausage with Peppers and Potatoes,italian,true,beginner,35
+Sheet Pan BBQ Chicken with Sweet Potatoes,american,true,beginner,35
+Sheet Pan Teriyaki Salmon and Vegetables,japanese,true,beginner,25
+Sheet Pan Shrimp Boil with Sausage and Corn,american,true,beginner,30
+Sheet Pan Chicken Shawarma with Sweet Potato,middle eastern,true,beginner,35
+Sheet Pan Fajita Steak with Peppers and Onions,mexican,true,beginner,25
+Sheet Pan Pesto Chicken with Cherry Tomatoes,italian,true,beginner,30
+Sheet Pan Korean Beef Bowls,korean,true,home_cook,35
+Sheet Pan Tuscan Salmon with White Beans,italian,true,beginner,25
+Sheet Pan Mediterranean Chickpeas with Vegetables,mediterranean,true,beginner,30
+Sheet Pan Maple Mustard Pork Tenderloin,american,true,home_cook,35
+Sheet Pan Cajun Sausage and Vegetables,cajun,true,beginner,30
+Sheet Pan Bruschetta Chicken with Tomatoes,italian,true,beginner,30
+Sheet Pan French Onion Pork Chops,french,true,home_cook,35
+Sheet Pan Maple Bacon Brussels Sprouts and Chicken,american,true,beginner,35
+Sheet Pan Harissa Chicken with Carrots,moroccan,true,home_cook,35
+Sheet Pan Curry Chicken with Cauliflower,indian,true,home_cook,35
+Sheet Pan Lemon Garlic Shrimp with Asparagus,mediterranean,true,beginner,20
+Sheet Pan Chimichurri Steak with Vegetables,argentine,true,home_cook,30
+Sheet Pan Honey Sriracha Chicken Thighs,asian,true,beginner,30
+Sheet Pan Coconut Curry Chicken with Vegetables,thai,true,home_cook,35
+Sheet Pan Chipotle Pork with Sweet Potatoes,mexican,true,home_cook,35
+Sheet Pan Lemon Herb Halibut and Zucchini,mediterranean,true,beginner,25
+Sheet Pan Buffalo Chicken with Broccoli,american,true,beginner,30
+Sheet Pan Garlic Butter Cod and Vegetables,mediterranean,true,beginner,25
+Sheet Pan Mongolian Beef and Broccoli,chinese,true,beginner,25
+Sheet Pan Maple Soy Salmon with Bok Choy,asian,true,beginner,25
+Sheet Pan Mediterranean Salmon with Olives,mediterranean,true,beginner,25
+Sheet Pan Spanish Chicken and Rice,spanish,true,home_cook,50
+Sheet Pan Tex-Mex Chicken Quesadillas,mexican,true,beginner,25
+Sheet Pan Eggplant Parmesan,italian,true,home_cook,45
+Sheet Pan Chicken Parmesan with Pasta,italian,true,home_cook,45
+One-Pot Creamy Tuscan Chicken Pasta,italian,true,beginner,30
+One-Pot Cajun Sausage and Rice,cajun,true,beginner,30
+One-Pot Lemon Garlic Shrimp Pasta,italian,true,beginner,25
+One-Pot Chicken and Mushroom Orzo,italian,true,beginner,30
+One-Pot Cheesy Beef Taco Pasta,mexican,true,beginner,30
+One-Pot Sausage and Pepper Pasta,italian,true,beginner,30
+One-Pot Spicy Buffalo Chicken Pasta,american,true,beginner,30
+One-Pot Chicken Pad Thai,thai,true,home_cook,25
+One-Pot Spaghetti Aglio e Olio,italian,true,beginner,20
+One-Pan Crispy Chicken with Lemon Orzo,greek,true,beginner,30
+One-Pan Garlic Butter Steak and Rice,american,true,beginner,25
+One-Pan Mediterranean Chicken and Couscous,mediterranean,true,home_cook,35
+One-Pan Coconut Curry Shrimp and Rice,thai,true,home_cook,30
+One-Pan Hawaiian Chicken and Rice,hawaiian,true,beginner,35
+One-Pan Honey Garlic Salmon with Rice,asian,true,beginner,30
+One-Pan Greek Lemon Chicken Rice,greek,true,home_cook,35
+One-Pan Korean Beef and Rice Skillet,korean,true,beginner,30
+One-Pan Pesto Tortellini and Vegetables,italian,true,beginner,20
+One-Pan Crispy Gnocchi with Tomatoes,italian,true,beginner,25
+One-Pan Mexican Street Corn Pasta,mexican,true,beginner,25
+One-Pan Spinach Artichoke Chicken Pasta,american,true,beginner,30
+One-Pan Chicken Bacon Ranch Pasta,american,true,beginner,30
+One-Pan French Onion Beef and Noodles,french,true,home_cook,35
+One-Pan Mongolian Beef and Noodles,chinese,true,beginner,25
+One-Pan Lo Mein with Vegetables,chinese,true,beginner,20
+Cheesy Sausage and Rice Skillet,american,true,beginner,25
+Cajun Chicken and Rice Skillet,cajun,true,beginner,30
+Spanish Chicken and Chorizo Skillet,spanish,true,home_cook,35
+Mediterranean Chicken Skillet with Olives,mediterranean,true,beginner,30
+Buffalo Chicken Skillet with Cauliflower Rice,american,true,beginner,25
+Skillet Tuscan White Beans with Sausage,italian,true,beginner,25
+Skillet Lasagna (No-Bake),italian,true,beginner,30
+Skillet Chicken Pot Pie with Biscuits,american,true,beginner,40
+Skillet Beef Stroganoff with Egg Noodles,russian,true,beginner,30
+Skillet Apple Cider Pork Chops,american,true,beginner,30
+Skillet Honey Garlic Salmon and Potatoes,asian,true,beginner,30
+Skillet Chicken Marsala with Mushrooms,italian,true,home_cook,30
+Skillet Bourbon Glazed Pork Chops,american,true,beginner,25
+Skillet Salmon with Lemon Butter and Capers,mediterranean,true,beginner,20
+Cheesy Mexican Chicken Skillet,mexican,true,beginner,30
+Sausage Tortellini Skillet with Spinach,italian,true,beginner,25
+Greek Lemon Chicken Skillet,greek,true,beginner,30
+Cuban Chicken Skillet with Black Beans,cuban,true,beginner,35
+Korean Pork and Kimchi Skillet,korean,true,beginner,25
+Cajun Shrimp and Rice Skillet,cajun,true,beginner,25
+Korean BBQ Beef Tacos with Slaw,korean,true,home_cook,30
+Banh Mi Pork Tacos,vietnamese,true,home_cook,35
+Hawaiian Pulled Pork Tacos with Pineapple,hawaiian,true,home_cook,240
+Buffalo Chicken Tacos with Blue Cheese,american,true,beginner,25
+BBQ Brisket Tacos,american,true,confident_chef,360
+Crispy Cauliflower Tacos with Chipotle Crema,mexican,true,beginner,30
+Crispy Beef Birria Tacos,mexican,true,confident_chef,180
+Carnitas Street Tacos with Salsa Verde,mexican,true,home_cook,240
+Shrimp Tacos with Mango Salsa,mexican,true,beginner,25
+Blackened Salmon Tacos with Cilantro Lime Slaw,mexican,true,beginner,25
+Walnut Lentil Tacos (Vegan),mexican,true,beginner,30
+Mushroom Carnitas Tacos,mexican,true,beginner,30
+Asada Burrito with Rice and Beans,mexican,true,home_cook,35
+California Burrito with Steak and Fries,mexican,true,home_cook,40
+Wet Burrito with Red Chile Sauce,mexican,true,home_cook,45
+Buffalo Chicken Burrito,american,true,beginner,30
+Korean Beef Burrito,korean,true,home_cook,35
+Chicken Bacon Ranch Quesadilla,american,true,beginner,20
+Spinach and Mushroom Quesadilla,mexican,true,beginner,15
+BBQ Chicken Quesadilla with Red Onion,american,true,beginner,20
+Steak Fajita Quesadilla,mexican,true,beginner,25
+Cheesy Black Bean Quesadilla,mexican,true,beginner,15
+Crab and Cream Cheese Quesadilla,mexican,true,beginner,20
+Buffalo Cauliflower Enchiladas,mexican,true,beginner,40
+Smothered Chicken Burritos with Green Sauce,mexican,true,home_cook,45
+Cheesy Beef Enchilada Suizas,mexican,true,home_cook,45
+Chicken Mole Enchiladas,mexican,true,home_cook,60
+Spinach and Mushroom Enchiladas,mexican,true,beginner,45
+Sweet Potato Black Bean Enchiladas,mexican,true,beginner,45
+Birria Enchiladas with Consomme,mexican,true,confident_chef,180
+Creamy Lasagna Soup,italian,true,home_cook,40
+White Chicken Chili,american,true,beginner,35
+Pumpkin Coconut Curry Soup,thai,true,beginner,30
+Roasted Butternut Squash and Apple Soup,american,true,beginner,50
+Tortellini Soup with Italian Sausage,italian,true,beginner,30
+Chicken Gnocchi Soup,italian,true,beginner,30
+Buffalo Chicken Soup with Blue Cheese,american,true,beginner,30
+Stuffed Pepper Soup,american,true,beginner,35
+Cheeseburger Soup,american,true,beginner,35
+Cabbage Roll Soup (Unstuffed),eastern european,true,beginner,45
+Lasagna Soup with Ricotta Dollops,italian,true,beginner,40
+Lemon Chicken Orzo Soup,greek,true,beginner,30
+Pho Ga (Vietnamese Chicken Noodle Soup),vietnamese,true,home_cook,60
+Bun Bo Hue (Spicy Vietnamese Beef Soup),vietnamese,true,confident_chef,180
+Tom Yum Goong Soup,thai,true,home_cook,30
+Caldo de Pollo (Mexican Chicken Soup),mexican,true,beginner,50
+Sopa de Albondigas (Mexican Meatball Soup),mexican,true,home_cook,45
+Avgolemono (Greek Lemon Egg Soup),greek,true,beginner,30
+Borscht with Beets and Sour Cream,ukrainian,true,home_cook,60
+Pasta e Ceci (Italian Chickpea Soup),italian,true,beginner,35
+Ribollita (Tuscan Bread Soup),italian,true,home_cook,60
+French Onion Soup with Gruyere Croutons,french,true,home_cook,60
+Hungarian Goulash Soup,hungarian,true,home_cook,90
+Iranian Ash Reshteh (Herb and Noodle Soup),persian,true,home_cook,60
+Egusi Soup (West African Melon Seed Stew),nigerian,true,confident_chef,90
+Chickpea Harira Soup,moroccan,true,beginner,40
+Gumbo with Andouille and Shrimp,cajun,true,home_cook,90
+Cioppino (Italian Seafood Stew),italian,true,home_cook,45
+Bouillabaisse (French Seafood Stew),french,true,confident_chef,60
+Korean Kimchi Stew with Pork,korean,true,beginner,30
+Doenjang Jjigae (Korean Soybean Paste Stew),korean,true,beginner,25
+Brazilian Moqueca de Peixe (Fish Stew),brazilian,true,home_cook,40
+Peruvian Aguadito de Pollo (Chicken Cilantro Soup),peruvian,true,home_cook,45
+Hawaiian Saimin Noodle Soup,hawaiian,true,beginner,25
+Filipino Sinigang (Tamarind Pork Soup),filipino,true,home_cook,60
+Filipino Tinola (Ginger Chicken Soup),filipino,true,beginner,45
+Persian Adasi (Lentil Soup),persian,true,beginner,40
+Persian Ash-e Reshteh,persian,true,home_cook,90
+Polish Zurek (Sour Rye Soup),polish,true,home_cook,60
+Tuscan White Bean Soup with Sausage,italian,true,beginner,30
+Roasted Tomato Basil Soup,american,true,beginner,45
+Loaded Cauliflower Soup with Bacon,american,true,beginner,35
+Creamy Chicken Tortilla Soup,mexican,true,beginner,35
+Slow-Simmered Beef and Barley Soup,american,true,home_cook,90
+Hearty Italian Wedding Soup with Spinach,italian,true,beginner,40
+Smoky Black Bean Soup with Lime,mexican,true,beginner,35
+Spicy Vegetable Posole,mexican,true,beginner,45
+Greek Fasolada White Bean Soup,greek,true,beginner,45
+Chinese Hot and Sour Egg Drop Soup,chinese,true,beginner,20
+Slow Cooker Mississippi Pot Roast,american,true,beginner,480
+Slow Cooker Honey Garlic Chicken Thighs,asian,true,beginner,240
+Slow Cooker Buffalo Chicken Sandwiches,american,true,beginner,360
+Slow Cooker BBQ Pulled Chicken,american,true,beginner,360
+Slow Cooker Chicken Tikka Masala,indian,true,beginner,360
+Slow Cooker Beef and Broccoli,chinese,true,beginner,300
+Slow Cooker Korean Beef Short Ribs,korean,true,home_cook,480
+Slow Cooker Chicken Tortilla Soup,mexican,true,beginner,360
+Slow Cooker Lasagna,italian,true,beginner,240
+Slow Cooker Chicken and Dumplings,american,true,beginner,360
+Slow Cooker Sausage Pepper and Onion Hoagies,italian,true,beginner,300
+Slow Cooker French Dip Sandwiches,american,true,beginner,480
+Slow Cooker Italian Chicken with Tomatoes,italian,true,beginner,360
+Slow Cooker Coconut Curry Chicken,thai,true,beginner,360
+Slow Cooker Chickpea Tagine,moroccan,true,beginner,360
+Slow Cooker Vegan Chili with Sweet Potato,american,true,beginner,360
+Slow Cooker White Bean Chicken Chili,american,true,beginner,360
+Slow Cooker Loaded Potato Soup,american,true,beginner,240
+Slow Cooker Beef Bourguignon,french,true,home_cook,480
+Slow Cooker Chicken Cacciatore,italian,true,beginner,360
+Pink Vodka Sauce Pasta with Burrata,italian,true,beginner,30
+Marry Me Chicken Pasta,italian,true,beginner,30
+Caramelized Onion and Bacon Pasta,italian,true,home_cook,45
+Brown Butter Sage Pumpkin Ravioli,italian,true,beginner,25
+Lemon Ricotta Pasta with Spinach,italian,true,beginner,25
+Tomato Burrata Pasta with Basil,italian,true,beginner,25
+Garlic Butter Mushroom Pasta,italian,true,beginner,25
+Spicy Calabrian Chili Pasta with Sausage,italian,true,home_cook,30
+Pasta alla Norma (Eggplant and Tomato),italian,true,home_cook,35
+Pasta alla Genovese (Slow-Cooked Onion),italian,true,confident_chef,240
+Spaghetti Aglio e Olio with Anchovies,italian,true,beginner,20
+Pasta with Brown Butter and Sage,italian,true,beginner,20
+Pasta with Romanesco and Garlic,italian,true,beginner,25
+Tortellini en Brodo (Tortellini in Broth),italian,true,home_cook,30
+Lobster Pasta with Lemon Cream Sauce,italian,true,home_cook,35
+Crab Linguine with Chili and Lemon,italian,true,beginner,25
+Spaghetti alle Cozze (Mussel Pasta),italian,true,home_cook,30
+Cold Sesame Soba Noodles,japanese,true,beginner,15
+Garlic Noodles with Brown Butter,asian,true,beginner,15
+Singapore Noodles with Curry,asian,true,home_cook,25
+Dan Dan Noodles with Sichuan Peppercorn,chinese,true,home_cook,25
+Biang Biang Noodles with Chili Crisp,chinese,true,home_cook,35
+Liang Pi (Cold Skin Noodles),chinese,true,home_cook,30
+Yaki Udon with Pork Belly,japanese,true,beginner,25
+Tantanmen Spicy Sesame Ramen,japanese,true,home_cook,30
+Mazemen Brothless Ramen,japanese,true,home_cook,25
+Ramen Carbonara Fusion,fusion,true,beginner,25
+Korean Black Bean Noodles (Jjajangmyeon),korean,true,home_cook,35
+Knife-Cut Noodles with Beef and Bok Choy,chinese,true,home_cook,30
+Garlic Chili Oil Wonton Noodles,chinese,true,home_cook,30
+Million Dollar Spaghetti Casserole,italian,true,beginner,60
+Buffalo Chicken Pasta Bake,american,true,beginner,45
+Cheesy Taco Pasta Bake,mexican,true,beginner,45
+French Onion Pasta Bake,french,true,home_cook,60
+Pesto Chicken Pasta Bake with Tomatoes,italian,true,beginner,40
+Caprese Pasta Bake with Fresh Mozzarella,italian,true,beginner,40
+Tuna Noodle Casserole with Crispy Topping,american,true,beginner,45
+Greek Pastichio with Bechamel,greek,true,home_cook,90
+Mac and Cheese with Lobster,american,true,home_cook,45
+Bacon Mac and Cheese with Crispy Topping,american,true,beginner,45
+Truffle Mac and Cheese,italian,true,beginner,35
+Buffalo Chicken Mac and Cheese,american,true,beginner,40
+Spinach Artichoke Mac and Cheese,american,true,beginner,40
+Stuffed Shells with Spinach and Ricotta,italian,true,home_cook,60
+Manicotti with Ricotta and Mozzarella,italian,true,home_cook,60
+Spicy Miso Ramen with Pork,japanese,true,home_cook,35
+Quick Chicken Ramen with Soft Egg,japanese,true,beginner,25
+Vegetable Miso Ramen with Mushrooms,japanese,true,beginner,25
+Spicy Buldak Fire Noodles,korean,true,beginner,15
+Korean Army Stew Budae Jjigae Ramen,korean,true,home_cook,30
+Cheesy Ramen Carbonara,fusion,true,beginner,20
+Yakisoba Noodles with Pork,japanese,true,beginner,25
+Singapore Curry Mee Noodle Soup,malaysian,true,home_cook,30
+Lanzhou Hand-Pulled Beef Noodle Soup,chinese,true,confident_chef,240
+Chongqing Spicy Noodles with Peanuts,chinese,true,home_cook,25
+Burmese Khao Suey,burmese,true,home_cook,45
+Burmese Mohinga Fish Noodle Soup,burmese,true,confident_chef,90
+Shanghai Wonton Soup with Pork,chinese,true,home_cook,45
+Thai Boat Noodle Soup,thai,true,home_cook,60
+Hong Kong Beef Brisket Noodle Soup,chinese,true,home_cook,180
+Pork and Cabbage Pot Stickers,chinese,true,home_cook,60
+Chicken and Mushroom Dumplings,chinese,true,home_cook,60
+Shrimp and Chive Dumplings,chinese,true,home_cook,60
+Korean Mandu Dumplings with Kimchi,korean,true,home_cook,60
+Steamed Pork Bao Buns,chinese,true,home_cook,90
+BBQ Pork Char Siu Bao,chinese,true,home_cook,90
+Korean Beef Bulgogi Bao Buns,korean,true,home_cook,60
+Crispy Pork Belly Bao Buns,asian,true,home_cook,60
+Soup Dumplings (Xiao Long Bao),chinese,true,confident_chef,120
+Nepalese Momos with Tomato Chutney,nepalese,true,home_cook,60
+Tibetan Beef Momos,tibetan,true,home_cook,60
+Pierogi with Potato and Cheese,polish,true,home_cook,90
+Pierogi Ruskie with Sauerkraut and Mushroom,polish,true,home_cook,90
+Vietnamese Banh Bao Steamed Buns,vietnamese,true,home_cook,90
+Japanese Gyoza with Ginger Soy Dipping Sauce,japanese,true,home_cook,45
+Cashew Chicken Stir-Fry,chinese,true,beginner,25
+Black Pepper Beef Stir-Fry,chinese,true,beginner,20
+Sweet and Sour Pork Stir-Fry,chinese,true,beginner,25
+Hoisin Beef and Snap Pea Stir-Fry,chinese,true,beginner,20
+Pineapple Chicken Stir-Fry,chinese,true,beginner,25
+Lemon Chicken Stir-Fry,chinese,true,beginner,25
+Eggplant and Tofu Stir-Fry with Garlic,chinese,true,beginner,25
+Bok Choy and Mushroom Stir-Fry,chinese,true,beginner,15
+Garlic Green Beans and Ground Pork Stir-Fry,chinese,true,beginner,20
+Stir-Fried Cabbage with Bacon,asian,true,beginner,15
+Spicy Garlic Eggplant Stir-Fry,chinese,true,beginner,20
+Hunan Chicken Stir-Fry,chinese,true,home_cook,25
+Cumin Lamb Stir-Fry,chinese,true,home_cook,25
+Salt and Pepper Squid,chinese,true,home_cook,20
+Salt and Pepper Shrimp,chinese,true,beginner,20
+Beef Chow Fun Wide Noodles,chinese,true,home_cook,30
+Stir-Fried Garlic Chinese Broccoli,chinese,true,beginner,12
+Beef and Asparagus Stir-Fry with Black Bean Sauce,chinese,true,home_cook,25
+Spicy Korean Pork Stir-Fry,korean,true,beginner,20
+Stir-Fried Glass Noodles with Vegetables,korean,true,home_cook,25
+King Ranch Chicken Casserole,mexican,true,beginner,60
+Chicken Spaghetti with Rotel,american,true,beginner,50
+Hash Brown Chicken Casserole,american,true,beginner,60
+Tater Tot Hot Dish (Minnesota-Style),american,true,beginner,60
+Cheesy Hashbrown Casserole,american,true,beginner,60
+Buffalo Chicken Tater Tot Casserole,american,true,beginner,60
+Loaded Baked Potato Casserole,american,true,beginner,60
+Cabbage Roll Casserole (Unstuffed),eastern european,true,beginner,60
+Mexican Chicken Spaghetti,mexican,true,beginner,50
+Cheesy Chicken and Broccoli Rice Casserole,american,true,beginner,60
+Beef Enchilada Casserole with Layered Tortillas,mexican,true,beginner,50
+Chicken Cordon Bleu Casserole,french,true,beginner,50
+Chicken Florentine Casserole,italian,true,beginner,50
+Cheesy Hamburger Helper from Scratch,american,true,beginner,30
+Cheeseburger Mac Casserole,american,true,beginner,40
+Million Dollar Chicken Casserole,american,true,beginner,60
+Pizza Casserole with Pepperoni,italian,true,beginner,45
+Reuben Casserole (Corned Beef),american,true,beginner,45
+Taco Tater Tot Casserole,mexican,true,beginner,50
+French Onion Chicken Casserole,french,true,home_cook,60
+Detroit-Style Pepperoni Pizza,italian,true,home_cook,60
+Sicilian Sheet Pan Pizza,italian,true,home_cook,60
+New York Style Pepperoni Pizza,italian,true,home_cook,60
+Neapolitan Margherita with Buffalo Mozzarella,italian,true,home_cook,60
+Burrata and Prosciutto White Pizza,italian,true,home_cook,30
+Fig Goat Cheese Honey Walnut Pizza,italian,true,home_cook,30
+Hot Honey Pepperoni Pizza,italian,true,home_cook,30
+BBQ Chicken Pizza with Red Onion,american,true,beginner,25
+Buffalo Chicken Pizza with Blue Cheese,american,true,beginner,25
+Mediterranean Veggie Flatbread with Feta,mediterranean,true,beginner,25
+Pesto Burrata Flatbread,italian,true,beginner,20
+Caramelized Onion and Goat Cheese Flatbread,french,true,beginner,25
+Korean BBQ Beef Flatbread,korean,true,home_cook,30
+Peruvian Aji Verde Chicken Flatbread,peruvian,true,beginner,25
+Greek Lamb Gyro Flatbread,greek,true,beginner,30
+Buffalo Cauliflower Flatbread,american,true,beginner,25
+Steak Au Poivre Flatbread,french,true,home_cook,30
+Caprese Flatbread with Balsamic Glaze,italian,true,beginner,20
+Persian Lavash with Spiced Beef,persian,true,home_cook,30
+Lebanese Manakeesh Zaatar Flatbread,middle eastern,true,home_cook,30
+Saffron Rice Pilaf with Almonds and Raisins,persian,true,beginner,30
+Coconut Lime Rice with Cilantro,thai,true,beginner,25
+Lebanese Vermicelli Rice,middle eastern,true,beginner,25
+Indian Jeera Cumin Rice,indian,true,beginner,25
+Persian Crispy Rice with Tahdig,persian,true,home_cook,60
+Greek Lemon Rice with Spinach,greek,true,beginner,25
+Spanish Yellow Rice (Arroz Amarillo),spanish,true,beginner,30
+Cuban Black Beans and Rice (Moros y Cristianos),cuban,true,beginner,35
+Brazilian Coconut Rice,brazilian,true,beginner,25
+Pakistani Beef Pulao,pakistani,true,home_cook,60
+Pakistani Vegetable Pulao,pakistani,true,beginner,35
+Indonesian Yellow Turmeric Rice (Nasi Kuning),indonesian,true,home_cook,35
+Filipino Garlic Fried Rice (Sinangag),filipino,true,beginner,15
+Hawaiian Pineapple Fried Rice,hawaiian,true,beginner,20
+Mexican Red Rice (Arroz Rojo),mexican,true,beginner,30
+Persian Saffron Rice with Pistachio,persian,true,home_cook,35
+Farro Pilaf with Mushrooms,italian,true,home_cook,30
+Wild Rice Pilaf with Cranberries,american,true,beginner,45
+Quinoa Pilaf with Pine Nuts and Currants,mediterranean,true,beginner,25
+15-Minute Garlic Shrimp Pasta,italian,true,beginner,15
+15-Minute Pesto Tortellini with Spinach,italian,true,beginner,15
+15-Minute Ramen with Soft Egg,japanese,true,beginner,15
+15-Minute Egg Fried Rice,chinese,true,beginner,15
+15-Minute Tuna Pasta with Lemon,italian,true,beginner,15
+15-Minute Chicken Quesadillas,mexican,true,beginner,15
+15-Minute Black Bean Tacos,mexican,true,beginner,15
+15-Minute Pesto Pasta with Cherry Tomatoes,italian,true,beginner,15
+15-Minute Asian Chicken Salad,asian,true,beginner,15
+15-Minute Salmon Rice Bowls,japanese,true,beginner,15
+15-Minute Honey Soy Tofu Stir-Fry,asian,true,beginner,15
+15-Minute Cheese Tortellini Soup,italian,true,beginner,15
+15-Minute Lemon Garlic Pasta,italian,true,beginner,15
+15-Minute Smashed Avocado Toast with Egg,american,true,beginner,10
+15-Minute Hummus and Veggie Pita,mediterranean,true,beginner,10
+High Protein Sweet Potato Hash with Eggs,american,true,beginner,25
+High Protein Greek Yogurt Chicken Salad,greek,true,beginner,15
+High Protein Cottage Cheese Bowl with Berries,american,true,beginner,5
+High Protein Cottage Cheese Egg Salad,american,true,beginner,12
+High Protein Beef and Rice Meal Prep Bowl,american,true,beginner,30
+High Protein Turkey Taco Lettuce Wraps,mexican,true,beginner,20
+High Protein Tuna Pasta Salad with Greek Yogurt,italian,true,beginner,20
+High Protein Chicken Caesar Lettuce Wraps,italian,true,beginner,15
+High Protein Egg White Veggie Scramble,american,true,beginner,12
+High Protein Greek Yogurt Pancakes,greek,true,beginner,15
+High Protein Chocolate Banana Smoothie,american,true,beginner,5
+High Protein Strawberry Shortcake Smoothie,american,true,beginner,5
+High Protein Iced Coffee Protein Shake,american,true,beginner,5
+High Protein Buffalo Chicken Stuffed Peppers,american,true,beginner,35
+High Protein Greek Yogurt Chicken Marinade Bowl,greek,true,beginner,30
+High Protein Korean Beef Lettuce Wraps,korean,true,beginner,20
+High Protein Tuna Stuffed Avocado,american,true,beginner,10
+High Protein Steak Bites with Cottage Cheese Mash,american,true,beginner,25
+Baked Honey Mustard Chicken Thighs,american,true,beginner,35
+Baked Pesto Chicken with Mozzarella,italian,true,beginner,30
+Baked Bruschetta Chicken,italian,true,beginner,30
+Baked Salsa Verde Chicken,mexican,true,beginner,30
+Baked Ranch Chicken Thighs,american,true,beginner,35
+Baked French Onion Chicken Thighs,french,true,home_cook,40
+Baked Tuscan Chicken with Sun-Dried Tomatoes,italian,true,beginner,30
+Baked Spinach Stuffed Chicken Breasts,american,true,beginner,35
+Baked Caprese Chicken with Balsamic Glaze,italian,true,beginner,30
+Baked Garlic Parmesan Crusted Chicken,italian,true,beginner,30
+Baked Pecan Crusted Chicken Tenders,american,true,beginner,25
+Baked Pretzel Crusted Chicken with Honey Mustard,american,true,beginner,30
+Baked Buffalo Chicken Casserole,american,true,beginner,40
+Baked Greek Yogurt Marinated Chicken,greek,true,beginner,30
+Baked Chicken Caprese Bowls,italian,true,beginner,35
+Baked Fish Tacos with Slaw,mexican,true,beginner,25
+Baked Lemon Pepper Tilapia,american,true,beginner,20
+Baked Coconut Crusted Tilapia,thai,true,beginner,25
+Baked Salmon with Brown Sugar Glaze,american,true,beginner,20
+Baked Maple Mustard Salmon,american,true,beginner,20
+Baked Garlic Soy Salmon,asian,true,beginner,20
+Baked Pesto Salmon with Asparagus,italian,true,beginner,25
+Baked Bacon Wrapped Pork Tenderloin,american,true,beginner,35
+Baked Maple Glazed Pork Tenderloin,american,true,beginner,35
+Baked Apple Stuffed Pork Loin,american,true,home_cook,75
+Sweet Potato Black Bean Burgers,american,true,beginner,30
+Lentil Walnut Bolognese,italian,true,beginner,35
+Mushroom Wellington with Puff Pastry,european,true,confident_chef,75
+Cauliflower Tikka Masala,indian,true,beginner,35
+Crispy Tofu Tikka Masala,indian,true,home_cook,35
+Chickpea Tinga Tacos,mexican,true,beginner,25
+Vegan Mushroom Stroganoff,russian,true,beginner,30
+Vegan Mac and Cheese with Cashews,american,true,home_cook,30
+Vegan Buffalo Cauliflower Wraps,american,true,beginner,30
+Mediterranean Stuffed Sweet Potatoes,mediterranean,true,beginner,50
+Quinoa Stuffed Acorn Squash,american,true,home_cook,60
+Eggplant Caponata with Pasta,italian,true,home_cook,45
+Smoky Black Bean and Sweet Potato Tacos,mexican,true,beginner,30
+Crispy Chickpea Gyros with Tzatziki,greek,true,beginner,30
+BBQ Jackfruit Sandwiches,american,true,beginner,30
+Crispy Lentil Patties with Yogurt Sauce,middle eastern,true,beginner,30
+Roasted Cauliflower Steak with Romesco,spanish,true,home_cook,30
+Crispy Tofu Banh Mi with Pickled Vegetables,vietnamese,true,home_cook,30
+Vegan Pad See Ew with Tofu,thai,true,beginner,25
+Spinach and Ricotta Stuffed Shells,italian,true,home_cook,60
+Vegetable Lasagna with Spinach and Mushroom,italian,true,home_cook,75
+Mushroom Rendang (Vegan),indonesian,true,home_cook,60
+Peruvian Causa with Avocado (Vegan),peruvian,true,home_cook,30
+Crispy Chickpea Tikka Wraps,indian,true,beginner,25
+Vegan Korean Bibimbap,korean,true,beginner,30
+Garlic Butter Lobster Tails,american,true,home_cook,20
+Bacon Wrapped Scallops,american,true,beginner,20
+Cajun Blackened Catfish,cajun,true,beginner,20
+Maryland Crab Cakes with Old Bay,american,true,home_cook,30
+Oysters Rockefeller,american,true,home_cook,30
+Crab Stuffed Shrimp,american,true,home_cook,30
+Lobster Bisque with Sherry,french,true,home_cook,50
+Coconut Curry Mussels,thai,true,home_cook,25
+Shrimp Etouffee,cajun,true,home_cook,45
+Crawfish Etouffee,cajun,true,home_cook,45
+New England Lobster Roll with Butter,american,true,beginner,15
+Connecticut Lobster Roll Warm,american,true,beginner,15
+Crab Roll with Old Bay Mayo,american,true,beginner,12
+Spicy Tuna Crispy Rice,japanese,true,home_cook,30
+Salmon Sushi Bake Casserole,japanese,true,beginner,35
+Halibut with Brown Butter Capers,european,true,home_cook,20
+Pan-Seared Scallops with Cauliflower Puree,french,true,home_cook,30
+Mussels Provencal with White Wine,french,true,beginner,25
+Garlic Butter Shrimp Scampi over Rice,italian,true,beginner,20
+Lemon Caper Salmon Patties,american,true,beginner,25
+Bang Bang Salmon Bites,asian,true,beginner,20
+Honey Walnut Shrimp,chinese,true,beginner,25
+Mongolian Shrimp Stir-Fry,chinese,true,beginner,20
+Spicy Korean Salmon Bowls,korean,true,beginner,25
+Sticky Sesame Salmon Bites,asian,true,beginner,20
+Smash Burger with Special Sauce,american,true,beginner,20
+Bacon Cheddar Burger with Onion Rings,american,true,beginner,30
+Mushroom Swiss Burger,american,true,beginner,25
+Pimento Cheese Burger,american,true,beginner,25
+Western BBQ Burger with Onion Rings,american,true,beginner,30
+California Burger with Avocado and Sprouts,american,true,beginner,25
+Patty Melt with Caramelized Onions,american,true,home_cook,30
+Tex-Mex Burger with Chipotle Mayo,mexican,true,beginner,25
+Korean BBQ Burger with Kimchi Slaw,korean,true,home_cook,30
+Banh Mi Burger with Pickled Vegetables,vietnamese,true,home_cook,30
+Greek Lamb Burger with Tzatziki,greek,true,home_cook,30
+Mediterranean Turkey Burger with Feta,mediterranean,true,beginner,25
+Buffalo Blue Cheese Burger,american,true,beginner,25
+Hawaiian Burger with Pineapple Teriyaki,hawaiian,true,beginner,25
+Black Bean Burger with Chipotle Mayo,mexican,true,beginner,30
+Crispy Chicken Sandwich with Pickles,american,true,beginner,25
+Chicago Style Hot Dog,american,true,beginner,15
+New York Hot Dog with Sauerkraut and Mustard,american,true,beginner,10
+Sonoran Hot Dog with Bacon and Pinto Beans,mexican,true,beginner,20
+Coney Island Hot Dog with Chili,american,true,beginner,30
+7-Layer Greek Dip with Feta,greek,true,beginner,20
+Whipped Ricotta Crostini with Honey,italian,true,beginner,15
+Bacon-Wrapped Jalapeno Poppers,american,true,beginner,30
+Crispy Buffalo Chicken Bites,american,true,beginner,25
+Pigs in a Blanket with Honey Mustard,american,true,beginner,25
+Spinach Artichoke Dip Pull-Apart Bread,italian,true,beginner,30
+Loaded Nachos Supreme with Beef,mexican,true,beginner,30
+Classic Devilled Eggs with Paprika,american,true,beginner,25
+Bacon Cheddar Devilled Eggs,american,true,beginner,25
+Baked Brie with Cranberry and Pecans,french,false,beginner,25
+Crispy Buffalo Wings with Carrots and Celery,american,true,beginner,45
+Hot Crab Dip with Old Bay,american,true,beginner,35
+Reuben Sliders with Thousand Island,american,true,beginner,25
+Caprese Skewers with Balsamic Glaze,italian,true,beginner,15
+Buffalo Cauliflower Bites with Blue Cheese,american,true,beginner,25
+Pulled BBQ Chicken Sliders with Slaw,american,true,beginner,30
+Antipasto Skewers with Salami and Cheese,italian,true,beginner,15
+Greek Feta Olive Skewers,greek,true,beginner,10
+Chicken Tenders with Honey Mustard,american,true,beginner,25
+Mac and Cheese with Hidden Vegetables,american,true,beginner,30
+Mini Meatloaf Muffins,american,true,beginner,35
+Cheesy Taco Stuffed Shells,mexican,true,beginner,45
+Spaghetti and Mini Meatballs,italian,true,beginner,35
+Pizza Quesadilla,italian,true,beginner,12
+Pizza Pasta Bake,italian,true,beginner,40
+Sloppy Joe Sliders with Tater Tots,american,true,beginner,30
+Cheesy Broccoli and Chicken Casserole,american,true,beginner,45
+Chicken Parmesan Sliders,italian,true,beginner,25
+Chicken and Waffle Sliders,american,true,beginner,25
+Hot Dog Macaroni and Cheese Casserole,american,true,beginner,35
+BBQ Chicken Pizza Quesadilla,american,true,beginner,15
+Cheesy Chicken Crescent Roll-Ups,american,true,beginner,25
+Chicken Cheese Crescent Pinwheels,american,true,beginner,25
+Mini Corn Dog Muffins,american,true,beginner,25
+French Bread Pizza with Pepperoni,italian,true,beginner,25
+Bagel Pizza Snacks,italian,true,beginner,15
+Sheet Pan Chicken Nuggets and Sweet Potato Fries,american,true,beginner,25
+Zucchini Noodle Pesto with Grilled Chicken,italian,true,beginner,25
+Spaghetti Squash with Turkey Marinara,italian,true,beginner,60
+Cauliflower Rice Stir-Fry with Shrimp,asian,true,beginner,20
+Cabbage Rolls Stuffed with Turkey,eastern european,true,home_cook,60
+Lettuce Wrap Chicken Tacos with Mango Salsa,mexican,true,beginner,20
+Zoodle Pad Thai with Chicken,thai,true,beginner,25
+Eggplant Lasagna (No Pasta),italian,true,home_cook,60
+Stuffed Portobello Mushrooms with Spinach,italian,true,beginner,35
+Lemon Chicken with Asparagus (Low Cal),mediterranean,true,beginner,25
+Greek Yogurt Tzatziki Chicken Bowls,greek,true,beginner,30
+Buffalo Chicken Lettuce Wraps,american,true,beginner,20
+Asian Lettuce Wraps with Ground Turkey,asian,true,beginner,20
+Steamed Fish with Ginger and Scallion,chinese,true,beginner,20
+Egg Roll in a Bowl with Ground Turkey,asian,true,beginner,20
+Cauliflower Crust Pizza with Margherita,italian,true,beginner,30
+Shrimp and Avocado Salad,mediterranean,true,beginner,15
+Salmon and Asparagus Foil Packets,american,true,beginner,25
+Cucumber Roll-Ups with Cream Cheese and Salmon,japanese,true,beginner,15
+Spaghetti Squash Carbonara,italian,true,beginner,60
+Chicken Lettuce Cups with Hoisin,chinese,true,beginner,20
+Adult Lunchables with Turkey and Cheese,american,true,beginner,10
+Snack Box with Hummus and Veggies,mediterranean,true,beginner,10
+Bento Box with Teriyaki Chicken and Rice,japanese,true,beginner,25
+Mediterranean Snack Box with Olives and Feta,mediterranean,true,beginner,10
+Ploughman's Lunch Box with Cheddar,british,true,beginner,10
+Charcuterie Lunch Box for Adults,italian,true,beginner,15
+Greek Mezze Snack Box,greek,true,beginner,15
+Asian Snack Box with Edamame and Spring Rolls,asian,true,beginner,20
+Korean Snack Box with Kimbap and Banchan,korean,true,home_cook,30
+Egg Salad Lunch Box with Crackers,american,true,beginner,15
+Tuna Salad Lettuce Cup Lunch,american,true,beginner,12
+Chicken Salad Lunch Box with Grapes,american,true,beginner,15
+DIY Pizza Lunchables for Kids,italian,true,beginner,15
+Quesadilla Lunchbox with Salsa,mexican,true,beginner,15
+Sushi Roll Lunchbox with Edamame,japanese,true,home_cook,30
+Batch Cook Garlic Herb Chicken Breasts,american,true,beginner,30
+Batch Cook Lemon Pepper Chicken Thighs,american,true,beginner,30
+Batch Cook Italian Marinated Chicken,italian,true,beginner,30
+Batch Cook Greek Yogurt Marinated Chicken,greek,true,beginner,30
+Batch Cook Cilantro Lime Chicken,mexican,true,beginner,30
+Batch Cook Shredded Chicken (Slow Cooker),american,true,beginner,240
+Batch Cook Shredded Beef (Slow Cooker),american,true,beginner,480
+Batch Cook Pulled Pork (Slow Cooker),american,true,beginner,480
+Batch Cook Ground Beef Taco Meat,mexican,true,beginner,25
+Batch Cook Italian Meat Sauce,italian,true,home_cook,90
+Batch Cook Brown Rice for the Week,american,true,beginner,45
+Batch Cook Quinoa Bowl Base,american,true,beginner,25
+Batch Cook Roasted Sweet Potato Cubes,american,true,beginner,35
+Batch Cook Roasted Vegetable Medley,mediterranean,true,beginner,35
+Batch Cook Mediterranean Lentils,mediterranean,true,beginner,30
+Batch Cook Hummus from Scratch,middle eastern,true,beginner,15
+Batch Cook Chimichurri Sauce,argentine,true,beginner,10
+Batch Cook Korean BBQ Sauce,korean,true,beginner,10
+Batch Cook Peanut Sauce for Bowls,thai,true,beginner,10
+Batch Cook Lemon Tahini Dressing,middle eastern,true,beginner,5
+Marry Me Chicken Tortellini Soup,italian,true,beginner,35
+Cottage Cheese Chips with Everything Seasoning,american,true,beginner,30
+Crispy Cottage Cheese Bowls,american,true,beginner,25
+Birria Quesa Tacos with Consomme,mexican,true,confident_chef,180
+Chicken Crust Pizza (Low Carb),italian,true,beginner,25
+Cottage Cheese Flatbread Pizza,italian,true,beginner,30
+Protein Yogurt Bowl with Granola,american,true,beginner,5
+Pickle Wraps with Cream Cheese and Beef,american,true,beginner,10
+Cottage Cheese Ice Cream Protein,american,true,beginner,5
+Whipped Feta with Honey and Pistachio,greek,true,beginner,10
+Eggs in Purgatory,italian,true,beginner,25
+Croque Madame with Bechamel,french,true,home_cook,30
+Avocado Toast with Poached Egg,american,true,beginner,15
+Smoked Salmon Bagel with Capers,american,true,beginner,8
+Smoky Black Bean Breakfast Bowl,mexican,true,beginner,25
+Mexican Chilaquiles Verdes,mexican,true,beginner,25
+Mexican Chilaquiles Rojos with Egg,mexican,true,beginner,25
+Nigerian Akara Bean Fritters,nigerian,true,home_cook,30
+Filipino Tapa Silog Breakfast Plate,filipino,true,beginner,30
+Korean Breakfast Tofu Stew,korean,true,beginner,25
+Japanese Tamago Sando Egg Salad Sandwich,japanese,true,beginner,15
+Japanese Tamagoyaki Rolled Omelet,japanese,true,home_cook,20
+Spanish Tostada with Tomato and Olive Oil,spanish,true,beginner,10
+Israeli Sabich Sandwich with Eggplant,israeli,true,home_cook,30
+Israeli Shakshuka Verde,israeli,true,beginner,25
+Tunisian Brik with Egg and Tuna,tunisian,true,home_cook,25
+French Country Bread with Jam and Butter,french,true,beginner,5
+Danish Smorrebrod with Smoked Salmon,scandinavian,true,beginner,10
+Buttery Croissant Sandwiches with Ham,french,true,beginner,10
+Brioche French Toast with Maple Syrup,french,true,beginner,20
+Persian Joojeh Kabab Saffron Chicken Skewers,persian,true,home_cook,35
+Persian Kabab Koobideh Ground Beef Skewers,persian,true,home_cook,30
+Persian Tahdig Crispy Saffron Rice,persian,true,home_cook,60
+Persian Khoresh Gheymeh,persian,true,home_cook,90
+Persian Khoresh Fesenjan,persian,true,confident_chef,90
+Persian Ghormeh Sabzi Herb Stew,persian,true,confident_chef,180
+Persian Zereshk Polo with Chicken,persian,true,home_cook,60
+Persian Baghali Polo Dill Fava Rice,persian,true,home_cook,50
+Persian Kuku Sabzi Herb Frittata,persian,true,home_cook,45
+Persian Mast-o-Khiar Cucumber Yogurt,persian,true,beginner,10
+Persian Salad Shirazi,persian,true,beginner,10
+Persian Tahchin Layered Saffron Rice,persian,true,confident_chef,90
+Persian Adas Polo with Lentils and Dates,persian,true,home_cook,50
+Persian Khoresh Bademjan Eggplant Stew,persian,true,home_cook,60
+Brazilian Pao de Queijo Cheese Bread,brazilian,true,beginner,30
+Brazilian Coxinha Chicken Croquettes,brazilian,true,home_cook,60
+Brazilian Chicken Stroganoff,brazilian,true,beginner,30
+Brazilian Black Beans and Rice,brazilian,true,beginner,45
+Brazilian Pasteis Fried Pastries,brazilian,true,home_cook,60
+Brazilian Brigadeiros Chocolate Truffles,brazilian,true,beginner,25
+Peruvian Pollo a la Brasa Roast Chicken,peruvian,true,home_cook,90
+Peruvian Lomo Saltado Stir-Fried Beef,peruvian,true,home_cook,30
+Peruvian Aji de Gallina,peruvian,true,home_cook,45
+Peruvian Causa Limeña Layered Potato Salad,peruvian,true,home_cook,45
+Peruvian Anticuchos Beef Heart Skewers,peruvian,true,home_cook,30
+Peruvian Tallarines Verdes Green Pasta,peruvian,true,beginner,25
+Peruvian Arroz con Pollo Verde,peruvian,true,home_cook,45
+Colombian Bandeja Paisa Mixed Plate,colombian,true,confident_chef,90
+Colombian Arepa de Choclo Sweet Corn Cakes,colombian,true,beginner,25
+Colombian Empanadas with Chimichurri,colombian,true,home_cook,60
+Argentinian Milanesa Napolitana,argentine,true,home_cook,35
+Chilean Pastel de Choclo Corn Casserole,chilean,true,home_cook,90
+Venezuelan Reina Pepiada Arepas,venezuelan,true,beginner,30
+Ecuadorian Encebollado Tuna Onion Soup,ecuadorian,true,home_cook,45
+Hawaiian Loco Moco with Gravy,hawaiian,true,beginner,25
+Hawaiian Spam Musubi,hawaiian,true,beginner,20
+Hawaiian Garlic Shrimp Plate,hawaiian,true,beginner,20
+Hawaiian Huli Huli Chicken,hawaiian,true,home_cook,35
+Hawaiian Kalua Pig with Cabbage,hawaiian,true,home_cook,360
+Hawaiian Chicken Long Rice,hawaiian,true,beginner,30
+Hawaiian Lomi Lomi Salmon,hawaiian,true,beginner,20
+Hawaiian Macaroni Salad,hawaiian,true,beginner,25
+Hawaiian Plate Lunch with Two Scoops Rice,hawaiian,true,beginner,30
+Hawaiian Teri Beef Bowl,hawaiian,true,beginner,25
+Filipino Chicken Adobo with Rice,filipino,true,beginner,45
+Filipino Pork Adobo with Pineapple,filipino,true,beginner,50
+Filipino Chicken Inasal,filipino,true,home_cook,40
+Filipino Lumpia Shanghai Spring Rolls,filipino,true,home_cook,45
+Filipino Pancit Bihon Rice Noodles,filipino,true,home_cook,35
+Filipino Pancit Canton Egg Noodles,filipino,true,home_cook,35
+Filipino Beef Caldereta,filipino,true,home_cook,90
+Filipino Kare-Kare Oxtail Peanut Stew,filipino,true,confident_chef,180
+Filipino Pork Sinigang Sour Soup,filipino,true,home_cook,60
+Filipino Beef Tapa with Garlic Rice,filipino,true,beginner,30
+Filipino Tocino with Eggs and Rice,filipino,true,beginner,25
+Filipino Longganisa with Eggs and Rice,filipino,true,beginner,25
+Filipino Chicken Tinola,filipino,true,beginner,40
+Filipino Bicol Express Pork in Coconut Milk,filipino,true,home_cook,45
+Filipino Lechon Kawali Crispy Pork Belly,filipino,true,home_cook,90
+Filipino Bistek Tagalog,filipino,true,beginner,30
+Indonesian Nasi Goreng Fried Rice,indonesian,true,beginner,25
+Indonesian Mie Goreng Fried Noodles,indonesian,true,beginner,25
+Indonesian Beef Rendang,indonesian,true,confident_chef,180
+Indonesian Sate Ayam Chicken Skewers,indonesian,true,home_cook,35
+Indonesian Gado-Gado Salad with Peanut Sauce,indonesian,true,home_cook,30
+Indonesian Soto Ayam Chicken Soup,indonesian,true,home_cook,60
+Indonesian Ayam Bakar Grilled Chicken,indonesian,true,home_cook,40
+Indonesian Bakso Beef Meatball Soup,indonesian,true,home_cook,60
+Indonesian Rendang Tofu (Vegan),indonesian,true,home_cook,60
+Indonesian Nasi Lemak with Sambal,malaysian,true,home_cook,50
+Singapore Hainanese Chicken Rice,singaporean,true,home_cook,60
+Singapore Chili Crab,singaporean,true,confident_chef,45
+Singapore Black Pepper Crab,singaporean,true,home_cook,35
+Singapore Laksa with Shrimp and Tofu,singaporean,true,home_cook,45
+Malaysian Char Kway Teow,malaysian,true,home_cook,25
+Malaysian Chicken Curry with Coconut Milk,malaysian,true,home_cook,45
+Pakistani Chicken Karahi,pakistani,true,home_cook,40
+Pakistani Mutton Biryani,pakistani,true,confident_chef,120
+Pakistani Beef Nihari Slow Stew,pakistani,true,confident_chef,240
+Pakistani Chicken Pulao with Yogurt,pakistani,true,home_cook,60
+Pakistani Aloo Keema Ground Beef and Potato,pakistani,true,home_cook,45
+Pakistani Daal Chawal,pakistani,true,beginner,35
+Pakistani Chana Chaat,pakistani,true,beginner,15
+Pakistani Seekh Kebabs,pakistani,true,home_cook,30
+Sri Lankan Coconut Chicken Curry,sri lankan,true,home_cook,45
+Sri Lankan Dahl Curry with Coconut,sri lankan,true,beginner,35
+Sri Lankan Pol Sambol Coconut Relish,sri lankan,true,beginner,10
+Sri Lankan Egg Hoppers,sri lankan,true,home_cook,35
+Bangladeshi Beef Bhuna,bangladeshi,true,home_cook,60
+Bangladeshi Hilsa Fish Curry,bangladeshi,true,home_cook,35
+Bangladeshi Chicken Rezala,bangladeshi,true,home_cook,50
+Ethiopian Doro Wat Spicy Chicken Stew,ethiopian,true,home_cook,90
+Ethiopian Misir Wat Red Lentil Stew,ethiopian,true,beginner,45
+Ethiopian Shiro Chickpea Flour Stew,ethiopian,true,beginner,25
+Ethiopian Tibs Sauteed Beef,ethiopian,true,home_cook,30
+Ethiopian Gomen Collard Greens,ethiopian,true,beginner,30
+Ethiopian Atakilt Wat Cabbage and Carrots,ethiopian,true,beginner,30
+Moroccan Chicken Tagine with Preserved Lemon,moroccan,true,home_cook,75
+Moroccan Lamb Tagine with Apricots,moroccan,true,home_cook,120
+Moroccan Couscous with Seven Vegetables,moroccan,true,home_cook,60
+Moroccan Bissara Fava Bean Soup,moroccan,true,beginner,40
+Moroccan Maakouda Potato Fritters,moroccan,false,beginner,30
+Moroccan Zaalouk Smoky Eggplant Salad,moroccan,true,beginner,35
+Moroccan B'stilla Chicken Phyllo Pie,moroccan,true,confident_chef,90
+Trinidadian Doubles Curry Chickpea Wraps,trinidadian,true,home_cook,45
+Trinidadian Curry Goat,trinidadian,true,home_cook,90
+Trinidadian Roti with Curry Chicken,trinidadian,true,home_cook,60
+Bajan Macaroni Pie (Barbados),bajan,true,beginner,60
+Haitian Griot Fried Pork,haitian,true,home_cook,90
+Haitian Diri ak Pwa Rice and Beans,haitian,true,beginner,45
+Puerto Rican Mofongo with Garlic Shrimp,puerto rican,true,home_cook,35
+Puerto Rican Pollo Guisado,puerto rican,true,home_cook,60
+Puerto Rican Arroz con Gandules,puerto rican,true,home_cook,50
+Puerto Rican Pernil Roast Pork Shoulder,puerto rican,true,confident_chef,360
+Dominican La Bandera,dominican,true,home_cook,60
+Dominican Sancocho,dominican,true,confident_chef,120
+Cuban Vaca Frita Crispy Beef,cuban,true,home_cook,60
+Cuban Ropa Vieja Shredded Beef,cuban,true,home_cook,180
+Cuban Chicken Fricasse,cuban,true,home_cook,60
+Make-Ahead Fruit Salad with Honey Lime,american,true,beginner,15
+Healthy Banana Bread with Walnuts,american,true,beginner,65
+Pumpkin Bread with Cream Cheese Swirl,american,true,beginner,70
+Lemon Yogurt Loaf Cake,american,true,beginner,60
+Blueberry Lemon Muffins,american,true,beginner,30
+Almond Flour Chocolate Chip Cookies,american,true,beginner,25
+No-Bake Cheesecake Cups with Berries,american,true,beginner,20
+Date Energy Balls with Cocoa,american,true,beginner,15
+Peanut Butter Protein Balls,american,true,beginner,15
+Coconut Macaroons (3-Ingredient),american,true,beginner,25
+Apple Cinnamon Baked Oatmeal Cups,american,true,beginner,35
+Chocolate Chip Banana Pancake Bites,american,true,beginner,25
+Greek Yogurt Berry Popsicles,american,true,beginner,5
+Frozen Yogurt Bark with Berries,american,true,beginner,10
+Caprese Stuffed Chicken Breasts,italian,true,beginner,35
+Honey Garlic Glazed Pork Chops,american,true,beginner,25
+Crispy Honey Sriracha Brussels Sprouts and Sausage,asian,true,beginner,35
+Smoky Chipotle Chicken Thighs,mexican,true,beginner,30
+Garlic Butter Steak Bites and Potatoes,american,true,beginner,25
+Chinese 5-Spice Pork Tenderloin,chinese,true,beginner,35
+Greek Lemon Roast Chicken with Potatoes,greek,true,home_cook,75
+Crispy Rosemary Chicken Thighs,italian,true,beginner,35
+Maple Glazed Salmon with Sesame Broccoli,asian,true,beginner,25
+Easy Chicken Marsala with Creamy Sauce,italian,true,home_cook,35
+Chicken Saltimbocca with Sage and Prosciutto,italian,true,home_cook,30
+Honey Balsamic Glazed Chicken Wings,italian,true,beginner,35
+Cilantro Lime Garlic Chicken,mexican,true,beginner,25
+Honey Lemon Garlic Chicken Thighs,american,true,beginner,30
+Crispy Asian Sticky Chicken Wings,asian,true,beginner,35
+Coconut Lime Grilled Chicken Skewers,thai,true,beginner,25
+Cuban Mojo Pork Chops,cuban,true,beginner,30
+Smoky Spanish Paprika Chicken,spanish,true,beginner,35
+Easy Chicken Tagliatelle with Lemon Cream,italian,true,beginner,25
+Crispy Coconut Chicken Strips with Mango Sauce,thai,true,beginner,25
+Lemon Pepper Wings with Hot Honey Drizzle,american,true,beginner,35
+Crispy Buffalo Cauliflower with Ranch,american,true,beginner,30
+Cuban Lechon Sliders with Pickles,cuban,true,home_cook,240
+Brazilian Garlic Steak with Rice,brazilian,true,beginner,25
+Vietnamese Caramel Pork Belly,vietnamese,true,home_cook,50
+Vietnamese Lemongrass Pork Chops,vietnamese,true,beginner,30
+Korean Spicy Pork Belly Lettuce Wraps,korean,true,beginner,30
+Korean Beef Lettuce Cups with Gochujang,korean,true,beginner,25
+Korean Cheesy Corn,korean,true,beginner,15
+Filipino Pork Adobo Rice Bowl,filipino,true,beginner,50
+Greek Souvlaki Plate with Pita and Tzatziki,greek,true,home_cook,40
+Italian Sausage and White Beans with Kale,italian,true,beginner,30
+Tuscan Butter Salmon with Spinach,italian,true,beginner,25
+Crispy Tofu Bowls with Peanut Sauce,thai,true,beginner,25
+Pad See Ew with Chicken,thai,true,beginner,25
+Thai Yellow Curry Chicken with Potatoes,thai,true,home_cook,40
+Indian Butter Chicken Pasta Fusion,fusion,true,beginner,35
+Mexican Crema-Topped Tacos al Pastor,mexican,true,home_cook,60
+Sticky Soy Glazed Salmon with Bok Choy,asian,true,beginner,25
+Honey Mustard Salmon with Brussels Sprouts,american,true,beginner,30
+Spicy Honey Lime Chicken Wings,american,true,beginner,35
+Crispy Honey Garlic Chicken Drumsticks,asian,true,beginner,40
+Sticky Asian Chicken Wings with Sesame,asian,true,beginner,40
+Cajun Crusted Chicken Thighs,cajun,true,beginner,35
+Pesto Salmon Foil Packets,italian,true,beginner,25
+Thai Coconut Lime Salmon,thai,true,beginner,25
+Chimichurri Grilled Steak Tacos,argentine,true,home_cook,30
+Garlic Butter Lobster Pasta,italian,true,home_cook,30
+Cajun Shrimp Alfredo Pasta,fusion,true,beginner,30
+Garlic Parmesan Shrimp Linguine,italian,true,beginner,25
+Spicy Korean Glass Noodle Stir-Fry,korean,true,home_cook,30
+Vietnamese Caramel Salmon,vietnamese,true,beginner,25
+Crispy Korean Beef Bites,korean,true,beginner,25
+Cumin Beef Stir-Fry over Rice,chinese,true,beginner,25
+Cantonese Beef Chow Fun,chinese,true,home_cook,30
+Salmon Teriyaki Foil Packets,japanese,true,beginner,25
+Chinese Take-Out Style Pepper Steak,chinese,true,beginner,25
+Thai Drunken Noodles with Ground Beef,thai,true,home_cook,25
+Spicy Korean Tofu Stew with Egg,korean,true,beginner,25
+Crispy Korean Cauliflower Bites,korean,true,beginner,25
+Crispy Honey Walnut Chicken,chinese,true,home_cook,30
+Sticky Honey Soy Pork Belly,asian,true,home_cook,60
+Hawaiian Garlic Butter Shrimp Plate,hawaiian,true,beginner,20
+Spicy Tuna Stuffed Avocados,japanese,true,beginner,10
+Crispy Sesame Chicken with Broccoli,chinese,true,beginner,25
+Sticky Bourbon Glazed Meatballs,american,true,beginner,30
+Cheesy Garlic Butter Steak,american,true,beginner,25
+Crispy Honey Sriracha Tofu,asian,true,beginner,25
+Sweet Chili Glazed Salmon Bites,asian,true,beginner,20
+Garlicky Lemon Butter Cod,mediterranean,true,beginner,20
