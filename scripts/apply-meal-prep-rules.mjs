@@ -87,9 +87,19 @@ const BAD_NOODLE_TITLE = [
   /\bbun cha\b/,         // rice vermicelli
 ];
 
-// Deep-fried title patterns — only UNAMBIGUOUS deep-fry titles. The cal>600
-// rule catches most other unhealthy fried foods via calorie load.
+// "Fried / dredged-and-pan-fried" title patterns — dishes where the
+// preparation is oil-absorbing (dredge in flour, deep fry, or pan-fry with
+// butter sauce that breaks on reheat). Macros are often under-reported by
+// AI estimators because they don't account for oil absorption from dredging.
+//
+// Includes:
+//   1. Unambiguous deep-fry titles
+//   2. Dredged-and-pan-fried-with-butter-sauce dishes (marsala, piccata,
+//      francese, cordon bleu, parmigiana when chicken/pork, milanese) —
+//      even at moderate macros these don't meal-prep well: butter sauce
+//      breaks reheating and breaded crust softens.
 const DEEP_FRIED_TITLE = [
+  // Deep-fry / fritter / batter
   /\btempura\b/, /\btonkatsu\b/, /\bschnitzel\b/,
   /\bdeep[\s-]?fried\b/,
   /\bbeignets?\b/, /\bchurros?\b/,
@@ -98,6 +108,14 @@ const DEEP_FRIED_TITLE = [
   /\bonion rings\b/, /\bjalape[ñn]o poppers?\b/, /\bmozzarella sticks?\b/,
   /\bpakoras?\b/, /\bbhajis?\b/, /\bsamosas?\b/,
   /\bfritters?\b/,
+  // Dredge-and-pan-fry-with-butter-sauce family
+  /\bmarsala\b/, /\bpiccata\b/, /\bfrancese\b/, /\bcordon bleu\b/,
+  // Milanese — only when applied to a specific protein (Chicken/Veal Milanese
+  // = dredged pan-fry). Excludes "alla milanese" regional naming like
+  // "Osso Buco alla Milanese" which is braised, not fried.
+  /\b(?:chicken|veal|pork|turkey)\s+milanese\b/,
+  // Parmigiana — exclude eggplant variants (vegetarian, less oil-heavy)
+  /\b(?:chicken|pork|veal|turkey)\s+parmigiana\b/, /\b(?:chicken|pork|veal|turkey)\s+parmesan\b/,
 ];
 
 // ── Rule application ──────────────────────────────────────────────────────────

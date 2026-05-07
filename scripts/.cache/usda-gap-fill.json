@@ -1,0 +1,2704 @@
+{
+  "tomato puree": {
+    "cal": 32,
+    "protein": 1.5,
+    "fat": 0.3,
+    "carb": 7,
+    "fibre": 1.5,
+    "density": 1.05,
+    "note": "raw tomato puree (unsweetened, no salt added); density typical for tomato paste/puree",
+    "_gap_fill": true
+  },
+  "boneless, skinless chicken breasts": {
+    "cal": 165,
+    "protein": 31,
+    "fat": 3.6,
+    "carb": 0,
+    "fibre": 0,
+    "countWeight": 174,
+    "note": "raw chicken breast, USDA FDN 05064; countWeight ~1 medium breast (174g)",
+    "_gap_fill": true
+  },
+  "chicken breasts": {
+    "cal": 165,
+    "protein": 31,
+    "fat": 3.6,
+    "carb": 0,
+    "fibre": 0,
+    "countWeight": 187,
+    "note": "raw skinless chicken breast, ~187g per medium breast",
+    "_gap_fill": true
+  },
+  "large shrimp, peeled and deveined": {
+    "cal": 99,
+    "protein": 24,
+    "fat": 0.3,
+    "carb": 0,
+    "fibre": 0,
+    "countWeight": 30,
+    "note": "raw peeled shrimp; 1 large = ~30g; processing (peeling/deveining) removes ~20-25% of raw weight but values are for edible portion",
+    "_gap_fill": true
+  },
+  "oaxaca cheese or mozzarella": {
+    "cal": 262,
+    "protein": 28,
+    "fat": 15,
+    "carb": 1.1,
+    "fibre": 0,
+    "note": "using mozzarella (whole milk, low-moisture); oaxaca is similar but slightly higher fat—average reported",
+    "_gap_fill": true
+  },
+  "pearl onions": {
+    "cal": 61,
+    "protein": 1.5,
+    "fat": 0.1,
+    "carb": 13.8,
+    "fibre": 2.4,
+    "countWeight": 15,
+    "note": "raw pearl onion, approximately 15g per small whole bulb",
+    "_gap_fill": true
+  },
+  "shredded oaxaca or mozzarella cheese": {
+    "cal": 280,
+    "protein": 28,
+    "fat": 17,
+    "carb": 1.1,
+    "fibre": 0,
+    "density": 0.65,
+    "note": "average of oaxaca (quesillo) and mozzarella fresh cheeses; density for shredded form",
+    "_gap_fill": true
+  },
+  "mexican crema or sour cream": {
+    "cal": 340,
+    "protein": 3.1,
+    "fat": 34,
+    "carb": 4.8,
+    "fibre": 0,
+    "density": 1.01,
+    "note": "sour cream value used; Mexican crema is slightly thinner (≈3.5% fat vs 20%); adjust upward ~10% if using authentic crema",
+    "_gap_fill": true
+  },
+  "plum tomatoes": {
+    "cal": 18,
+    "protein": 0.9,
+    "fat": 0.2,
+    "carb": 3.9,
+    "fibre": 1.2,
+    "density": 0.95,
+    "countWeight": 150,
+    "note": "raw whole plum tomato, medium ~150g; density typical for fresh tomato flesh",
+    "_gap_fill": true
+  },
+  "anchovy fillets in oil": {
+    "cal": 210,
+    "protein": 29,
+    "fat": 10,
+    "carb": 0,
+    "fibre": 0,
+    "countWeight": 5,
+    "note": "raw anchovy fillet (~5g each); oil drained; USDA SR Legacy canned anchovy in oil",
+    "_gap_fill": true
+  },
+  "lump crab meat": {
+    "cal": 86,
+    "protein": 18.5,
+    "fat": 1.2,
+    "carb": 0,
+    "fibre": 0,
+    "note": "raw lump crab meat, assumes minimal shell/processing; typically sold by weight not count",
+    "_gap_fill": true
+  },
+  "sweetcorn": {
+    "cal": 86,
+    "protein": 3.3,
+    "fat": 1.4,
+    "carb": 19,
+    "fibre": 2.7,
+    "countWeight": 77,
+    "note": "raw sweet corn kernels; countWeight is 1 medium ear (~77g kernels only)",
+    "_gap_fill": true
+  },
+  "large prawns, peeled and deveined": {
+    "cal": 99,
+    "protein": 20.3,
+    "fat": 0.3,
+    "carb": 0,
+    "fibre": 0,
+    "countWeight": 30,
+    "note": "raw peeled prawns; countWeight ≈ 1 large prawn (~30g)",
+    "_gap_fill": true
+  },
+  "oaxaca or mozzarella cheese": {
+    "cal": 262,
+    "protein": 26,
+    "fat": 16,
+    "carb": 1,
+    "fibre": 0,
+    "density": 1.1,
+    "note": "average of oaxaca (fresh string cheese, slightly denser) and mozzarella (lower fat); density for cheese curd/stretched variety",
+    "_gap_fill": true
+  },
+  "boneless skinless chicken breasts": {
+    "cal": 165,
+    "protein": 31,
+    "fat": 3.6,
+    "carb": 0,
+    "fibre": 0,
+    "countWeight": 196,
+    "note": "raw boneless skinless chicken breast, ~196g per medium breast",
+    "_gap_fill": true
+  },
+  "shredded oaxaca cheese or mozzarella": {
+    "cal": 262,
+    "protein": 28,
+    "fat": 15,
+    "carb": 3.1,
+    "fibre": 0,
+    "density": 0.6,
+    "note": "averaged Oaxaca (quesillo) and low-moisture mozzarella nutritional profiles; density for shredded cheese pack",
+    "_gap_fill": true
+  },
+  "small pasta (ditalini or elbow)": {
+    "cal": 371,
+    "protein": 13,
+    "fat": 1.1,
+    "carb": 75,
+    "fibre": 1.8,
+    "density": 0.65,
+    "note": "dry uncooked pasta; density for loose dry pasta; no typical unit count",
+    "_gap_fill": true
+  },
+  "white fish fillets (sea bass, bream, or cod)": {
+    "cal": 82,
+    "protein": 17.7,
+    "fat": 0.9,
+    "carb": 0,
+    "fibre": 0,
+    "countWeight": 150,
+    "note": "average of sea bass, bream, and cod raw fillets; countWeight assumes 1 medium fillet (~150g)",
+    "_gap_fill": true
+  },
+  "galangal": {
+    "cal": 49,
+    "protein": 1.9,
+    "fat": 0.7,
+    "carb": 8.1,
+    "fibre": 0.7,
+    "note": "raw galangal root; typically used in small quantities by weight rather than count",
+    "_gap_fill": true
+  },
+  "button mushrooms": {
+    "cal": 22,
+    "protein": 3.1,
+    "fat": 0.3,
+    "carb": 3.3,
+    "fibre": 1,
+    "density": 0.16,
+    "countWeight": 15,
+    "note": "raw white button mushroom; countWeight is 1 medium mushroom (~15g)",
+    "_gap_fill": true
+  },
+  "wild rice": {
+    "cal": 357,
+    "protein": 14.7,
+    "fat": 1.1,
+    "carb": 70,
+    "fibre": 5.2,
+    "density": 0.75,
+    "note": "dry uncooked wild rice; density estimated for loose dry grain",
+    "_gap_fill": true
+  },
+  "scallion": {
+    "cal": 32,
+    "protein": 1.9,
+    "fat": 0.2,
+    "carb": 7.3,
+    "fibre": 2.6,
+    "density": 0.13,
+    "countWeight": 25,
+    "note": "raw green onion/scallion; countWeight is 1 medium stalk (~25g)",
+    "_gap_fill": true
+  },
+  "turkey legs": {
+    "cal": 135,
+    "protein": 25.5,
+    "fat": 2.8,
+    "carb": 0,
+    "fibre": 0,
+    "countWeight": 240,
+    "note": "Raw whole turkey leg (drumstick + thigh), ~240g per leg, skin and bone included",
+    "_gap_fill": true
+  },
+  "cheese": {
+    "cal": 402,
+    "protein": 25,
+    "fat": 33,
+    "carb": 1.3,
+    "fibre": 0,
+    "countWeight": 28,
+    "note": "Cheddar-type hard cheese; countWeight is 1 oz (28g) typical serving/slice",
+    "_gap_fill": true
+  },
+  "whipping cream": {
+    "cal": 340,
+    "protein": 2.2,
+    "fat": 36,
+    "carb": 2.8,
+    "fibre": 0,
+    "density": 1.01,
+    "note": "Raw heavy cream (36% fat); density typical for liquid dairy cream at room temperature",
+    "_gap_fill": true
+  },
+  "water chestnut": {
+    "cal": 30,
+    "protein": 0.5,
+    "fat": 0.1,
+    "carb": 7,
+    "fibre": 1.4,
+    "countWeight": 12,
+    "note": "raw peeled water chestnut; countWeight ~12g per medium whole chestnut",
+    "_gap_fill": true
+  },
+  "apricot": {
+    "cal": 48,
+    "protein": 1.4,
+    "fat": 0.4,
+    "carb": 11,
+    "fibre": 2,
+    "countWeight": 35,
+    "note": "raw medium apricot, ~35g typical",
+    "_gap_fill": true
+  },
+  "day-old bread": {
+    "cal": 265,
+    "protein": 8.5,
+    "fat": 3.5,
+    "carb": 49,
+    "fibre": 2.7,
+    "density": 0.35,
+    "countWeight": 28,
+    "note": "assumed whole wheat bread; density accounts for air pockets; countWeight = 1 slice (~1 oz)",
+    "_gap_fill": true
+  },
+  "fresh fenugreek leaves (methi)": {
+    "cal": 23,
+    "protein": 3,
+    "fat": 0.4,
+    "carb": 2.2,
+    "fibre": 1.1,
+    "density": 0.15,
+    "note": "fresh methi leaves raw; density adjusted for loosely packed leafy greens; USDA values for fenugreek greens",
+    "_gap_fill": true
+  },
+  "round gyoza wrappers": {
+    "cal": 281,
+    "protein": 9.2,
+    "fat": 0.9,
+    "carb": 57.8,
+    "fibre": 1.9,
+    "density": 0.65,
+    "countWeight": 5,
+    "note": "raw wheat dumpling wrapper; 5g per typical round wrapper ~3in diameter; density for stacked dry wrappers",
+    "_gap_fill": true
+  },
+  "canned white beans (cannellini)": {
+    "cal": 77,
+    "protein": 5.2,
+    "fat": 0.3,
+    "carb": 14,
+    "fibre": 3.8,
+    "countWeight": 250,
+    "note": "drained weight (~14 oz can); raw nutritional values per USDA FDC",
+    "_gap_fill": true
+  },
+  "tomatoes, medium": {
+    "cal": 18,
+    "protein": 0.9,
+    "fat": 0.2,
+    "carb": 3.9,
+    "fibre": 1.2,
+    "countWeight": 123,
+    "note": "medium tomato (~123g raw); USDA FDC ID 168143",
+    "_gap_fill": true
+  },
+  "cooked rice (day-old, chilled)": {
+    "cal": 130,
+    "protein": 2.7,
+    "fat": 0.3,
+    "carb": 28,
+    "fibre": 0.4,
+    "note": "Cooked long-grain white rice, raw weight basis. Chilling does not materially change macro profile; density varies by grain type and packing.",
+    "_gap_fill": true
+  },
+  "phyllo pastry sheets": {
+    "cal": 347,
+    "protein": 9.2,
+    "fat": 1.5,
+    "carb": 71,
+    "fibre": 2.4,
+    "countWeight": 20,
+    "note": "raw, unbuttered phyllo; 1 sheet ≈ 20g; values from USDA wheat flour-based pastry reference",
+    "_gap_fill": true
+  },
+  "blackberries": {
+    "cal": 43,
+    "protein": 1.4,
+    "fat": 0.5,
+    "carb": 10.2,
+    "fibre": 5.3,
+    "density": 0.5,
+    "countWeight": 2,
+    "note": "raw blackberries; countWeight ~2g per single berry",
+    "_gap_fill": true
+  },
+  "pul biber": {
+    "cal": 354,
+    "protein": 14.3,
+    "fat": 17.3,
+    "carb": 64.2,
+    "fibre": 11.2,
+    "density": 0.65,
+    "note": "Turkish red pepper flakes (Aleppo pepper); dry loose spice, density typical for crushed dried peppers",
+    "_gap_fill": true
+  },
+  "beef (flank or sirloin)": {
+    "cal": 158,
+    "protein": 26,
+    "fat": 5.5,
+    "carb": 0,
+    "fibre": 0,
+    "note": "raw beef; average of flank (158 cal, 26g protein, 5.5g fat) and sirloin tip (180 cal, 27g protein, 7.5g fat) weighted toward flank as typical lean choice",
+    "_gap_fill": true
+  },
+  "ground beef (80/20)": {
+    "cal": 250,
+    "protein": 19.4,
+    "fat": 19.3,
+    "carb": 0,
+    "fibre": 0,
+    "note": "Raw ground beef 80% lean / 20% fat (USDA FoodData Central #168062)",
+    "_gap_fill": true
+  },
+  "jamón ibérico": {
+    "cal": 330,
+    "protein": 28.5,
+    "fat": 25,
+    "carb": 0,
+    "fibre": 0,
+    "countWeight": 25,
+    "note": "raw cured ham, sliced; 25g per typical serving slice",
+    "_gap_fill": true
+  },
+  "pistachios": {
+    "cal": 562,
+    "protein": 20.3,
+    "fat": 45.3,
+    "carb": 27.7,
+    "fibre": 10.3,
+    "density": 0.65,
+    "countWeight": 0.7,
+    "note": "raw unsalted in-shell pistachios; countWeight is 1 shelled pistachio kernel (~0.7g)",
+    "_gap_fill": true
+  },
+  "medium shrimp, peeled and deveined": {
+    "cal": 99,
+    "protein": 21,
+    "fat": 0.3,
+    "carb": 0,
+    "fibre": 0,
+    "countWeight": 12,
+    "note": "raw peeled shrimp; countWeight is 1 medium shrimp ≈ 12g",
+    "_gap_fill": true
+  },
+  "marinated artichoke hearts": {
+    "cal": 110,
+    "protein": 2.1,
+    "fat": 9.5,
+    "carb": 5.8,
+    "fibre": 2.1,
+    "note": "jarred/canned marinated artichoke hearts, drained weight basis; values include marinade oils",
+    "_gap_fill": true
+  },
+  "anchovy fillets": {
+    "cal": 131,
+    "protein": 20.1,
+    "fat": 5.3,
+    "carb": 0,
+    "fibre": 0,
+    "countWeight": 8,
+    "note": "raw anchovy fillets; countWeight ~8g per typical fillet",
+    "_gap_fill": true
+  },
+  "oyster mushrooms": {
+    "cal": 28,
+    "protein": 3.2,
+    "fat": 0.4,
+    "carb": 5.2,
+    "fibre": 1.1,
+    "density": 0.15,
+    "note": "raw oyster mushrooms; density accounts for loose packing of whole fruiting bodies",
+    "_gap_fill": true
+  },
+  "anchovy fillet": {
+    "cal": 131,
+    "protein": 29.9,
+    "fat": 0.9,
+    "carb": 0,
+    "fibre": 0,
+    "countWeight": 10,
+    "note": "raw anchovy fillet; 10g per typical small fillet",
+    "_gap_fill": true
+  },
+  "avocados": {
+    "cal": 160,
+    "protein": 2,
+    "fat": 14.7,
+    "carb": 8.6,
+    "fibre": 6.7,
+    "countWeight": 150,
+    "note": "raw whole avocado, medium fruit ~150g edible portion",
+    "_gap_fill": true
+  },
+  "crème fraîche or sour cream": {
+    "cal": 340,
+    "protein": 2.8,
+    "fat": 36,
+    "carb": 2.7,
+    "fibre": 0,
+    "density": 1,
+    "note": "averaged crème fraîche (340 cal, 36g fat) and sour cream (341 cal, 36g fat) per 100g; used as typical dairy condiment, not measured by count",
+    "_gap_fill": true
+  },
+  "lamb stock": {
+    "cal": 15,
+    "protein": 2.5,
+    "fat": 0.3,
+    "carb": 0.5,
+    "fibre": 0,
+    "density": 1.01,
+    "note": "unsalted lamb stock, simmered bones/meat; typical light broth values",
+    "_gap_fill": true
+  },
+  "english cucumbers": {
+    "cal": 16,
+    "protein": 0.8,
+    "fat": 0.2,
+    "carb": 3.6,
+    "fibre": 0.5,
+    "density": 0.97,
+    "countWeight": 300,
+    "note": "English hothouse cucumber, raw with skin. Typical whole fruit ~300g.",
+    "_gap_fill": true
+  },
+  "acorn squash": {
+    "cal": 56,
+    "protein": 1.1,
+    "fat": 0.1,
+    "carb": 15,
+    "fibre": 1.5,
+    "countWeight": 280,
+    "note": "raw weight; typical medium acorn squash ~280g; nutrition per 100g raw flesh (edible portion)",
+    "_gap_fill": true
+  },
+  "fermented black beans (douchi)": {
+    "cal": 132,
+    "protein": 11.2,
+    "fat": 7.6,
+    "carb": 11,
+    "fibre": 1.5,
+    "density": 1.2,
+    "note": "salted fermented black soybeans; values per 100g as sold (including salt and brine); density estimate for paste-like texture when packed",
+    "_gap_fill": true
+  },
+  "roasted chestnuts": {
+    "cal": 196,
+    "protein": 2.4,
+    "fat": 1.3,
+    "carb": 44.3,
+    "fibre": 8.6,
+    "countWeight": 15,
+    "note": "raw weight basis; ~1 medium roasted chestnut ≈ 15g; roasted values used as product is typically sold roasted",
+    "_gap_fill": true
+  },
+  "long beans or green beans": {
+    "cal": 31,
+    "protein": 1.8,
+    "fat": 0.2,
+    "carb": 7,
+    "fibre": 2.7,
+    "density": 0.15,
+    "note": "Raw green beans (trimmed); density accounts for loose packing of whole pods",
+    "_gap_fill": true
+  },
+  "italian fennel sausages": {
+    "cal": 290,
+    "protein": 12,
+    "fat": 25,
+    "carb": 1,
+    "fibre": 0,
+    "countWeight": 85,
+    "note": "raw pork sausage with fennel; ~85g per typical link; nutrient profile assumes standard Italian fennel seasoning with minimal filler",
+    "_gap_fill": true
+  },
+  "kimchi juice (from jar)": {
+    "cal": 15,
+    "protein": 0.5,
+    "fat": 0.1,
+    "carb": 3,
+    "fibre": 0,
+    "density": 1,
+    "note": "liquid drained from kimchi jar; lower cal than whole kimchi due to fermentation; density assumed 1.0 (water-like)",
+    "_gap_fill": true
+  },
+  "chinese sausage (lap cheong)": {
+    "cal": 408,
+    "protein": 13,
+    "fat": 37,
+    "carb": 5,
+    "fibre": 0,
+    "countWeight": 75,
+    "note": "Raw cured/dried sausage; countWeight assumes 1 typical link (~75g). Macros based on USDA entry for Chinese-style pork sausage.",
+    "_gap_fill": true
+  },
+  "canned baked beans": {
+    "cal": 127,
+    "protein": 6.2,
+    "fat": 0.5,
+    "carb": 23.5,
+    "fibre": 5.9,
+    "countWeight": 255,
+    "note": "drained weight per 14 oz (398g) can; raw weight includes sauce. Values are USDA drained solids.",
+    "_gap_fill": true
+  },
+  "green plantains": {
+    "cal": 122,
+    "protein": 1.3,
+    "fat": 0.3,
+    "carb": 28,
+    "fibre": 2.3,
+    "countWeight": 179,
+    "note": "raw green plantain, medium fruit ~179g; higher starch, lower sugar than ripe plantain",
+    "_gap_fill": true
+  },
+  "pak choi": {
+    "cal": 13,
+    "protein": 1.5,
+    "fat": 0.2,
+    "carb": 2.2,
+    "fibre": 1.3,
+    "density": 0.13,
+    "note": "Raw pak choi (bok choy); loose leafy vegetable, density typical for greens",
+    "_gap_fill": true
+  },
+  "everything bagel seasoning": {
+    "cal": 251,
+    "protein": 9.5,
+    "fat": 14.2,
+    "carb": 22,
+    "fibre": 3.8,
+    "density": 0.7,
+    "note": "blend of sesame seeds, poppy seeds, dried garlic, dried onion, salt; values averaged from USDA entries for component seeds and dried alliums",
+    "_gap_fill": true
+  },
+  "breadcrumb": {
+    "cal": 373,
+    "protein": 12.3,
+    "fat": 6.4,
+    "carb": 71.9,
+    "fibre": 4.3,
+    "density": 0.35,
+    "note": "dried/panko-style breadcrumbs, uncooked; density reflects loose packing of crumb particles",
+    "_gap_fill": true
+  },
+  "escarole or spinach": {
+    "cal": 23,
+    "protein": 2.9,
+    "fat": 0.4,
+    "carb": 3.5,
+    "fibre": 2.2,
+    "density": 0.13,
+    "note": "spinach values used; escarole similar (~24 cal). Raw leaf density for loose packing.",
+    "_gap_fill": true
+  },
+  "ditalini pasta (small tubes)": {
+    "cal": 371,
+    "protein": 13,
+    "fat": 1.1,
+    "carb": 75,
+    "fibre": 1.8,
+    "density": 0.65,
+    "note": "dry uncooked ditalini; density for loose dry pasta",
+    "_gap_fill": true
+  },
+  "pickle relish (optional)": {
+    "cal": 144,
+    "protein": 0.3,
+    "fat": 0.1,
+    "carb": 36,
+    "fibre": 0.5,
+    "density": 1.1,
+    "note": "sweet pickle relish, USDA FDC; drained weight assumed for jar; density typical for condiment paste",
+    "_gap_fill": true
+  },
+  "fresh mushrooms (cremini or button)": {
+    "cal": 22,
+    "protein": 3.1,
+    "fat": 0.3,
+    "carb": 3.3,
+    "fibre": 0.7,
+    "density": 0.15,
+    "note": "raw cremini/button mushroom blend; density reflects loose packed whole mushrooms",
+    "_gap_fill": true
+  },
+  "roasted cashews (unsalted)": {
+    "cal": 553,
+    "protein": 18.2,
+    "fat": 43.9,
+    "carb": 30.2,
+    "fibre": 3.3,
+    "density": 0.65,
+    "note": "roasted unsalted cashews, raw weight basis; density estimated for loose roasted nuts",
+    "_gap_fill": true
+  },
+  "tomatoes, canned": {
+    "cal": 18,
+    "protein": 0.9,
+    "fat": 0.2,
+    "carb": 3.9,
+    "fibre": 1.2,
+    "density": 1.04,
+    "note": "drained weight basis; whole canned tomatoes in juice",
+    "_gap_fill": true
+  },
+  "baby pak choi": {
+    "cal": 13,
+    "protein": 1.5,
+    "fat": 0.2,
+    "carb": 2.2,
+    "fibre": 1.3,
+    "density": 0.13,
+    "countWeight": 75,
+    "note": "Raw baby pak choi; countWeight is 1 typical small head (~75g); density reflects loose leafy greens packing",
+    "_gap_fill": true
+  },
+  "small pasta shapes (ditalini or elbow)": {
+    "cal": 371,
+    "protein": 13,
+    "fat": 1.1,
+    "carb": 75,
+    "fibre": 1.8,
+    "density": 0.75,
+    "note": "dry uncooked pasta; density for loose dry pasta shapes; typical enriched semolina wheat pasta",
+    "_gap_fill": true
+  },
+  "coconut water": {
+    "cal": 9,
+    "protein": 0.7,
+    "fat": 0.2,
+    "carb": 2,
+    "fibre": 0,
+    "density": 1.01,
+    "note": "raw coconut water (not from concentrate), per 100g liquid",
+    "_gap_fill": true
+  },
+  "freekeh": {
+    "cal": 330,
+    "protein": 12,
+    "fat": 2.5,
+    "carb": 65,
+    "fibre": 8,
+    "density": 0.75,
+    "note": "roasted green wheat; dry uncooked values; density typical for cracked grain",
+    "_gap_fill": true
+  },
+  "chinese cooking wine (shaoxing)": {
+    "cal": 112,
+    "protein": 0.1,
+    "fat": 0,
+    "carb": 0.7,
+    "fibre": 0,
+    "density": 0.99,
+    "note": "Shaoxing wine, ~12% ABV fermented rice wine; density approximates water with slight alcohol reduction",
+    "_gap_fill": true
+  },
+  "mixed grain": {
+    "cal": 330,
+    "protein": 10,
+    "fat": 2.5,
+    "carb": 68,
+    "fibre": 7,
+    "density": 0.75,
+    "note": "dry uncooked mixed grain blend (typical: wheat, oats, barley, rye); density assumes loose packing of whole grains",
+    "_gap_fill": true
+  },
+  "fermented bean paste (miso or yellow bean sauce)": {
+    "cal": 165,
+    "protein": 12.3,
+    "fat": 5.2,
+    "carb": 6.8,
+    "fibre": 1.5,
+    "density": 1.15,
+    "note": "averaged miso and yellow bean sauce; used as condiment by weight",
+    "_gap_fill": true
+  },
+  "ciabatta": {
+    "cal": 271,
+    "protein": 9,
+    "fat": 1.5,
+    "carb": 51,
+    "fibre": 2,
+    "countWeight": 100,
+    "note": "Raw ciabatta bread, per 100g. CountWeight assumes 1 medium slice ~100g.",
+    "_gap_fill": true
+  },
+  "sugar (for crust)": {
+    "cal": 387,
+    "protein": 0,
+    "fat": 0,
+    "carb": 100,
+    "fibre": 0,
+    "density": 0.7,
+    "note": "granulated white sugar; density for dry loose packing",
+    "_gap_fill": true
+  },
+  "refrigerated pie crust": {
+    "cal": 320,
+    "protein": 6,
+    "fat": 17,
+    "carb": 36,
+    "fibre": 1.2,
+    "countWeight": 227,
+    "note": "raw refrigerated dough; one 9-inch crust ≈ 227g; values based on USDA pie dough (enriched flour, shortening, salt)",
+    "_gap_fill": true
+  },
+  "water spinach (ong choy)": {
+    "cal": 21,
+    "protein": 2.1,
+    "fat": 0.2,
+    "carb": 3.6,
+    "fibre": 2.2,
+    "density": 0.13,
+    "note": "Raw water spinach; loose leafy green, density typical for greens",
+    "_gap_fill": true
+  },
+  "crushed red pepper flakes": {
+    "cal": 318,
+    "protein": 12,
+    "fat": 17.3,
+    "carb": 56.8,
+    "fibre": 9.3,
+    "density": 0.55,
+    "note": "USDA dried red pepper flakes, raw weight; density estimated for loose flaked dry good",
+    "_gap_fill": true
+  },
+  "sole fillets (or flounder)": {
+    "cal": 81,
+    "protein": 17.3,
+    "fat": 0.9,
+    "carb": 0,
+    "fibre": 0,
+    "countWeight": 150,
+    "note": "raw sole/flounder fillet; countWeight ~150g per typical medium fillet",
+    "_gap_fill": true
+  },
+  "yellow aji peppers (or jarred aji amarillo paste)": {
+    "cal": 30,
+    "protein": 1.2,
+    "fat": 0.3,
+    "carb": 7,
+    "fibre": 1.4,
+    "countWeight": 90,
+    "note": "Raw yellow aji pepper (fresh); jarred paste would be ~100 cal/100g but calculator assumes fresh whole pepper input",
+    "_gap_fill": true
+  },
+  "acai berry puree (frozen)": {
+    "cal": 56,
+    "protein": 1.2,
+    "fat": 0.5,
+    "carb": 12,
+    "fibre": 2,
+    "density": 1.02,
+    "note": "USDA data for raw acai berry; frozen puree assumed same nutritional profile per 100g thawed weight. Density as aqueous fruit puree.",
+    "_gap_fill": true
+  },
+  "neutral oil (vegetable or canola)": {
+    "cal": 884,
+    "protein": 0,
+    "fat": 100,
+    "carb": 0,
+    "fibre": 0,
+    "density": 0.92,
+    "note": "vegetable/canola oil blend; values typical for refined neutral oils",
+    "_gap_fill": true
+  },
+  "green peppers (long asian or italian varieties)": {
+    "cal": 31,
+    "protein": 1,
+    "fat": 0.3,
+    "carb": 7.3,
+    "fibre": 1.2,
+    "countWeight": 150,
+    "note": "raw long sweet pepper (Asian/Italian varieties); countWeight assumes 1 medium-large pepper ~150g",
+    "_gap_fill": true
+  },
+  "shredded coconut (optional)": {
+    "cal": 354,
+    "protein": 3.3,
+    "fat": 35.3,
+    "carb": 15.2,
+    "fibre": 9,
+    "density": 0.35,
+    "note": "unsweetened dried shredded coconut, raw weight; optional flag ignored",
+    "_gap_fill": true
+  },
+  "unsalted peanuts or peanut butter": {
+    "cal": 588,
+    "protein": 25.8,
+    "fat": 49.2,
+    "carb": 21.5,
+    "fibre": 6,
+    "density": 0.75,
+    "note": "values averaged between raw unsalted peanuts (588 cal, 25.8g protein) and natural peanut butter (588 cal, 25.2g protein); user should specify which form for precision",
+    "_gap_fill": true
+  },
+  "whole white fish (carp or sea bass)": {
+    "cal": 82,
+    "protein": 17.4,
+    "fat": 0.9,
+    "carb": 0,
+    "fibre": 0,
+    "countWeight": 300,
+    "note": "raw whole fish; countWeight assumes 1 medium whole fish (~300g); nutritional values averaged between carp and sea bass",
+    "_gap_fill": true
+  },
+  "almond paste": {
+    "cal": 440,
+    "protein": 12,
+    "fat": 39,
+    "carb": 21,
+    "fibre": 3.5,
+    "density": 1.1,
+    "note": "Raw almond paste; density typical for nut pastes. Sold by weight, not count.",
+    "_gap_fill": true
+  },
+  "red enchilada sauce (canned)": {
+    "cal": 40,
+    "protein": 1.5,
+    "fat": 1.5,
+    "carb": 5,
+    "fibre": 1,
+    "density": 1.05,
+    "note": "USDA canned red enchilada sauce (tomato-based); per 100g of drained/sauce portion; density assumes typical pourable consistency",
+    "_gap_fill": true
+  },
+  "shredded monterey jack or cheddar cheese": {
+    "cal": 402,
+    "protein": 23.5,
+    "fat": 33.3,
+    "carb": 1.3,
+    "fibre": 0,
+    "density": 0.85,
+    "note": "averaged Monterey Jack and sharp cheddar nutrition; density for shredded cheese (loosely packed)",
+    "_gap_fill": true
+  },
+  "red beans (adzuki beans)": {
+    "cal": 128,
+    "protein": 8,
+    "fat": 0.3,
+    "carb": 23.2,
+    "fibre": 6.4,
+    "density": 0.85,
+    "note": "raw dried adzuki beans; density for dry uncooked state",
+    "_gap_fill": true
+  },
+  "hearts of palm": {
+    "cal": 25,
+    "protein": 2.2,
+    "fat": 0.4,
+    "carb": 3.5,
+    "fibre": 2.2,
+    "density": 1,
+    "note": "canned drained weight basis; raw fresh hearts of palm are rare in US market",
+    "_gap_fill": true
+  },
+  "whole white fish (sea bream, sea bass, or cod fillets)": {
+    "cal": 82,
+    "protein": 17.4,
+    "fat": 1.2,
+    "carb": 0,
+    "fibre": 0,
+    "countWeight": 150,
+    "note": "Average of sea bream, sea bass, and cod fillets (raw). countWeight assumes 1 medium fillet ~150g.",
+    "_gap_fill": true
+  },
+  "wood ear mushrooms, dried": {
+    "cal": 338,
+    "protein": 9.5,
+    "fat": 1.5,
+    "carb": 65,
+    "fibre": 5.5,
+    "density": 0.4,
+    "note": "USDA dried mushroom reference; density estimated for loosely packed dried fungi; rehydrates to ~5× mass when soaked",
+    "_gap_fill": true
+  },
+  "chili oil (store-bought or homemade)": {
+    "cal": 884,
+    "protein": 0,
+    "fat": 100,
+    "carb": 0,
+    "fibre": 0,
+    "density": 0.92,
+    "note": "pure oil base; assumes minimal solids; density as vegetable oil; store-bought versions may have small carbs from suspended chili solids (negligible)",
+    "_gap_fill": true
+  },
+  "coarse french mustard (optional, for serving)": {
+    "cal": 66,
+    "protein": 4.7,
+    "fat": 4.3,
+    "carb": 4.7,
+    "fibre": 3.2,
+    "density": 1.08,
+    "note": "coarse grain french mustard (whole seed), per 100g; density accounts for thick paste with seeds; serves as condiment so countWeight not applicable",
+    "_gap_fill": true
+  },
+  "achiote paste": {
+    "cal": 289,
+    "protein": 3.5,
+    "fat": 12.8,
+    "carb": 41.2,
+    "fibre": 8.5,
+    "density": 1.2,
+    "note": "Achiote (annatto) paste; values based on ground annatto seeds mixed with spices and fat. Density assumes thick paste consistency.",
+    "_gap_fill": true
+  },
+  "fish fillets (any white fish)": {
+    "cal": 82,
+    "protein": 17.8,
+    "fat": 0.7,
+    "carb": 0,
+    "fibre": 0,
+    "countWeight": 150,
+    "note": "raw white fish (cod/haddock/pollock avg); 150g = 1 medium fillet",
+    "_gap_fill": true
+  },
+  "pecan nuts": {
+    "cal": 691,
+    "protein": 9.2,
+    "fat": 72,
+    "carb": 13.9,
+    "fibre": 8.7,
+    "density": 0.65,
+    "countWeight": 1.3,
+    "note": "raw pecan halves; density for loose kernels; countWeight ≈ 1 pecan half",
+    "_gap_fill": true
+  },
+  "ground cardomom": {
+    "cal": 311,
+    "protein": 10.8,
+    "fat": 6.7,
+    "carb": 68.5,
+    "fibre": 28,
+    "density": 0.65,
+    "note": "Ground cardamom; density assumes loose dry powder packing. Raw spice values.",
+    "_gap_fill": true
+  },
+  "hake": {
+    "cal": 82,
+    "protein": 18.3,
+    "fat": 0.7,
+    "carb": 0,
+    "fibre": 0,
+    "countWeight": 150,
+    "note": "raw hake fillet, 150g typical medium fillet",
+    "_gap_fill": true
+  },
+  "canned tomato": {
+    "cal": 18,
+    "protein": 0.9,
+    "fat": 0.2,
+    "carb": 3.9,
+    "fibre": 1.2,
+    "countWeight": 240,
+    "note": "canned diced tomatoes, drained weight ~240g per 14oz can, raw nutritional values",
+    "_gap_fill": true
+  },
+  "sichuan peppercorns (optional)": {
+    "cal": 346,
+    "protein": 10.4,
+    "fat": 49,
+    "carb": 5.2,
+    "fibre": 5.3,
+    "density": 0.6,
+    "note": "Dried Sichuan peppercorns; density for loose dry spice; optional note disregarded as nutritional content applies if used",
+    "_gap_fill": true
+  },
+  "short-grain white rice, uncooked": {
+    "cal": 130,
+    "protein": 2.7,
+    "fat": 0.3,
+    "carb": 28.2,
+    "fibre": 0.4,
+    "density": 0.75,
+    "note": "USDA FDR short-grain white rice, raw. Density accounts for settled dry grain packing.",
+    "_gap_fill": true
+  },
+  "padrón peppers (or mild green peppers)": {
+    "cal": 31,
+    "protein": 1.2,
+    "fat": 0.4,
+    "carb": 7.1,
+    "fibre": 1.6,
+    "countWeight": 15,
+    "note": "raw padrón pepper; countWeight ~15g per typical small-medium whole pepper",
+    "_gap_fill": true
+  },
+  "century eggs (pídàn)": {
+    "cal": 180,
+    "protein": 13.7,
+    "fat": 11.5,
+    "carb": 1.2,
+    "fibre": 0,
+    "countWeight": 45,
+    "note": "Raw preserved egg (cured, not cooked); 1 medium century egg ≈ 45g; values based on USDA cured egg data",
+    "_gap_fill": true
+  },
+  "chilli oil": {
+    "cal": 884,
+    "protein": 0,
+    "fat": 100,
+    "carb": 0,
+    "fibre": 0,
+    "density": 0.92,
+    "note": "oil with chilli solids; values approximate pure oil base; density assumes liquid oil at room temperature",
+    "_gap_fill": true
+  },
+  "white fish fillets (sea bass, sea bream, or cod)": {
+    "cal": 82,
+    "protein": 17.9,
+    "fat": 0.7,
+    "carb": 0,
+    "fibre": 0,
+    "countWeight": 150,
+    "note": "raw white fish fillet average; countWeight assumes 1 medium fillet ~150g",
+    "_gap_fill": true
+  },
+  "galangal paste": {
+    "cal": 45,
+    "protein": 1.2,
+    "fat": 0.8,
+    "carb": 8.5,
+    "fibre": 0.9,
+    "density": 1.15,
+    "note": "galangal rhizome processed into paste; values based on fresh galangal with typical added liquid/oil",
+    "_gap_fill": true
+  },
+  "mixed olives (green and black)": {
+    "cal": 145,
+    "protein": 1,
+    "fat": 15,
+    "carb": 3.8,
+    "fibre": 2.4,
+    "countWeight": 5,
+    "note": "Raw pitted olives, average of green and black varieties; countWeight = 1 typical olive (pitted ~5g)",
+    "_gap_fill": true
+  },
+  "ciabatta bread or baguette": {
+    "cal": 279,
+    "protein": 9,
+    "fat": 1.4,
+    "carb": 54,
+    "fibre": 2,
+    "countWeight": 45,
+    "note": "Italian bread (ciabatta/baguette); assumes raw white bread. CountWeight is 1 typical slice (~45g).",
+    "_gap_fill": true
+  },
+  "baby plum tomatoes": {
+    "cal": 27,
+    "protein": 1.2,
+    "fat": 0.3,
+    "carb": 5.8,
+    "fibre": 1.2,
+    "countWeight": 30,
+    "note": "raw baby plum tomato; countWeight ≈ 1 small whole tomato (~30g)",
+    "_gap_fill": true
+  },
+  "dendê oil (or palm oil)": {
+    "cal": 892,
+    "protein": 0,
+    "fat": 100,
+    "carb": 0,
+    "fibre": 0,
+    "density": 0.92,
+    "note": "dendê (red palm oil) and palm oil have identical macros; density typical for oils",
+    "_gap_fill": true
+  },
+  "short pasta (fideos or angel hair)": {
+    "cal": 371,
+    "protein": 13,
+    "fat": 1.1,
+    "carb": 74.7,
+    "fibre": 3.5,
+    "density": 0.65,
+    "note": "dry uncooked pasta, typical semolina wheat; density for loose dry pasta strands",
+    "_gap_fill": true
+  },
+  "annatto seeds (achuete)": {
+    "cal": 265,
+    "protein": 12,
+    "fat": 13.5,
+    "carb": 51,
+    "fibre": 21,
+    "density": 0.65,
+    "note": "Raw annatto seeds; density estimated for loose dry seeds; used as spice/colorant in small quantities",
+    "_gap_fill": true
+  },
+  "bok choi": {
+    "cal": 13,
+    "protein": 1.5,
+    "fat": 0.2,
+    "carb": 2.2,
+    "fibre": 1.2,
+    "density": 0.13,
+    "note": "Raw bok choi (pak choi); density reflects loose leafy packing; typically sold by weight, not count",
+    "_gap_fill": true
+  },
+  "wood ear mushrooms": {
+    "cal": 65,
+    "protein": 2.2,
+    "fat": 0.2,
+    "carb": 14.4,
+    "fibre": 2.7,
+    "density": 0.3,
+    "note": "raw dried wood ear mushrooms, rehydrated weight basis; density reflects loosely packed dried state",
+    "_gap_fill": true
+  },
+  "white fish fillets (cod, tilapia, or mahi-mahi)": {
+    "cal": 82,
+    "protein": 17.8,
+    "fat": 0.7,
+    "carb": 0,
+    "fibre": 0,
+    "countWeight": 150,
+    "note": "raw white fish average (cod/tilapia/mahi-mahi); countWeight assumes 1 medium fillet ~150g",
+    "_gap_fill": true
+  },
+  "pizza dough (store-bought or homemade)": {
+    "cal": 264,
+    "protein": 9,
+    "fat": 3.5,
+    "carb": 49,
+    "fibre": 1.8,
+    "density": 0.65,
+    "note": "Average of common pizza dough recipes (flour, water, yeast, salt, oil); raw uncooked weight basis",
+    "_gap_fill": true
+  },
+  "ground clove": {
+    "cal": 274,
+    "protein": 6,
+    "fat": 13,
+    "carb": 50,
+    "fibre": 21,
+    "density": 0.65,
+    "note": "dried ground clove; density estimate for loose ground spice",
+    "_gap_fill": true
+  },
+  "perilla leaves (or spinach as substitute)": {
+    "cal": 37,
+    "protein": 2.7,
+    "fat": 0.6,
+    "carb": 7.1,
+    "fibre": 1.2,
+    "density": 0.13,
+    "note": "Raw perilla leaf values; spinach substitute would be similar (37 cal, 2.9g protein per 100g). Density for loose leafy greens.",
+    "_gap_fill": true
+  },
+  "green onion (scallion)": {
+    "cal": 32,
+    "protein": 1.9,
+    "fat": 0.2,
+    "carb": 7.3,
+    "fibre": 2.6,
+    "density": 0.13,
+    "countWeight": 30,
+    "note": "raw green onion; countWeight is 1 medium stalk (~30g); density reflects loose chopped form",
+    "_gap_fill": true
+  },
+  "thai bird's eye chillies (or red chilli flakes)": {
+    "cal": 40,
+    "protein": 2,
+    "fat": 0.4,
+    "carb": 9,
+    "fibre": 1.5,
+    "density": 0.6,
+    "countWeight": 2,
+    "note": "Thai bird's eye fresh whole chilli (~2g per typical small chilli); red chilli flakes density 0.6 g/ml. Nutritional values are per 100g fresh whole chilli.",
+    "_gap_fill": true
+  },
+  "yellow squash": {
+    "cal": 21,
+    "protein": 1.5,
+    "fat": 0.4,
+    "carb": 3.7,
+    "fibre": 1.1,
+    "density": 0.2,
+    "countWeight": 150,
+    "note": "raw yellow squash (summer squash), medium whole fruit ~150g",
+    "_gap_fill": true
+  },
+  "nattō (fermented soybeans)": {
+    "cal": 200,
+    "protein": 19.3,
+    "fat": 11.5,
+    "carb": 4.3,
+    "fibre": 2.4,
+    "density": 1.05,
+    "note": "raw fermented soybeans; density accounts for the sticky mucilaginous matrix; typically sold by weight, not counted",
+    "_gap_fill": true
+  },
+  "chilli oil (store-bought or homemade)": {
+    "cal": 884,
+    "protein": 0,
+    "fat": 100,
+    "carb": 0,
+    "fibre": 0,
+    "density": 0.92,
+    "note": "Approximated as oil base (99.9% fat) with minor chilli solids; store-bought and homemade typically similar. Density based on oil.",
+    "_gap_fill": true
+  },
+  "ground annatto": {
+    "cal": 375,
+    "protein": 2.5,
+    "fat": 15,
+    "carb": 65,
+    "fibre": 12,
+    "density": 0.6,
+    "note": "raw ground annatto seeds; density estimated from fine ground spice powder; values based on whole achiote seeds nutritional profile",
+    "_gap_fill": true
+  },
+  "pork spare ribs, cut into 2-inch pieces": {
+    "cal": 290,
+    "protein": 25.5,
+    "fat": 21,
+    "carb": 0,
+    "fibre": 0,
+    "note": "Raw pork spare ribs (bone-in). 2-inch cut specification noted but nutritional values per 100g edible portion. Density N/A for discrete meat cuts; countWeight N/A as typically weighed whole.",
+    "_gap_fill": true
+  },
+  "bonito flakes (aonori seaweed optional)": {
+    "cal": 287,
+    "protein": 61.5,
+    "fat": 3.7,
+    "carb": 0,
+    "fibre": 0,
+    "note": "bonito flakes (katsuobushi) dried; aonori seaweed optional ingredient ignored",
+    "_gap_fill": true
+  },
+  "pomegranate juice": {
+    "cal": 57,
+    "protein": 0.9,
+    "fat": 0.3,
+    "carb": 13.3,
+    "fibre": 0.2,
+    "density": 1.01,
+    "note": "100% pure pomegranate juice, unsweetened; density assumes liquid state",
+    "_gap_fill": true
+  },
+  "anchovies in oil": {
+    "cal": 210,
+    "protein": 29,
+    "fat": 10,
+    "carb": 0,
+    "fibre": 0,
+    "density": 1.05,
+    "countWeight": 10,
+    "note": "raw anchovy + oil drained; 10g per typical anchovy fillet",
+    "_gap_fill": true
+  },
+  "korean red chilli pepper (gochugaru) or red chilli flakes": {
+    "cal": 318,
+    "protein": 14.3,
+    "fat": 17.3,
+    "carb": 64,
+    "fibre": 25.5,
+    "density": 0.6,
+    "note": "USDA red chilli peppers dried; gochugaru is coarsely ground dried Korean chilli so values apply to both forms. Density for loose dry flakes/powder.",
+    "_gap_fill": true
+  },
+  "mushrooms (shiitake or button)": {
+    "cal": 22,
+    "protein": 3.1,
+    "fat": 0.3,
+    "carb": 3.3,
+    "fibre": 1.1,
+    "density": 0.15,
+    "note": "raw mushrooms, average of shiitake and button; density reflects loose packing of whole/sliced mushrooms",
+    "_gap_fill": true
+  },
+  "whole sea bream or branzino": {
+    "cal": 99,
+    "protein": 20.1,
+    "fat": 1.2,
+    "carb": 0,
+    "fibre": 0,
+    "countWeight": 350,
+    "note": "whole raw fish; countWeight is typical medium whole fish edible portion ~350g; assumes skin-on for reference",
+    "_gap_fill": true
+  },
+  "mandu (korean dumpling) wrappers": {
+    "cal": 282,
+    "protein": 9.5,
+    "fat": 0.8,
+    "carb": 57,
+    "fibre": 1.9,
+    "density": 0.6,
+    "countWeight": 8,
+    "note": "Raw wheat flour-based wrapper; ~8g per typical square wrapper; density approximates thin pasta dough",
+    "_gap_fill": true
+  },
+  "waxy potatoes (red or fingerling)": {
+    "cal": 77,
+    "protein": 2.1,
+    "fat": 0.1,
+    "carb": 17.5,
+    "fibre": 1.8,
+    "density": 0.8,
+    "countWeight": 150,
+    "note": "raw waxy potato (red/fingerling variety); skin intact; countWeight is 1 medium potato ~150g",
+    "_gap_fill": true
+  },
+  "pizza dough": {
+    "cal": 264,
+    "protein": 9,
+    "fat": 1.1,
+    "carb": 53,
+    "fibre": 1.9,
+    "density": 0.65,
+    "note": "raw uncooked dough; values based on typical wheat flour dough with water, salt, yeast, minimal oil",
+    "_gap_fill": true
+  },
+  "pomegranate seeds (optional)": {
+    "cal": 83,
+    "protein": 1.7,
+    "fat": 1.2,
+    "carb": 18.7,
+    "fibre": 4,
+    "note": "raw pomegranate arils (seeds); optional note ignored for nutrition lookup",
+    "_gap_fill": true
+  },
+  "mushrooms (cremini or button)": {
+    "cal": 22,
+    "protein": 3.1,
+    "fat": 0.3,
+    "carb": 3.3,
+    "fibre": 0.7,
+    "density": 0.15,
+    "countWeight": 15,
+    "note": "raw cremini/button mushrooms; countWeight is 1 medium whole mushroom (~15g)",
+    "_gap_fill": true
+  },
+  "long beans or green beans, cut into 2cm pieces": {
+    "cal": 31,
+    "protein": 1.8,
+    "fat": 0.2,
+    "carb": 7,
+    "fibre": 2.7,
+    "density": 0.15,
+    "note": "Raw green beans (USDA FDC); cut size does not affect nutritional values per 100g; density reflects loose packing of cut pieces",
+    "_gap_fill": true
+  },
+  "pork cutlets (thin-cut)": {
+    "cal": 165,
+    "protein": 29,
+    "fat": 4.8,
+    "carb": 0,
+    "fibre": 0,
+    "countWeight": 120,
+    "note": "Raw pork loin, thin-cut cutlet ~120g per piece; nutrition based on lean pork loin",
+    "_gap_fill": true
+  },
+  "pearl onions or shallots": {
+    "cal": 41,
+    "protein": 1.5,
+    "fat": 0.1,
+    "carb": 9.3,
+    "fibre": 1.7,
+    "countWeight": 20,
+    "note": "Pearl onions used as primary reference; ~20g per small whole bulb. Shallots slightly higher cal/protein but nutritionally similar.",
+    "_gap_fill": true
+  },
+  "beef skirt steak or flank steak": {
+    "cal": 192,
+    "protein": 28.5,
+    "fat": 8.2,
+    "carb": 0,
+    "fibre": 0,
+    "note": "raw beef skirt/flank average; lean cuts with moderate marbling",
+    "_gap_fill": true
+  },
+  "round crusty bread (pain de mie or ciabatta roll)": {
+    "cal": 265,
+    "protein": 9,
+    "fat": 3.5,
+    "carb": 49,
+    "fibre": 2,
+    "countWeight": 85,
+    "note": "Medium crusty roll (~85g); values are for typical French-style artisanal bread, raw weight",
+    "_gap_fill": true
+  },
+  "masa harina (corn flour for tamales)": {
+    "cal": 365,
+    "protein": 9,
+    "fat": 3.5,
+    "carb": 76,
+    "fibre": 5.4,
+    "density": 0.75,
+    "note": "masa harina (nixtamalized corn flour), dry weight; density typical for fine ground cornmeal",
+    "_gap_fill": true
+  },
+  "roma tomato": {
+    "cal": 18,
+    "protein": 0.9,
+    "fat": 0.2,
+    "carb": 3.9,
+    "fibre": 1.2,
+    "countWeight": 123,
+    "note": "Raw roma tomato, medium fruit ~123g. Values per 100g raw edible portion.",
+    "_gap_fill": true
+  },
+  "white fish fillets (cod, haddock, or halibut)": {
+    "cal": 82,
+    "protein": 17.6,
+    "fat": 0.7,
+    "carb": 0,
+    "fibre": 0,
+    "countWeight": 150,
+    "note": "Average of cod, haddock, and halibut raw fillets; countWeight assumes 1 medium fillet ~150g",
+    "_gap_fill": true
+  },
+  "baby back ribs": {
+    "cal": 290,
+    "protein": 25.8,
+    "fat": 21,
+    "carb": 0,
+    "fibre": 0,
+    "countWeight": 75,
+    "note": "raw pork baby back ribs, ~75g per bone (edible portion ~65%), USDA values for raw pork spareribs",
+    "_gap_fill": true
+  },
+  "barbecue sauce (store-bought)": {
+    "cal": 110,
+    "protein": 0.5,
+    "fat": 0.3,
+    "carb": 26,
+    "fibre": 0,
+    "density": 1.05,
+    "note": "Typical store-bought BBQ sauce; values based on common brands (Heinz, KC Masterpiece). Density as liquid condiment.",
+    "_gap_fill": true
+  },
+  "round dumpling wrappers": {
+    "cal": 282,
+    "protein": 8.5,
+    "fat": 0.8,
+    "carb": 57,
+    "fibre": 1.9,
+    "density": 0.6,
+    "countWeight": 8,
+    "note": "wheat dumpling wrapper; per USDA noodle flour dough; ~8g per typical round wrapper (3 inch diameter)",
+    "_gap_fill": true
+  },
+  "pecan halves": {
+    "cal": 691,
+    "protein": 9.2,
+    "fat": 71.2,
+    "carb": 13.9,
+    "fibre": 8.7,
+    "density": 0.68,
+    "note": "raw pecan halves, loose whole pieces; density for packing into volume; countWeight null as halves are not typically sold by count",
+    "_gap_fill": true
+  },
+  "pear (asian or regular)": {
+    "cal": 57,
+    "protein": 0.4,
+    "fat": 0.1,
+    "carb": 15.2,
+    "fibre": 2.4,
+    "countWeight": 178,
+    "note": "medium pear (178g), raw; Asian and European pears have similar nutrition profiles",
+    "_gap_fill": true
+  },
+  "dried seaweed (miyeok)": {
+    "cal": 45,
+    "protein": 3.1,
+    "fat": 0.6,
+    "carb": 9,
+    "fibre": 0.9,
+    "density": 0.15,
+    "note": "Dried undaria pinnatifida (wakame); values per 100g dry weight; density reflects loose dried state",
+    "_gap_fill": true
+  },
+  "kimchi juice (from the jar)": {
+    "cal": 10,
+    "protein": 0.5,
+    "fat": 0.1,
+    "carb": 1.5,
+    "fibre": 0.2,
+    "density": 1.01,
+    "note": "liquid drained from kimchi jar; similar to dilute vegetable brine with minor fermentation metabolites; assumes standard commercial kimchi",
+    "_gap_fill": true
+  },
+  "applesauce": {
+    "cal": 41,
+    "protein": 0.2,
+    "fat": 0.1,
+    "carb": 10.4,
+    "fibre": 0.7,
+    "density": 1,
+    "note": "unsweetened applesauce, raw weight basis",
+    "_gap_fill": true
+  },
+  "tomato purée": {
+    "cal": 32,
+    "protein": 1.5,
+    "fat": 0.3,
+    "carb": 7.2,
+    "fibre": 1.5,
+    "density": 1.05,
+    "note": "raw tomato purée (strained, unsweetened); density assumes typical paste consistency",
+    "_gap_fill": true
+  },
+  "fromage frais": {
+    "cal": 98,
+    "protein": 8.5,
+    "fat": 3.2,
+    "carb": 4.8,
+    "fibre": 0,
+    "density": 1.03,
+    "note": "French fresh cheese (quark-like), raw. Density estimated for soft curd product. Values for plain unsweetened variant.",
+    "_gap_fill": true
+  },
+  "crawfish tails": {
+    "cal": 82,
+    "protein": 17.8,
+    "fat": 0.9,
+    "carb": 0,
+    "fibre": 0,
+    "countWeight": 12,
+    "note": "raw peeled crawfish tail meat; countWeight assumes 1 medium tail ~12g",
+    "_gap_fill": true
+  },
+  "barberries (zereshk)": {
+    "cal": 310,
+    "protein": 1.5,
+    "fat": 0.5,
+    "carb": 75,
+    "fibre": 1.2,
+    "density": 0.6,
+    "note": "dried barberries; values based on USDA dried fruit profile with tart berry composition; sold by weight not count",
+    "_gap_fill": true
+  },
+  "italian sausages (hot or sweet)": {
+    "cal": 290,
+    "protein": 12,
+    "fat": 25,
+    "carb": 2,
+    "fibre": 0,
+    "countWeight": 85,
+    "note": "Raw Italian sausage link, typical 85g; values are average of hot and sweet varieties",
+    "_gap_fill": true
+  },
+  "unsweetened shredded coconut (or desiccated coconut)": {
+    "cal": 354,
+    "protein": 3.3,
+    "fat": 35.3,
+    "carb": 15.2,
+    "fibre": 9,
+    "density": 0.55,
+    "note": "raw unsweetened desiccated coconut; density accounts for loose, airy packing of shreds",
+    "_gap_fill": true
+  },
+  "dark rye bread": {
+    "cal": 259,
+    "protein": 8.5,
+    "fat": 1.5,
+    "carb": 48.5,
+    "fibre": 7,
+    "countWeight": 32,
+    "note": "1 medium slice (32g); USDA whole grain rye bread, raw weight basis",
+    "_gap_fill": true
+  },
+  "shredded oaxaca cheese": {
+    "cal": 374,
+    "protein": 26,
+    "fat": 30,
+    "carb": 1.5,
+    "fibre": 0,
+    "density": 0.7,
+    "note": "Oaxaca is a semi-soft, stringy cow's milk cheese; composition similar to fresh mozzarella. Density estimated for shredded form (loose packing).",
+    "_gap_fill": true
+  },
+  "bouquet garni": {
+    "cal": 0,
+    "protein": 0,
+    "fat": 0,
+    "carb": 0,
+    "fibre": 0,
+    "note": "non-edible flavoring bundle (herbs/aromatics tied for infusion; removed before serving)",
+    "_gap_fill": true
+  },
+  "mixed vegetables (carrots, drumstick, pumpkin, okra, or green beans)": {
+    "cal": 35,
+    "protein": 1.2,
+    "fat": 0.3,
+    "carb": 7.5,
+    "fibre": 1.8,
+    "density": 0.15,
+    "note": "Average of raw carrots, drumstick leaves, pumpkin, okra, and green beans weighted by typical mix proportions; density accounts for chopped loose vegetables.",
+    "_gap_fill": true
+  },
+  "sambar powder (store-bought)": {
+    "cal": 312,
+    "protein": 10.2,
+    "fat": 12.4,
+    "carb": 48.6,
+    "fibre": 8.3,
+    "density": 0.65,
+    "note": "Store-bought sambar powder blend; assumed typical composition of spices (chili, coriander, cumin, fenugreek, etc.). Density typical for ground spice mixtures.",
+    "_gap_fill": true
+  },
+  "guinea fowl breasts (or chicken breasts as substitute)": {
+    "cal": 165,
+    "protein": 32,
+    "fat": 3.6,
+    "carb": 0,
+    "fibre": 0,
+    "countWeight": 180,
+    "note": "raw guinea fowl breast; countWeight ≈ 1 medium breast (~180g). If substituted with chicken breast, use chicken values (cal 165, protein 31, fat 3.6).",
+    "_gap_fill": true
+  },
+  "buckwheat": {
+    "cal": 343,
+    "protein": 13.3,
+    "fat": 3.4,
+    "carb": 71.5,
+    "fibre": 10,
+    "density": 0.75,
+    "note": "raw whole groats, dry weight; density typical for loose dry grain",
+    "_gap_fill": true
+  },
+  "strong wholemeal flour": {
+    "cal": 340,
+    "protein": 14,
+    "fat": 2.4,
+    "carb": 67,
+    "fibre": 8.8,
+    "density": 0.67,
+    "note": "100% whole wheat flour; higher protein content (12–14%) typical of strong/bread flour varieties",
+    "_gap_fill": true
+  },
+  "fresh ajã­ verde or jalapeno peppers": {
+    "cal": 29,
+    "protein": 0.9,
+    "fat": 0.4,
+    "carb": 6.9,
+    "fibre": 1.4,
+    "density": 0.9,
+    "countWeight": 45,
+    "note": "Assuming fresh medium jalapeño pepper (45g raw, whole); ají verde has similar nutritional profile. Density for whole peppers loosely packed.",
+    "_gap_fill": true
+  },
+  "black bean sauce": {
+    "cal": 90,
+    "protein": 6,
+    "fat": 3,
+    "carb": 10,
+    "fibre": 1,
+    "density": 1.15,
+    "note": "fermented black bean sauce (typical Asian condiment); values per 100g wet paste",
+    "_gap_fill": true
+  },
+  "crumbly queso fresco or feta cheese": {
+    "cal": 264,
+    "protein": 14.2,
+    "fat": 21.3,
+    "carb": 4.1,
+    "fibre": 0,
+    "density": 1.05,
+    "note": "averaged queso fresco and feta; values per 100g raw cheese",
+    "_gap_fill": true
+  },
+  "rock sugar (or white sugar)": {
+    "cal": 387,
+    "protein": 0,
+    "fat": 0,
+    "carb": 100,
+    "fibre": 0,
+    "density": 0.8,
+    "note": "rock sugar nutritionally identical to white granulated sugar; density for dry granules",
+    "_gap_fill": true
+  },
+  "coffee liqueur (kahlúa) or dark rum": {
+    "cal": 320,
+    "protein": 0,
+    "fat": 0,
+    "carb": 33,
+    "fibre": 0,
+    "density": 0.98,
+    "note": "Using Kahlúa coffee liqueur (40 proof); dark rum averages 240 kcal/100ml with 0g carbs. Assumed liqueur as primary; adjust to ~240 cal/33g carb for rum substitute.",
+    "_gap_fill": true
+  },
+  "cooked chestnut": {
+    "cal": 60,
+    "protein": 1.3,
+    "fat": 0.4,
+    "carb": 13.5,
+    "fibre": 1.9,
+    "countWeight": 7,
+    "note": "Raw chestnut nutrition used; 1 medium cooked chestnut ≈ 7g. Chestnuts are lowest-fat nut; cooked typically boiled/roasted.",
+    "_gap_fill": true
+  },
+  "cranberry": {
+    "cal": 46,
+    "protein": 0.4,
+    "fat": 0.1,
+    "carb": 12.2,
+    "fibre": 2.4,
+    "countWeight": 4,
+    "note": "raw cranberry; countWeight is 1 medium fresh cranberry (~4g)",
+    "_gap_fill": true
+  },
+  "ground beef or minced chicken": {
+    "cal": 215,
+    "protein": 23,
+    "fat": 13,
+    "carb": 0,
+    "fibre": 0,
+    "note": "average of 80/20 ground beef (180 cal, 20g protein, 10g fat) and skinless ground chicken (165 cal, 26g protein, 7g fat)",
+    "_gap_fill": true
+  },
+  "dried apricots, chopped": {
+    "cal": 241,
+    "protein": 3.4,
+    "fat": 0.5,
+    "carb": 62.6,
+    "fibre": 7.3,
+    "density": 0.65,
+    "note": "USDA dried apricots (uncooked). Density estimated for loose chopped form. CountWeight null as chopped sold by weight, not count.",
+    "_gap_fill": true
+  },
+  "pork jowl or pork belly": {
+    "cal": 320,
+    "protein": 15.2,
+    "fat": 28.5,
+    "carb": 0,
+    "fibre": 0,
+    "note": "Raw pork jowl/belly averaged; fattier cut. Use per 100g raw weight; trim visible external fat if needed for leaner estimate.",
+    "_gap_fill": true
+  },
+  "collard greens": {
+    "cal": 33,
+    "protein": 3.1,
+    "fat": 0.6,
+    "carb": 5.8,
+    "fibre": 3.6,
+    "density": 0.13,
+    "note": "raw collard greens, loose packing density for leafy green",
+    "_gap_fill": true
+  },
+  "sesame paste (or peanut butter)": {
+    "cal": 588,
+    "protein": 17.7,
+    "fat": 53.3,
+    "carb": 23.5,
+    "fibre": 3.3,
+    "density": 1.08,
+    "note": "sesame paste value used (tahini); peanut butter similar (~588 cal, 25.1g protein, 50.4g fat)",
+    "_gap_fill": true
+  },
+  "roasted peanuts or sesame seeds (optional garnish)": {
+    "cal": 567,
+    "protein": 25.8,
+    "fat": 49.7,
+    "carb": 16.1,
+    "fibre": 2.4,
+    "density": 0.65,
+    "note": "averaged roasted peanuts and sesame seeds; used as optional garnish so typical serving ~1 tbsp (14g); density for loose roasted nuts",
+    "_gap_fill": true
+  },
+  "fresh or frozen cherries (pitted)": {
+    "cal": 63,
+    "protein": 1.1,
+    "fat": 0.3,
+    "carb": 16,
+    "fibre": 2.1,
+    "density": 0.95,
+    "countWeight": 5,
+    "note": "Raw sweet cherries, pitted. Density accounts for loose whole fruit. countWeight ≈ 1 medium cherry ~5g. Frozen and fresh have equivalent nutrition when raw equivalent.",
+    "_gap_fill": true
+  },
+  "chihuahua cheese or monterey jack": {
+    "cal": 374,
+    "protein": 25,
+    "fat": 30,
+    "carb": 1.3,
+    "fibre": 0,
+    "density": 1.1,
+    "note": "Averaged Chihuahua (Oaxaca) and Monterey Jack; semi-soft melting cheeses with similar macros. Raw cheese basis.",
+    "_gap_fill": true
+  },
+  "char siu pork (store-bought)": {
+    "cal": 285,
+    "protein": 28,
+    "fat": 18,
+    "carb": 1,
+    "fibre": 0,
+    "note": "store-bought char siu; roasted pork with sweet soy-based glaze; raw weight basis for cooked product",
+    "_gap_fill": true
+  },
+  "round loaf bread (ciabatta or sourdough)": {
+    "cal": 265,
+    "protein": 9,
+    "fat": 3.5,
+    "carb": 49,
+    "fibre": 2.8,
+    "countWeight": 450,
+    "note": "whole round loaf ~450g; values for artisan bread (ciabatta/sourdough blend, raw/fresh)",
+    "_gap_fill": true
+  },
+  "mushrooms (shiitake or cremini)": {
+    "cal": 34,
+    "protein": 2.2,
+    "fat": 0.5,
+    "carb": 6.2,
+    "fibre": 1,
+    "density": 0.16,
+    "countWeight": 18,
+    "note": "Raw mixed shiitake/cremini; density for whole mushrooms; countWeight ≈ 1 medium mushroom (18g)",
+    "_gap_fill": true
+  },
+  "green onion, cut into 1-inch pieces": {
+    "cal": 32,
+    "protein": 1.9,
+    "fat": 0.2,
+    "carb": 7.3,
+    "fibre": 2.6,
+    "density": 0.13,
+    "note": "raw green onion (scallion) whole plant; density for loosely packed cut pieces; typically measured by weight not count",
+    "_gap_fill": true
+  },
+  "shredded monterey jack cheese": {
+    "cal": 373,
+    "protein": 26,
+    "fat": 30,
+    "carb": 0.9,
+    "fibre": 0,
+    "density": 0.8,
+    "note": "Raw shredded cheese; density accounts for air in shred; values per 100g of cheese solids",
+    "_gap_fill": true
+  },
+  "japanese curry roux block (such as s&b golden curry)": {
+    "cal": 350,
+    "protein": 5,
+    "fat": 20,
+    "carb": 38,
+    "fibre": 2,
+    "countWeight": 8,
+    "note": "Japanese curry roux block (S&B type); 8g per standard block; nutritional values per 100g of roux; typically contains flour, oil, spices, turmeric, fenugreek",
+    "_gap_fill": true
+  },
+  "leeks, white and light green parts": {
+    "cal": 61,
+    "protein": 1.5,
+    "fat": 0.3,
+    "carb": 14.2,
+    "fibre": 1.8,
+    "density": 0.35,
+    "countWeight": 89,
+    "note": "raw leek, white and light green parts only; density accounts for layered structure; countWeight ≈ 1 medium leek trimmed",
+    "_gap_fill": true
+  },
+  "endive (chicory)": {
+    "cal": 17,
+    "protein": 1.3,
+    "fat": 0.2,
+    "carb": 3.1,
+    "fibre": 2.4,
+    "density": 0.13,
+    "countWeight": 90,
+    "note": "Belgian endive (witloof chicory), raw; density for loose leafy vegetable; countWeight for 1 medium head",
+    "_gap_fill": true
+  },
+  "water or lamb stock": {
+    "cal": 17,
+    "protein": 1.5,
+    "fat": 0.5,
+    "carb": 0.5,
+    "fibre": 0,
+    "density": 1.02,
+    "note": "average of water (0 cal) and lamb stock (~34 cal/100g); treated as liquid",
+    "_gap_fill": true
+  },
+  "aonori (seaweed powder)": {
+    "cal": 188,
+    "protein": 8.6,
+    "fat": 1.5,
+    "carb": 35.2,
+    "fibre": 4.8,
+    "density": 0.55,
+    "note": "Dried green seaweed powder (Ulva/Enteromorpha); density typical for fine dry powder; nutritional values per USDA seaweed databases",
+    "_gap_fill": true
+  },
+  "rabbit thighs (or chicken thighs as substitute)": {
+    "cal": 173,
+    "protein": 20.5,
+    "fat": 9.5,
+    "carb": 0,
+    "fibre": 0,
+    "countWeight": 90,
+    "note": "raw rabbit hind legs; ~90g per thigh; if using chicken substitute, use chicken thigh values instead (cal 209, protein 18.3, fat 15.5)",
+    "_gap_fill": true
+  },
+  "thai red chili peppers": {
+    "cal": 40,
+    "protein": 1.9,
+    "fat": 0.4,
+    "carb": 8.8,
+    "fibre": 1.5,
+    "countWeight": 2,
+    "note": "raw Thai red chili; 1 small-to-medium pepper ≈ 2g; values per 100g fresh whole pepper",
+    "_gap_fill": true
+  },
+  "pork cutlets (thin-cut boneless)": {
+    "cal": 165,
+    "protein": 31,
+    "fat": 3.6,
+    "carb": 0,
+    "fibre": 0,
+    "countWeight": 120,
+    "note": "Raw boneless pork loin/cutlet; 120g per typical thin-cut portion",
+    "_gap_fill": true
+  },
+  "mulukhiyah": {
+    "cal": 19,
+    "protein": 1.9,
+    "fat": 0.3,
+    "carb": 3.7,
+    "fibre": 0.8,
+    "density": 0.12,
+    "note": "Raw mulukhiyah (jute mallow) leaves; leafy green density 0.12; cooked form often sold as paste but USDA reference is raw leaf.",
+    "_gap_fill": true
+  },
+  "roasted turkey breast slices": {
+    "cal": 190,
+    "protein": 29,
+    "fat": 8,
+    "carb": 0,
+    "fibre": 0,
+    "countWeight": 28,
+    "note": "raw weight per USDA FoodData Central; countWeight is 1 typical slice (~1 oz)",
+    "_gap_fill": true
+  },
+  "pilchards": {
+    "cal": 208,
+    "protein": 25.4,
+    "fat": 11.5,
+    "carb": 0,
+    "fibre": 0,
+    "note": "raw pilchard (small sardine-type fish); typically canned in oil/brine—values are for raw whole fish without added liquid",
+    "_gap_fill": true
+  },
+  "seasoning": {
+    "cal": 0,
+    "protein": 0,
+    "fat": 0,
+    "carb": 0,
+    "fibre": 0,
+    "note": "too vague; typical dried spice blend averages ~250 kcal/100g but composition unknown",
+    "_gap_fill": true
+  },
+  "giardiniera (italian pickled vegetables)": {
+    "cal": 35,
+    "protein": 1.2,
+    "fat": 0.5,
+    "carb": 6.5,
+    "fibre": 1.8,
+    "density": 1,
+    "note": "Raw mixed vegetables (zucchini, carrots, celery, peppers) pickled in vinegar brine. Nutrient profile based on USDA pickled vegetable mix; density assumes brine-packed jar; calories and carbs are from vegetables plus minimal added oil.",
+    "_gap_fill": true
+  },
+  "short-grain paella rice (bomba or similar)": {
+    "cal": 130,
+    "protein": 2.7,
+    "fat": 0.3,
+    "carb": 28,
+    "fibre": 0.4,
+    "density": 0.75,
+    "note": "raw white short-grain rice; density accounts for loose dry grain packing",
+    "_gap_fill": true
+  },
+  "canned white beans (cannellini or haricot)": {
+    "cal": 77,
+    "protein": 5.2,
+    "fat": 0.3,
+    "carb": 14,
+    "fibre": 3.8,
+    "countWeight": 250,
+    "note": "drained weight per 14 oz can; raw dry bean nutrition adjusted for water absorption during canning",
+    "_gap_fill": true
+  },
+  "whole branzino (sea bass), cleaned and scaled": {
+    "cal": 93,
+    "protein": 19.2,
+    "fat": 1.5,
+    "carb": 0,
+    "fibre": 0,
+    "countWeight": 400,
+    "note": "whole cleaned/scaled branzino; 400g typical market weight (edible ~65%). Nutritional values are for raw fillet; whole fish with bones/head adds weight but same caloric density applies to edible portion.",
+    "_gap_fill": true
+  },
+  "takoyaki sauce (or worcestershire sauce)": {
+    "cal": 90,
+    "protein": 0.1,
+    "fat": 0,
+    "carb": 22,
+    "fibre": 0,
+    "density": 1,
+    "note": "Takoyaki sauce assumed Worcestershire-type condiment; values typical of commercial takoyaki/okonomiyaki sauce (sweet, soy-vinegar base)",
+    "_gap_fill": true
+  },
+  "urad dal (split black gram)": {
+    "cal": 341,
+    "protein": 25.2,
+    "fat": 1.4,
+    "carb": 59,
+    "fibre": 4,
+    "density": 0.72,
+    "note": "Raw split urad dal (white interior); density for dry uncooked lentils; values from USDA and Indian food composition tables",
+    "_gap_fill": true
+  },
+  "yellow lentils (moong daal)": {
+    "cal": 352,
+    "protein": 25,
+    "fat": 1.3,
+    "carb": 63.4,
+    "fibre": 7.6,
+    "density": 0.75,
+    "note": "Raw dry yellow moong lentils (split mung beans); density for loose dry packed state",
+    "_gap_fill": true
+  },
+  "dried red peppers (choricero or similar)": {
+    "cal": 314,
+    "protein": 12,
+    "fat": 3.5,
+    "carb": 64,
+    "fibre": 9,
+    "density": 0.45,
+    "countWeight": 5,
+    "note": "Dried red chili peppers (choricero type); per 100g of dried product. countWeight assumes 1 medium dried pepper ~5g. Density for loose dried peppers.",
+    "_gap_fill": true
+  },
+  "fried shallots (store-bought)": {
+    "cal": 547,
+    "protein": 6.2,
+    "fat": 40.1,
+    "carb": 45.3,
+    "fibre": 3.1,
+    "note": "store-bought fried shallots; values based on raw shallot composition adjusted for oil absorption during frying (~40% oil by weight); use as-purchased",
+    "_gap_fill": true
+  },
+  "bonito flakes (or dried seaweed)": {
+    "cal": 287,
+    "protein": 61.5,
+    "fat": 3.7,
+    "carb": 0,
+    "fibre": 0,
+    "density": 0.15,
+    "note": "bonito flakes used as primary; dried seaweed (nori/kombu) avg ~45 cal, 8g protein per 100g. Bonito flakes density assumes loose packing.",
+    "_gap_fill": true
+  },
+  "beef ribeye or short rib": {
+    "cal": 250,
+    "protein": 25.5,
+    "fat": 15.5,
+    "carb": 0,
+    "fibre": 0,
+    "note": "raw beef ribeye/short rib blend; ribeye ~250 kcal, short rib ~290 kcal; averaged mid-range; no standard count weight for cuts",
+    "_gap_fill": true
+  },
+  "large mushrooms": {
+    "cal": 22,
+    "protein": 3.1,
+    "fat": 0.3,
+    "carb": 3.3,
+    "fibre": 0.7,
+    "density": 0.15,
+    "countWeight": 90,
+    "note": "raw white mushroom, 1 large whole cap ≈90g; density for loose whole mushrooms",
+    "_gap_fill": true
+  },
+  "fresh hot chili pepper (optional)": {
+    "cal": 40,
+    "protein": 2,
+    "fat": 0.4,
+    "carb": 8.8,
+    "fibre": 1.5,
+    "density": 0.9,
+    "countWeight": 45,
+    "note": "raw fresh hot chili pepper (e.g. jalapeño or serrano); countWeight assumes 1 medium pepper ~45g",
+    "_gap_fill": true
+  },
+  "japanese curry roux blocks (s&b or vermont)": {
+    "cal": 340,
+    "protein": 3,
+    "fat": 15,
+    "carb": 50,
+    "fibre": 1,
+    "countWeight": 20,
+    "note": "per curry roux block (~20g); S&B and Vermont brands typically 100g/5-block boxes. Values based on standard Japanese curry roux USDA equivalent; assume fried wheat flour base with spices and oil",
+    "_gap_fill": true
+  },
+  "neutral oil": {
+    "cal": 884,
+    "protein": 0,
+    "fat": 100,
+    "carb": 0,
+    "fibre": 0,
+    "density": 0.92,
+    "note": "generic neutral oil (vegetable/canola); density represents typical oil at 20°C",
+    "_gap_fill": true
+  },
+  "pretzels": {
+    "cal": 381,
+    "protein": 9.2,
+    "fat": 6.9,
+    "carb": 71.3,
+    "fibre": 2.7,
+    "density": 0.12,
+    "countWeight": 28,
+    "note": "raw weight, standard salted twisted pretzel; density assumes loose packing in a bag",
+    "_gap_fill": true
+  },
+  "short pasta (ditalini or rigatoni)": {
+    "cal": 371,
+    "protein": 13,
+    "fat": 1.1,
+    "carb": 75,
+    "fibre": 1.8,
+    "density": 0.75,
+    "note": "dry uncooked durum wheat pasta; density for loose dry pasta; values typical for enriched semolina pasta",
+    "_gap_fill": true
+  },
+  "black truffle oil": {
+    "cal": 884,
+    "protein": 0,
+    "fat": 100,
+    "carb": 0,
+    "fibre": 0,
+    "density": 0.92,
+    "note": "Assumed pure infused oil (mineral oil or grapeseed base); trace truffle solids negligible. Density typical for plant oils.",
+    "_gap_fill": true
+  },
+  "freekeh (roasted green wheat)": {
+    "cal": 330,
+    "protein": 12.3,
+    "fat": 2.7,
+    "carb": 65,
+    "fibre": 7.5,
+    "density": 0.75,
+    "note": "dry uncooked freekeh; roasted green wheat berries, denser than standard wheat due to early harvest and roasting",
+    "_gap_fill": true
+  },
+  "rye": {
+    "cal": 335,
+    "protein": 10.3,
+    "fat": 2.4,
+    "carb": 71.5,
+    "fibre": 15.1,
+    "density": 0.75,
+    "note": "dry whole rye grain; density for uncooked kernels",
+    "_gap_fill": true
+  },
+  "canned tomatillos in brine": {
+    "cal": 32,
+    "protein": 1,
+    "fat": 0.5,
+    "carb": 6,
+    "fibre": 1.3,
+    "density": 1.02,
+    "note": "per 100g drained weight; canned tomatillos typically contain ~60% solids by weight after draining brine",
+    "_gap_fill": true
+  },
+  "oysters": {
+    "cal": 81,
+    "protein": 9.5,
+    "fat": 2.3,
+    "carb": 3.7,
+    "fibre": 0,
+    "countWeight": 50,
+    "note": "raw oyster meat; countWeight is 1 medium oyster (~50g meat)",
+    "_gap_fill": true
+  },
+  "unsweetened plant-based milk": {
+    "cal": 25,
+    "protein": 1,
+    "fat": 1.5,
+    "carb": 1,
+    "fibre": 0,
+    "density": 1.02,
+    "note": "generic unsweetened plant-based milk (almond/soy/oat blend average); actual values vary by brand and base",
+    "_gap_fill": true
+  },
+  "dried anchovies (ikan bilis)": {
+    "cal": 282,
+    "protein": 61.5,
+    "fat": 3.3,
+    "carb": 0,
+    "fibre": 0,
+    "note": "dried whole anchovies, raw weight basis; typically used in small quantities by weight rather than by count",
+    "_gap_fill": true
+  },
+  "beef ribeye or sirloin steak": {
+    "cal": 250,
+    "protein": 26,
+    "fat": 15,
+    "carb": 0,
+    "fibre": 0,
+    "countWeight": 200,
+    "note": "raw beef steak, average of ribeye (fattier) and sirloin (leaner); countWeight assumes 1 typical 7 oz (200g) steak",
+    "_gap_fill": true
+  },
+  "doubanjiang": {
+    "cal": 161,
+    "protein": 8.5,
+    "fat": 8,
+    "carb": 12,
+    "fibre": 2,
+    "density": 1.15,
+    "note": "Spicy fermented broad bean paste; raw unpacked bulk values; density accounts for paste consistency",
+    "_gap_fill": true
+  },
+  "vine tomatoes": {
+    "cal": 18,
+    "protein": 0.9,
+    "fat": 0.2,
+    "carb": 3.9,
+    "fibre": 1.2,
+    "density": 0.95,
+    "countWeight": 150,
+    "note": "raw vine tomato, medium fruit ~150g; density as fresh tomato",
+    "_gap_fill": true
+  },
+  "manicotti pasta tubes": {
+    "cal": 371,
+    "protein": 13,
+    "fat": 1.1,
+    "carb": 75,
+    "fibre": 3.2,
+    "density": 0.65,
+    "note": "dry uncooked semolina pasta; density for loose dry pasta tubes",
+    "_gap_fill": true
+  },
+  "white fish fillet (carp, catfish, or cod)": {
+    "cal": 82,
+    "protein": 17.8,
+    "fat": 0.9,
+    "carb": 0,
+    "fibre": 0,
+    "countWeight": 150,
+    "note": "Average of carp (82 cal), catfish (95 cal), and cod (82 cal) raw; typical fillet ~150g",
+    "_gap_fill": true
+  },
+  "chilli oil (or neutral oil)": {
+    "cal": 884,
+    "protein": 0,
+    "fat": 100,
+    "carb": 0,
+    "fibre": 0,
+    "density": 0.92,
+    "note": "Neutral oil base (vegetable/canola); chilli solids contribute negligibly to macros per 100g liquid",
+    "_gap_fill": true
+  },
+  "roast beef slices": {
+    "cal": 180,
+    "protein": 25,
+    "fat": 8,
+    "carb": 0,
+    "fibre": 0,
+    "countWeight": 30,
+    "note": "typical deli roast beef slices, raw weight; countWeight = 1 slice (~30g)",
+    "_gap_fill": true
+  },
+  "gouda cheese": {
+    "cal": 406,
+    "protein": 27,
+    "fat": 33.6,
+    "carb": 2.2,
+    "fibre": 0,
+    "countWeight": 28,
+    "note": "raw whole milk gouda; countWeight is 1 oz (28g) typical serving/slice",
+    "_gap_fill": true
+  },
+  "kamaboko (fish cake)": {
+    "cal": 95,
+    "protein": 12.4,
+    "fat": 0.5,
+    "carb": 7.2,
+    "fibre": 0,
+    "density": 1.05,
+    "countWeight": 50,
+    "note": "raw uncooked kamaboko, a steamed surimi-based paste product; countWeight assumes 1 typical slice ~50g",
+    "_gap_fill": true
+  },
+  "short-grain rice": {
+    "cal": 130,
+    "protein": 2.7,
+    "fat": 0.3,
+    "carb": 28.2,
+    "fibre": 0.4,
+    "density": 0.75,
+    "note": "raw uncooked short-grain white rice; density for dry loose grain",
+    "_gap_fill": true
+  },
+  "chestnuts": {
+    "cal": 196,
+    "protein": 2.4,
+    "fat": 1.3,
+    "carb": 44.3,
+    "fibre": 8.6,
+    "countWeight": 17,
+    "note": "raw chestnuts, shelled; 1 medium chestnut ≈ 17g",
+    "_gap_fill": true
+  },
+  "challots": {
+    "cal": 72,
+    "protein": 2.5,
+    "fat": 0.1,
+    "carb": 16.8,
+    "fibre": 3.7,
+    "density": 0.75,
+    "countWeight": 12,
+    "note": "interpreted as shallots (small bulb variant); 12g per typical small shallot",
+    "_gap_fill": true
+  },
+  "wild mushrooms": {
+    "cal": 22,
+    "protein": 3.1,
+    "fat": 0.3,
+    "carb": 3.3,
+    "fibre": 1,
+    "density": 0.15,
+    "note": "raw mixed wild mushrooms; density reflects loose packing of whole/chopped pieces; countWeight null as 'wild mushrooms' sold by weight not count",
+    "_gap_fill": true
+  },
+  "truffle oil": {
+    "cal": 884,
+    "protein": 0,
+    "fat": 100,
+    "carb": 0,
+    "fibre": 0,
+    "density": 0.92,
+    "note": "treated as infused oil; nutritional values assume mineral oil base (not pure truffle); density typical for edible oil",
+    "_gap_fill": true
+  },
+  "pork bones (neck, leg, or knuckle)": {
+    "cal": 110,
+    "protein": 12,
+    "fat": 7,
+    "carb": 0,
+    "fibre": 0,
+    "note": "raw pork bone with adhering meat and marrow; typically used for stock/broth, not measured by count",
+    "_gap_fill": true
+  },
+  "egusi (ground melon seeds)": {
+    "cal": 560,
+    "protein": 26,
+    "fat": 50,
+    "carb": 10,
+    "fibre": 5,
+    "density": 0.65,
+    "note": "Ground melon seeds (Citrullus lanatus); density estimated for loose dry powder; values based on whole seed composition adjusted for typical processing loss",
+    "_gap_fill": true
+  },
+  "sliced deli turkey": {
+    "cal": 105,
+    "protein": 20,
+    "fat": 2,
+    "carb": 1,
+    "fibre": 0,
+    "countWeight": 28,
+    "note": "raw weight basis; countWeight assumes 1 typical slice ≈ 28g",
+    "_gap_fill": true
+  },
+  "gelatine leafs": {
+    "cal": 355,
+    "protein": 87,
+    "fat": 0,
+    "carb": 0,
+    "fibre": 0,
+    "countWeight": 2.5,
+    "note": "Unflavored gelatin sheets; 1 leaf ≈ 2.5g. Values are for pure gelatin powder basis.",
+    "_gap_fill": true
+  },
+  "catfish fillets": {
+    "cal": 100,
+    "protein": 17.3,
+    "fat": 3.1,
+    "carb": 0,
+    "fibre": 0,
+    "countWeight": 150,
+    "note": "raw catfish fillet, ~150g per typical fillet",
+    "_gap_fill": true
+  },
+  "mushrooms (shiitake, button, or mixed)": {
+    "cal": 22,
+    "protein": 2.2,
+    "fat": 0.3,
+    "carb": 3.3,
+    "fibre": 1.1,
+    "density": 0.15,
+    "countWeight": 18,
+    "note": "mixed mushroom average; density reflects loose packing of whole/halved pieces; countWeight ≈ 1 medium button mushroom",
+    "_gap_fill": true
+  },
+  "golden syrup": {
+    "cal": 288,
+    "protein": 0.3,
+    "fat": 0,
+    "carb": 75,
+    "fibre": 0,
+    "density": 1.38,
+    "note": "Refined sugar syrup; density measured at ~1.38 g/ml for pourable syrup at room temperature",
+    "_gap_fill": true
+  },
+  "capicola (or ham)": {
+    "cal": 300,
+    "protein": 25,
+    "fat": 23,
+    "carb": 0,
+    "fibre": 0,
+    "countWeight": 28,
+    "note": "Raw cured pork, capicola values used; countWeight assumes 1 typical deli slice (28g)",
+    "_gap_fill": true
+  },
+  "ackee": {
+    "cal": 151,
+    "protein": 2.2,
+    "fat": 15.2,
+    "carb": 8.6,
+    "fibre": 1.5,
+    "countWeight": 45,
+    "note": "raw ackee arils (edible fruit); countWeight is 1 medium aril cluster ~45g",
+    "_gap_fill": true
+  },
+  "pomegranate molasses or lemon juice": {
+    "cal": 66,
+    "protein": 0.5,
+    "fat": 0.1,
+    "carb": 15.8,
+    "fibre": 0,
+    "density": 1.03,
+    "note": "pomegranate molasses used (higher calorie concentrate); lemon juice is similar (~29 cal/100g). Both are liquids. Density represents typical acidity-adjusted density.",
+    "_gap_fill": true
+  },
+  "cheese slices": {
+    "cal": 320,
+    "protein": 22,
+    "fat": 26,
+    "carb": 1,
+    "fibre": 0,
+    "countWeight": 21,
+    "note": "American processed cheese slice; 21g per slice is standard single-wrap weight",
+    "_gap_fill": true
+  },
+  "chinese broccoli (gai lan)": {
+    "cal": 23,
+    "protein": 2.2,
+    "fat": 0.4,
+    "carb": 4.3,
+    "fibre": 0.9,
+    "density": 0.13,
+    "note": "raw Chinese broccoli (gai lan); loose leafy vegetable, density assumes typical packing",
+    "_gap_fill": true
+  },
+  "short-grain white rice (bomba or similar)": {
+    "cal": 130,
+    "protein": 2.7,
+    "fat": 0.3,
+    "carb": 28.2,
+    "fibre": 0.4,
+    "density": 0.75,
+    "note": "raw uncooked short-grain white rice; density for dry uncooked grain",
+    "_gap_fill": true
+  },
+  "sweet pickle relish": {
+    "cal": 144,
+    "protein": 0.3,
+    "fat": 0.1,
+    "carb": 36,
+    "fibre": 0.5,
+    "density": 1.05,
+    "note": "USDA condiment, jarred; includes sugar and vinegar; drained solids basis",
+    "_gap_fill": true
+  },
+  "yuca (cassava root)": {
+    "cal": 160,
+    "protein": 1.4,
+    "fat": 0.3,
+    "carb": 38.1,
+    "fibre": 2.4,
+    "note": "raw yuca root; starchy tuber typically sold by weight, not count",
+    "_gap_fill": true
+  },
+  "pink curing salt (optional, for color)": {
+    "cal": 0,
+    "protein": 0,
+    "fat": 0,
+    "carb": 0,
+    "fibre": 0,
+    "density": 1.2,
+    "note": "pink curing salt (sodium nitrite/nitrate blend); minimal macro content; density estimated for crystalline salt mix",
+    "_gap_fill": true
+  },
+  "pork cutlets (or thin-cut pork loin slices)": {
+    "cal": 242,
+    "protein": 27.3,
+    "fat": 13.8,
+    "carb": 0,
+    "fibre": 0,
+    "countWeight": 120,
+    "note": "raw pork loin; countWeight is 1 medium cutlet (120g); assumes ~3–4mm thickness typical for cutlets",
+    "_gap_fill": true
+  },
+  "crème fraîche": {
+    "cal": 340,
+    "protein": 2.7,
+    "fat": 34,
+    "carb": 2.7,
+    "fibre": 0,
+    "density": 1.01,
+    "note": "French sour cream, raw weight basis; density as cultured cream",
+    "_gap_fill": true
+  },
+  "chili oil (or chili flakes mixed with oil)": {
+    "cal": 884,
+    "protein": 0,
+    "fat": 100,
+    "carb": 0,
+    "fibre": 0,
+    "density": 0.92,
+    "note": "Assume pure oil base (density 0.92 g/ml); chili solids negligible by weight. Nutritional value dominated by oil component.",
+    "_gap_fill": true
+  },
+  "stale bread (day-old, white or sourdough)": {
+    "cal": 265,
+    "protein": 9,
+    "fat": 3.5,
+    "carb": 49,
+    "fibre": 1.8,
+    "density": 0.28,
+    "countWeight": 28,
+    "note": "Standard white sandwich bread; staling does not materially change macros. ~1 slice (28g). Density based on crumb structure.",
+    "_gap_fill": true
+  },
+  "rye flour": {
+    "cal": 335,
+    "protein": 10,
+    "fat": 1.6,
+    "carb": 71,
+    "fibre": 10.7,
+    "density": 0.7,
+    "note": "whole grain rye flour, raw dry weight",
+    "_gap_fill": true
+  },
+  "sweet soy sauce (kecap manis)": {
+    "cal": 233,
+    "protein": 1.5,
+    "fat": 0.1,
+    "carb": 56,
+    "fibre": 0,
+    "density": 1,
+    "note": "Indonesian kecap manis; thick sweet soy sauce with added sugar and spices. Density approximated as liquid with viscosity. Nutritional profile per 100g of product.",
+    "_gap_fill": true
+  },
+  "white fish fillets (cod, mahi-mahi, or tilapia)": {
+    "cal": 82,
+    "protein": 17.8,
+    "fat": 0.7,
+    "carb": 0,
+    "fibre": 0,
+    "countWeight": 150,
+    "note": "raw white fish fillet average (cod 82 cal/100g); countWeight ~150g for 1 medium fillet",
+    "_gap_fill": true
+  },
+  "phyllo or wonton pastry sheets": {
+    "cal": 320,
+    "protein": 9,
+    "fat": 1,
+    "carb": 64,
+    "fibre": 2,
+    "density": 0.6,
+    "countWeight": 12,
+    "note": "averaged phyllo (340 cal) and wonton (300 cal) per USDA; countWeight ~1 sheet; density for stacked dry sheets",
+    "_gap_fill": true
+  },
+  "dried red dates (jujubes)": {
+    "cal": 282,
+    "protein": 3.7,
+    "fat": 0.4,
+    "carb": 75.2,
+    "fibre": 6.3,
+    "density": 0.65,
+    "countWeight": 3.5,
+    "note": "dried jujubes; countWeight is 1 typical dried date (~3–4g); density estimate for loose dried fruit",
+    "_gap_fill": true
+  },
+  "goji berries": {
+    "cal": 344,
+    "protein": 14.3,
+    "fat": 5.1,
+    "carb": 68.6,
+    "fibre": 10,
+    "density": 0.7,
+    "note": "dried goji berries (raw); density assumes loose packing of typical dried product",
+    "_gap_fill": true
+  },
+  "ice cream": {
+    "cal": 207,
+    "protein": 3.5,
+    "fat": 11,
+    "carb": 24,
+    "fibre": 0,
+    "density": 0.58,
+    "note": "vanilla ice cream, raw weight (scooped, not melted); density accounts for air incorporation",
+    "_gap_fill": true
+  },
+  "pomegranate": {
+    "cal": 83,
+    "protein": 1.7,
+    "fat": 1.2,
+    "carb": 18.7,
+    "fibre": 4,
+    "countWeight": 282,
+    "note": "raw pomegranate fruit, whole edible arils with seeds; medium fruit ~282g",
+    "_gap_fill": true
+  },
+  "small pasta (ditalini or stelline)": {
+    "cal": 371,
+    "protein": 13,
+    "fat": 1.1,
+    "carb": 75,
+    "fibre": 1.8,
+    "density": 0.75,
+    "note": "dry uncooked durum wheat pasta; density for loose dry pasta; typically sold by weight not count",
+    "_gap_fill": true
+  },
+  "white short-grain rice": {
+    "cal": 130,
+    "protein": 2.7,
+    "fat": 0.3,
+    "carb": 28.6,
+    "fibre": 0.4,
+    "density": 0.75,
+    "note": "raw white short-grain rice, dry uncooked; density is for loose dry grains",
+    "_gap_fill": true
+  }
+}

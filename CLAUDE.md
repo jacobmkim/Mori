@@ -83,12 +83,12 @@ Mori is a swipe-based recipe discovery app. Users swipe on recipe cards → save
 - Grocery List: grouped categories, checkboxes, copy-to-clipboard
 - Profile: AvatarButton → ProfileSheet, taste profile (monthly cron + update modal), pantry, preferences, editable display name, appearance toggle
 - 2,600+ curated recipes (live count: 2,619 as of 2026-05-04 — verify with `node scripts/count-recipes.mjs`); all have steps, macros, dietary_tags, meal_prep_friendly, gpt-image-1 images
-- Vercel functions: /api/macros, /api/taste-profile, /api/generate-recipe, /api/storage-tip, /api/send-welcome-email, /api/sentry-test (10 user-facing + 2 cron; Hobby plan limit is 12 — Kroger functions removed 2026-04-28; `_`-prefixed files don't count)
+- Vercel functions: /api/macros, /api/taste-profile, /api/generate-recipe, /api/storage-tip, /api/send-welcome-email, /api/sentry-test (user-facing) + 3 cron (taste-notifications, streak-reminders, audit-pending-community). Kroger functions removed 2026-04-28. `_`-prefixed files are helpers, don't count as endpoints.
 - app.json: name Mori, bundle ID app.getmori.mori
 - Landing page: getmori.app (Vercel), hello@getmori.app email routing. Screenshots + taste profile section updated. **Served from `public/index.html` — `landing/index.html` is a stale copy, do not edit it.**
 - App icon: italic m + spatula, linen #F8F3EC, 1024×1024
 - TestFlight internal live; external submitted for Beta App Review
-- Add Recipe wizard (4-step): basics, ingredients w/ autocomplete, steps w/ timer hints, review + submit → community recipes. Public recipes appear in all Discover decks.
+- Add Recipe wizard (4-step): basics, ingredients w/ autocomplete, steps w/ timer hints, review + submit → community recipes. Public recipes appear in all Discover decks. **Submission flow:** `insertCommunityRecipe()` → `recipes` row with `moderation_status='pending'`. `enrichCommunityRecipe()` (fire-and-forget) infers dietary tags + calls `/api/macros` for AI-estimated macros. Hourly cron `audit-pending-community.ts` runs Haiku step-quality audit and writes `audit_data` jsonb on the recipe. **Admin reviews `audit_data.score` in Supabase Studio before flipping `moderation_status='approved'`.** Score < 90 = look closer; ≥ 95 = generally safe to approve. For calculator-grade macros on community recipes, run `node scripts/compute-macros-from-usda.mjs --id <id>` then `node scripts/apply-computed-macros.mjs --apply` periodically (full pipeline in `.claude/recipe-quality-overhaul-2026-05-07.md`).
 - Unit system toggle (imperial/metric); ingredient substitutions (`lib/substitutions.ts`, ~125 entries)
 - Deck Servings Sheet on Discover: scaled macros + ingredients reactively (`scaleMacros()` from `lib/macroUtils.ts`)
 - Plan-tab recipe picker: search + Filter sheet (Type / Cuisine / Total time / Skill); hybrid data source (Saved + lazy-loaded Browse-all from `fetchDiscoverRecipes`); tap row → `RecipeDetailModal` preview with "Add to {Day} · {Meal}" CTA (`slotContext` prop); "+" on row → quick-add to current slot. Shared `CUISINES` constant in `constants/cuisines.ts` (with explore.tsx); pure filter logic in `lib/pickerFilters.ts` with full unit-test coverage
@@ -202,11 +202,12 @@ stores/
   userStore, savedStore (persists savedRecipes + _removedPositions),
   groceryStore, collectionsStore, mealPlanStore, discoverStore, leftoversStore
 
-api/ (Vercel functions — exactly 12, Hobby plan limit)
+api/ (Vercel functions — Pro plan, plenty of headroom)
   macros.ts, taste-profile.ts, generate-recipe.ts, storage-tip.ts,
   instacart-cart.ts, waitlist.ts, admin-recipes.ts, substitutions.ts,
-  kroger-auth.ts, kroger-cart.ts (deprioritized)
-  cron/streak-reminders.ts, cron/taste-notifications.ts (CRON_SECRET only),
+  send-welcome-email.ts, sentry-test.ts
+  cron/streak-reminders.ts, cron/taste-notifications.ts,
+  cron/audit-pending-community.ts (Haiku step audit on pending community recipes; CRON_SECRET-only, hourly),
   cron/_auth.ts (shared verifyCronAuth helper, timing-safe)
 
 scripts/ (all one-time or safe-to-resume, already ran)
