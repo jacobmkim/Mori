@@ -2073,12 +2073,12 @@ export async function fetchIngredientNames(): Promise<string[]> {
   }
 }
 
-interface CommunityRecipeInput {
+export interface CommunityRecipeInput {
   title: string;
   description: string | null;
   cuisine: string | null;
   ingredients: { name: string; quantity: string; unit: string }[];
-  steps: { order: number; instruction: string; title?: string }[];
+  steps: { order: number; instruction: string; title?: string; timer_minutes?: number | null }[];
   prep_time_mins: number | null;
   cook_time_mins: number | null;
   servings: number | null;

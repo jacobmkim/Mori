@@ -48,8 +48,10 @@ function setupInsert(returnId: string | null = 'new-uuid-abc', dbError: unknown 
   });
 }
 
+import type { CommunityRecipeInput } from '@/lib/api';
+
 // Minimal valid input — reused across tests with spread overrides.
-const BASE_INPUT = {
+const BASE_INPUT: CommunityRecipeInput = {
   title: 'Test Recipe',
   description: null,
   cuisine: 'Italian',
@@ -58,11 +60,11 @@ const BASE_INPUT = {
   prep_time_mins: 5,
   cook_time_mins: 10,
   servings: 2,
-  dietary_tags: [] as string[],
+  dietary_tags: [],
   submitted_by: 'user-uuid-1',
   image_url: null,
   is_public: true,
-} as const;
+};
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -128,6 +130,23 @@ describe('insertCommunityRecipe — caller-supplied fields', () => {
     setupInsert();
     await insertCommunityRecipe({ ...BASE_INPUT, submitted_by: 'user-xyz' });
     expect(capturedPayload).toMatchObject({ submitted_by: 'user-xyz' });
+  });
+
+  it('round-trips structured timer_minutes on each step', async () => {
+    setupInsert();
+    await insertCommunityRecipe({
+      ...BASE_INPUT,
+      steps: [
+        { order: 1, instruction: 'Boil pasta.', timer_minutes: 8 },
+        { order: 2, instruction: 'Drain and toss.', timer_minutes: null },
+      ],
+    });
+    expect(capturedPayload).toMatchObject({
+      steps: [
+        { order: 1, instruction: 'Boil pasta.', timer_minutes: 8 },
+        { order: 2, instruction: 'Drain and toss.', timer_minutes: null },
+      ],
+    });
   });
 });
 

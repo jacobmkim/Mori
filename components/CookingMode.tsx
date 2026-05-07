@@ -347,7 +347,7 @@ export function CookingMode({ recipe, steps, rawIngredients, ratio = 1, initialS
             }}
             renderItem={({ item: s, index: i }) => {
               const { title: t, detail: d } = extractStepTitle(s);
-              const mins = extractTimerMinutes(s.instruction);
+              const mins = s.timer_minutes ?? extractTimerMinutes(s.instruction);
               const chips = (rawIngredients ?? []).filter((ing) => {
                 const first = ing.name.toLowerCase().split(' ')[0];
                 return first.length > 2 && s.instruction.toLowerCase().includes(first);

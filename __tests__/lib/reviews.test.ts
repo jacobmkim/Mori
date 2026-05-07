@@ -338,7 +338,7 @@ describe('fetchCreatorStats', () => {
   });
 
   it('coerces avg_rating to a number', async () => {
-    setupStats({ recipeData: { avg_rating: '4.3', rating_count: 5 } });
+    setupStats({ recipeData: { avg_rating: '4.3' as unknown as number, rating_count: 5 } });
     const stats = await fetchCreatorStats('recipe-1');
     expect(typeof stats.avg_rating).toBe('number');
     expect(stats.avg_rating).toBeCloseTo(4.3);

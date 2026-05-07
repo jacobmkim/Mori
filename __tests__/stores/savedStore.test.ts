@@ -1,4 +1,5 @@
 import { useSavedStore } from '@/stores/savedStore';
+import type { Recipe } from '@/types';
 
 jest.mock('@/lib/api', () => ({
   saveRecipe: jest.fn(),
@@ -14,17 +15,18 @@ import {
 const mockSave = saveRecipe as jest.Mock;
 const mockLoad = getSavedRecipesWithDetails as jest.Mock;
 
-const makeRecipe = (id: string, opts: { supabase_id?: string | null } = {}) => ({
-  id,
-  title: `Recipe ${id}`,
-  supabase_id: opts.supabase_id === null ? undefined : (opts.supabase_id ?? `supabase-${id}`),
-  external_id: id,
-  ingredients: [],
-  steps: [],
-  dietary_tags: [],
-  image_url: null,
-  macros: null,
-});
+const makeRecipe = (id: string, opts: { supabase_id?: string | null } = {}): Recipe =>
+  ({
+    id,
+    title: `Recipe ${id}`,
+    supabase_id: opts.supabase_id === null ? undefined : (opts.supabase_id ?? `supabase-${id}`),
+    external_id: id,
+    ingredients: [],
+    steps: [],
+    dietary_tags: [],
+    image_url: null,
+    macros: null,
+  }) as unknown as Recipe;
 
 beforeEach(() => {
   useSavedStore.setState({ savedRecipes: [], _removedPositions: {} });

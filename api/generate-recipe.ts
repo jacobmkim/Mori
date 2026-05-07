@@ -170,7 +170,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // ── Input Validation ──────────────────────────────────────────────────
     const body = await validate(GenerateRecipeRequestSchema, req.body);
-    const { cuisine, dishName, avoidDishes, avoidIngredients } = body;
+    const { avoidDishes } = body;
 
     // ── Rate Limiting (5 user-initiated calls per day) ───────────────────
     if (userId) {
@@ -190,13 +190,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const client = new Anthropic({ apiKey });
 
     // Build the request object with validated data
-    const generateRequest = {
-      cuisine,
-      dishName,
-      avoidDishes,
-      avoidIngredients,
-      ...body,
-    } as GenerateRequest;
+    const generateRequest = { ...body } as GenerateRequest;
     const message = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 3000,

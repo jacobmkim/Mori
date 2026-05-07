@@ -15,6 +15,7 @@ jest.mock('@/lib/api', () => ({
 import { useLeftoversStore } from '@/stores/leftoversStore';
 import { useGroceryStore } from '@/stores/groceryStore';
 import { useActiveCookStore } from '@/stores/activeCookStore';
+import type { GroceryList, Recipe } from '@/types';
 
 // ─── leftoversStore.reset ─────────────────────────────────────────────────────
 
@@ -71,8 +72,8 @@ describe('groceryStore.clearAll', () => {
         name: 'Grocery list',
         createdAt: new Date().toISOString(),
         items: [{ id: 'i1', name: 'apples', quantity: '3', category: 'Produce', checked: false, recipeId: 'r1' }],
-      },
-      selectedRecipes: ['r1', 'r2'],
+      } as unknown as GroceryList,
+      selectedRecipes: ['r1', 'r2'] as unknown as Recipe[],
       isLoading: false,
       error: null,
     });
@@ -139,8 +140,8 @@ describe('sign-out data isolation', () => {
       list: {
         id: 'gl-1', name: 'My list', createdAt: new Date().toISOString(),
         items: [{ id: 'i1', name: 'eggs', quantity: '12', category: 'Dairy', checked: false, recipeId: 'r1' }],
-      },
-      selectedRecipes: ['r1'],
+      } as unknown as GroceryList,
+      selectedRecipes: ['r1'] as unknown as Recipe[],
       isLoading: false, error: null,
     });
 

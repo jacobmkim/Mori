@@ -5,18 +5,20 @@
  * and will flip to a failure once the bug is fixed (prompting removal of .failing).
  */
 import { useGroceryStore } from '@/stores/groceryStore';
+import type { Recipe } from '@/types';
 
-const makeRecipe = (id: string) => ({
-  id,
-  title: `Recipe ${id}`,
-  supabase_id: `supabase-${id}`,
-  external_id: id,
-  ingredients: [],
-  steps: [],
-  dietary_tags: [],
-  image_url: null,
-  macros: null,
-});
+const makeRecipe = (id: string): Recipe =>
+  ({
+    id,
+    title: `Recipe ${id}`,
+    supabase_id: `supabase-${id}`,
+    external_id: id,
+    ingredients: [],
+    steps: [],
+    dietary_tags: [],
+    image_url: null,
+    macros: null,
+  }) as unknown as Recipe;
 
 beforeEach(() => {
   useGroceryStore.setState({ list: null, selectedRecipes: [], isLoading: false, error: null });

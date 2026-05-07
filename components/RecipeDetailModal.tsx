@@ -843,7 +843,7 @@ export function RecipeDetailModal({
                       const isActive = idx === activeStepIndex;
                       const isCompleted = idx < activeStepIndex;
                       const { title, detail: detailText } = extractStepTitle(step);
-                      const timerMins = extractTimerMinutes(step.instruction);
+                      const timerMins = step.timer_minutes ?? extractTimerMinutes(step.instruction);
                       const isThisTimerActive = timerStepIndex === idx;
                       // Ingredients mentioned in this step
                       const mentionedIngreds = ingredients.filter((ing) => {

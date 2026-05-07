@@ -219,7 +219,11 @@ export function AddRecipeWizard({ visible, userId, onClose, onSuccess }: AddReci
 
       const cleanSteps: RecipeStep[] = stepRows
         .filter((r) => r.instruction.trim() !== '')
-        .map((r, i) => ({ order: i + 1, instruction: r.instruction.trim() }));
+        .map((r, i) => ({
+          order: i + 1,
+          instruction: r.instruction.trim(),
+          timer_minutes: r.timerMins ?? null,
+        }));
 
       // Upload photo if user picked one. If the upload fails we abort the
       // submit entirely — saving a recipe with a missing photo is a worse

@@ -123,6 +123,21 @@ describe('filterPickerRecipes — chips (single)', () => {
     expect(out.map((x) => x.id)).not.toContain('slow');
   });
 
+  it('quick matches when only one of prep/cook is set (null treated as 0)', () => {
+    const partial = [
+      r({ id: 'cookOnly', title: 'CookOnly', prep_time_mins: null, cook_time_mins: 25 }),
+      r({ id: 'prepOnly', title: 'PrepOnly', prep_time_mins: 20, cook_time_mins: null }),
+    ];
+    const out = filterPickerRecipes(partial, { ...noFilters, chips: new Set(['quick']) });
+    expect(out.map((x) => x.id).sort()).toEqual(['cookOnly', 'prepOnly']);
+  });
+
+  it('quick excludes recipes with no timing data at all', () => {
+    const noTime = [r({ id: 'untimed', title: 'Untimed', prep_time_mins: null, cook_time_mins: null })];
+    const out = filterPickerRecipes(noTime, { ...noFilters, chips: new Set(['quick']) });
+    expect(out).toEqual([]);
+  });
+
   it('high_protein requires the tag', () => {
     const out = filterPickerRecipes(recipes, { ...noFilters, chips: new Set(['high_protein']) });
     expect(out.map((x) => x.id)).toEqual(['hp']);
@@ -159,7 +174,7 @@ describe('filterPickerRecipes — timeBucket', () => {
   const recipes = [
     r({ id: 'a', title: 'A', prep_time_mins: 5, cook_time_mins: 10 }),  // 15
     r({ id: 'b', title: 'B', prep_time_mins: 5, cook_time_mins: 11 }),  // 16
-    r({ id: 'c', title: 'C', prep_time_mins: null, cook_time_mins: null }), // (99+99)
+    r({ id: 'c', title: 'C', prep_time_mins: null, cook_time_mins: null }), // no timing
   ];
 
   it('null bucket allows all', () => {
@@ -171,9 +186,19 @@ describe('filterPickerRecipes — timeBucket', () => {
     expect(out.map((x) => x.id)).toEqual(['a']);
   });
 
-  it('null prep/cook is treated as 99+99 and excluded by any bucket', () => {
+  it('recipes with no timing data are excluded from any time bucket', () => {
     const out = filterPickerRecipes(recipes, { ...noFilters, timeBucket: 45 });
     expect(out.map((x) => x.id)).not.toContain('c');
+  });
+
+  it('counts a single non-null field as the total (community submissions with partial timing)', () => {
+    const partial = [
+      r({ id: 'cookOnly', title: 'CookOnly', prep_time_mins: null, cook_time_mins: 25 }),
+      r({ id: 'prepOnly', title: 'PrepOnly', prep_time_mins: 20, cook_time_mins: null }),
+      r({ id: 'tooLong', title: 'TooLong', prep_time_mins: null, cook_time_mins: 50 }),
+    ];
+    const out = filterPickerRecipes(partial, { ...noFilters, timeBucket: 30 });
+    expect(out.map((x) => x.id).sort()).toEqual(['cookOnly', 'prepOnly']);
   });
 });
 

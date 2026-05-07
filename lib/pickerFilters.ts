@@ -37,8 +37,10 @@ export function filterPickerRecipes(
     if (opts.chips.has('meal_prep') && r.meal_prep_friendly !== true) return false;
 
     if (opts.chips.has('quick')) {
-      const total = (r.prep_time_mins ?? 99) + (r.cook_time_mins ?? 99);
-      if (total > 30) return false;
+      const prep = r.prep_time_mins ?? 0;
+      const cook = r.cook_time_mins ?? 0;
+      const total = prep + cook;
+      if (total === 0 || total > 30) return false;
     }
 
     if (opts.chips.has('high_protein') && !(r.dietary_tags ?? []).includes('high_protein')) {
@@ -55,8 +57,10 @@ export function filterPickerRecipes(
     }
 
     if (opts.timeBucket != null) {
-      const total = (r.prep_time_mins ?? 99) + (r.cook_time_mins ?? 99);
-      if (total > opts.timeBucket) return false;
+      const prep = r.prep_time_mins ?? 0;
+      const cook = r.cook_time_mins ?? 0;
+      const total = prep + cook;
+      if (total === 0 || total > opts.timeBucket) return false;
     }
 
     if (opts.skill != null && r.skill_level !== opts.skill) return false;

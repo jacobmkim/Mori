@@ -67,6 +67,7 @@ export interface RecipeStep {
   order: number;
   instruction: string;
   title?: string; // 3-5 word summary, e.g., "Beat egg mixture"
+  timer_minutes?: number | null;
 }
 
 export interface Recipe {
