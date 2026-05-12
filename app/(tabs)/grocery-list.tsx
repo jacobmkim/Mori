@@ -236,8 +236,11 @@ export default function GroceryList() {
   const [forcedStaples, setForcedStaples] = useState<Set<string>>(() => new Set());
   // skippedPantry: normalized keys (see normKey); resets per session.
   const [skippedPantry, setSkippedPantry] = useState<Set<string>>(() => new Set());
-  // Confirm dialog shown right before sending to Instacart when items are being left out.
-  const [confirmSend, setConfirmSend] = useState<{ sendable: GroceryItem[]; skipped: GroceryItem[] } | null>(null);
+  // Confirm sheet right before sending to Instacart when items are being left out.
+  // Holds a snapshot of skipped items so the row order stays stable while the user
+  // toggles Add — the actual sendable list is recomputed live from forcedStaples /
+  // skippedPantry so the header counter and the Continue submission stay in sync.
+  const [confirmSend, setConfirmSend] = useState<{ skipped: GroceryItem[] } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -304,15 +307,31 @@ export default function GroceryList() {
   const checkedCount = items.filter((i) => i.checked).length;
   const uncheckedCount = items.length - checkedCount;
 
-  const { pantryHints, skippedItems } = useMemo(
+  const partition = useMemo(
     () => partitionForInstacart(items.filter((i) => !i.checked), pantryNames),
     [items, pantryNames],
   );
+  const { pantryHints, skippedItems } = partition;
+
+  // What we'd send right now, after applying the user's per-item toggles.
+  const currentSendable = useMemo(() => [
+    ...partition.sendable.filter((i) => !skippedPantry.has(normKey(i))),
+    ...partition.skippedItems.filter((i) => forcedStaples.has(i.ingredient_name)),
+  ], [partition, skippedPantry, forcedStaples]);
 
   // Notice line counts only staples the user hasn't pulled back via the modal.
   const displayedSkippedStaples = skippedItems.filter(
     (i) => !forcedStaples.has(i.ingredient_name),
   ).length;
+
+  // For the confirm sheet: how many of the snapshot rows are still being skipped.
+  const liveConfirmSkipCount = confirmSend
+    ? confirmSend.skipped.filter((item) => {
+        const key = normKey(item);
+        if (pantryHints.has(key)) return skippedPantry.has(key);
+        return !forcedStaples.has(item.ingredient_name);
+      }).length
+    : 0;
 
   // Build a quick lookup: recipeId → title
   const recipeMap = Object.fromEntries(selectedRecipes.map((r) => [r.id, r.title]));
@@ -420,17 +439,11 @@ export default function GroceryList() {
       return;
     }
 
-    const { sendable: baseSendable, skippedItems: allStaples } = partitionForInstacart(uncheckedItems, pantryNames);
-    const finalSendable = [
-      ...baseSendable.filter((i) => !skippedPantry.has(normKey(i))),
-      ...allStaples.filter((i) => forcedStaples.has(i.ingredient_name)),
-    ];
-
-    if (finalSendable.length === 0) {
+    if (currentSendable.length === 0) {
       const droppedNames = uncheckedItems.map((i) => i.ingredient_name);
       const previewNames = droppedNames.slice(0, 3).join(', ');
       const more = droppedNames.length > 3 ? ` …and ${droppedNames.length - 3} more` : '';
-      const hasStaples = allStaples.length > 0;
+      const hasStaples = partition.skippedItems.length > 0;
       const buttons: { text: string; style?: 'cancel' | 'default'; onPress?: () => void }[] = [
         { text: 'Cancel', style: 'cancel' },
       ];
@@ -450,15 +463,15 @@ export default function GroceryList() {
     // garlic that only lives in STAPLES, or a pantry hint they actively skipped)
     // before the browser opens.
     const skippedFromCart = [
-      ...allStaples.filter((i) => !forcedStaples.has(i.ingredient_name)),
-      ...baseSendable.filter((i) => skippedPantry.has(normKey(i))),
+      ...partition.skippedItems.filter((i) => !forcedStaples.has(i.ingredient_name)),
+      ...partition.sendable.filter((i) => skippedPantry.has(normKey(i))),
     ];
     if (skippedFromCart.length > 0) {
-      setConfirmSend({ sendable: finalSendable, skipped: skippedFromCart });
+      setConfirmSend({ skipped: skippedFromCart });
       return;
     }
 
-    await submitToInstacart(finalSendable);
+    await submitToInstacart(currentSendable);
   }
 
   function handleClearAll() {
@@ -925,7 +938,9 @@ export default function GroceryList() {
                 color: colors.textMuted,
                 lineHeight: 18,
               }}>
-                {confirmSend ? `${confirmSend.skipped.length} item${confirmSend.skipped.length === 1 ? '' : 's'} won't be in your Instacart cart. Sending ${confirmSend.sendable.length}.` : ''}
+                {liveConfirmSkipCount === 0
+                  ? `All set — sending ${currentSendable.length} item${currentSendable.length === 1 ? '' : 's'} to Instacart.`
+                  : `${liveConfirmSkipCount} item${liveConfirmSkipCount === 1 ? '' : 's'} won't be in your Instacart cart. Sending ${currentSendable.length}. Tap Add on anything you need.`}
               </Text>
             </View>
 
@@ -935,7 +950,11 @@ export default function GroceryList() {
               style={{ maxHeight: 280 }}
             >
               {confirmSend?.skipped.map((item) => {
-                const isPantrySkip = skippedPantry.has(normKey(item));
+                const key = normKey(item);
+                const isPantryItem = pantryHints.has(key);
+                const added = isPantryItem
+                  ? !skippedPantry.has(key)
+                  : forcedStaples.has(item.ingredient_name);
                 return (
                   <View key={item.ingredient_name} style={{
                     flexDirection: 'row', alignItems: 'center', gap: 10,
@@ -943,7 +962,7 @@ export default function GroceryList() {
                     paddingHorizontal: 14, paddingVertical: 11,
                   }}>
                     <Ionicons
-                      name={isPantrySkip ? 'home-outline' : 'flame-outline'}
+                      name={isPantryItem ? 'home-outline' : 'flame-outline'}
                       size={15}
                       color={colors.textMuted}
                     />
@@ -956,9 +975,47 @@ export default function GroceryList() {
                       letterSpacing: 0.4,
                       color: colors.textMuted,
                       textTransform: 'uppercase',
+                      marginRight: 4,
                     }}>
-                      {isPantrySkip ? 'pantry' : 'staple'}
+                      {isPantryItem ? 'pantry' : 'staple'}
                     </Text>
+                    <Pressable
+                      onPress={() => {
+                        if (isPantryItem) {
+                          setSkippedPantry((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(key)) next.delete(key);
+                            else next.add(key);
+                            return next;
+                          });
+                        } else {
+                          setForcedStaples((prev) => {
+                            const next = new Set(prev);
+                            const name = item.ingredient_name;
+                            if (next.has(name)) next.delete(name);
+                            else next.add(name);
+                            return next;
+                          });
+                        }
+                      }}
+                      hitSlop={8}
+                      style={{
+                        borderWidth: 1,
+                        borderColor: added ? colors.primary : colors.border,
+                        borderRadius: 8,
+                        paddingHorizontal: 10,
+                        paddingVertical: 4,
+                        backgroundColor: added ? colors.primary + '22' : 'transparent',
+                      }}
+                    >
+                      <Text style={{
+                        fontSize: 12,
+                        color: added ? colors.primary : colors.textMuted,
+                        fontWeight: added ? '600' : '400',
+                      }}>
+                        {added ? '✓ Added' : 'Add'}
+                      </Text>
+                    </Pressable>
                   </View>
                 );
               })}
@@ -987,9 +1044,9 @@ export default function GroceryList() {
               </Pressable>
               <Pressable
                 onPress={() => {
-                  const pending = confirmSend;
+                  const toSend = currentSendable;
                   setConfirmSend(null);
-                  if (pending) submitToInstacart(pending.sendable);
+                  if (toSend.length > 0) submitToInstacart(toSend);
                 }}
                 style={{
                   flex: 1,

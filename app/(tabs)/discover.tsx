@@ -255,18 +255,41 @@ function RecipeSwipeCard({
                 {recipe.badge === 'staff_pick' ? 'Staff Pick' : 'Fan Fave'}
               </Text>
             </View>
-          ) : recipe.source_type === 'community' ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.primaryLight, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, marginLeft: 8, marginTop: 2 }}>
-              <Ionicons name="people-outline" size={11} color={colors.primary} />
-              <Text style={{ color: colors.primary, fontSize: 11, fontWeight: '600' }}>Community</Text>
-            </View>
           ) : null}
+          {/* Community marker — always rendered when source_type === 'community',
+              regardless of which primary badge (Trending / Staff Pick / etc.) won
+              the chain above. Person icon, no label, to stay compact next to a
+              primary badge. */}
+          {recipe.source_type === 'community' && (
+            <View style={{
+              backgroundColor: colors.primaryLight,
+              borderRadius: 999,
+              paddingHorizontal: 6, paddingVertical: 4,
+              marginLeft: 6, marginTop: 2,
+              alignItems: 'center', justifyContent: 'center',
+            }}>
+              <Ionicons name="person-outline" size={11} color={colors.primary} />
+            </View>
+          )}
         </View>
 
         {recipe.source_type === 'community' && (
           <Text style={{ fontSize: 11, color: colors.textMuted, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.6 }}>
             By {recipe.submitter_username ? `@${recipe.submitter_username}` : recipe.submitter_name ?? 'Mori community'}
           </Text>
+        )}
+
+        {/* Rating pill — only when there are enough ratings to be meaningful. */}
+        {(recipe.rating_count ?? 0) >= 3 && (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 6 }}>
+            <Ionicons name="star" size={12} color="#FFC107" />
+            <Text style={{ fontSize: 12, color: colors.text, fontWeight: '600' }}>
+              {Number(recipe.avg_rating).toFixed(1)}
+            </Text>
+            <Text style={{ fontSize: 11, color: colors.textMuted }}>
+              ({recipe.rating_count})
+            </Text>
+          </View>
         )}
 
         {/* Blurb */}
@@ -1204,6 +1227,9 @@ export default function Discover() {
             onMarkCooked={() => {
               if (!topRecipe || !userId) return;
               if (topRecipe.supabase_id) setCookedRecipeIds((prev) => new Set([...prev, topRecipe.supabase_id!]));
+              // Cooking it = ingredients are spent; clear from the grocery list
+              // (no-op if it wasn't on the list — see groceryStore).
+              removeRecipeFromList(topRecipe.id);
               const preCooked = profile?.meals_cooked_count ?? 0;
               const preLongest = profile?.longest_streak ?? 0;
               resolveSupabaseId(topRecipe)
@@ -1212,7 +1238,7 @@ export default function Discover() {
                   updateStreakAndCount(userId).then((updates) => {
                     if (updates && profile) {
                       useUserStore.getState().setProfile({ ...profile, ...updates });
-                      const base: Partial<BadgeStats> = { distinctCuisines: 0, cookedMealPrep: false, recipesSubmitted: 0 };
+                      const base: Partial<BadgeStats> = { distinctCuisines: 0, cookedMealPrep: false, recipesSubmitted: 0, totalSavesEarned: 0, totalCooksEarned: 0 };
                       const prevStats: BadgeStats = { totalCooked: preCooked, longestStreak: preLongest, ...base } as BadgeStats;
                       const nextStats: BadgeStats = { totalCooked: updates.meals_cooked_count, longestStreak: updates.longest_streak, ...base } as BadgeStats;
                       const newBadges = getNewlyEarned(prevStats, nextStats);

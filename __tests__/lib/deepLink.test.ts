@@ -12,7 +12,7 @@
  * __DEV__) `exp://<host>/--/reset-password`.
  */
 
-import { isResetPasswordUrl, isVerifyEmailUrl, extractVerifyToken } from '@/lib/deepLink';
+import { isResetPasswordUrl, isVerifyEmailUrl, extractVerifyToken, isRecipeUrl, extractRecipeId } from '@/lib/deepLink';
 
 describe('isResetPasswordUrl — accepts legitimate Mori reset-password links', () => {
   it('accepts mori://reset-password with access/refresh token fragment', () => {
@@ -184,5 +184,74 @@ describe('extractVerifyToken — pulls + validates UUID-shaped token', () => {
   it('rejects non-string / unparseable input', () => {
     expect(extractVerifyToken(null as any)).toBeNull();
     expect(extractVerifyToken('not a url')).toBeNull();
+  });
+});
+
+// ── Recipe share links ──────────────────────────────────────────────────────
+
+describe('isRecipeUrl', () => {
+  const UUID = '550e8400-e29b-41d4-a716-446655440000';
+
+  it('accepts mori://r/<uuid>', () => {
+    expect(isRecipeUrl(`mori://r/${UUID}`)).toBe(true);
+  });
+
+  it('accepts mori://r/<uuid>/ trailing slash', () => {
+    expect(isRecipeUrl(`mori://r/${UUID}/`)).toBe(true);
+  });
+
+  it('accepts path-based mori:///r/<uuid>', () => {
+    expect(isRecipeUrl(`mori:///r/${UUID}`)).toBe(true);
+  });
+
+  it('accepts Universal Link https://getmori.app/r/<uuid>', () => {
+    expect(isRecipeUrl(`https://getmori.app/r/${UUID}`)).toBe(true);
+  });
+
+  it('rejects Universal-Link-shaped path on a non-Mori domain (phishing guard)', () => {
+    expect(isRecipeUrl(`https://evil.com/r/${UUID}`)).toBe(false);
+  });
+
+  it('rejects https URLs that merely contain the recipe path (phishing guard)', () => {
+    expect(isRecipeUrl(`https://evil.com?x=mori://r/${UUID}`)).toBe(false);
+  });
+
+  it('rejects mori:// scheme with a wrong host', () => {
+    expect(isRecipeUrl('mori://reset-password')).toBe(false);
+  });
+
+  it('rejects malformed uuid', () => {
+    expect(isRecipeUrl('mori://r/not-a-uuid')).toBe(false);
+  });
+
+  it('rejects non-string / empty / unparseable input', () => {
+    expect(isRecipeUrl(null as any)).toBe(false);
+    expect(isRecipeUrl('')).toBe(false);
+    expect(isRecipeUrl('not a url')).toBe(false);
+  });
+});
+
+describe('extractRecipeId', () => {
+  const UUID = '550e8400-e29b-41d4-a716-446655440000';
+
+  it('extracts the uuid from mori://r/<uuid>', () => {
+    expect(extractRecipeId(`mori://r/${UUID}`)).toBe(UUID);
+  });
+
+  it('extracts the uuid from path-based mori:///r/<uuid>', () => {
+    expect(extractRecipeId(`mori:///r/${UUID}`)).toBe(UUID);
+  });
+
+  it('extracts the uuid from a Universal Link https://getmori.app/r/<uuid>', () => {
+    expect(extractRecipeId(`https://getmori.app/r/${UUID}`)).toBe(UUID);
+  });
+
+  it('returns null when path is not a uuid', () => {
+    expect(extractRecipeId('mori://r/nope')).toBeNull();
+  });
+
+  it('returns null for non-string / empty input', () => {
+    expect(extractRecipeId(null as any)).toBeNull();
+    expect(extractRecipeId('')).toBeNull();
   });
 });

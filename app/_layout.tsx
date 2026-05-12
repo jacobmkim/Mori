@@ -11,7 +11,7 @@ import * as Sentry from '@sentry/react-native';
 import { useUserStore } from '@/stores/userStore';
 import { registerForPushNotifications } from '@/lib/notifications';
 import { updatePushToken } from '@/lib/api';
-import { isResetPasswordUrl, isVerifyEmailUrl } from '@/lib/deepLink';
+import { isResetPasswordUrl, isVerifyEmailUrl, isRecipeUrl, extractRecipeId } from '@/lib/deepLink';
 import { initRevenueCat } from '@/lib/revenueCat';
 import { ResumeCookHandler } from '@/components/ResumeCookHandler';
 
@@ -127,6 +127,11 @@ function RootLayout() {
       });
       return;
     }
+    if (isRecipeUrl(event.url)) {
+      const id = extractRecipeId(event.url);
+      if (id) router.push(`/recipe/${id}` as any);
+      return;
+    }
   }
 
   return (
@@ -140,6 +145,7 @@ function RootLayout() {
         <Stack.Screen name="verify-email" />
         <Stack.Screen name="privacy-policy" options={{ presentation: 'modal' }} />
         <Stack.Screen name="edit-profile" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="recipe/[id]" options={{ presentation: 'modal' }} />
       </Stack>
       <ResumeCookHandler />
     </GestureHandlerRootView>

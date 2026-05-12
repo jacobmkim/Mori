@@ -598,7 +598,7 @@ export default function Profile() {
   const [tasteLoading, setTasteLoading] = useState(false);
   const [tasteError, setTasteError] = useState<string | null>(null);
   const [badges, setBadges] = useState<Badge[]>([]);
-  const [badgeStats, setBadgeStats] = useState<BadgeStats>({ totalCooked: 0, longestStreak: 0, distinctCuisines: 0, cookedMealPrep: false, recipesSubmitted: 0 });
+  const [badgeStats, setBadgeStats] = useState<BadgeStats>({ totalCooked: 0, longestStreak: 0, distinctCuisines: 0, cookedMealPrep: false, recipesSubmitted: 0, totalSavesEarned: 0, totalCooksEarned: 0 });
   const [activeTab, setActiveTab] = useState<'overview' | 'badges'>('overview');
   const [previewQueue, setPreviewQueue] = useState<Badge[]>([]);
 
@@ -611,7 +611,7 @@ export default function Profile() {
         longestStreak: fresh.longest_streak ?? 0,
         recipesSubmitted: fresh.recipes_submitted_count ?? 0,
       };
-      const initialStats: BadgeStats = { totalCooked: fresh.meals_cooked_count ?? 0, longestStreak: knownStats.longestStreak, distinctCuisines: 0, cookedMealPrep: false, recipesSubmitted: knownStats.recipesSubmitted };
+      const initialStats: BadgeStats = { totalCooked: fresh.meals_cooked_count ?? 0, longestStreak: knownStats.longestStreak, distinctCuisines: 0, cookedMealPrep: false, recipesSubmitted: knownStats.recipesSubmitted, totalSavesEarned: 0, totalCooksEarned: 0 };
       setBadgeStats(initialStats);
       setBadges(computeBadges(initialStats));
       fetchBadgeStats(fresh.id, knownStats)
@@ -673,7 +673,7 @@ export default function Profile() {
       longestStreak: profile.longest_streak ?? 0,
       recipesSubmitted: profile.recipes_submitted_count ?? 0,
     };
-    const initialStats: BadgeStats = { totalCooked: profile.meals_cooked_count ?? 0, longestStreak: knownStats.longestStreak, distinctCuisines: 0, cookedMealPrep: false, recipesSubmitted: knownStats.recipesSubmitted };
+    const initialStats: BadgeStats = { totalCooked: profile.meals_cooked_count ?? 0, longestStreak: knownStats.longestStreak, distinctCuisines: 0, cookedMealPrep: false, recipesSubmitted: knownStats.recipesSubmitted, totalSavesEarned: 0, totalCooksEarned: 0 };
     setBadgeStats(initialStats);
     setBadges(computeBadges(initialStats));
     fetchBadgeStats(profile.id, knownStats)
@@ -1066,6 +1066,8 @@ export default function Profile() {
                     distinctCuisines: 5,
                     cookedMealPrep: true,
                     recipesSubmitted: 5,
+                    totalSavesEarned: 100,
+                    totalCooksEarned: 100,
                   })
                     .filter((b) => b.earned)
                     .slice(0, 3);

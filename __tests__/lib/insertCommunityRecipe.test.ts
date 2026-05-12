@@ -3,7 +3,8 @@
  * community recipe submission.
  *
  * Key invariants:
- *  - Always sets source_type: 'community' and moderation_status: 'pending'.
+ *  - Always sets source_type: 'community' and moderation_status: 'approved'
+ *    (the moderation gate was removed 2026-05-11 — see audit-cron deletion).
  *  - Persists the is_public flag from the caller.
  *  - Passes image_url through (null or URL string).
  *  - Returns the newly inserted UUID.
@@ -79,10 +80,10 @@ describe('insertCommunityRecipe — mandatory fields', () => {
     expect(capturedPayload).toMatchObject({ source_type: 'community' });
   });
 
-  it('always sets moderation_status to pending', async () => {
+  it('always sets moderation_status to approved (gate removed 2026-05-11)', async () => {
     setupInsert();
     await insertCommunityRecipe({ ...BASE_INPUT });
-    expect(capturedPayload).toMatchObject({ moderation_status: 'pending' });
+    expect(capturedPayload).toMatchObject({ moderation_status: 'approved' });
   });
 
   it('always initialises badge to none', async () => {

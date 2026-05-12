@@ -20,6 +20,10 @@ export interface BadgeStats {
   distinctCuisines: number;
   cookedMealPrep: boolean;
   recipesSubmitted: number;
+  // Sum of save_count and cook_count across recipes the user submitted.
+  // Powers the "your recipe was saved/cooked by N people" creator badges.
+  totalSavesEarned: number;
+  totalCooksEarned: number;
 }
 
 interface BadgeDef {
@@ -51,6 +55,15 @@ const BADGE_DEFS: BadgeDef[] = [
   // — Community ——————————————————————————————————————————————————————————
   { id: 'submit_1', name: 'Recipe Creator',    description: 'Submit your first recipe',  icon: 'submit_1', category: 'community', check: (s) => s.recipesSubmitted >= 1 },
   { id: 'submit_5', name: 'Community Chef',    description: 'Submit 5 recipes',          icon: 'submit_5', category: 'community', check: (s) => s.recipesSubmitted >= 5 },
+  // — Creator outcomes (saves + cooks earned on your submissions) ——————————
+  { id: 'saves_earned_1',   name: 'First Fan',          description: 'Someone saved your recipe',            icon: 'saves_earned_1',   category: 'community', check: (s) => s.totalSavesEarned  >= 1   },
+  { id: 'saves_earned_10',  name: 'Saved By Many',      description: 'Your recipes saved 10 times',          icon: 'saves_earned_10',  category: 'community', check: (s) => s.totalSavesEarned  >= 10  },
+  { id: 'saves_earned_50',  name: 'Crowd Favorite',     description: 'Your recipes saved 50 times',          icon: 'saves_earned_50',  category: 'community', check: (s) => s.totalSavesEarned  >= 50  },
+  { id: 'saves_earned_100', name: 'Hall of Fame',       description: 'Your recipes saved 100 times',         icon: 'saves_earned_100', category: 'community', legendary: true, check: (s) => s.totalSavesEarned >= 100 },
+  { id: 'cooks_earned_1',   name: 'Someone Cooked It!', description: 'Someone cooked your recipe',           icon: 'cooks_earned_1',   category: 'community', check: (s) => s.totalCooksEarned  >= 1   },
+  { id: 'cooks_earned_10',  name: 'Fed the Crowd',      description: 'Your recipes cooked 10 times',         icon: 'cooks_earned_10',  category: 'community', check: (s) => s.totalCooksEarned  >= 10  },
+  { id: 'cooks_earned_50',  name: 'Cookbook Author',    description: 'Your recipes cooked 50 times',         icon: 'cooks_earned_50',  category: 'community', check: (s) => s.totalCooksEarned  >= 50  },
+  { id: 'cooks_earned_100', name: 'Mori Legend',        description: 'Your recipes cooked 100 times',        icon: 'cooks_earned_100', category: 'community', legendary: true, check: (s) => s.totalCooksEarned >= 100 },
 ];
 
 /** Returns all badges sorted earned-first, locked-last. */

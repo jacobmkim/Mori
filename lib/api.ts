@@ -218,7 +218,9 @@ export async function fetchDiscoverRecipes(dietaryGoals: string[] = []): Promise
   const { data, error } = await supabase
     .from('recipes')
     .select('id, title, description, cuisine, source_type, dietary_tags, badge, avg_rating, save_count, image_url, external_id, prep_time_mins, cook_time_mins, servings, cost_per_serving, macros, ingredients, steps, meal_prep_friendly, skill_level, is_public, moderation_status, submitted_by, submitter:profiles_public!recipes_submitted_by_fkey(name, avatar_url, username)')
-    .or('source_type.neq.community,and(source_type.eq.community,is_public.eq.true,moderation_status.eq.approved)')
+    // Community submissions no longer go through an approval gate (audit cron
+    // deleted 2026-05-11). Only the is_public flag still gates private drafts.
+    .or('source_type.neq.community,and(source_type.eq.community,is_public.eq.true)')
     .is('deleted_at', null)
     .limit(2000);
 
@@ -1314,7 +1316,7 @@ export async function updateStreakAndCount(
 
   let newStreak: number;
   if (last === today) {
-    // Same-day cook — preserve existing streak, don't double-count
+    // Same-day cook — preserve existing streak (a streak counts days, not cooks)
     newStreak = profile.current_streak ?? 1;
   } else if (last === yesterday) {
     newStreak = (profile.current_streak ?? 0) + 1;
@@ -1324,7 +1326,8 @@ export async function updateStreakAndCount(
   }
 
   const newLongest = Math.max(profile.longest_streak ?? 0, newStreak);
-  const newCount = (profile.meals_cooked_count ?? 0) + (last === today ? 0 : 1);
+  // Lifetime "Meals Cooked" — every cook event counts, including same-day repeats.
+  const newCount = (profile.meals_cooked_count ?? 0) + 1;
 
   await supabase.from('profiles').update({
     current_streak: newStreak,
@@ -1345,11 +1348,20 @@ export async function fetchBadgeStats(
   userId: string,
   knownStats: { longestStreak: number; recipesSubmitted: number },
 ): Promise<BadgeStats> {
-  const interactionsRes = await supabase
-    .from('recipe_interactions')
-    .select('recipes(cuisine, meal_prep_friendly)')
-    .eq('user_id', userId)
-    .eq('interaction_type', 'cooked');
+  const [interactionsRes, submittedRes] = await Promise.all([
+    supabase
+      .from('recipe_interactions')
+      .select('recipes(cuisine, meal_prep_friendly)')
+      .eq('user_id', userId)
+      .eq('interaction_type', 'cooked'),
+    // Creator-outcome counters: sum save_count + cook_count across the user's
+    // submitted recipes. Auto-maintained by Postgres triggers added in
+    // supabase/add-recipe-counters.sql.
+    supabase
+      .from('recipes')
+      .select('save_count, cook_count')
+      .eq('submitted_by', userId),
+  ]);
 
   const rows = (interactionsRes.data ?? []) as unknown as Array<{
     recipes: { cuisine: string | null; meal_prep_friendly: boolean | null } | null;
@@ -1362,12 +1374,18 @@ export async function fetchBadgeStats(
     if (r?.meal_prep_friendly) cookedMealPrep = true;
   }
 
+  const submitted = (submittedRes.data ?? []) as Array<{ save_count: number | null; cook_count: number | null }>;
+  const totalSavesEarned = submitted.reduce((sum, r) => sum + (r.save_count ?? 0), 0);
+  const totalCooksEarned = submitted.reduce((sum, r) => sum + (r.cook_count ?? 0), 0);
+
   return {
     totalCooked: rows.length,
     longestStreak: knownStats.longestStreak,
     distinctCuisines: cuisines.size,
     cookedMealPrep,
     recipesSubmitted: knownStats.recipesSubmitted,
+    totalSavesEarned,
+    totalCooksEarned,
   };
 }
 
@@ -2113,11 +2131,11 @@ export async function insertCommunityRecipe(input: CommunityRecipeInput): Promis
       submitted_by: input.submitted_by,
       image_url: input.image_url,
       is_public: input.is_public,
-      // Default to 'pending' — admin must approve via Supabase Studio (or future
-      // moderation queue UI) before the recipe surfaces in Discover. The submitter
-      // still sees their own recipe under Recipes → Mine (filtered by submitted_by).
-      // Discover query in fetchDiscoverRecipes filters moderation_status = 'approved'.
-      moderation_status: 'pending',
+      // Community submissions are now immediately visible (audit cron deleted
+      // 2026-05-11). The moderation_status column is retained for future use
+      // (e.g. a flag-based moderation queue) but defaults to 'approved' so the
+      // recipe shows up in Discover the moment is_public flips true.
+      moderation_status: 'approved',
       badge: 'none',
       avg_rating: 0,
       save_count: 0,

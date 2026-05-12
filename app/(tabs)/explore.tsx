@@ -91,6 +91,14 @@ function HorizontalCard({
         <Text style={{ fontSize: 9, color: colors.textMuted, marginTop: 3, textTransform: 'uppercase', letterSpacing: 0.5 }} numberOfLines={1}>
           {[recipe.cuisine, formatTime(recipe.prep_time_mins, recipe.cook_time_mins)].filter(Boolean).join(' · ')}
         </Text>
+        {(recipe.rating_count ?? 0) >= 3 && (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 3 }}>
+            <Ionicons name="star" size={9} color="#FFC107" />
+            <Text style={{ fontSize: 9, color: colors.textMuted, fontWeight: '600' }}>
+              {Number(recipe.avg_rating).toFixed(1)} ({recipe.rating_count})
+            </Text>
+          </View>
+        )}
       </View>
     </Pressable>
   );
@@ -119,6 +127,14 @@ function GridCard({ recipe, onPress }: { recipe: Recipe; onPress: () => void }) 
         <Text style={{ fontSize: 9, color: colors.textMuted, marginTop: 3, textTransform: 'uppercase', letterSpacing: 0.5 }}>
           {formatTime(recipe.prep_time_mins, recipe.cook_time_mins)}
         </Text>
+        {(recipe.rating_count ?? 0) >= 3 && (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 3 }}>
+            <Ionicons name="star" size={9} color="#FFC107" />
+            <Text style={{ fontSize: 9, color: colors.textMuted, fontWeight: '600' }}>
+              {Number(recipe.avg_rating).toFixed(1)} ({recipe.rating_count})
+            </Text>
+          </View>
+        )}
       </View>
     </Pressable>
   );
@@ -531,6 +547,9 @@ export default function Explore() {
         onRemoveFromCart={() => { if (selectedRecipe) removeRecipeFromList(selectedRecipe.id); }}
         onMarkCooked={() => {
           if (!selectedRecipe || !userId) return;
+          // Cooking it = ingredients are spent; clear from the grocery list
+          // (no-op if it wasn't on the list — see groceryStore).
+          removeRecipeFromList(selectedRecipe.id);
           const profile = useUserStore.getState().profile;
           const preCooked = profile?.meals_cooked_count ?? 0;
           const preLongest = profile?.longest_streak ?? 0;
@@ -540,7 +559,7 @@ export default function Explore() {
               updateStreakAndCount(userId).then((updates) => {
                 if (updates && profile) {
                   useUserStore.getState().setProfile({ ...profile, ...updates });
-                  const base: Partial<BadgeStats> = { distinctCuisines: 0, cookedMealPrep: false, recipesSubmitted: 0 };
+                  const base: Partial<BadgeStats> = { distinctCuisines: 0, cookedMealPrep: false, recipesSubmitted: 0, totalSavesEarned: 0, totalCooksEarned: 0 };
                   const prevStats: BadgeStats = { totalCooked: preCooked, longestStreak: preLongest, ...base } as BadgeStats;
                   const nextStats: BadgeStats = { totalCooked: updates.meals_cooked_count, longestStreak: updates.longest_streak, ...base } as BadgeStats;
                   const newBadges = getNewlyEarned(prevStats, nextStats);

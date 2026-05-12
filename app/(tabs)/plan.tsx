@@ -991,6 +991,9 @@ export default function Plan() {
         }}
         onMarkCooked={() => {
           if (!previewRecipe || !userId) return;
+          // Cooking it = ingredients are spent; clear from the grocery list
+          // (no-op if it wasn't on the list — see groceryStore).
+          removeRecipeFromList(previewRecipe.id);
           const profile = useUserStore.getState().profile;
           const preCooked = profile?.meals_cooked_count ?? 0;
           const preLongest = profile?.longest_streak ?? 0;
@@ -1000,7 +1003,7 @@ export default function Plan() {
               updateStreakAndCount(userId).then((updates) => {
                 if (updates && profile) {
                   useUserStore.getState().setProfile({ ...profile, ...updates });
-                  const base: Partial<BadgeStats> = { distinctCuisines: 0, cookedMealPrep: false, recipesSubmitted: 0 };
+                  const base: Partial<BadgeStats> = { distinctCuisines: 0, cookedMealPrep: false, recipesSubmitted: 0, totalSavesEarned: 0, totalCooksEarned: 0 };
                   const prevStats: BadgeStats = { totalCooked: preCooked, longestStreak: preLongest, ...base } as BadgeStats;
                   const nextStats: BadgeStats = { totalCooked: updates.meals_cooked_count, longestStreak: updates.longest_streak, ...base } as BadgeStats;
                   const newBadges = getNewlyEarned(prevStats, nextStats);

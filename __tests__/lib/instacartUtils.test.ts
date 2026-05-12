@@ -35,8 +35,31 @@ describe('parseGroceryMeasurement', () => {
     expect(parseGroceryMeasurement('4', '')).toEqual({ quantity: 4, unit: 'each' });
   });
 
-  it('maps "cloves" → each', () => {
-    expect(parseGroceryMeasurement('3 cloves', '')).toEqual({ quantity: 3, unit: 'each' });
+  // Fragment units (clove, sprig, slice, stalk, piece) intentionally return null
+  // so Instacart name-matches a single retail unit instead of treating the count
+  // as N retail units (e.g. "2 sprigs parsley" → 2 bunches).
+  it('returns null for "3 cloves" (fragment unit — drop measurement)', () => {
+    expect(parseGroceryMeasurement('3 cloves', '')).toBeNull();
+  });
+
+  it('returns null for "2 sprigs" (fragment unit — drop measurement)', () => {
+    expect(parseGroceryMeasurement('2 sprigs', '')).toBeNull();
+  });
+
+  it('returns null for "3 stalks" (fragment unit — drop measurement)', () => {
+    expect(parseGroceryMeasurement('3 stalks', '')).toBeNull();
+  });
+
+  it('returns null for explicit "2" + "sprigs" (fragment unit — drop measurement)', () => {
+    expect(parseGroceryMeasurement('2', 'sprigs')).toBeNull();
+  });
+
+  it('returns null for "2 slices" (fragment unit — drop measurement)', () => {
+    expect(parseGroceryMeasurement('2 slices', '')).toBeNull();
+  });
+
+  it('returns null for "3 pieces" (fragment unit — drop measurement)', () => {
+    expect(parseGroceryMeasurement('3 pieces', '')).toBeNull();
   });
 
   it('returns null for "to taste"', () => {

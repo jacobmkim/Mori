@@ -17,8 +17,8 @@
       "schedule": "0 19 * * *"
     },
     {
-      "path": "/api/cron/audit-pending-community",
-      "schedule": "0 * * * *"
+      "path": "/api/cron/creator-milestones",
+      "schedule": "0 18 * * *"
     }
   ],
   "headers": [
@@ -42,11 +42,18 @@
           "value": "max-age=31536000; includeSubDomains"
         }
       ]
+    },
+    {
+      "source": "/.well-known/apple-app-site-association",
+      "headers": [
+        { "key": "Content-Type", "value": "application/json" }
+      ]
     }
   ],
   "rewrites": [
     { "source": "/privacy", "destination": "/privacy.html" },
     { "source": "/verify-email", "destination": "/verify-email.html" },
-    { "source": "/support", "destination": "/support.html" }
+    { "source": "/support", "destination": "/support.html" },
+    { "source": "/r/:id", "destination": "/api/recipe-page?id=:id" }
   ]
 }

@@ -82,3 +82,56 @@ export function extractVerifyToken(input: unknown): string | null {
   if (!/^[0-9a-fA-F-]{36}$/.test(token)) return null;
   return token;
 }
+
+// Recipe-share links of the form `mori://r/<uuid>` (from the "Open in Mori"
+// button on the web preview) and Universal Links of the form
+// `https://getmori.app/r/<uuid>` (when iOS hands a tapped link directly to
+// the app — see `public/.well-known/apple-app-site-association`).
+//
+// HTTPS hostname is hard-pinned to getmori.app so a malicious page can't
+// claim a Mori-style recipe link on a different domain.
+export function isRecipeUrl(input: unknown): boolean {
+  if (typeof input !== 'string' || input.length === 0) return false;
+  let url: URL;
+  try {
+    url = new URL(input);
+  } catch {
+    return false;
+  }
+
+  if (url.protocol === 'mori:') {
+    // mori://r/<uuid>  → hostname='r', pathname='/<uuid>'
+    if (url.hostname === 'r' && /^\/[0-9a-fA-F-]{36}\/?$/.test(url.pathname)) return true;
+    // mori:///r/<uuid> → hostname='',  pathname='/r/<uuid>'
+    if (url.hostname === '' && /^\/r\/[0-9a-fA-F-]{36}\/?$/.test(url.pathname)) return true;
+    return false;
+  }
+
+  if (url.protocol === 'https:' && url.hostname === 'getmori.app') {
+    return /^\/r\/[0-9a-fA-F-]{36}\/?$/.test(url.pathname);
+  }
+
+  const isDev = typeof __DEV__ !== 'undefined' && __DEV__;
+  if (isDev && url.protocol === 'exp:') {
+    return /^\/--\/r\/[0-9a-fA-F-]{36}\/?$/.test(url.pathname);
+  }
+
+  return false;
+}
+
+// Extract the recipe uuid from any of the supported recipe-link shapes.
+// Returns null if the URL is malformed or the uuid doesn't match the 36-char
+// hex+dash shape.
+export function extractRecipeId(input: unknown): string | null {
+  if (typeof input !== 'string' || input.length === 0) return null;
+  let url: URL;
+  try {
+    url = new URL(input);
+  } catch {
+    return null;
+  }
+  const raw = url.protocol === 'mori:' && url.hostname === 'r'
+    ? url.pathname.replace(/^\/+|\/+$/g, '')
+    : url.pathname.replace(/^.*\/r\//, '').replace(/\/+$/, '');
+  return /^[0-9a-fA-F-]{36}$/.test(raw) ? raw : null;
+}

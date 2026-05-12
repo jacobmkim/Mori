@@ -2,9 +2,10 @@
  * Tests the community visibility gate and submitter field mapping in
  * fetchDiscoverRecipes.
  *
- * The DB-side PostgREST .or() enforces: community recipes only appear when
- * is_public = true AND moderation_status = 'approved'. Curated/imported rows
- * always pass through. We verify:
+ * As of 2026-05-11 the DB-side PostgREST .or() only enforces: community
+ * recipes appear when is_public = true. The moderation_status gate was
+ * dropped (audit cron deleted). Curated/imported rows always pass through.
+ * We verify:
  *   1. The exact .or() string is passed to Supabase (regression guard).
  *   2. The submitter join is mapped correctly to submitter_name/avatar/username.
  *   3. is_public / moderation_status land on the Recipe object.
@@ -75,7 +76,11 @@ function setupDB(rows: ReturnType<typeof makeRow>[]) {
     select: jest.fn().mockReturnValue({
       or: jest.fn((str: string) => {
         orCapture = str;
-        return { limit: jest.fn().mockResolvedValue({ data: rows, error: null }) };
+        return {
+          is: jest.fn().mockReturnValue({
+            limit: jest.fn().mockResolvedValue({ data: rows, error: null }),
+          }),
+        };
       }),
     }),
   });
@@ -101,7 +106,7 @@ describe('fetchDiscoverRecipes — community .or() gate', () => {
     setupDB([]);
     await fetchDiscoverRecipes([]);
     expect(orCapture).toBe(
-      'source_type.neq.community,and(source_type.eq.community,is_public.eq.true,moderation_status.eq.approved)'
+      'source_type.neq.community,and(source_type.eq.community,is_public.eq.true)'
     );
   });
 });

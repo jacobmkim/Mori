@@ -1,0 +1,15 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["66667M8C34.app.getmori.mori"],
+        "components": [
+          {
+            "/": "/r/*",
+            "comment": "Shared recipe links"
+          }
+        ]
+      }
+    ]
+  }
+}

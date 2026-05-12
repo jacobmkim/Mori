@@ -8,7 +8,7 @@
  */
 import {
   View, Text, Modal, Pressable, ScrollView, Dimensions,
-  ActivityIndicator, Alert, TextInput, Animated,
+  ActivityIndicator, Alert, TextInput, Animated, Share,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,6 +20,7 @@ import { ReviewItem } from '@/components/ReviewItem';
 import { ReviewComposer } from '@/components/ReviewComposer';
 import { CreatorStatsCard } from '@/components/CreatorStatsCard';
 import { PostCookLeftoversModal } from '@/components/PostCookLeftoversModal';
+import { PostCookReviewModal } from '@/components/PostCookReviewModal';
 import { useDiscoverStore } from '@/stores/discoverStore';
 import { getStaticSubs, getCachedSubs, fetchAndCacheSubs, type Swap } from '@/lib/substitutions';
 import { supabase } from '@/lib/supabase';
@@ -207,6 +208,7 @@ export function RecipeDetailModal({
   const [storageTips, setStorageTips] = useState<string | null>(null);
   const [tipsLoading, setTipsLoading] = useState(false);
   const [showLeftoversModal, setShowLeftoversModal] = useState(false);
+  const [showReviewPrompt, setShowReviewPrompt] = useState(false);
   const [activeTab, setActiveTab] = useState<'ingredients' | 'steps' | 'notes' | 'reviews'>('ingredients');
 
   // Reviews state
@@ -509,6 +511,31 @@ export function RecipeDetailModal({
           >
             <Ionicons name="chevron-back" size={20} color="#1A1A1A" />
           </Pressable>
+          {/* Share — opens the system share sheet with the public web link.
+              Hidden for private community drafts (would 404 on the web).
+              When recipe.supabase_id is missing, fall back to recipe.id. */}
+          {!(recipe.source_type === 'community' && recipe.is_public === false) && (
+            <Pressable
+              onPress={() => {
+                const id = recipe.supabase_id ?? recipe.id;
+                const url = `https://getmori.app/r/${id}`;
+                Share.share({
+                  url,
+                  message: `Check out ${recipe.title} on Mori — ${url}`,
+                }).catch(() => {});
+              }}
+              hitSlop={8}
+              style={{
+                position: 'absolute', zIndex: 10, top: 52, right: 16,
+                width: 36, height: 36, borderRadius: 18,
+                backgroundColor: 'rgba(255,255,255,0.88)',
+                alignItems: 'center', justifyContent: 'center',
+              }}
+            >
+              <Ionicons name="share-outline" size={18} color="#1A1A1A" />
+            </Pressable>
+          )}
+
           {/* Dev flag */}
           {__DEV__ && (
             <Pressable
@@ -521,7 +548,7 @@ export function RecipeDetailModal({
               }}
               hitSlop={8}
               style={{
-                position: 'absolute', zIndex: 10, top: 52, right: 16,
+                position: 'absolute', zIndex: 10, top: 52, right: 62,
                 width: 34, height: 34, borderRadius: 17,
                 backgroundColor: 'rgba(180,0,0,0.7)',
                 alignItems: 'center', justifyContent: 'center',
@@ -1313,7 +1340,26 @@ export function RecipeDetailModal({
         <PostCookLeftoversModal
           visible={showLeftoversModal}
           recipe={recipe}
-          onClose={() => setShowLeftoversModal(false)}
+          onClose={() => {
+            setShowLeftoversModal(false);
+            // Chain into the review prompt — only when the user hasn't already
+            // reviewed and isn't the recipe's own author. Submitter-can-review
+            // is blocked elsewhere by `recipe?.submitted_by !== userId` checks.
+            if (recipe && userId && !userReview && recipe.submitted_by !== userId) {
+              setShowReviewPrompt(true);
+            }
+          }}
+        />
+
+        <PostCookReviewModal
+          visible={showReviewPrompt}
+          recipe={recipe}
+          existing={userReview}
+          onClose={() => setShowReviewPrompt(false)}
+          onSubmitted={(review) => {
+            setUserReview(review);
+            setReviews((prev) => [review, ...prev.filter((r) => r.id !== review.id)]);
+          }}
         />
       </Modal>
     </>

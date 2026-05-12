@@ -173,6 +173,14 @@ export const useGroceryStore = create<GroceryStore>()(
 
   removeRecipeFromList: (recipeId) =>
     set((state) => {
+      // No-op short-circuit so unconditional callers (e.g. onMarkCooked) don't
+      // trigger spurious re-renders when the recipe isn't on the list.
+      const inSelected = state.selectedRecipes.some((r) => r.id === recipeId);
+      const inItems = (state.list?.items ?? []).some((item) =>
+        item.recipe_ids.includes(recipeId),
+      );
+      if (!inSelected && !inItems) return state;
+
       const newItems = (state.list?.items ?? [])
         .map((item) => ({
           ...item,

@@ -111,23 +111,9 @@ function RecipeCard({
         contentFit="cover"
       />
       <View style={{ padding: 10 }}>
-        {recipe.moderation_status === 'pending' && (
-          <View style={{
-            alignSelf: 'flex-start', backgroundColor: '#FFF3E0', borderRadius: 999,
-            paddingHorizontal: 8, paddingVertical: 2, marginBottom: 4,
-          }}>
-            <Text style={{ fontSize: 8, fontWeight: '700', color: '#E65100' }}>Under review</Text>
-          </View>
-        )}
-        {recipe.moderation_status === 'rejected' && (
-          <View style={{
-            alignSelf: 'flex-start', backgroundColor: '#FFEBEE', borderRadius: 999,
-            paddingHorizontal: 8, paddingVertical: 2, marginBottom: 4,
-          }}>
-            <Text style={{ fontSize: 8, fontWeight: '700', color: '#C62828' }}>Not approved</Text>
-          </View>
-        )}
-        {recipe.is_public === false && recipe.moderation_status === 'approved' && (
+        {/* Moderation gates were removed 2026-05-11 — only the Private badge
+            remains, gated on is_public=false. */}
+        {recipe.is_public === false && (
           <View style={{
             alignSelf: 'flex-start', backgroundColor: colors.primaryLight, borderRadius: 999,
             paddingHorizontal: 8, paddingVertical: 2, marginBottom: 4,
@@ -160,6 +146,16 @@ function RecipeCard({
             {recipe.save_count > 0 && (recipe.rating_count ?? 0) > 0 ? ' · ' : ''}
             {(recipe.rating_count ?? 0) > 0 ? `★ ${Number(recipe.avg_rating).toFixed(1)}` : ''}
           </Text>
+        )}
+
+        {/* Public rating — shown to all viewers once the recipe has 3+ ratings. */}
+        {(recipe.rating_count ?? 0) >= 3 && recipe.submitted_by !== currentUserId && (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 3 }}>
+            <Ionicons name="star" size={9} color="#FFC107" />
+            <Text style={{ fontSize: 9, color: colors.textMuted, fontWeight: '600' }}>
+              {Number(recipe.avg_rating).toFixed(1)} ({recipe.rating_count})
+            </Text>
+          </View>
         )}
         {!(recipe.source_type === 'community' && recipe.submitted_by === currentUserId)
           && (recipe.rating_count ?? 0) >= 3 && (
@@ -806,6 +802,9 @@ export default function Recipes() {
         onMarkCooked={() => {
           if (!selectedRecipe || !userId) return;
           setIsCooked(true);
+          // Cooking it = ingredients are spent; clear from the grocery list
+          // (no-op if it wasn't on the list — see groceryStore).
+          removeRecipeFromList(selectedRecipe.id);
           const profile = useUserStore.getState().profile;
           const preCooked = profile?.meals_cooked_count ?? 0;
           const preLongest = profile?.longest_streak ?? 0;
@@ -815,7 +814,7 @@ export default function Recipes() {
               updateStreakAndCount(userId).then((updates) => {
                 if (updates && profile) {
                   useUserStore.getState().setProfile({ ...profile, ...updates });
-                  const base: Partial<BadgeStats> = { distinctCuisines: 0, cookedMealPrep: false, recipesSubmitted: 0 };
+                  const base: Partial<BadgeStats> = { distinctCuisines: 0, cookedMealPrep: false, recipesSubmitted: 0, totalSavesEarned: 0, totalCooksEarned: 0 };
                   const prevStats: BadgeStats = { totalCooked: preCooked, longestStreak: preLongest, ...base } as BadgeStats;
                   const nextStats: BadgeStats = { totalCooked: updates.meals_cooked_count, longestStreak: updates.longest_streak, ...base } as BadgeStats;
                   const newBadges = getNewlyEarned(prevStats, nextStats);

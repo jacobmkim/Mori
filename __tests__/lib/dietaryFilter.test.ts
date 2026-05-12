@@ -57,7 +57,9 @@ function setupDB(rows: ReturnType<typeof makeRow>[]) {
   mockFrom.mockReturnValue({
     select: jest.fn().mockReturnValue({
       or: jest.fn().mockReturnValue({
-        limit: jest.fn().mockResolvedValue({ data: rows, error: null }),
+        is: jest.fn().mockReturnValue({
+          limit: jest.fn().mockResolvedValue({ data: rows, error: null }),
+        }),
       }),
     }),
   });

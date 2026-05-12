@@ -91,6 +91,7 @@ export interface Recipe {
   avg_rating: number;
   rating_count?: number;
   save_count: number;
+  cook_count?: number;
   image_url: string | null;
   spoonacular_id?: string | null;
   external_id?: string | null;

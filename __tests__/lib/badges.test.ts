@@ -19,6 +19,8 @@ const ZERO_STATS: BadgeStats = {
   distinctCuisines: 0,
   cookedMealPrep: false,
   recipesSubmitted: 0,
+  totalSavesEarned: 0,
+  totalCooksEarned: 0,
 };
 
 const ALL_STATS: BadgeStats = {
@@ -27,9 +29,11 @@ const ALL_STATS: BadgeStats = {
   distinctCuisines: 5,
   cookedMealPrep: true,
   recipesSubmitted: 5,
+  totalSavesEarned: 100,
+  totalCooksEarned: 100,
 };
 
-const TOTAL_BADGES = 14;
+const TOTAL_BADGES = 22;
 
 describe('computeBadges', () => {
   it('returns all badges with earned=false when stats are empty', () => {
@@ -82,6 +86,8 @@ describe('computeBadges', () => {
       distinctCuisines: 5,
       cookedMealPrep: true,
       recipesSubmitted: 1,
+      totalSavesEarned: 0,
+      totalCooksEarned: 0,
     });
     const earnedIds = badges.filter((b) => b.earned).map((b) => b.id).sort();
     expect(earnedIds).toEqual(

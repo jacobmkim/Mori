@@ -16,6 +16,7 @@
       "supportsTablet": false,
       "bundleIdentifier": "app.getmori.mori",
       "buildNumber": "1",
+      "associatedDomains": ["applinks:getmori.app"],
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       },

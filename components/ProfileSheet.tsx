@@ -108,6 +108,7 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
   const [activeTab, setActiveTab] = useState<'overview' | 'badges'>('overview');
   const [badgeStats, setBadgeStats] = useState<BadgeStats>({
     totalCooked: 0, longestStreak: 0, distinctCuisines: 0, cookedMealPrep: false, recipesSubmitted: 0,
+    totalSavesEarned: 0, totalCooksEarned: 0,
   });
   const [previewQueue, setPreviewQueue] = useState<Badge[]>([]);
   const [deleteVisible, setDeleteVisible] = useState(false);
@@ -234,6 +235,7 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
         longestStreak: knownStats.longestStreak,
         distinctCuisines: 0, cookedMealPrep: false,
         recipesSubmitted: knownStats.recipesSubmitted,
+        totalSavesEarned: 0, totalCooksEarned: 0,
       };
       setBadgeStats(initialStats);
       fetchBadgeStats(profile.id, knownStats).then(setBadgeStats).catch(() => {});

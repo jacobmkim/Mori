@@ -31,12 +31,12 @@ const UNIT_MAP: Record<string, string> = {
   small: 'small', sm: 'small',
   package: 'package', packages: 'package',
   packet: 'packet',
-  // Map unsupported → nearest equivalent
-  clove: 'each', cloves: 'each',
-  sprig: 'each', sprigs: 'each',
-  slice: 'each', slices: 'each',
-  stalk: 'each', stalks: 'each',
-  piece: 'each', pieces: 'each',
+  // Map unsupported → nearest equivalent. Only include units where 1 unit ≈ 1
+  // Instacart retail unit. "Fragment" units (clove, sprig, slice, stalk, piece,
+  // leaf) are intentionally OMITTED — 1 sprig ≠ 1 bunch of parsley, 1 clove ≠
+  // 1 head of garlic. Sending {quantity: 2, unit: 'each'} for "2 sprigs parsley"
+  // makes Instacart order 2 retail bunches; better to drop the measurement and
+  // let name-matching add a single bunch.
   fillet: 'each', fillets: 'each',
   filet: 'each', filets: 'each',
   thigh: 'each', thighs: 'each',
