@@ -20,8 +20,11 @@ import { useTheme } from '@/hooks/useTheme';
 import { fetchIngredientNames, insertCommunityRecipe } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
 import { validateImageForUpload, ImageValidationError } from '@/lib/imageUpload';
+import { cropToLandscape } from '@/lib/cropToLandscape';
 import { DIETARY_TAGS, inferDietaryTags, diffDietaryTags } from '@/lib/dietaryClassifier';
 import { getApiBaseUrl } from '@/lib/apiBaseUrl';
+import { useUserStore } from '@/stores/userStore';
+import { router } from 'expo-router';
 import type { Recipe, RecipeStep, Ingredient, Macros } from '@/types';
 
 // ── Pure helpers (mirrored from RecipeDetailModal) ────────────────────────────
@@ -175,11 +178,16 @@ export function AddRecipeWizard({ visible, userId, onClose, onSuccess }: AddReci
   async function uploadImage(uri: string): Promise<string | null> {
     try {
       setImageUploading(true);
-      const { data, contentType } = await validateImageForUpload(uri, 5 * 1024 * 1024);
+      // Force 4:3 landscape before uploading. iOS picker's `aspect: [4, 3]`
+      // option is silently ignored, so portrait phone photos otherwise ship
+      // as-is and look awkwardly cropped on every card surface. cropToLandscape
+      // is a no-op for already-landscape sources.
+      const cropped = await cropToLandscape(uri).catch(() => ({ uri }));
+      const { data, contentType } = await validateImageForUpload(cropped.uri, 5 * 1024 * 1024);
       const path = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
       const { error: uploadError } = await supabase.storage
         .from('recipe-images')
-        .upload(path, data, { upsert: true, contentType });
+        .upload(path, data, { upsert: true, contentType, cacheControl: '31536000' });
       if (uploadError) throw uploadError;
       const { data: urlData } = supabase.storage.from('recipe-images').getPublicUrl(path);
       return urlData.publicUrl;
@@ -293,6 +301,30 @@ export function AddRecipeWizard({ visible, userId, onClose, onSuccess }: AddReci
   }, [step, ingredientRows, servings, name]);
 
   async function handleSubmit() {
+    // Gate: a recipe with no submitter name lands on cards as a blank "By"
+    // line — bad UX for the user discovering it. Block submit and send the
+    // author to set up a display name first. Profile state lives in
+    // userStore; we read it fresh in case the user updated it mid-session.
+    const profile = useUserStore.getState().profile;
+    const displayName = (profile?.name ?? '').trim();
+    if (!displayName) {
+      Alert.alert(
+        'Set a display name first',
+        "Other Mori users will see your recipes — add a name to your profile so they know who to thank.",
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Set up now',
+            onPress: () => {
+              handleDiscard();
+              router.push('/edit-profile');
+            },
+          },
+        ],
+      );
+      return;
+    }
+
     setSubmitting(true);
     setSubmitError(null);
     try {

@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks/useTheme';
 import { formatTime } from '@/lib/utils';
 import { logInteraction, setRecipeLiked, resolveSupabaseId, updateStreakAndCount } from '@/lib/api';
+import { getRecipeImageUrl } from '@/lib/recipeImage';
 import { getNewlyEarned, type Badge, type BadgeStats } from '@/lib/badges';
 import { BadgeAchievementModal } from '@/components/badges/BadgeAchievementModal';
 
@@ -106,9 +107,11 @@ function RecipeCard({
         }} pointerEvents="none" />
       )}
       <Image
-        source={{ uri: recipe.image_url || undefined }}
-        style={{ width: '100%', height: 100 }}
+        source={{ uri: getRecipeImageUrl(recipe.image_url, 'card') }}
+        style={{ width: '100%', height: 100, backgroundColor: colors.border }}
         contentFit="cover"
+        transition={150}
+        recyclingKey={recipe.id}
       />
       <View style={{ padding: 10 }}>
         {/* Moderation gates were removed 2026-05-11 — only the Private badge
@@ -135,9 +138,9 @@ function RecipeCard({
         >
           {recipe.title}
         </Text>
-        {recipe.source_type === 'community' && (recipe.submitter_username || recipe.submitter_name) && (
+        {recipe.source_type === 'community' && (
           <Text style={{ fontSize: 9, color: colors.textMuted, marginTop: 2, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-            By {recipe.submitter_username ? `@${recipe.submitter_username}` : recipe.submitter_name}
+            By {recipe.submitter_username ? `@${recipe.submitter_username}` : recipe.submitter_name ?? 'Mori community'}
           </Text>
         )}
         {recipe.source_type === 'community' && recipe.submitted_by === currentUserId && (
