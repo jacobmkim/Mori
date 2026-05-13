@@ -16,6 +16,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTheme } from '@/hooks/useTheme';
 import { formatTime, formatCost } from '@/lib/utils';
 import { fetchMacros, flagRecipe, getRecipeNote, saveRecipeNote, fetchRecipeReviews, getUserReviewForRecipe, hasUserCookedRecipe, submitReview, updateReview, deleteReview, fetchCreatorStats, rateRecipe } from '@/lib/api';
+import { getRecipeImageUrl } from '@/lib/recipeImage';
 import { ReviewItem } from '@/components/ReviewItem';
 import { ReviewComposer } from '@/components/ReviewComposer';
 import { CreatorStatsCard } from '@/components/CreatorStatsCard';
@@ -519,12 +520,13 @@ export function RecipeDetailModal({
               onPress={() => {
                 const id = recipe.supabase_id ?? recipe.id;
                 const url = `https://getmori.app/r/${id}`;
-                // iOS share sheet: passing BOTH `url` and `message` results in
-                // two attachments in iMessage (the URL appears once as an
-                // unfurl card AND once inline in the message body). Send only
-                // `url` so the recipient gets one rich OG preview. The web
-                // page's <meta> tags supply title/description/image.
-                Share.share({ url }).catch(() => {});
+                // Embed the URL inside `message` (NOT as a separate `url` field).
+                // iMessage auto-unfurls URLs in message bodies, so the recipient
+                // sees one bubble: blurb text + preview card. Passing `url` as a
+                // separate field caused iOS to attach it twice (duplicate-link bug).
+                Share.share({
+                  message: `You should try this recipe on Mori\n\n${url}`,
+                }).catch(() => {});
               }}
               hitSlop={8}
               style={{
@@ -564,9 +566,12 @@ export function RecipeDetailModal({
           {/* 0: Header — scrolls away */}
           <View>
             <Image
-              source={{ uri: recipe.image_url ?? '' }}
-              style={{ width: '100%', height: 220 }}
+              source={{ uri: getRecipeImageUrl(recipe.image_url, 'detail') }}
+              style={{ width: '100%', height: 220, backgroundColor: colors.border }}
               contentFit="cover"
+              transition={150}
+              recyclingKey={recipe.id}
+              priority="high"
             />
 
           {/* Recipe info block */}

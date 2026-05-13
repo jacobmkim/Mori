@@ -392,14 +392,14 @@ function renderRecipe(recipe: RecipeRow, reviews: ReviewRow[], origin: string): 
     .cta-bar-inner { display: flex; gap: 10px; max-width: 720px; margin: 0 auto; width: 100%; }
     .cta-bar a {
       flex: 1; text-align: center;
-      padding: 14px 16px;
+      padding: 16px 16px;
       border-radius: 14px;
       font-weight: 700;
       text-decoration: none;
-      font-size: 0.95rem;
+      font-size: 1rem;
+      letter-spacing: 0.01em;
     }
     .cta-primary { background: var(--green); color: white; }
-    .cta-secondary { background: white; color: var(--green); border: 1px solid rgba(46, 84, 56, 0.2); }
     @media (max-width: 480px) {
       h1 { font-size: 1.55rem; }
       main { padding-bottom: 140px; }
@@ -433,10 +433,34 @@ function renderRecipe(recipe: RecipeRow, reviews: ReviewRow[], origin: string): 
   </main>
   <div class="cta-bar">
     <div class="cta-bar-inner">
-      <a class="cta-primary" href="mori://r/${encodeURIComponent(recipe.id)}">Open in Mori</a>
-      <a class="cta-secondary" href="${APP_STORE_URL}">Get the app</a>
+      <a class="cta-primary" id="open-in-mori" href="mori://r/${encodeURIComponent(recipe.id)}">Open in Mori</a>
     </div>
   </div>
+  <script>
+    // Smart launcher: try the mori:// scheme; if the app isn't installed and
+    // iOS keeps us on this page, fall through to the App Store. The
+    // visibilityState check is the standard "did the app open?" tell — when
+    // the OS hands control to the app the tab goes hidden.
+    (function () {
+      var APP_STORE_URL = ${JSON.stringify(APP_STORE_URL)};
+      var DEEP_LINK = 'mori://r/' + ${JSON.stringify(recipe.id)};
+      var btn = document.getElementById('open-in-mori');
+      if (!btn) return;
+      btn.addEventListener('click', function (e) {
+        e.preventDefault();
+        var start = Date.now();
+        // Use location.href so back-button history stays clean.
+        window.location.href = DEEP_LINK;
+        // 1500ms is enough for the OS to swap apps. If we're still here
+        // and visible, the scheme didn't resolve to anything — go to the store.
+        setTimeout(function () {
+          if (document.visibilityState === 'visible' && Date.now() - start < 3000) {
+            window.location.href = APP_STORE_URL;
+          }
+        }, 1500);
+      });
+    })();
+  </script>
 </body>
 </html>`;
 }
