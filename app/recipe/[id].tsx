@@ -64,7 +64,11 @@ export default function RecipeShareScreen() {
   }, [id]);
 
   function close() {
-    router.canGoBack() ? router.back() : router.replace('/(tabs)/discover');
+    // First-time install via shared link: there's no back history, so the
+    // fallback lands the user on Explore — the "browse everything" tab is a
+    // gentler entry point than the Discover swipe deck for someone who just
+    // arrived from a friend's shared recipe.
+    router.canGoBack() ? router.back() : router.replace('/(tabs)/explore');
   }
 
   if (loading) {

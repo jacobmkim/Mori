@@ -109,6 +109,13 @@ function RootLayout() {
 
   useEffect(() => {
     const subscription = Linking.addEventListener('url', handleDeepLink);
+    // Cold-start: if the app was launched FROM a link (vs already running),
+    // `addEventListener` doesn't fire — we have to ask iOS for the initial
+    // URL ourselves. Without this, tapping a shared recipe link with the app
+    // not running would just dump the user on the home screen.
+    Linking.getInitialURL()
+      .then((url) => { if (url) handleDeepLink({ url }); })
+      .catch(() => {});
     return () => subscription.remove();
   }, []);
 
