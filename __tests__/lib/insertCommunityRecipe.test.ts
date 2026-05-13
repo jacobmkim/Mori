@@ -62,6 +62,9 @@ const BASE_INPUT: CommunityRecipeInput = {
   cook_time_mins: 10,
   servings: 2,
   dietary_tags: [],
+  meal_prep_friendly: false,
+  skill_level: 'home_cook',
+  macros: null,
   submitted_by: 'user-uuid-1',
   image_url: null,
   is_public: true,
@@ -96,6 +99,41 @@ describe('insertCommunityRecipe — mandatory fields', () => {
     setupInsert();
     await insertCommunityRecipe({ ...BASE_INPUT });
     expect(capturedPayload).toMatchObject({ avg_rating: 0 });
+  });
+
+  it('persists the user-picked dietary_tags array on the insert payload', async () => {
+    setupInsert();
+    await insertCommunityRecipe({
+      ...BASE_INPUT,
+      dietary_tags: ['vegetarian', 'gluten_free'],
+    });
+    expect(capturedPayload).toMatchObject({
+      dietary_tags: ['vegetarian', 'gluten_free'],
+    });
+  });
+
+  it('persists meal_prep_friendly + skill_level + macros on the insert payload', async () => {
+    setupInsert();
+    const macros = {
+      calories: 420, protein: 32, carbohydrates: 18, fat: 22, fibre: 4, isEstimated: true,
+    };
+    await insertCommunityRecipe({
+      ...BASE_INPUT,
+      meal_prep_friendly: true,
+      skill_level: 'confident_chef',
+      macros,
+    });
+    expect(capturedPayload).toMatchObject({
+      meal_prep_friendly: true,
+      skill_level: 'confident_chef',
+      macros,
+    });
+  });
+
+  it('persists macros: null when the calculator returned no estimate', async () => {
+    setupInsert();
+    await insertCommunityRecipe({ ...BASE_INPUT, macros: null });
+    expect(capturedPayload).toMatchObject({ macros: null });
   });
 });
 

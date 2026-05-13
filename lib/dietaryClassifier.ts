@@ -92,3 +92,53 @@ export function inferDietaryTags(
 
   return Array.from(tags);
 }
+
+// Canonical vocabulary so the wizard checkbox UI and the classifier stay in
+// sync. Anything outside this list shouldn't make it into recipes.dietary_tags.
+export const DIETARY_TAGS = [
+  'vegetarian',
+  'vegan',
+  'pescatarian',
+  'gluten_free',
+  'dairy_free',
+  'high_protein',
+  'low_carb',
+  'keto',
+] as const;
+export type DietaryTag = typeof DIETARY_TAGS[number];
+
+// Strictly-restrictive tags — these claim "this recipe is safe for X". When
+// the user picks one and the classifier disagrees (sees an offending
+// ingredient), we want to know. The other four tags (high_protein, low_carb,
+// keto, dairy_free) are softer and we don't flag those as "conflicts".
+const STRICT_TAGS = new Set<string>(['vegetarian', 'vegan', 'pescatarian', 'gluten_free']);
+
+/**
+ * Compares a submitter's claimed dietary tags against the heuristic
+ * classifier output to surface honest mistakes (vegan dish with chicken in
+ * the ingredients, etc.).
+ *
+ * - `conflicts`: user picked a STRICT_TAG the classifier dropped because it
+ *   detected an offending ingredient. Likely wrong.
+ * - `missing`: classifier inferred a STRICT_TAG the user didn't check.
+ *   Probably fine (user may simply not have wanted to advertise it), but
+ *   worth a low-noise breadcrumb for analytics.
+ *
+ * Both lists are tags from the canonical vocabulary; never throws.
+ */
+export function diffDietaryTags(
+  userPicked: string[],
+  inferred: string[],
+): { conflicts: string[]; missing: string[] } {
+  const userSet = new Set(userPicked);
+  const inferredSet = new Set(inferred);
+  const conflicts: string[] = [];
+  const missing: string[] = [];
+  for (const tag of STRICT_TAGS) {
+    const userClaims = userSet.has(tag);
+    const classifierAgrees = inferredSet.has(tag);
+    if (userClaims && !classifierAgrees) conflicts.push(tag);
+    if (!userClaims && classifierAgrees) missing.push(tag);
+  }
+  return { conflicts, missing };
+}

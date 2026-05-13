@@ -70,7 +70,7 @@ function parseQty(raw: string): number {
 // Returns true when the ingredient list is too sparse for any honest macro
 // estimate. This is the most important guard — without it Claude makes up
 // numbers for "garlic" and similar single-ingredient submissions.
-function isTooSparseForMacros(ingredients: { name: string; quantity: string }[]): boolean {
+export function isTooSparseForMacros(ingredients: { name: string; quantity: string }[]): boolean {
   if (ingredients.length < 3) return true;
   const withQty = ingredients.filter((i) => !isNaN(parseQty(i.quantity))).length;
   // Need at least half the rows to have a real quantity.
@@ -160,7 +160,7 @@ async function saveMacrosToDB(
 
 // ─── Claude estimate ──────────────────────────────────────────────────────────
 
-async function estimateWithClaude(
+export async function estimateWithClaude(
   title: string,
   ingredients: MacroRequest['ingredients'],
   servings: number,

@@ -930,7 +930,7 @@ export async function fetchScoredDeck(
   profile: Profile | null,
   savedExternalIds: Set<string>,
   mode: AppMode = 'spontaneous',
-): Promise<Recipe[]> {
+): Promise<{ deck: Recipe[]; relaxedMealPrep: boolean }> {
   // Load persisted left-swipes from previous sessions into the session Set
   await loadPersistedLeftSwipes();
 
@@ -1018,6 +1018,13 @@ export async function fetchScoredDeck(
     scored = scored.filter(({ recipe }) => recipe.meal_prep_friendly === true);
   }
 
+  // Helper for the relaxation cascade below — keeps the mode contract intact
+  // so skill / saved-exclusion fallbacks can never leak non-meal-prep recipes
+  // into a meal-prep deck. Soft-fail to "all recipes + banner" happens only at
+  // the final tier (see relaxedMealPrep below).
+  const applyModeFilter = <T extends { recipe: Recipe }>(arr: T[]): T[] =>
+    mode === 'meal_prep' ? arr.filter(({ recipe }) => recipe.meal_prep_friendly === true) : arr;
+
   scored.sort((a, b) => b.score - a.score);
 
   // Bug 3 fix — diversity pass (prevents monoculture for all users, stricter for variety)
@@ -1050,23 +1057,43 @@ export async function fetchScoredDeck(
   }
   if (finalDeck.length < 5 && afterSaved.length > filtered.length) {
     console.warn(`[fetchScoredDeck] skill filter too aggressive — relaxing`);
-    const rescored = afterSaved.map((r) => ({
+    const rescored = applyModeFilter(afterSaved.map((r) => ({
       recipe: r,
       score: scoreRecipe(r, profile, swipeMap, savedExternalIds, affinityMap, interactionMap, pantrySet, leftoversSet, ratingMap, savedAtMap),
-    }));
+    })));
     rescored.sort((a, b) => b.score - a.score);
     finalDeck = rescored;
   }
   if (finalDeck.length < 5 && afterDislikes.length > afterSaved.length) {
-    // Last resort: re-include saved recipes so the deck is never empty
+    // Last resort within mode: re-include saved recipes so the deck is never empty
     console.warn(`[fetchScoredDeck] very few unsaved recipes — re-including saved as last resort`);
+    const rescored = applyModeFilter(afterDislikes.map((r) => ({
+      recipe: r,
+      score: scoreRecipe(r, profile, swipeMap, savedExternalIds, affinityMap, interactionMap, pantrySet, leftoversSet, ratingMap, savedAtMap),
+    })));
+    rescored.sort((a, b) => b.score - a.score);
+    finalDeck = rescored;
+  }
+
+  // Final tier — soft-fail for meal_prep mode only. Triggered when the user's
+  // intersection of dietary + skill + meal_prep tag yields a deck too small to
+  // browse. Drops the meal_prep filter entirely, sets relaxedMealPrep=true so
+  // the UI can render a "showing all recipes" banner. Catalogue gap: as of
+  // 2026-05-13, vegetarian=1 / vegan=0 / keto=4 meal-prep-tagged recipes —
+  // those users always hit this path until the pool is backfilled. Ingredient
+  // dislikes are still respected (afterDislikes is post-dislike).
+  let relaxedMealPrep = false;
+  if (mode === 'meal_prep' && finalDeck.length < 5 && afterDislikes.length > 0) {
+    console.warn(`[fetchScoredDeck] meal_prep pool exhausted (${finalDeck.length}) — soft-failing to all recipes with banner`);
     const rescored = afterDislikes.map((r) => ({
       recipe: r,
       score: scoreRecipe(r, profile, swipeMap, savedExternalIds, affinityMap, interactionMap, pantrySet, leftoversSet, ratingMap, savedAtMap),
     }));
     rescored.sort((a, b) => b.score - a.score);
     finalDeck = rescored;
+    relaxedMealPrep = true;
   }
+
   if (finalDeck.length < 5) {
     console.warn(`[fetchScoredDeck] only ${finalDeck.length} recipes after all filters — very restrictive preferences`);
   }
@@ -1132,7 +1159,7 @@ export async function fetchScoredDeck(
     }
   }
 
-  return result;
+  return { deck: result, relaxedMealPrep };
 }
 
 // Fetch a personalised, Claude-ranked deck from /api/recommendations.
@@ -2099,8 +2126,20 @@ export interface CommunityRecipeInput {
   steps: { order: number; instruction: string; title?: string; timer_minutes?: number | null }[];
   prep_time_mins: number | null;
   cook_time_mins: number | null;
-  servings: number | null;
+  // Required — drives macro per-serving math in /api/macros. Wizard enforces.
+  servings: number;
+  // User-picked checkboxes (vegetarian / vegan / pescatarian / gluten_free /
+  // dairy_free / high_protein / low_carb / keto). The classifier no longer
+  // overrides; it only logs mismatches as a Sentry breadcrumb (see
+  // lib/dietaryClassifier.ts#diffDietaryTags).
   dietary_tags: string[];
+  meal_prep_friendly: boolean;
+  skill_level: 'beginner' | 'home_cook' | 'confident_chef';
+  // Captured at the wizard's review step so the recipe lands with macros at
+  // insert time — eliminates the fire-and-forget race. May still be null if
+  // the calculator failed and the user skipped manual entry; the daily
+  // community-enrichment cron backfills those.
+  macros: Macros | null;
   submitted_by: string;
   image_url: string | null;
   is_public: boolean;
@@ -2128,6 +2167,9 @@ export async function insertCommunityRecipe(input: CommunityRecipeInput): Promis
       cook_time_mins: input.cook_time_mins,
       servings: input.servings,
       dietary_tags: input.dietary_tags,
+      meal_prep_friendly: input.meal_prep_friendly,
+      skill_level: input.skill_level,
+      macros: input.macros,
       submitted_by: input.submitted_by,
       image_url: input.image_url,
       is_public: input.is_public,
@@ -2146,10 +2188,17 @@ export async function insertCommunityRecipe(input: CommunityRecipeInput): Promis
   return data.id;
 }
 
-// ─── Community recipe enrichment (post-insert, fire-and-forget) ───────────────
-// Computes macros via /api/macros (which caches to DB itself) and infers
-// dietary_tags client-side, persisting the tags. Caller should not await —
-// failures are non-fatal.
+// ─── Community recipe enrichment (DEPRECATED 2026-05-12) ──────────────────────
+// As of Phase 2 of the share-recipes batch, dietary_tags and macros are
+// captured inside the wizard (user-picked + review-step macro calculator) and
+// land on the recipe row at insert time. The daily cron at
+// `api/cron/community-enrichment.ts` covers any submissions that still land
+// with null macros (e.g. wizard backgrounded mid-fetch).
+//
+// This function is kept for the legacy test in
+// `__tests__/lib/enrichCommunityRecipe.test.ts` and as scaffolding for a
+// future flag-based moderation queue. NO CALLERS in production app paths —
+// do not re-add without updating the wizard flow.
 export async function enrichCommunityRecipe(
   recipeId: string,
   payload: {

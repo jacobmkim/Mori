@@ -17,10 +17,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useState, useEffect, useRef } from 'react';
 import { useTheme } from '@/hooks/useTheme';
-import { fetchIngredientNames, insertCommunityRecipe, enrichCommunityRecipe } from '@/lib/api';
+import { fetchIngredientNames, insertCommunityRecipe } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
 import { validateImageForUpload, ImageValidationError } from '@/lib/imageUpload';
-import type { Recipe, RecipeStep, Ingredient } from '@/types';
+import { DIETARY_TAGS, inferDietaryTags, diffDietaryTags } from '@/lib/dietaryClassifier';
+import { getApiBaseUrl } from '@/lib/apiBaseUrl';
+import type { Recipe, RecipeStep, Ingredient, Macros } from '@/types';
 
 // ── Pure helpers (mirrored from RecipeDetailModal) ────────────────────────────
 
@@ -89,9 +91,13 @@ export function AddRecipeWizard({ visible, userId, onClose, onSuccess }: AddReci
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [cuisine, setCuisine] = useState<string | null>(null);
-  const [prepTime, setPrepTime] = useState('');
-  const [cookTime, setCookTime] = useState('');
+  // Single combined "Total time" field. Stored in DB as cook_time_mins=total,
+  // prep_time_mins=0 so existing aggregations (formatTime, weekly totals) keep
+  // working without a schema change.
+  const [totalTime, setTotalTime] = useState('');
   const [servings, setServings] = useState('');
+  const [mealPrepFriendly, setMealPrepFriendly] = useState(false);
+  const [skillLevel, setSkillLevel] = useState<'beginner' | 'home_cook' | 'confident_chef'>('home_cook');
   const [isPublic, setIsPublic] = useState(true);
 
   // Step 2
@@ -112,6 +118,15 @@ export function AddRecipeWizard({ visible, userId, onClose, onSuccess }: AddReci
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [imageUploading, setImageUploading] = useState(false);
+  // User-picked dietary tags from the canonical vocabulary. The classifier
+  // runs as a sanity check post-submit (see handleSubmit + diffDietaryTags).
+  const [dietaryTags, setDietaryTags] = useState<Set<string>>(() => new Set());
+  // Macro calculator state. macros starts null; the review step auto-fetches
+  // from /api/macros once you land on it. macrosLoading toggles the spinner;
+  // macrosError surfaces a fallback "enter manually" CTA.
+  const [macros, setMacros] = useState<Macros | null>(null);
+  const [macrosLoading, setMacrosLoading] = useState(false);
+  const [macrosError, setMacrosError] = useState<string | null>(null);
 
   // Load ingredient names when wizard opens
   useEffect(() => {
@@ -122,7 +137,8 @@ export function AddRecipeWizard({ visible, userId, onClose, onSuccess }: AddReci
   function resetState() {
     setStep(1);
     setName(''); setDescription(''); setCuisine(null);
-    setPrepTime(''); setCookTime(''); setServings(''); setIsPublic(true);
+    setTotalTime(''); setServings(''); setIsPublic(true);
+    setMealPrepFriendly(false); setSkillLevel('home_cook');
     setIngredientRows([{ qty: '', unit: '', name: '' }]);
     setAutocompleteIndex(null); setAutocompleteQuery('');
     setUnitPickerIndex(null);
@@ -131,6 +147,8 @@ export function AddRecipeWizard({ visible, userId, onClose, onSuccess }: AddReci
     setSubmitError(null);
     setImageUri(null);
     setImageUploading(false);
+    setDietaryTags(new Set());
+    setMacros(null); setMacrosLoading(false); setMacrosError(null);
   }
 
   async function handlePickImage() {
@@ -209,6 +227,71 @@ export function AddRecipeWizard({ visible, userId, onClose, onSuccess }: AddReci
     setStep((s) => (s + 1) as 1 | 2 | 3 | 4);
   }
 
+  // Auto-fetch macros when the user lands on Step 4. Re-runs on the (already-
+  // settled) ingredients + servings since those drive the estimate. User can
+  // still edit each value after the fetch — we never overwrite a user-edited
+  // value with a refetch (debounced + only fires once per Step 4 entry).
+  const reviewFetchKey = useRef<string | null>(null);
+  useEffect(() => {
+    if (step !== 4) return;
+    const cleanIngs = ingredientRows
+      .filter((r) => r.name.trim() !== '')
+      .map((r) => ({ name: r.name.trim(), quantity: r.qty.trim(), unit: r.unit }));
+    const servingsNum = servings ? parseInt(servings) : NaN;
+    if (cleanIngs.length === 0 || isNaN(servingsNum) || servingsNum <= 0) {
+      setMacrosError('Add ingredients and servings before macros can be estimated.');
+      setMacros(null);
+      return;
+    }
+    // Idempotency key — skip if we already fetched for this exact payload.
+    const key = JSON.stringify({ cleanIngs, servingsNum, title: name.trim() });
+    if (reviewFetchKey.current === key) return;
+    reviewFetchKey.current = key;
+
+    let cancelled = false;
+    (async () => {
+      setMacrosLoading(true);
+      setMacrosError(null);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        if (!token) {
+          if (!cancelled) setMacrosError('Could not estimate — please enter macros manually.');
+          return;
+        }
+        const res = await fetch(`${getApiBaseUrl()}/api/macros`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            recipeTitle: name.trim(),
+            ingredients: cleanIngs,
+            servings: servingsNum,
+          }),
+        });
+        if (!res.ok) throw new Error(`macros ${res.status}`);
+        const data = await res.json();
+        if (cancelled) return;
+        if (data && typeof data.calories === 'number') {
+          setMacros({
+            calories: data.calories,
+            protein: data.protein ?? 0,
+            carbohydrates: data.carbohydrates ?? 0,
+            fat: data.fat ?? 0,
+            fibre: data.fibre ?? 0,
+            isEstimated: true,
+          });
+        } else {
+          setMacrosError('Could not estimate — please enter macros manually.');
+        }
+      } catch {
+        if (!cancelled) setMacrosError('Could not estimate — please enter macros manually.');
+      } finally {
+        if (!cancelled) setMacrosLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [step, ingredientRows, servings, name]);
+
   async function handleSubmit() {
     setSubmitting(true);
     setSubmitError(null);
@@ -238,7 +321,9 @@ export function AddRecipeWizard({ visible, userId, onClose, onSuccess }: AddReci
         }
       }
 
-      const parsedServings = servings ? parseInt(servings) : null;
+      const parsedServings = parseInt(servings);
+      const parsedTotal = totalTime ? parseInt(totalTime) : 0;
+      const tagsArray = Array.from(dietaryTags);
 
       const supabaseId = await insertCommunityRecipe({
         title: name.trim(),
@@ -246,21 +331,35 @@ export function AddRecipeWizard({ visible, userId, onClose, onSuccess }: AddReci
         cuisine,
         ingredients: cleanIngredients,
         steps: cleanSteps,
-        prep_time_mins: prepTime ? parseInt(prepTime) : null,
-        cook_time_mins: cookTime ? parseInt(cookTime) : null,
+        // Store the user's single "total time" as cook_time_mins so existing
+        // sums (formatTime, weekly aggregations) continue to work unchanged.
+        prep_time_mins: 0,
+        cook_time_mins: parsedTotal,
         servings: parsedServings,
-        dietary_tags: [],
+        dietary_tags: tagsArray,
+        meal_prep_friendly: mealPrepFriendly,
+        skill_level: skillLevel,
+        macros,
         submitted_by: userId,
         image_url: imageUrl,
         is_public: isPublic,
       });
 
-      // Fire-and-forget — computes macros + dietary tags, updates row.
-      enrichCommunityRecipe(supabaseId, {
-        title: name.trim(),
-        ingredients: cleanIngredients,
-        servings: parsedServings,
-      });
+      // Sanity-check the user's dietary picks against the heuristic
+      // classifier. Strict-tag conflicts (e.g. "vegan" claimed with chicken
+      // in the ingredients) get a console.warn — replace with Sentry
+      // breadcrumb when the moderation queue lands. We never override the
+      // user's picks; they have ground truth.
+      const inferred = inferDietaryTags(name.trim(), cleanIngredients);
+      const diff = diffDietaryTags(tagsArray, inferred);
+      if (diff.conflicts.length > 0 && __DEV__) {
+        console.warn('[community-recipe-tags] strict-tag conflicts on submit', {
+          recipeId: supabaseId,
+          userPicked: tagsArray,
+          inferred,
+          conflicts: diff.conflicts,
+        });
+      }
 
       const newRecipe: Recipe = {
         id: supabaseId,
@@ -271,12 +370,12 @@ export function AddRecipeWizard({ visible, userId, onClose, onSuccess }: AddReci
         source_type: 'community',
         ingredients: cleanIngredients,
         steps: cleanSteps,
-        prep_time_mins: prepTime ? parseInt(prepTime) : null,
-        cook_time_mins: cookTime ? parseInt(cookTime) : null,
-        servings: servings ? parseInt(servings) : null,
+        prep_time_mins: 0,
+        cook_time_mins: parsedTotal,
+        servings: parsedServings,
         cost_per_serving: null,
-        dietary_tags: [],
-        macros: null,
+        dietary_tags: tagsArray,
+        macros,
         badge: 'none',
         avg_rating: 0,
         save_count: 0,
@@ -338,9 +437,10 @@ export function AddRecipeWizard({ visible, userId, onClose, onSuccess }: AddReci
               name={name} setName={setName}
               description={description} setDescription={setDescription}
               cuisine={cuisine} setCuisine={setCuisine}
-              prepTime={prepTime} setPrepTime={setPrepTime}
-              cookTime={cookTime} setCookTime={setCookTime}
+              totalTime={totalTime} setTotalTime={setTotalTime}
               servings={servings} setServings={setServings}
+              mealPrepFriendly={mealPrepFriendly} setMealPrepFriendly={setMealPrepFriendly}
+              skillLevel={skillLevel} setSkillLevel={setSkillLevel}
               isPublic={isPublic} setIsPublic={setIsPublic}
               onNext={goNext}
             />
@@ -380,8 +480,7 @@ export function AddRecipeWizard({ visible, userId, onClose, onSuccess }: AddReci
               name={name}
               description={description}
               cuisine={cuisine}
-              prepTime={prepTime}
-              cookTime={cookTime}
+              totalTime={totalTime}
               servings={servings}
               isPublic={isPublic}
               ingredients={ingredientRows.filter((r) => r.name.trim() !== '')}
@@ -393,6 +492,12 @@ export function AddRecipeWizard({ visible, userId, onClose, onSuccess }: AddReci
               imageUploading={imageUploading}
               onPickImage={handlePickImage}
               onRemoveImage={() => setImageUri(null)}
+              dietaryTags={dietaryTags}
+              setDietaryTags={setDietaryTags}
+              macros={macros}
+              setMacros={setMacros}
+              macrosLoading={macrosLoading}
+              macrosError={macrosError}
             />
           )}
         </KeyboardAvoidingView>
@@ -464,10 +569,14 @@ function WizardHeader({ step, onBack, colors }: { step: number; onBack: () => vo
 
 function Step1Basics({
   colors, name, setName, description, setDescription, cuisine, setCuisine,
-  prepTime, setPrepTime, cookTime, setCookTime, servings, setServings,
+  totalTime, setTotalTime, servings, setServings,
+  mealPrepFriendly, setMealPrepFriendly, skillLevel, setSkillLevel,
   isPublic, setIsPublic, onNext,
 }: any) {
-  const canNext = name.trim().length > 0;
+  // Servings is REQUIRED — drives macro per-serving math. Without it /api/macros
+  // defaults to 4 and the result is silently 4x off.
+  const parsedServings = parseInt(servings);
+  const canNext = name.trim().length > 0 && !isNaN(parsedServings) && parsedServings > 0;
 
   return (
     <View style={{ flex: 1 }}>
@@ -521,14 +630,13 @@ function Step1Basics({
           ))}
         </View>
 
-        {/* Times + servings */}
+        {/* Time + servings */}
         <Text style={labelStyle(colors)}>Timing &amp; servings</Text>
         <View style={{ flexDirection: 'row', gap: 10, marginBottom: 20 }}>
           {[
-            { label: 'Prep (min)', value: prepTime, set: setPrepTime },
-            { label: 'Cook (min)', value: cookTime, set: setCookTime },
-            { label: 'Servings', value: servings, set: setServings },
-          ].map(({ label, value, set }) => (
+            { label: 'Total time (min)', value: totalTime, set: setTotalTime, required: false },
+            { label: 'Servings *', value: servings, set: setServings, required: true },
+          ].map(({ label, value, set, required }) => (
             <View key={label} style={{ flex: 1 }}>
               <Text style={{ fontSize: 11, color: colors.textMuted, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>
                 {label}
@@ -537,12 +645,57 @@ function Step1Basics({
                 value={value}
                 onChangeText={set}
                 keyboardType="numeric"
-                placeholder="—"
+                placeholder={required ? 'Required' : '—'}
                 placeholderTextColor={colors.textMuted}
                 style={[inputStyle(colors), { textAlign: 'center' }]}
               />
             </View>
           ))}
+        </View>
+
+        {/* Skill level */}
+        <Text style={labelStyle(colors)}>Skill level</Text>
+        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 20 }}>
+          {(['beginner', 'home_cook', 'confident_chef'] as const).map((s) => {
+            const label = s === 'beginner' ? 'Beginner' : s === 'home_cook' ? 'Home cook' : 'Confident chef';
+            const active = skillLevel === s;
+            return (
+              <Pressable
+                key={s}
+                onPress={() => setSkillLevel(s)}
+                style={{
+                  flex: 1,
+                  paddingVertical: 10,
+                  borderRadius: 12,
+                  alignItems: 'center',
+                  backgroundColor: active ? colors.primary : colors.card,
+                  borderWidth: 1,
+                  borderColor: active ? colors.primary : colors.border,
+                }}
+              >
+                <Text style={{ fontSize: 13, fontWeight: '500', color: active ? '#fff' : colors.text }}>
+                  {label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        {/* Meal-prep toggle */}
+        <View style={{
+          flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+          backgroundColor: colors.card, borderRadius: 12, padding: 14, marginBottom: 12,
+        }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 14, fontWeight: '600', color: colors.text }}>Meal-prep friendly</Text>
+            <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>Keeps well 3+ days in the fridge</Text>
+          </View>
+          <Switch
+            value={mealPrepFriendly}
+            onValueChange={setMealPrepFriendly}
+            trackColor={{ false: colors.border, true: colors.primary }}
+            thumbColor="#fff"
+          />
         </View>
 
         {/* Public toggle */}
@@ -896,11 +1049,34 @@ function Step3Steps({ colors, rows, setRows, activeStepIdx, setActiveStepIdx, on
 // ── Step 4 — Review ───────────────────────────────────────────────────────────
 
 function Step4Review({
-  colors, name, description, cuisine, prepTime, cookTime, servings,
+  colors, name, description, cuisine, totalTime, servings,
   isPublic, ingredients, steps, submitting, submitError, onSubmit,
   imageUri, imageUploading, onPickImage, onRemoveImage,
+  dietaryTags, setDietaryTags, macros, setMacros, macrosLoading, macrosError,
 }: any) {
-  const totalMins = (parseInt(prepTime) || 0) + (parseInt(cookTime) || 0);
+  const totalMins = parseInt(totalTime) || 0;
+
+  function toggleTag(tag: string) {
+    setDietaryTags((prev: Set<string>) => {
+      const next = new Set(prev);
+      if (next.has(tag)) next.delete(tag);
+      else next.add(tag);
+      return next;
+    });
+  }
+
+  function updateMacro(field: 'calories' | 'protein' | 'carbohydrates' | 'fat' | 'fibre', raw: string) {
+    const n = parseFloat(raw);
+    setMacros((prev: Macros | null) => ({
+      calories: 0, protein: 0, carbohydrates: 0, fat: 0, fibre: 0, isEstimated: true,
+      ...(prev ?? {}),
+      [field]: isNaN(n) ? 0 : n,
+    }));
+  }
+
+  function tagLabel(t: string): string {
+    return t.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  }
 
   return (
     <View style={{ flex: 1 }}>
@@ -983,6 +1159,79 @@ function Step4Review({
                 </View>
               );
             })}
+          </>
+        )}
+
+        {/* Dietary tags */}
+        <Text style={sectionHeading(colors)}>Dietary tags</Text>
+        <Text style={{ fontSize: 12, color: colors.textMuted, marginBottom: 10 }}>
+          Tap any that apply. We'll double-check against your ingredients.
+        </Text>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
+          {DIETARY_TAGS.map((tag) => {
+            const active = dietaryTags.has(tag);
+            return (
+              <Pressable
+                key={tag}
+                onPress={() => toggleTag(tag)}
+                style={{
+                  paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999,
+                  backgroundColor: active ? colors.primary : colors.card,
+                  borderWidth: 1,
+                  borderColor: active ? colors.primary : colors.border,
+                  flexDirection: 'row', alignItems: 'center', gap: 6,
+                }}
+              >
+                {active ? <Ionicons name="checkmark" size={12} color="#fff" /> : null}
+                <Text style={{ fontSize: 12, fontWeight: '500', color: active ? '#fff' : colors.text }}>
+                  {tagLabel(tag)}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        {/* Macro calculator */}
+        <Text style={sectionHeading(colors)}>Macros per serving</Text>
+        {macrosLoading ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 20, padding: 14, backgroundColor: colors.card, borderRadius: 12 }}>
+            <ActivityIndicator size="small" color={colors.primary} />
+            <Text style={{ fontSize: 13, color: colors.textMuted }}>Estimating macros from your ingredients…</Text>
+          </View>
+        ) : (
+          <>
+            {macrosError ? (
+              <Text style={{ fontSize: 12, color: colors.textMuted, marginBottom: 10 }}>
+                {macrosError} Edit any value to override.
+              </Text>
+            ) : (
+              <Text style={{ fontSize: 12, color: colors.textMuted, marginBottom: 10 }}>
+                Auto-estimated from your ingredients — tap any value to edit.
+              </Text>
+            )}
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
+              {([
+                { key: 'calories', label: 'Calories' },
+                { key: 'protein', label: 'Protein (g)' },
+                { key: 'carbohydrates', label: 'Carbs (g)' },
+                { key: 'fat', label: 'Fat (g)' },
+                { key: 'fibre', label: 'Fibre (g)' },
+              ] as const).map(({ key, label }) => (
+                <View key={key} style={{ flexGrow: 1, flexBasis: '30%', minWidth: 90 }}>
+                  <Text style={{ fontSize: 10, color: colors.textMuted, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                    {label}
+                  </Text>
+                  <TextInput
+                    value={macros && macros[key] != null ? String(Math.round(Number(macros[key]) * 10) / 10) : ''}
+                    onChangeText={(v) => updateMacro(key, v)}
+                    keyboardType="decimal-pad"
+                    placeholder="—"
+                    placeholderTextColor={colors.textMuted}
+                    style={[inputStyle(colors), { textAlign: 'center', marginBottom: 0 }]}
+                  />
+                </View>
+              ))}
+            </View>
           </>
         )}
 

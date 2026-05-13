@@ -8,7 +8,7 @@
  * 2. Common clean recipes get the obvious tags so dietary filters work.
  */
 
-import { inferDietaryTags } from '@/lib/dietaryClassifier';
+import { inferDietaryTags, diffDietaryTags, DIETARY_TAGS } from '@/lib/dietaryClassifier';
 
 const ing = (name: string) => ({ name, quantity: '1', unit: 'cup' });
 
@@ -154,5 +154,74 @@ describe('inferDietaryTags — output shape', () => {
 
   it('handles empty ingredients without throwing', () => {
     expect(() => inferDietaryTags('Mystery Dish', [])).not.toThrow();
+  });
+});
+
+// ─── Vocabulary constant ──────────────────────────────────────────────────────
+
+describe('DIETARY_TAGS', () => {
+  it('lists exactly the 8 canonical tags the wizard exposes', () => {
+    expect(DIETARY_TAGS).toEqual([
+      'vegetarian', 'vegan', 'pescatarian', 'gluten_free',
+      'dairy_free', 'high_protein', 'low_carb', 'keto',
+    ]);
+  });
+});
+
+// ─── User-pick vs. classifier diff ────────────────────────────────────────────
+
+describe('diffDietaryTags — sanity check on submit', () => {
+  it('flags a vegan claim when the classifier sees meat (conflict)', () => {
+    // Classifier on a chicken recipe would NOT output `vegan` — so the user's
+    // claim of `vegan` is a conflict on a strict tag.
+    const inferred = inferDietaryTags('Chicken Curry', [
+      { name: 'chicken thigh', quantity: '1', unit: 'lb' },
+      { name: 'onion', quantity: '1', unit: 'whole' },
+    ]);
+    const diff = diffDietaryTags(['vegan'], inferred);
+    expect(diff.conflicts).toContain('vegan');
+  });
+
+  it('flags a vegetarian claim when the classifier sees meat (conflict)', () => {
+    const inferred = inferDietaryTags('Bacon Pasta', [
+      { name: 'bacon', quantity: '6', unit: 'slice' },
+      { name: 'pasta', quantity: '200', unit: 'g' },
+    ]);
+    const diff = diffDietaryTags(['vegetarian'], inferred);
+    expect(diff.conflicts).toContain('vegetarian');
+  });
+
+  it('does not flag a vegetarian recipe the user correctly tagged', () => {
+    const inferred = inferDietaryTags('Tomato Pasta', [
+      { name: 'pasta', quantity: '200', unit: 'g' },
+      { name: 'tomato', quantity: '3', unit: 'whole' },
+    ]);
+    const diff = diffDietaryTags(['vegetarian'], inferred);
+    expect(diff.conflicts).not.toContain('vegetarian');
+  });
+
+  it('reports `missing` when the classifier infers a strict tag the user did not check', () => {
+    const inferred = inferDietaryTags('Tomato Pasta', [
+      { name: 'pasta', quantity: '200', unit: 'g' },
+      { name: 'tomato', quantity: '3', unit: 'whole' },
+    ]);
+    // User didn't tag vegetarian even though the dish has no meat.
+    const diff = diffDietaryTags([], inferred);
+    expect(diff.missing).toContain('vegetarian');
+  });
+
+  it('soft tags (high_protein / low_carb / keto / dairy_free) never appear as conflicts', () => {
+    // Even though the user claims high_protein on a salad, that's not a
+    // strict-vocabulary tag — we only flag conflicts on the four claims
+    // that promise allergy / dietary safety.
+    const inferred = inferDietaryTags('Garden Salad', [
+      { name: 'lettuce', quantity: '1', unit: 'head' },
+    ]);
+    const diff = diffDietaryTags(['high_protein', 'low_carb', 'keto', 'dairy_free'], inferred);
+    expect(diff.conflicts).toEqual([]);
+  });
+
+  it('handles empty inputs gracefully', () => {
+    expect(diffDietaryTags([], [])).toEqual({ conflicts: [], missing: [] });
   });
 });

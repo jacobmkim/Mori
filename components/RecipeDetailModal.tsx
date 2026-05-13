@@ -519,10 +519,12 @@ export function RecipeDetailModal({
               onPress={() => {
                 const id = recipe.supabase_id ?? recipe.id;
                 const url = `https://getmori.app/r/${id}`;
-                Share.share({
-                  url,
-                  message: `Check out ${recipe.title} on Mori — ${url}`,
-                }).catch(() => {});
+                // iOS share sheet: passing BOTH `url` and `message` results in
+                // two attachments in iMessage (the URL appears once as an
+                // unfurl card AND once inline in the message body). Send only
+                // `url` so the recipient gets one rich OG preview. The web
+                // page's <meta> tags supply title/description/image.
+                Share.share({ url }).catch(() => {});
               }}
               hitSlop={8}
               style={{
