@@ -8,7 +8,7 @@
     "scheme": "mori",
     "userInterfaceStyle": "automatic",
     "splash": {
-      "image": "./assets/splash.png",
+      "image": "./assets/mori_icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#F8F3EC"
     },
@@ -58,8 +58,8 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/splash.png",
-          "imageWidth": 200,
+          "image": "./assets/mori_icon.png",
+          "imageWidth": 260,
           "resizeMode": "contain",
           "backgroundColor": "#F8F3EC"
         }

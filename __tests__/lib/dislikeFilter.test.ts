@@ -108,7 +108,7 @@ describe('fetchScoredDeck — ingredient_dislikes hard filter', () => {
     );
 
     const profile = { ingredient_dislikes: ['chicken'] } as any;
-    const result = await fetchScoredDeck('user-1', [], profile, new Set());
+    const { deck: result } = await fetchScoredDeck('user-1', [], profile, new Set());
 
     expect(result.map((r) => r.title)).not.toContain('Chicken Stir Fry');
     expect(result.some((r) => r.title === 'Broccoli Soup')).toBe(true);
@@ -125,7 +125,7 @@ describe('fetchScoredDeck — ingredient_dislikes hard filter', () => {
     );
 
     const profile = { ingredient_dislikes: ['tuna'] } as any;
-    const result = await fetchScoredDeck('user-1', [], profile, new Set());
+    const { deck: result } = await fetchScoredDeck('user-1', [], profile, new Set());
 
     expect(result.map((r) => r.title)).not.toContain('Tuna Pasta');
   });
@@ -140,7 +140,7 @@ describe('fetchScoredDeck — ingredient_dislikes hard filter', () => {
         : makeChain([])
     );
 
-    const result = await fetchScoredDeck('user-1', [], null, new Set());
+    const { deck: result } = await fetchScoredDeck('user-1', [], null, new Set());
 
     expect(result.length).toBe(2);
   });
@@ -152,7 +152,7 @@ describe('fetchScoredDeck — ingredient_dislikes hard filter', () => {
         : makeChain([])
     );
 
-    const result = await fetchScoredDeck(undefined, [], null, new Set());
+    const { deck: result } = await fetchScoredDeck(undefined, [], null, new Set());
 
     expect(result.length).toBe(1);
   });
@@ -169,7 +169,7 @@ describe('fetchScoredDeck — ingredient_dislikes hard filter', () => {
     );
 
     const profile = { ingredient_dislikes: ['shrimp', 'tofu'] } as any;
-    const result = await fetchScoredDeck('user-1', [], profile, new Set());
+    const { deck: result } = await fetchScoredDeck('user-1', [], profile, new Set());
 
     const titles = result.map((r) => r.title);
     expect(titles).not.toContain('Shrimp Tacos');
@@ -188,7 +188,7 @@ describe('fetchScoredDeck — ingredient_dislikes hard filter', () => {
     );
 
     const profile = { ingredient_dislikes: ['salmon'] } as any;
-    const result = await fetchScoredDeck('user-1', [], profile, new Set());
+    const { deck: result } = await fetchScoredDeck('user-1', [], profile, new Set());
 
     expect(result.map((r) => r.title)).not.toContain('Bagel Platter');
     expect(result.some((r) => r.title === 'Avocado Toast')).toBe(true);

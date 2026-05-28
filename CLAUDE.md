@@ -1,23 +1,33 @@
 # Mori — CLAUDE.md
 
-## Current Priority — v1 Live, Bug-Fix Pass
+## Current Priority — v2.0.0 in Development
 
-**Mori v1 live in the US + CA App Store as of 2026-05-05.** Free tier only. Mori+ stays on the `mori-plus` branch until v1.1.
+**Mori v1 has been live in the US + CA App Store since 2026-05-05.** Free tier only. v2.0.0 is the next App Store release, currently in active development on `main`. Mori+ (paid tier) remains on the `mori-plus` branch — RevenueCat scaffold has been merged to `main` as a no-op stub ([lib/revenueCat.ts](lib/revenueCat.ts)) so future merges are clean, but no IAP code runs in v2.0.0.
 
-**Right now: bug-fix pass on the live Mori (free tier), not Mori+.** Bug fixes land on `main` and ship via normal `eas build` + `eas submit` cadence (each submission triggers a fresh App Store Review — keep the `apple-review@getmori.app` demo account intact).
+Bug-fixes and v2.0.0 feature work both land on `main` and ship via normal `eas build` + `eas submit` cadence. Each submission triggers a fresh App Store Review — keep the `apple-review@getmori.app` demo account intact.
 
-### What shipped (v1)
-- Code on `origin/main`: `082257a` → `1bbfe61` → `603754c` → `f99a586`. Privacy Manifest, in-app account deletion (Guideline 5.1.1(v)), Help screen, cook-flow streak/badges fix across all tabs.
-- App Store Connect: 10 screenshots in 6.9" slot (resized from 6.3" via `scripts/resize-screenshots.ps1`, 24-bit RGB, no alpha), App Privacy nutrition labels (Linked: yes / Tracking: no for all 9 data types), Age rating with UGC + moderation, Free Apps Agreement Active (Paid Apps NOT signed — defer until Mori+).
-- Reviewer demo account ([.claude/apple-review-info.md](.claude/apple-review-info.md)) preserved for any future re-review. Safe to touch but no reason to.
+### v2.0.0 scope — shipped on `main`
+- **Shareable recipes** — system share sheet from `RecipeDetailModal` → links to `getmori.app/r/{id}` (Vercel function [api/recipe-page.ts](api/recipe-page.ts) renders public HTML with OG meta + "Open in Mori" CTA). `mori://r/{id}` deep link + Universal Links (AASA file at `public/.well-known/apple-app-site-association`, team `66667M8C34`) → opens [app/recipe/[id].tsx](app/recipe/%5Bid%5D.tsx) → reuses `RecipeDetailModal`. Deep-link validator pins HTTPS hostname to `getmori.app` (phishing guard).
+- **Save / cook counters** — `recipes.save_count` + new `recipes.cook_count` columns auto-maintained by Postgres triggers (`supabase/add-recipe-counters.sql`). Same-day repeat cooks now bump the counter (fix).
+- **Creator outcome badges + push** — 8 new badges (`saves_earned_1/10/50/100`, `cooks_earned_1/10/50/100`) in [components/badges/badgeData.ts](components/badges/badgeData.ts). Daily [api/cron/creator-milestones.ts](api/cron/creator-milestones.ts) (18:00 UTC) pushes a tier-crossing notification; `profiles.last_saves_earned_milestone_notified` + `last_cooks_earned_milestone_notified` make re-runs idempotent (`supabase/add-creator-milestone-tracking.sql`). NB: this is about recipe submitters celebrating their own activity — separate from the v2.0.0 TikTok-creator referral program below.
+- **Drop community audit gate** — community submissions now default to `moderation_status='approved'` and are immediately visible. `moderation_status` column is retained for future moderation, but the `audit-pending-community` cron has been deleted. Replaced by [api/cron/community-enrichment.ts](api/cron/community-enrichment.ts) (03:00 UTC) — backfills macros on community recipes that landed with `macros = NULL`, limited to the last 14 days, sparse-recipe gate respected.
+- **Post-cook review prompt** — `PostCookReviewModal` after leftovers modal. Review stars surfaced on swipe deck, recipes-tab, explore HorizontalCard/GridCard (gated `rating_count >= 3`).
+- **Recipe quality overhaul** — USDA-based macros pipeline (`scripts/compute-macros-from-usda.mjs` + `scripts/apply-computed-macros.mjs`), portion/step audits (`scripts/audit-recipe-portions.mjs`, `scripts/audit-recipe-steps.mjs`, `scripts/propose-step-fixes.mjs`, `scripts/apply-step-fixes.mjs`), meal-prep tag re-evaluation (`scripts/audit-meal-prep-tag.mjs` + `scripts/apply-meal-prep-decisions.mjs`). Full pipeline doc: `.claude/recipe-quality-overhaul-2026-05-07.md`.
+- **Instacart polish** — Quick-add toggle on "Leaving these out" sheet (parity with staples sheet). Auto-remove recipe from grocery list when cooked (idempotent). Fragment-unit parser fix (sprig/clove/slice/stalk/piece) — drops measurement so Instacart doesn't order N bunches.
 
-### Post-approval housekeeping
-- Production builds now flow through normal EAS submit. Bump version + buildNumber in `app.json` for each new release.
-- Bug-fix and feature work on `main` is unblocked. Continue to honour the Pre-Ship Commandments (EAS env audit, Vercel function smoke-test, etc.) before each `eas submit`.
-- Monitor crash-free rate in Sentry + Apple's first-week analytics (acquisition, retention, crash %). Flag any regression-class issue early.
+### v2.0.0 scope — in progress
+- **Explore tab `SELECT *` slim-down** — six parallel queries in `app/(tabs)/explore.tsx loadData()` use `select('*')`, pulling heavy JSONB (`ingredients`, `steps`, `description`, `audit_data`) that the section cards never render. Measured: 688 ms / 29 KB per query vs 197 ms / 5.3 KB with a thin column list. Compounds the image perf win specifically on the Explore tab spinner. Fix is the column list in the six queries — leave Trending follow-up query the same (it's already gated by `.in('id', ids)`).
 
-### v1.1 (Mori+) — paid IAP submission rules
-When ready to ship the `mori-plus` branch:
+### Deferred to v2.1
+- **Creator referral codes / links (TikTok partner program)** — track new-user signups attributed to TikTok creators so we can revenue-share when those users buy Mori+. **Deferred 2026-05-26 to v2.1** to keep v2.0.0 scope tight. Tradeoff: any TikTok-driven signups during the v2.0.0 window are NOT attributed — that data is permanently lost for early adopters. Acceptable because payout doesn't exist yet (Mori+ not live), so the attribution would have no immediate use.
+  - When picked up in v2.1: `getmori.app/?ref=<CODE>` URL param. Universal Link → app deferred-attribution (stash in AsyncStorage if pre-signup) → on signup, write `profiles.referred_by_code`. Opaque codes (e.g. `JANE10`); lookup table in a new `creators` table.
+  - Creators are external TikTok personalities, not Mori submitters. Codes issued by us (admin-managed). Not automatic for recipe submitters — that's the separate creator-outcome badge ladder above.
+  - Required for v2.1: `creators` table + RLS (read-public for code resolution, admin-only writes), `profiles.referred_by_code` column, signup-attribution code path, admin endpoint. Admin dashboard can stay as a Supabase Studio query.
+  - Out of scope until Mori+: payout calculation, creator-facing dashboard, public creator profile page, percentage tiers, fraud detection.
+  - Marketing framing locked in [design.md](design.md) — never overclaim "earn money" until Mori+ subscriptions are live.
+
+### Future — v1.1 / Mori+ paid IAP submission rules
+When ready to ship the `mori-plus` branch (scaffold already on main, commit `11b0d70`):
 - Sign **Paid Apps Agreement** + Tax forms (W-9) + Banking. Cannot ship IAP without all three Active.
 - Apply to **App Store Small Business Program** (15% rate vs 30%, automatic for new devs).
 - Configure subscription products in App Store Connect: `mori_plus_monthly`, `mori_plus_annual`, `mori_plus_lifetime`.
@@ -25,8 +35,7 @@ When ready to ship the `mori-plus` branch:
 - Cardinal rule: **paywall NEW features only, never existing free ones**. Swipe / save / plan / grocery / Instacart stay free forever. Mori+ adds Auto Plan, Sunday Drops, Generate from Pantry, Macro Coach, Saved Decks. Drift from this = Guideline 3.1.2 rejection.
 - IAP review is **separate** from binary review. Both must pass; both submitted together.
 - Once Paid Apps Agreement is signed there's no clean revert to "free only" — sign only when ready to ship Mori+ binary.
-
-v1 is approved. Mori+ on the `mori-plus` branch is now cleared to merge to `main` and ship as v1.1 whenever the paid-apps prerequisites above are signed and the IAP review is queued.
+- Mori+ also flips on the creator revenue-share payout flow. Until then `referred_by_code` is an attribution-only column.
 
 ## Commandments
 - Use subagents for any exploration requiring 3+ file analysis; have it return a summary.
@@ -62,6 +71,10 @@ v1 is approved. Mori+ on the `mori-plus` branch is now cleared to merge to `main
 - **2026-04-29 — `EXPO_PUBLIC_SENTRY_DSN` was missing from EAS env entirely.** Client Sentry init in `app/_layout.tsx` guards on the DSN, so Sentry has been silently disabled in every TestFlight build. Fix = add to EAS prod + preview envs and pin in `eas.json`. The `SENTRY_AUTH_TOKEN`/`SENTRY_ORG`/`SENTRY_PROJECT` vars in EAS are build-time sourcemap-upload vars, not runtime DSN.
 - **2026-04-28 — Sentry events silently dropped on Vercel.** Functions returned before `Sentry.flush()`; Vercel kills the event loop on response. Fix = `await Sentry.flush(2000)` in a `finally`. Commit `a2645f2`.
 - **2026-05-04 — App Store screenshot uploads must be 24-bit RGB, no alpha.** Apple's Media Manager rejects PNGs with alpha channels even if they look identical. Default `System.Drawing.Bitmap` ctor on Windows creates 32bpp ARGB. Fix in `scripts/resize-screenshots.ps1` = pass `[PixelFormat]::Format24bppRgb` to the Bitmap ctor + `Graphics.Clear(White)` before drawing. Also: iloveimg.com preserves aspect ratio and outputs off-by-a-few-pixels dimensions → Apple rejects "wrong dimensions." Always force exact target pixels.
+- **2026-05-27 — Recipe thumbnails looked "zoomed in" after the image transform fix.** Supabase Image Transformations does NOT scale height proportionally when you pass `width` alone — it returns `width × original_height`. Our gpt-image-1 source images are 1024×1024, so `?width=400` returned a 400×1024 skinny strip. `contentFit="cover"` then cropped a tiny middle band of that strip into the thumbnail frame, looking dramatically zoomed in. Detail view (1200×800 frame) wasn't affected because the wide target frame doesn't crop the strip as aggressively. Fix in `lib/recipeImage.ts` = pass `width` + `height` + `resize=cover` together so imgproxy does a true aspect-preserving crop. Presets are now: thumb 160×160 (square), card 400×300 (4:3), hero 800×600 (4:3), detail 1200×800 (3:2). Verified by parsing WebP VP8X headers from the rendered output: now returns the requested dimensions instead of a stretched canvas.
+- **2026-05-27 — Phantom 'cooked' interactions polluted Explore "Cooked Again" section.** User account `7a3b9113…` had 108 rows in `recipe_interactions` (type='cooked'), all stamped at the exact same instant `2026-04-27T20:00:17.760259+00:00` — a one-off bulk insert from early dev (no script found in repo; likely manual Supabase Studio batch). The profile counters (`meals_cooked_count`, streaks) were also manually written and did NOT auto-recompute from the interaction rows. Fix = `scripts/clean-phantom-cooks.mjs` (delete by exact timestamp + reset profile fields). Takeaway: **do NOT bulk-insert into `recipe_interactions` via Studio for testing or demo seeding.** The triggers (`save_count`/`cook_count`) fire fine, but profile fields (`meals_cooked_count`, `last_cooked_date`, `current_streak`, `longest_streak`, `last_cooks_earned_milestone_notified`) are not auto-synced from raw inserts, so manual seeds drift from the app's view. If reviewer seeding is needed, cook recipes through the actual app flow (Mark Cooked button) or write a script that updates profile fields in the same transaction.
+- **2026-05-27 — Explore tab images still loaded slow even after image transforms + SELECT * slim-down.** Each of the 5 horizontal sections rendered as `<ScrollView horizontal>`, which materializes ALL children on mount. With ~10 cards per section, that's ~50 simultaneous image requests at first paint; iOS HTTP/2's ~6-concurrent-stream cap per host queued the rest behind several round trips. Fix = converted the 4 image-bearing sections to `<FlatList horizontal>` with `initialNumToRender={3}`, `windowSize={2}`, `removeClippedSubviews` in `app/(tabs)/explore.tsx`. Worst-case simultaneous requests drop to ~15. The cuisine row (no images) and Under-30-min grid (different layout, 6 items) stay as-is.
+- **2026-05-13 — Recipe images were ~1.6 MB each AND served `Cache-Control: no-cache`.** gpt-image-1 originals were uploaded full-size via `scripts/generate-images.mjs` with no `cacheControl` option, so Supabase Storage defaulted to `no-cache`. Every card pulled 1.5–1.7 MB and re-validated on every render. Fix = [lib/recipeImage.ts](lib/recipeImage.ts) rewrites public URLs to `/storage/v1/render/image/public/` with `width` + `quality` params; Supabase's transform endpoint returns WebP at `max-age=3600`. Sample: 1.59 MB PNG → 29 KB WebP at `width=400&quality=70` (54× smaller). All `<Image>` call sites for `recipe.image_url` route through `getRecipeImageUrl(url, size)` with size presets (thumb/card/hero/detail). Upload sites (`AddRecipeWizard`, `edit-profile`, `scripts/generate-images.mjs`, `scripts/regenerate-specific-images.mjs`) now pass `cacheControl: '31536000'` so future originals are immutable-cacheable. Discover deck additionally prefetches the next 2 hero images via `Image.prefetch()` to warm the disk cache before the user swipes.
 
 ---
 
@@ -83,12 +96,12 @@ Mori is a swipe-based recipe discovery app. Users swipe on recipe cards → save
 - Grocery List: grouped categories, checkboxes, copy-to-clipboard
 - Profile: AvatarButton → ProfileSheet, taste profile (monthly cron + update modal), pantry, preferences, editable display name, appearance toggle
 - 2,600+ curated recipes (live count: 2,619 as of 2026-05-04 — verify with `node scripts/count-recipes.mjs`); all have steps, macros, dietary_tags, meal_prep_friendly, gpt-image-1 images
-- Vercel functions: /api/macros, /api/taste-profile, /api/generate-recipe, /api/storage-tip, /api/send-welcome-email, /api/sentry-test (user-facing) + 3 cron (taste-notifications, streak-reminders, audit-pending-community). Kroger functions removed 2026-04-28. `_`-prefixed files are helpers, don't count as endpoints.
+- Vercel functions: /api/macros, /api/taste-profile, /api/generate-recipe, /api/storage-tip, /api/send-welcome-email, /api/sentry-test, /api/instacart-cart, /api/waitlist, /api/admin-recipes, /api/substitutions, /api/recipe-page (user-facing) + 4 cron (taste-notifications, streak-reminders, creator-milestones, community-enrichment). Kroger functions removed 2026-04-28. `audit-pending-community` cron deleted 2026-05-12 (audit gate dropped). `_`-prefixed files are helpers, don't count as endpoints.
 - app.json: name Mori, bundle ID app.getmori.mori
 - Landing page: getmori.app (Vercel), hello@getmori.app email routing. Screenshots + taste profile section updated. **Served from `public/index.html` — `landing/index.html` is a stale copy, do not edit it.**
 - App icon: italic m + spatula, linen #F8F3EC, 1024×1024
 - TestFlight internal live; external submitted for Beta App Review
-- Add Recipe wizard (4-step): basics, ingredients w/ autocomplete, steps w/ timer hints, review + submit → community recipes. Public recipes appear in all Discover decks. **Submission flow:** `insertCommunityRecipe()` → `recipes` row with `moderation_status='pending'`. `enrichCommunityRecipe()` (fire-and-forget) infers dietary tags + calls `/api/macros` for AI-estimated macros. Hourly cron `audit-pending-community.ts` runs Haiku step-quality audit and writes `audit_data` jsonb on the recipe. **Admin reviews `audit_data.score` in Supabase Studio before flipping `moderation_status='approved'`.** Score < 90 = look closer; ≥ 95 = generally safe to approve. For calculator-grade macros on community recipes, run `node scripts/compute-macros-from-usda.mjs --id <id>` then `node scripts/apply-computed-macros.mjs --apply` periodically (full pipeline in `.claude/recipe-quality-overhaul-2026-05-07.md`).
+- Add Recipe wizard (4-step): basics, ingredients w/ autocomplete, steps w/ timer hints, review + submit → community recipes. Public recipes appear in all Discover decks the moment `is_public` flips true. **Submission flow:** `insertCommunityRecipe()` → `recipes` row with `moderation_status='approved'` (audit gate dropped 2026-05-12 — column retained for future moderation, not actively gating). `enrichCommunityRecipe()` (fire-and-forget) infers dietary tags + calls `/api/macros` for AI-estimated macros. Daily `community-enrichment.ts` cron retries macros backfill for the last 14 days of NULL-macros submissions. For calculator-grade macros on community recipes, run `node scripts/compute-macros-from-usda.mjs --id <id>` then `node scripts/apply-computed-macros.mjs --apply` periodically (full pipeline in `.claude/recipe-quality-overhaul-2026-05-07.md`).
 - Unit system toggle (imperial/metric); ingredient substitutions (`lib/substitutions.ts`, ~125 entries)
 - Deck Servings Sheet on Discover: scaled macros + ingredients reactively (`scaleMacros()` from `lib/macroUtils.ts`)
 - Plan-tab recipe picker: search + Filter sheet (Type / Cuisine / Total time / Skill); hybrid data source (Saved + lazy-loaded Browse-all from `fetchDiscoverRecipes`); tap row → `RecipeDetailModal` preview with "Add to {Day} · {Meal}" CTA (`slotContext` prop); "+" on row → quick-add to current slot. Shared `CUISINES` constant in `constants/cuisines.ts` (with explore.tsx); pure filter logic in `lib/pickerFilters.ts` with full unit-test coverage
@@ -107,6 +120,11 @@ Mori is a swipe-based recipe discovery app. Users swipe on recipe cards → save
 - Fusion cuisine: split display in detail modal (individual pills + "Fusion" pill), grid card joins with ", "; scorer splits `cuisine` on comma for preference matching
 - Session cuisine affinity: `sessionCuisineSwipes` map in `lib/api.ts` accumulates per-cuisine right/left swipes within a session; applied as bonus/penalty in `scoreRecipe`
 - **Pescatarian** dietary goal added — onboarding, profile, EditPreferencesModal, payoff screen; conflict guard vs vegan; hard filter in `fetchDiscoverRecipes`
+- **Shareable recipes (v2.0.0)** — system share sheet on `RecipeDetailModal` → `getmori.app/r/{id}` (Vercel-rendered HTML with OG meta + Smart App Banner) + `mori://r/{id}` Universal Links (AASA file pinned to team `66667M8C34`). Recipient lands in `RecipeDetailModal` with full save/cook/cart flow.
+- **Save / cook counters (v2.0.0)** — `recipes.save_count` + `recipes.cook_count` auto-maintained by Postgres triggers. Powers creator outcome badges + push milestones.
+- **Creator outcome badges + push (v2.0.0)** — 8 new badges (`saves_earned_*` / `cooks_earned_*` at 1/10/50/100). Daily `creator-milestones` cron pushes tier-crossing notifications (idempotent via `last_*_milestone_notified` columns).
+- **Post-cook review prompt (v2.0.0)** — `PostCookReviewModal` after leftovers modal. Review stars on swipe-deck + recipes-tab + explore cards (gated `rating_count >= 3`).
+- **Community audit gate dropped (v2.0.0)** — submissions go live immediately at `moderation_status='approved'`. Replaced by `community-enrichment` cron that backfills NULL macros for the last 14 days.
 
 ### ❌ Phase 4 — Grocery APIs
 - ⛔ **Kroger removed (2026-04-28)** — `api/kroger-auth.ts`, `api/kroger-cart.ts`, `supabase/add-kroger-tokens.sql`, and the `KrogerSheet` UI in `grocery-list.tsx` deleted. Freed two Vercel function slots for `send-welcome-email`. The `kroger_tokens` table itself was not dropped from Supabase — drop manually if you want the rows gone (`DROP TABLE kroger_tokens;`). All grocery flow now goes through Instacart.
@@ -205,9 +223,11 @@ stores/
 api/ (Vercel functions — Pro plan, plenty of headroom)
   macros.ts, taste-profile.ts, generate-recipe.ts, storage-tip.ts,
   instacart-cart.ts, waitlist.ts, admin-recipes.ts, substitutions.ts,
-  send-welcome-email.ts, sentry-test.ts
+  send-welcome-email.ts, sentry-test.ts,
+  recipe-page.ts (public HTML preview at getmori.app/r/{id} via /r/:id rewrite)
   cron/streak-reminders.ts, cron/taste-notifications.ts,
-  cron/audit-pending-community.ts (Haiku step audit on pending community recipes; CRON_SECRET-only, hourly),
+  cron/creator-milestones.ts (daily 18:00 UTC; pushes saves/cooks-earned tier crossings),
+  cron/community-enrichment.ts (daily 03:00 UTC; macros backfill for NULL-macro community recipes ≤14 days old),
   cron/_auth.ts (shared verifyCronAuth helper, timing-safe)
 
 scripts/ (all one-time or safe-to-resume, already ran)
@@ -221,9 +241,14 @@ scripts/ (all one-time or safe-to-resume, already ran)
   polish-recipe-titles.mjs (Haiku rewrites generic titles; --limit N, --dry-run, --recent N),
   normalize-ingredient-units.mjs (metric/awkward → standard US amounts via Haiku; --metric-only, --limit N, --dry-run),
   validate-recipe-ratios.mjs (Haiku scores ingredient plausibility 0-100; rewrites anything below 85; --id, --offset, --limit, --dry-run),
-  audit-recipes-full.mjs (full pass: ingredients + steps; same 85 threshold; --id, --offset, --limit, --verbose, --dry-run)
+  audit-recipes-full.mjs (full pass: ingredients + steps; same 85 threshold; --id, --offset, --limit, --verbose, --dry-run),
+  compute-macros-from-usda.mjs + apply-computed-macros.mjs (USDA-grounded macros; --id, --apply, --limit),
+  audit-recipe-portions.mjs + fix-recipe-portions.mjs (serving-size / portion sanity pass),
+  audit-recipe-steps.mjs + propose-step-fixes.mjs + apply-step-fixes.mjs (step-quality audit + Haiku rewrite + apply),
+  audit-meal-prep-tag.mjs + apply-meal-prep-decisions.mjs + apply-meal-prep-rules.mjs (meal_prep_friendly re-evaluation),
+  gap-fill-ingredients.mjs + sanity-check-macros.mjs (USDA gap-fill cache + macro sanity)
 
-__tests__/                 ✅ Jest 29 + jest-expo@54 — 36 suites, 471 tests
+__tests__/                 ✅ Jest 29 + jest-expo@54 — 531+ tests (last count after v2.0.0 share/community batch)
   api/_apiAuth.test.ts     AuthError, extractBearerToken, handleAuthError
   api/_rateLimit.test.ts   rateLimitUser, rateLimitIP, getClientIP
   api/cronAuth.test.ts     CRON_SECRET only; SEED_SECRET rejected; timing-safe
@@ -357,7 +382,8 @@ Open items only. Resolved fixes are logged in `.claude/bugfixes.md`.
 - [ ] No CSRF protection on public endpoints (`/api/waitlist`).
 - [ ] `kroger_tokens` Supabase table still exists (Kroger code removed 2026-04-28) — drop manually with `DROP TABLE kroger_tokens;` to clear the plaintext-token rows.
 - [ ] **Review-cooked-required gate is RLS-only** — any signed-in user can self-INSERT a `recipe_interactions` row of type `'cooked'` via the anon key (schema.sql allows this), then submit a review. RLS gate on `recipe_reviews` trusts that row. **Cook-funnel trigger was planned (2026-04-28) but deferred** — production data shows only ~3% of cook interactions have a prior `'view'` row (legacy data + view logging gap), so the trigger would block legitimate cooks. Revisit in Phase 5 with a moderation queue or CAPTCHA-on-account-create approach.
-- [ ] **No moderation queue UI** — community recipe submissions now default to `moderation_status: 'pending'` (2026-04-28) and stay invisible until manually flipped via Supabase Studio. Build a simple admin screen + endpoint for approve/reject before submission volume grows.
+- [ ] **No moderation queue UI** — community recipe submissions default to `moderation_status: 'approved'` (audit gate dropped 2026-05-12) and go live immediately. Build a reactive moderation tool — flag-driven takedown or post-hoc review queue — before submission volume grows or a problematic recipe ships.
+- [ ] **Creator-code attribution surface (v2.0.0, in progress)** — `profiles.referred_by_code` + `creators` table not yet built. No fraud detection / rate-limit on code-redemption signups; design must include a guard against self-referral and bulk-burner-account attribution before any payout flow goes live with Mori+.
 
 ### 🟡 Open Edge Cases
 - [ ] **Rapid swiping** — concurrent `logSwipeBackground()` calls can log swipes out of order; recommendation signal degrades.
@@ -371,4 +397,4 @@ Open items only. Resolved fixes are logged in `.claude/bugfixes.md`.
 - April 2026 — initial security hardening: JWT auth on all endpoints, Zod validation, rate limiting (fail-closed), timing-safe seed secret, waitlist CORS, security headers in `vercel.json`.
 
 ---
-*v9.6 — Phases 1–3 complete + reviews + badges + edit profile + Plan-tab calendar overhaul (week strip, picker filter sheet, hot-meal suggestions, weekly + per-day macros, copy/clear week). Phase 4 grocery: Instacart only (Kroger deprioritized 2026-04-27). Second audit batch shipped 2026-04-28 (PAT removed, gitignore tightened, recipes RLS regression fixed, community recipes default `pending`, recipe_flags unique index, partner-ID encoding, admin-recipes rate limit). RLS fix shipped 2026-04-28: client-side `upsertRecipeByExternalId` removed from save/swipe paths — saves now persist via `supabase_id` only. Cook-funnel trigger deferred — see §9. Jest: 36 suites, 471 tests.*
+*v10.1 (2026-05-26) — v1 live in US+CA App Store; v2.0.0 in active development on `main`. v2.0.0 batch shipped via commits `2d4591b` (recipe quality overhaul: USDA macros, portion/step audits, community pre-approval cron) and `a44c00e` (shareable recipes, drop audit gate, save/cook counters, creator outcome badges + push, post-cook review prompt). RevenueCat scaffold landed on `main` as a no-op stub via `11b0d70`; real wrapper stays on `mori-plus` until Mori+ ships. **Creator referral code program deferred to v2.1** (decision 2026-05-26). v2.0.0 remaining scope: Explore-tab `SELECT *` slim-down. Jest: 531+ tests.*

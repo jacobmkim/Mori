@@ -24,11 +24,15 @@ Use these exact framings in all marketing content. Do not overclaim.
 | Instacart | "Sends your list to Instacart in one tap" | "Delivers groceries to your door" |
 | Instacart | "One tap to Instacart" | "Groceries arrive in an hour" |
 | Meal planning | "Drag recipes into your weekly meal grid" | "Plans your meals for you" |
-| Recipe library | "1,500+ curated recipes" | "Infinite recipes" |
+| Recipe library | "2,600+ curated recipes" | "Infinite recipes" |
+| Sharing | "Share any recipe with a tap" | "Viral recipe network" |
+| Creator codes | "Use your creator's code to join Mori" | "Earn money for sharing Mori" *(until Mori+ subscriptions ship)* |
 | Cooking mode | "Step-by-step cooking mode" | "Guided cooking AI" |
 | Macros | "Estimated macros on every recipe" | "Precise nutrition tracking" |
 
 > **Instacart note:** Mori generates an Instacart link. The user completes the order inside the Instacart app or browser. Mori does not place the order directly. Always frame as "sends to Instacart" or "one tap to Instacart."
+
+> **Creator codes note (v2.0.0):** TikTok creators get a referral code (e.g. `JANE10`) and a shareable link `getmori.app/?ref=JANE10`. New users who sign up via that link are attributed to the creator. Revenue share for those creators only kicks in once **Mori+ subscriptions** are live — there is no payout pool from free-tier users. Until Mori+ ships, never say "earn money for joining" or "get paid for sharing." Acceptable language: *"Join with [creator]'s code"* / *"Used [creator]'s link to sign up"* / *"Mori creator partner"*.
 
 ---
 
@@ -190,7 +194,9 @@ Never open with: "Mori is an AI-powered…" or "Introducing Mori…"
 - Never make Mori feel like a diet app, calorie tracker, or fitness tool
 - Never use aggressive or hype-driven language — the forest is calm
 - Never hardcode hex values in app code — always `useTheme()`
+- Never promise creator-code payouts until Mori+ subscriptions are live and the payout flow has shipped end-to-end
+- Never publicly attribute share counts or referral leaderboards in v2.0.0 — attribution is captured silently; surface comes later with Mori+
 
 ---
 
-*v1.0 — Created April 2026. Sync with claude.md on any feature changes. Marketing claims must match current build state.*
+*v1.1 — Updated 2026-05-13 for v2.0.0: recipe count refreshed to 2,600+, share + creator-code framing added. Sync with CLAUDE.md on any feature changes. Marketing claims must match current build state.*
