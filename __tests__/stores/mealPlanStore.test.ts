@@ -149,6 +149,43 @@ describe('mealPlanStore — removeSlot', () => {
   });
 });
 
+// ─── setSlotCooked ────────────────────────────────────────────────────────────
+
+describe('mealPlanStore — setSlotCooked', () => {
+  const slot = { day: 1, meal_type: 'lunch' as const, recipe_id: 'r1', servings_multiplier: 1 };
+
+  it('sets cooked_at on the matching slot', () => {
+    useMealPlanStore.setState({ plan: { ...MOCK_PLAN, slots: [slot] } });
+
+    useMealPlanStore.getState().setSlotCooked(1, 'lunch', '2026-05-28T12:00:00Z');
+
+    expect(useMealPlanStore.getState().plan?.slots[0].cooked_at).toBe('2026-05-28T12:00:00Z');
+  });
+
+  it('clears cooked_at when passed null', () => {
+    useMealPlanStore.setState({ plan: { ...MOCK_PLAN, slots: [{ ...slot, cooked_at: '2026-05-28T12:00:00Z' }] } });
+
+    useMealPlanStore.getState().setSlotCooked(1, 'lunch', null);
+
+    expect(useMealPlanStore.getState().plan?.slots[0].cooked_at).toBeNull();
+  });
+
+  it('does not touch other slots', () => {
+    const slot2 = { day: 2, meal_type: 'dinner' as const, recipe_id: 'r2', servings_multiplier: 1 };
+    useMealPlanStore.setState({ plan: { ...MOCK_PLAN, slots: [slot, slot2] } });
+
+    useMealPlanStore.getState().setSlotCooked(1, 'lunch', '2026-05-28T12:00:00Z');
+
+    const slots = useMealPlanStore.getState().plan?.slots ?? [];
+    expect(slots.find((s) => s.day === 2)?.cooked_at).toBeUndefined();
+  });
+
+  it('is a no-op when plan is null', () => {
+    useMealPlanStore.getState().setSlotCooked(1, 'lunch', '2026-05-28T12:00:00Z');
+    expect(useMealPlanStore.getState().plan).toBeNull();
+  });
+});
+
 // ─── clearSlots ───────────────────────────────────────────────────────────────
 
 describe('mealPlanStore — clearSlots', () => {

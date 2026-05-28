@@ -177,4 +177,18 @@ describe('aggregateWeeklyMacros', () => {
     const result = aggregateWeeklyMacros(slots, recipes);
     expect(result.weekly.isEstimated).toBe(true);
   });
+
+  // Servings at add-time: the Plan picker stores servings as a multiplier
+  // (chosen servings ÷ recipe base servings). This confirms that round-trip
+  // feeds aggregateWeeklyMacros correctly.
+  it('scales macros by chosen-servings ÷ base-servings (add-time servings)', () => {
+    const recipe = makeRecipe('a', baseMacros);
+    recipe.servings = 2; // base servings
+    const chosenServings = 4;
+    const multiplier = chosenServings / (recipe.servings ?? 2); // = 2
+    const slots = [makeSlot(0, 'a', multiplier)];
+    const result = aggregateWeeklyMacros(slots, { a: recipe });
+    expect(result.weekly.calories).toBe(baseMacros.calories * 2); // 1000
+    expect(result.weekly.protein).toBe(baseMacros.protein * 2);   // 60
+  });
 });

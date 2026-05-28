@@ -14,6 +14,7 @@ interface MealPlanStore {
   setPlan: (plan: MealPlan | null) => void;
   addSlot: (slot: MealSlot) => void;
   removeSlot: (day: number, mealType: MealType) => void;
+  setSlotCooked: (day: number, mealType: MealType, cookedAt: string | null) => void;
   clearSlots: () => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
@@ -45,6 +46,19 @@ export const useMealPlanStore = create<MealPlanStore>((set, get) => ({
           ...state.plan,
           slots: state.plan.slots.filter(
             (s) => !(s.day === day && s.meal_type === mealType)
+          ),
+        },
+      };
+    }),
+
+  setSlotCooked: (day, mealType, cookedAt) =>
+    set((state) => {
+      if (!state.plan) return state;
+      return {
+        plan: {
+          ...state.plan,
+          slots: state.plan.slots.map((s) =>
+            s.day === day && s.meal_type === mealType ? { ...s, cooked_at: cookedAt } : s
           ),
         },
       };

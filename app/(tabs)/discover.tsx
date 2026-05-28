@@ -30,6 +30,7 @@ import { LeftoversReminderModal } from '@/components/LeftoversReminderCard';
 import { HeadlineMacroPill, MacroRow } from '@/components/ui/MacroRow';
 import { scaleMacros } from '@/lib/macroUtils';
 import { getRecipeImageUrl } from '@/lib/recipeImage';
+import { ServingsAdjuster } from '@/components/ServingsAdjuster';
 import { MoriLogo } from '@/components/ui/MoriLogo';
 import { AvatarButton } from '@/components/AvatarButton';
 import { useSavedStore } from '@/stores/savedStore';
@@ -1311,25 +1312,7 @@ export default function Discover() {
             )}
 
             {/* Servings adjuster */}
-            <View style={{ alignItems: 'center', gap: 8 }}>
-              <Text style={{ fontSize: 13, fontWeight: '600', color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 }}>Servings</Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 28 }}>
-                <Pressable
-                  onPress={() => setDeckServings((s) => Math.max(1, s - 1))} hitSlop={8}
-                  style={{ width: 44, height: 44, borderRadius: 22, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }}
-                >
-                  <Ionicons name="remove" size={20} color={deckServings <= 1 ? colors.border : colors.text} />
-                </Pressable>
-                <Text style={{ fontSize: 36, fontWeight: '700', color: colors.text, minWidth: 40, textAlign: 'center' }}>{deckServings}</Text>
-                <Pressable
-                  onPress={() => setDeckServings((s) => Math.min(20, s + 1))} hitSlop={8}
-                  style={{ width: 44, height: 44, borderRadius: 22, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }}
-                >
-                  <Ionicons name="add" size={20} color={deckServings >= 20 ? colors.border : colors.text} />
-                </Pressable>
-              </View>
-              <Text style={{ fontSize: 14, color: colors.textMuted }}>serving{deckServings !== 1 ? 's' : ''}</Text>
-            </View>
+            <ServingsAdjuster value={deckServings} onChange={setDeckServings} />
 
             {/* Scaled macros + cost */}
             {topRecipe && (() => {

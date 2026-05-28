@@ -232,6 +232,7 @@ export interface MealSlot {
   meal_type: MealType;
   recipe_id: string;
   servings_multiplier: number;
+  cooked_at?: string | null; // ISO timestamp when marked cooked; absent/null = not cooked
 }
 
 export interface MealPlan {

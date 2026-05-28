@@ -21,7 +21,10 @@ import { MacroRow } from '@/components/ui/MacroRow';
 import { RecipeDetailModal } from '@/components/RecipeDetailModal';
 import { aggregateWeeklyMacros } from '@/lib/macroUtils';
 import { filterPickerRecipes, type PickerChip, type PickerFilterOpts } from '@/lib/pickerFilters';
+import { otherUncookedSlotsWithRecipe } from '@/lib/mealPlanCooked';
 import { CUISINES } from '@/constants/cuisines';
+import { ServingsAdjuster } from '@/components/ServingsAdjuster';
+import { HorizontalCard, SectionHeader } from '@/components/RecipeCards';
 import type { Recipe, MealType, MealSlot, SkillLevel } from '@/types';
 
 const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -82,6 +85,11 @@ export default function Plan() {
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const [previewRecipe, setPreviewRecipe] = useState<Recipe | null>(null);
+  // Tracks which slot a preview was opened from (slot tap), so cook-from-slot
+  // knows which slot to mark cooked. Null when the preview came from the picker.
+  const [previewSlot, setPreviewSlot] = useState<{ day: number; mealType: MealType } | null>(null);
+  // Servings chosen in the picker add flow; defaults to the recipe's base.
+  const [pendingServings, setPendingServings] = useState(2);
   const [badgeQueue, setBadgeQueue] = useState<Badge[]>([]);
   const [lastWeekSlots, setLastWeekSlots] = useState<MealSlot[]>([]);
   const [selectedDay, setSelectedDay] = useState<number>(() => todayDayIndex());
@@ -126,6 +134,7 @@ export default function Plan() {
   const loadPlan = useMealPlanStore((s) => s.loadPlan);
   const addSlot = useMealPlanStore((s) => s.addSlot);
   const removeSlot = useMealPlanStore((s) => s.removeSlot);
+  const setSlotCooked = useMealPlanStore((s) => s.setSlotCooked);
   const clearSlots = useMealPlanStore((s) => s.clearSlots);
   const savePlan = useMealPlanStore((s) => s.savePlan);
 
@@ -164,6 +173,25 @@ export default function Plan() {
       .sort((a, b) => (b.avg_rating ?? 0) - (a.avg_rating ?? 0))
       .slice(0, 8);
   }, [catalogRecipes, slots, selectedDay]);
+
+  // Explore-style browse carousels for the picker, derived client-side from
+  // already-loaded data (no extra network). Shown when not searching/filtering.
+  const pickerCarousels = useMemo(() => {
+    const cat = catalogRecipes ?? [];
+    const sections: { title: string; recipes: Recipe[] }[] = [];
+    if (savedRecipes.length) sections.push({ title: 'Saved', recipes: savedRecipes.slice(0, 12) });
+    const mealPrep = cat.filter((r) => r.meal_prep_friendly === true).slice(0, 12);
+    if (mealPrep.length) sections.push({ title: 'Meal-prep friendly', recipes: mealPrep });
+    const quick = cat.filter((r) => ((r.prep_time_mins ?? 99) + (r.cook_time_mins ?? 99)) <= 30).slice(0, 12);
+    if (quick.length) sections.push({ title: 'Quick', recipes: quick });
+    let cuisineCount = 0;
+    for (const c of CUISINES) {
+      if (cuisineCount >= 5) break;
+      const matches = cat.filter((r) => (r.cuisine ?? '').toLowerCase().includes(c.label.toLowerCase())).slice(0, 12);
+      if (matches.length >= 3) { sections.push({ title: c.label, recipes: matches }); cuisineCount++; }
+    }
+    return sections;
+  }, [catalogRecipes, savedRecipes]);
 
   useEffect(() => {
     if (!userId) return;
@@ -211,23 +239,74 @@ export default function Plan() {
       .finally(() => setCatalogLoading(false));
   }, [userId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Default the picker servings stepper to the recipe's base each time a
+  // preview opens from the picker.
+  useEffect(() => {
+    if (previewRecipe && pickerOpen) setPendingServings(previewRecipe.servings ?? 2);
+  }, [previewRecipe, pickerOpen]);
+
   function getSlot(day: number, mealType: MealType): MealSlot | undefined {
     return slots.find((s) => s.day === day && s.meal_type === mealType);
   }
 
-  function addRecipeToSlot(recipe: Recipe, day: number, mealType: MealType) {
+  // Absolute serving count for a slot (multiplier × the recipe's base servings).
+  function servingsForSlot(slot: MealSlot, recipe: Recipe): number {
+    return Math.max(1, Math.round((slot.servings_multiplier ?? 1) * (recipe.servings ?? 2)));
+  }
+
+  function addRecipeToSlot(recipe: Recipe, day: number, mealType: MealType, servings?: number) {
     if (!userId) return;
     const recipeId = recipe.supabase_id ?? recipe.id;
-    addSlot({ day, meal_type: mealType, recipe_id: recipeId, servings_multiplier: 1 });
+    const base = recipe.servings ?? 2;
+    const multiplier = servings && servings > 0 ? servings / base : 1;
+    addSlot({ day, meal_type: mealType, recipe_id: recipeId, servings_multiplier: multiplier });
     setSlotRecipes((prev) => ({ ...prev, [recipeId]: recipe }));
     savePlan(userId, weekStart);
   }
 
   function handleAssign(recipe: Recipe) {
     if (!pickerOpen) return;
-    addRecipeToSlot(recipe, pickerOpen.day, pickerOpen.mealType);
+    addRecipeToSlot(recipe, pickerOpen.day, pickerOpen.mealType, pendingServings);
     setPickerOpen(null);
     resetPickerFilters();
+  }
+
+  // Marks a slot cooked, then offers to mark other uncooked slots holding the
+  // same recipe this week (batch cooking). Persists once per choice.
+  function markSlotCooked(day: number, mealType: MealType, recipeId: string, recipeTitle: string) {
+    const now = new Date().toISOString();
+    setSlotCooked(day, mealType, now);
+    const others = otherUncookedSlotsWithRecipe(slots, recipeId, { day, meal_type: mealType });
+    if (others.length === 0) {
+      if (userId) savePlan(userId, weekStart);
+      return;
+    }
+    Alert.alert(
+      'Cooked a batch?',
+      `You have ${recipeTitle} in ${others.length} other meal${others.length > 1 ? 's' : ''} this week. Mark ${others.length > 1 ? 'them' : 'it'} cooked too?`,
+      [
+        { text: 'Just this one', style: 'cancel', onPress: () => { if (userId) savePlan(userId, weekStart); } },
+        {
+          text: `Mark all ${others.length}`,
+          onPress: () => {
+            others.forEach((o) => setSlotCooked(o.day, o.meal_type, now));
+            if (userId) savePlan(userId, weekStart);
+          },
+        },
+      ],
+    );
+  }
+
+  function handleToggleCooked(day: number, mealType: MealType) {
+    const slot = getSlot(day, mealType);
+    if (!slot) return;
+    if (slot.cooked_at) {
+      setSlotCooked(day, mealType, null);
+      if (userId) savePlan(userId, weekStart);
+    } else {
+      const recipe = slotRecipes[slot.recipe_id];
+      markSlotCooked(day, mealType, slot.recipe_id, recipe?.title ?? 'this recipe');
+    }
   }
 
   // Suggestion card "+" tap — pick which empty meal slot to drop the recipe into.
@@ -535,7 +614,7 @@ export default function Plan() {
               <Pressable
                 key={mealType}
                 onPress={() => {
-                  if (recipe) { setPreviewRecipe(recipe); return; }
+                  if (recipe) { setPreviewSlot({ day: selectedDay, mealType }); setPreviewRecipe(recipe); return; }
                   if (isDeleted) { handleRemove(selectedDay, mealType); return; }
                   setPickerOpen({ day: selectedDay, mealType });
                 }}
@@ -563,20 +642,41 @@ export default function Plan() {
                     {recipe.image_url && (
                       <Image
                         source={{ uri: getRecipeImageUrl(recipe.image_url, 'thumb') }}
-                        style={{ width: 44, height: 44, borderRadius: 6, backgroundColor: colors.border }}
+                        style={{ width: 44, height: 44, borderRadius: 6, backgroundColor: colors.border, opacity: slot?.cooked_at ? 0.5 : 1 }}
                         contentFit="cover"
                         transition={150}
                         recyclingKey={recipe.id}
                       />
                     )}
                     <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 14, fontWeight: '500', color: colors.text }} numberOfLines={1}>
+                      <Text
+                        style={{
+                          fontSize: 14, fontWeight: '500', color: colors.text,
+                          textDecorationLine: slot?.cooked_at ? 'line-through' : 'none',
+                          opacity: slot?.cooked_at ? 0.5 : 1,
+                        }}
+                        numberOfLines={1}
+                      >
                         {recipe.title}
                       </Text>
-                      {recipe.meal_prep_friendly && (
-                        <Text style={{ fontSize: 11, color: colors.primary, marginTop: 1 }}>Meal prep ✓</Text>
-                      )}
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 1 }}>
+                        {slot && (
+                          <Text style={{ fontSize: 11, color: colors.textMuted }}>
+                            {servingsForSlot(slot, recipe)} serving{servingsForSlot(slot, recipe) !== 1 ? 's' : ''}
+                          </Text>
+                        )}
+                        {recipe.meal_prep_friendly && (
+                          <Text style={{ fontSize: 11, color: colors.primary }}>Meal prep ✓</Text>
+                        )}
+                      </View>
                     </View>
+                    <Pressable onPress={() => handleToggleCooked(selectedDay, mealType)} hitSlop={8}>
+                      <Ionicons
+                        name={slot?.cooked_at ? 'checkmark-circle' : 'ellipse-outline'}
+                        size={22}
+                        color={slot?.cooked_at ? colors.primary : colors.border}
+                      />
+                    </Pressable>
                     <Pressable onPress={() => handleRemove(selectedDay, mealType)} hitSlop={8}>
                       <Ionicons name="close-circle-outline" size={20} color={colors.textMuted} />
                     </Pressable>
@@ -747,6 +847,26 @@ export default function Plan() {
                 Swipe right on recipes in Discover to save them, then come back here to plan your week.
               </Text>
             </View>
+          ) : (pickerSearch.trim() === '' && activeFilterCount === 0 && pickerCarousels.length > 0) ? (
+            <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+              {pickerCarousels.map((sec) => (
+                <View key={sec.title}>
+                  <SectionHeader title={sec.title} />
+                  <FlatList
+                    horizontal
+                    data={sec.recipes}
+                    keyExtractor={(r) => r.supabase_id ?? r.id}
+                    renderItem={({ item }) => (
+                      <HorizontalCard recipe={item} onPress={() => { setPreviewSlot(null); setPreviewRecipe(item); }} />
+                    )}
+                    initialNumToRender={3}
+                    windowSize={2}
+                    removeClippedSubviews
+                    showsHorizontalScrollIndicator={false}
+                  />
+                </View>
+              ))}
+            </ScrollView>
           ) : pickerSections.length === 0 ? (
             <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', gap: 8, padding: 24 }}>
               <Text style={{ fontSize: 15, color: colors.textMuted, textAlign: 'center' }}>
@@ -780,7 +900,7 @@ export default function Plan() {
               )}
               renderItem={({ item }) => (
                 <Pressable
-                  onPress={() => setPreviewRecipe(item)}
+                  onPress={() => { setPreviewSlot(null); setPreviewRecipe(item); }}
                   style={{
                     flexDirection: 'row', alignItems: 'center', gap: 12,
                     backgroundColor: colors.card, borderRadius: 12,
@@ -979,7 +1099,7 @@ export default function Plan() {
         detail={null}
         isSaved={previewRecipe ? isSaved(previewRecipe.id) : false}
         isInCart={previewRecipe ? selectedRecipes.some((r) => r.id === previewRecipe.id) : false}
-        onClose={() => setPreviewRecipe(null)}
+        onClose={() => { setPreviewRecipe(null); setPreviewSlot(null); }}
         onSaveToggle={() => {
           if (!previewRecipe) return;
           if (isSaved(previewRecipe.id)) removeSavedRecipe(previewRecipe, userId);
@@ -991,6 +1111,7 @@ export default function Plan() {
         }}
         onRemoveFromCart={() => { if (previewRecipe) removeRecipeFromList(previewRecipe.id); }}
         slotContext={pickerOpen ? `${DAY_NAMES[pickerOpen.day]} · ${MEAL_LABELS[pickerOpen.mealType]}` : undefined}
+        slotExtra={pickerOpen ? <ServingsAdjuster value={pendingServings} onChange={setPendingServings} /> : undefined}
         onAddToSlot={() => {
           if (!previewRecipe) return;
           handleAssign(previewRecipe);
@@ -1001,6 +1122,11 @@ export default function Plan() {
           // Cooking it = ingredients are spent; clear from the grocery list
           // (no-op if it wasn't on the list — see groceryStore).
           removeRecipeFromList(previewRecipe.id);
+          // If this preview was opened from a plan slot, mark that slot cooked
+          // (and offer the batch prompt for other slots with the same recipe).
+          if (previewSlot) {
+            markSlotCooked(previewSlot.day, previewSlot.mealType, previewRecipe.supabase_id ?? previewRecipe.id, previewRecipe.title);
+          }
           const profile = useUserStore.getState().profile;
           const preCooked = profile?.meals_cooked_count ?? 0;
           const preLongest = profile?.longest_streak ?? 0;

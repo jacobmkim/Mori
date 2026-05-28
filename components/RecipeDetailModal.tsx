@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
 import { useTheme } from '@/hooks/useTheme';
 import { formatTime, formatCost } from '@/lib/utils';
 import { fetchMacros, flagRecipe, getRecipeNote, saveRecipeNote, fetchRecipeReviews, getUserReviewForRecipe, hasUserCookedRecipe, submitReview, updateReview, deleteReview, fetchCreatorStats, rateRecipe } from '@/lib/api';
@@ -190,6 +190,9 @@ interface RecipeDetailModalProps {
   // replaces the default save/grocery footer with a single "Add to {slot}" button.
   slotContext?: string;
   onAddToSlot?: () => void;
+  // Optional content rendered just above the slot-add CTA (e.g. a servings
+  // adjuster from the Plan-tab picker). Only shown alongside slotContext.
+  slotExtra?: ReactNode;
   // When set, opens directly into CookingMode at the given step. Used by the
   // ResumeCookHandler to drop the user back into a cook session they
   // backgrounded out of.
@@ -199,7 +202,7 @@ interface RecipeDetailModalProps {
 export function RecipeDetailModal({
   visible, recipe, detail, isSaved, isInCart, isCooked = false,
   onClose, onSaveToggle, onAddToCart, onRemoveFromCart, onMarkCooked,
-  slotContext, onAddToSlot, autoOpenCookingAtStep,
+  slotContext, onAddToSlot, slotExtra, autoOpenCookingAtStep,
 }: RecipeDetailModalProps) {
   const colors = useTheme();
   const userId = useUserStore((s) => s.profile?.id);
@@ -1213,8 +1216,11 @@ export function RecipeDetailModal({
             position: 'absolute', bottom: 0, left: 0, right: 0,
             backgroundColor: colors.card, borderTopWidth: 0.5, borderTopColor: colors.border,
             paddingHorizontal: 16, paddingTop: 12, paddingBottom: 32,
-            flexDirection: 'row', gap: 12,
           }}>
+            {slotContext && slotExtra && (
+              <View style={{ marginBottom: 14 }}>{slotExtra}</View>
+            )}
+            <View style={{ flexDirection: 'row', gap: 12 }}>
             {slotContext && onAddToSlot ? (
               <Pressable
                 onPress={onAddToSlot}
@@ -1253,6 +1259,7 @@ export function RecipeDetailModal({
                 </Pressable>
               </>
             )}
+            </View>
           </View>
 
           {/* Servings sheet — inline animated overlay (avoids nested Modal iOS bug) */}
