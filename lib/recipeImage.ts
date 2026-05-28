@@ -14,11 +14,17 @@ const SUPABASE_RENDER = '/storage/v1/render/image/public/';
 
 export type RecipeImageSize = 'thumb' | 'card' | 'hero' | 'detail';
 
-const PRESETS: Record<RecipeImageSize, { width: number; quality: number }> = {
-  thumb:  { width: 160, quality: 70 },  // 44–60 px square avatars / mini thumbs
-  card:   { width: 400, quality: 70 },  // grid + horizontal cards (≤140 px wide)
-  hero:   { width: 800, quality: 75 },  // swipe deck card (full screen width)
-  detail: { width: 1200, quality: 80 }, // recipe detail modal header
+// IMPORTANT: passing `width` alone to Supabase Image Transformations does NOT
+// scale height proportionally — it returns `width × original_height` (a
+// skinny strip when the source is square, like our 1024×1024 gpt-image-1
+// outputs). The thumbnail then center-crops a tiny band of that strip and
+// looks dramatically "zoomed in." Always pass `height` + `resize=cover` so
+// imgproxy does a true aspect-preserving crop.
+const PRESETS: Record<RecipeImageSize, { width: number; height: number; quality: number }> = {
+  thumb:  { width: 160,  height: 160, quality: 70 }, // square — for 44–60 px avatars / mini thumbs
+  card:   { width: 400,  height: 300, quality: 70 }, // 4:3 — grid + horizontal cards
+  hero:   { width: 800,  height: 600, quality: 75 }, // 4:3 — swipe deck card
+  detail: { width: 1200, height: 800, quality: 80 }, // 3:2 — recipe detail modal header
 };
 
 export function getRecipeImageUrl(url: string | null | undefined, size: RecipeImageSize): string {
@@ -30,7 +36,7 @@ export function getRecipeImageUrl(url: string | null | undefined, size: RecipeIm
   if (!url.includes(SUPABASE_OBJECT)) return url;
 
   const transformed = url.replace(SUPABASE_OBJECT, SUPABASE_RENDER);
-  const { width, quality } = PRESETS[size];
+  const { width, height, quality } = PRESETS[size];
   const separator = transformed.includes('?') ? '&' : '?';
-  return `${transformed}${separator}width=${width}&quality=${quality}`;
+  return `${transformed}${separator}width=${width}&height=${height}&resize=cover&quality=${quality}`;
 }

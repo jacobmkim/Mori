@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks/useTheme';
 import { formatTime } from '@/lib/utils';
 import { getRecipesBySupabaseIds, fetchDiscoverRecipes, getMealPlanForWeek, logInteraction, resolveSupabaseId, updateStreakAndCount } from '@/lib/api';
+import { getRecipeImageUrl } from '@/lib/recipeImage';
 import { getNewlyEarned, type Badge, type BadgeStats } from '@/lib/badges';
 import { BadgeAchievementModal } from '@/components/badges/BadgeAchievementModal';
 import { useMealPlanStore } from '@/stores/mealPlanStore';
@@ -561,9 +562,11 @@ export default function Plan() {
                   <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                     {recipe.image_url && (
                       <Image
-                        source={{ uri: recipe.image_url }}
-                        style={{ width: 44, height: 44, borderRadius: 6 }}
+                        source={{ uri: getRecipeImageUrl(recipe.image_url, 'thumb') }}
+                        style={{ width: 44, height: 44, borderRadius: 6, backgroundColor: colors.border }}
                         contentFit="cover"
+                        transition={150}
+                        recyclingKey={recipe.id}
                       />
                     )}
                     <View style={{ flex: 1 }}>
@@ -614,9 +617,11 @@ export default function Plan() {
                 >
                   {r.image_url && (
                     <Image
-                      source={{ uri: r.image_url }}
-                      style={{ width: '100%', height: 96 }}
+                      source={{ uri: getRecipeImageUrl(r.image_url, 'card') }}
+                      style={{ width: '100%', height: 96, backgroundColor: colors.border }}
                       contentFit="cover"
+                      transition={150}
+                      recyclingKey={r.id}
                     />
                   )}
                   <View style={{ padding: 10 }}>
@@ -785,9 +790,11 @@ export default function Plan() {
                 >
                   {item.image_url && (
                     <Image
-                      source={{ uri: item.image_url }}
-                      style={{ width: 64, height: 64, borderRadius: 8 }}
+                      source={{ uri: getRecipeImageUrl(item.image_url, 'thumb') }}
+                      style={{ width: 64, height: 64, borderRadius: 8, backgroundColor: colors.border }}
                       contentFit="cover"
+                      transition={150}
+                      recyclingKey={item.id}
                     />
                   )}
                   <View style={{ flex: 1 }}>

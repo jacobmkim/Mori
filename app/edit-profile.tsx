@@ -80,7 +80,7 @@ export default function EditProfileScreen() {
       const path = `${profile.id}/avatar.jpg`;
       const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(path, data, { upsert: true, contentType });
+        .upload(path, data, { upsert: true, contentType, cacheControl: '31536000' });
       if (uploadError) throw uploadError;
       const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
       const avatar_url = `${urlData.publicUrl}?t=${Date.now()}`;

@@ -91,6 +91,7 @@ async function uploadToSupabase(imageUrl, recipeId) {
   const { error } = await sb.storage.from('recipe-images').upload(path, buffer, {
     contentType,
     upsert: true,
+    cacheControl: '31536000',
   });
   if (error) throw new Error(`Storage upload failed: ${error.message}`);
   const { data: { publicUrl } } = sb.storage.from('recipe-images').getPublicUrl(path);

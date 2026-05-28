@@ -2,7 +2,7 @@ import { getRecipeImageUrl } from '@/lib/recipeImage';
 
 const SUPABASE = 'https://gsqvhepgjzjwbezivfid.supabase.co';
 const OBJECT_URL = `${SUPABASE}/storage/v1/object/public/recipe-images/generated/abc.png`;
-const RENDER_URL = `${SUPABASE}/storage/v1/render/image/public/recipe-images/generated/abc.png?width=400&quality=70`;
+const RENDER_URL = `${SUPABASE}/storage/v1/render/image/public/recipe-images/generated/abc.png?width=400&height=300&resize=cover&quality=70`;
 
 describe('getRecipeImageUrl', () => {
   describe('null / empty inputs', () => {
@@ -23,14 +23,26 @@ describe('getRecipeImageUrl', () => {
       expect(out).toContain('/storage/v1/render/image/public/');
       expect(out).not.toContain('/storage/v1/object/public/');
       expect(out).toContain('width=400');
+      expect(out).toContain('height=300');
+      expect(out).toContain('resize=cover');
       expect(out).toContain('quality=70');
     });
 
     it('honors each size preset', () => {
       expect(getRecipeImageUrl(OBJECT_URL, 'thumb')).toContain('width=160');
+      expect(getRecipeImageUrl(OBJECT_URL, 'thumb')).toContain('height=160');
       expect(getRecipeImageUrl(OBJECT_URL, 'card')).toContain('width=400');
+      expect(getRecipeImageUrl(OBJECT_URL, 'card')).toContain('height=300');
       expect(getRecipeImageUrl(OBJECT_URL, 'hero')).toContain('width=800');
+      expect(getRecipeImageUrl(OBJECT_URL, 'hero')).toContain('height=600');
       expect(getRecipeImageUrl(OBJECT_URL, 'detail')).toContain('width=1200');
+      expect(getRecipeImageUrl(OBJECT_URL, 'detail')).toContain('height=800');
+    });
+
+    it('always uses resize=cover so images aren\'t stretched/warped', () => {
+      for (const size of ['thumb', 'card', 'hero', 'detail'] as const) {
+        expect(getRecipeImageUrl(OBJECT_URL, size)).toContain('resize=cover');
+      }
     });
 
     it('is idempotent — re-transforming a render URL returns it unchanged', () => {

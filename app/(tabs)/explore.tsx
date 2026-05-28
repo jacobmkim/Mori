@@ -14,6 +14,18 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks/useTheme';
 import { formatTime } from '@/lib/utils';
 import { fetchTrendingRecipeIds, logInteraction, resolveSupabaseId, updateStreakAndCount } from '@/lib/api';
+import { getRecipeImageUrl } from '@/lib/recipeImage';
+
+// Column list for the Explore tab's section + search queries. Excludes the
+// heavy JSONB columns (`ingredients`, `steps`, `description`, `audit_data`)
+// that the section/search cards never render — those land via the lazy fetch
+// in `openRecipe` when the user taps. Measured: SELECT * is ~3 KB/row;
+// LIST_COLS is ~0.5 KB/row, so 6 parallel section queries drop from ~180 KB
+// total to ~30 KB.
+const LIST_COLS =
+  'id, external_id, title, cuisine, source_type, image_url, ' +
+  'prep_time_mins, cook_time_mins, meal_prep_friendly, ' +
+  'dietary_tags, macros, badge, save_count, avg_rating, rating_count, created_at';
 import { useUserStore } from '@/stores/userStore';
 import { useSavedStore } from '@/stores/savedStore';
 import { useGroceryStore } from '@/stores/groceryStore';
@@ -72,9 +84,11 @@ function HorizontalCard({
       }}
     >
       <Image
-        source={{ uri: recipe.image_url ?? '' }}
-        style={{ width: 140, height: 90 }}
+        source={{ uri: getRecipeImageUrl(recipe.image_url, 'card') }}
+        style={{ width: 140, height: 90, backgroundColor: colors.border }}
         contentFit="cover"
+        transition={150}
+        recyclingKey={recipe.id}
       />
       <View style={{ padding: 10 }}>
         {badge && badgeStyle && (
@@ -116,9 +130,11 @@ function GridCard({ recipe, onPress }: { recipe: Recipe; onPress: () => void }) 
       }}
     >
       <Image
-        source={{ uri: recipe.image_url ?? '' }}
-        style={{ width: '100%', height: 100 }}
+        source={{ uri: getRecipeImageUrl(recipe.image_url, 'card') }}
+        style={{ width: '100%', height: 100, backgroundColor: colors.border }}
         contentFit="cover"
+        transition={150}
+        recyclingKey={recipe.id}
       />
       <View style={{ padding: 10 }}>
         <Text style={{ fontFamily: 'Georgia', fontStyle: 'italic', fontSize: 12, color: colors.text }} numberOfLines={2}>
@@ -193,19 +209,19 @@ export default function Explore() {
     try {
       const [trendingIds, justAddedRes, quickRes, proteinRes, cookedRes] = await Promise.all([
         fetchTrendingRecipeIds(),
-        supabase.from('recipes').select('*').is('deleted_at', null).order('created_at', { ascending: false }).limit(10),
-        supabase.from('recipes').select('*')
+        supabase.from('recipes').select(LIST_COLS).is('deleted_at', null).order('created_at', { ascending: false }).limit(10),
+        supabase.from('recipes').select(LIST_COLS)
           .lte('prep_time_mins', 20)
           .lte('cook_time_mins', 20)
           .is('deleted_at', null)
           .order('save_count', { ascending: false })
           .limit(6),
         dietaryGoals.includes('high_protein')
-          ? supabase.from('recipes').select('*').is('deleted_at', null).order('created_at', { ascending: false }).limit(10)
+          ? supabase.from('recipes').select(LIST_COLS).is('deleted_at', null).order('created_at', { ascending: false }).limit(10)
           : Promise.resolve({ data: [], error: null }),
         userId
           ? supabase.from('recipe_interactions')
-            .select('recipe_id, recipes(*)')
+            .select(`recipe_id, recipes(${LIST_COLS})`)
             .eq('user_id', userId)
             .eq('interaction_type', 'cooked')
             .order('interacted_at', { ascending: false })
@@ -217,7 +233,7 @@ export default function Explore() {
       if (trendingIds.size > 0) {
         const ids = [...trendingIds].slice(0, 10);
         const { data: trendRows } = await supabase
-          .from('recipes').select('*').in('id', ids).is('deleted_at', null);
+          .from('recipes').select(LIST_COLS).in('id', ids).is('deleted_at', null);
         setTrendingRecipes((trendRows ?? []).map(toRecipe));
       }
 
@@ -264,7 +280,7 @@ export default function Explore() {
       try {
         const { data } = await supabase
           .from('recipes')
-          .select('*')
+          .select(LIST_COLS)
           .ilike('title', `%${searchQuery}%`)
           .is('deleted_at', null)
           .limit(40);
@@ -279,6 +295,34 @@ export default function Explore() {
     setDetailVisible(true);
     if (userId && recipe.supabase_id) {
       logInteraction(userId, recipe.supabase_id, 'view').catch(() => {});
+    }
+    // Lazy-fetch the heavy columns that LIST_COLS strips (ingredients, steps,
+    // description, servings, cost_per_serving). The modal opens immediately
+    // with the header (image + title + macros + time), then the detail tabs
+    // hydrate within ~80 ms — fast enough that the user is still in the open
+    // animation when the data arrives. Skip if the recipe already has them
+    // (e.g. saved-store recipes carry the full row).
+    if (recipe.supabase_id && (recipe.ingredients?.length ?? 0) === 0) {
+      supabase
+        .from('recipes')
+        .select('ingredients, steps, description, servings, cost_per_serving')
+        .eq('id', recipe.supabase_id)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (!data) return;
+          setSelectedRecipe((prev) =>
+            prev && prev.supabase_id === recipe.supabase_id
+              ? {
+                  ...prev,
+                  ingredients: data.ingredients ?? [],
+                  steps: data.steps ?? [],
+                  description: data.description ?? prev.description,
+                  servings: data.servings ?? prev.servings,
+                  cost_per_serving: data.cost_per_serving ?? prev.cost_per_serving,
+                }
+              : prev,
+          );
+        });
     }
   }
 
@@ -344,17 +388,25 @@ export default function Explore() {
         {cookedAgain.length > 0 && (
           <View>
             <SectionHeader title="Cook again" />
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -16 }} contentContainerStyle={{ paddingHorizontal: 16 }}>
-              {applyFilter(cookedAgain).map((recipe) => (
+            <FlatList
+              horizontal
+              data={applyFilter(cookedAgain)}
+              keyExtractor={(r) => r.supabase_id ?? r.id}
+              renderItem={({ item }) => (
                 <HorizontalCard
-                  key={recipe.supabase_id ?? recipe.id}
-                  recipe={recipe}
-                  badge={`Cooked ${(recipe as any)._cookedCount}×`}
+                  recipe={item}
+                  badge={`Cooked ${(item as any)._cookedCount}×`}
                   badgeStyle={{ bg: '#E3F2FD', text: '#1565C0' }}
-                  onPress={() => openRecipe(recipe)}
+                  onPress={() => openRecipe(item)}
                 />
-              ))}
-            </ScrollView>
+              )}
+              initialNumToRender={3}
+              windowSize={2}
+              removeClippedSubviews
+              showsHorizontalScrollIndicator={false}
+              style={{ marginHorizontal: -16 }}
+              contentContainerStyle={{ paddingHorizontal: 16 }}
+            />
           </View>
         )}
 
@@ -362,17 +414,25 @@ export default function Explore() {
         {applyFilter(trendingRecipes).length > 0 && (
           <View>
             <SectionHeader title="Trending this week" />
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -16 }} contentContainerStyle={{ paddingHorizontal: 16 }}>
-              {applyFilter(trendingRecipes).map((recipe) => (
+            <FlatList
+              horizontal
+              data={applyFilter(trendingRecipes)}
+              keyExtractor={(r) => r.supabase_id ?? r.id}
+              renderItem={({ item }) => (
                 <HorizontalCard
-                  key={recipe.supabase_id ?? recipe.id}
-                  recipe={recipe}
+                  recipe={item}
                   badge="Hot"
                   badgeStyle={{ bg: '#FFF3E0', text: '#BF360C' }}
-                  onPress={() => openRecipe(recipe)}
+                  onPress={() => openRecipe(item)}
                 />
-              ))}
-            </ScrollView>
+              )}
+              initialNumToRender={3}
+              windowSize={2}
+              removeClippedSubviews
+              showsHorizontalScrollIndicator={false}
+              style={{ marginHorizontal: -16 }}
+              contentContainerStyle={{ paddingHorizontal: 16 }}
+            />
           </View>
         )}
 
@@ -380,17 +440,25 @@ export default function Explore() {
         {applyFilter(justAdded).length > 0 && (
           <View>
             <SectionHeader title="Just added" />
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -16 }} contentContainerStyle={{ paddingHorizontal: 16 }}>
-              {applyFilter(justAdded).map((recipe) => (
+            <FlatList
+              horizontal
+              data={applyFilter(justAdded)}
+              keyExtractor={(r) => r.supabase_id ?? r.id}
+              renderItem={({ item }) => (
                 <HorizontalCard
-                  key={recipe.supabase_id ?? recipe.id}
-                  recipe={recipe}
+                  recipe={item}
                   badge="New"
                   badgeStyle={{ bg: '#E8F5E9', text: '#1B5E20' }}
-                  onPress={() => openRecipe(recipe)}
+                  onPress={() => openRecipe(item)}
                 />
-              ))}
-            </ScrollView>
+              )}
+              initialNumToRender={3}
+              windowSize={2}
+              removeClippedSubviews
+              showsHorizontalScrollIndicator={false}
+              style={{ marginHorizontal: -16 }}
+              contentContainerStyle={{ paddingHorizontal: 16 }}
+            />
           </View>
         )}
 
@@ -433,15 +501,23 @@ export default function Explore() {
         {dietaryGoals.includes('high_protein') && applyFilter(highProtein).length > 0 && (
           <View>
             <SectionHeader title="High protein" />
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -16 }} contentContainerStyle={{ paddingHorizontal: 16 }}>
-              {applyFilter(highProtein).map((recipe) => (
+            <FlatList
+              horizontal
+              data={applyFilter(highProtein)}
+              keyExtractor={(r) => r.supabase_id ?? r.id}
+              renderItem={({ item }) => (
                 <HorizontalCard
-                  key={recipe.supabase_id ?? recipe.id}
-                  recipe={recipe}
-                  onPress={() => openRecipe(recipe)}
+                  recipe={item}
+                  onPress={() => openRecipe(item)}
                 />
-              ))}
-            </ScrollView>
+              )}
+              initialNumToRender={3}
+              windowSize={2}
+              removeClippedSubviews
+              showsHorizontalScrollIndicator={false}
+              style={{ marginHorizontal: -16 }}
+              contentContainerStyle={{ paddingHorizontal: 16 }}
+            />
           </View>
         )}
       </ScrollView>
@@ -508,9 +584,11 @@ export default function Explore() {
                   }}
                 >
                   <Image
-                    source={{ uri: item.image_url ?? '' }}
-                    style={{ width: 52, height: 52, borderRadius: 8 }}
+                    source={{ uri: getRecipeImageUrl(item.image_url, 'thumb') }}
+                    style={{ width: 52, height: 52, borderRadius: 8, backgroundColor: colors.border }}
                     contentFit="cover"
+                    transition={150}
+                    recyclingKey={item.id}
                   />
                   <View style={{ flex: 1 }}>
                     <Text style={{ fontFamily: 'Georgia', fontStyle: 'italic', fontSize: 14, color: colors.text }} numberOfLines={1}>

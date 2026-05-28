@@ -18,6 +18,7 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { useGroceryStore } from '@/stores/groceryStore';
 import { useDiscoverStore } from '@/stores/discoverStore';
 import { fetchMacros, getPantryItems } from '@/lib/api';
+import { getRecipeImageUrl } from '@/lib/recipeImage';
 import { getApiBaseUrl } from '@/lib/apiBaseUrl';
 import { partitionForInstacart } from '@/lib/staples';
 import { parseGroceryMeasurement, convertMeasurementToUs, formatGroceryQuantity } from '@/lib/instacartUtils';
@@ -179,9 +180,11 @@ function MealsModal({
                 padding: 12,
               }}>
                 <Image
-                  source={recipe.image_url ? { uri: recipe.image_url } : undefined}
-                  style={{ width: 60, height: 60, borderRadius: 10 }}
+                  source={recipe.image_url ? { uri: getRecipeImageUrl(recipe.image_url, 'thumb') } : undefined}
+                  style={{ width: 60, height: 60, borderRadius: 10, backgroundColor: colors.border }}
                   contentFit="cover"
+                  transition={150}
+                  recyclingKey={recipe.id}
                 />
                 <Text style={{
                   flex: 1, fontSize: 15, fontWeight: '600', color: colors.text,
@@ -587,13 +590,16 @@ export default function GroceryList() {
             {selectedRecipes.slice(0, 3).map((r, i) => (
               <Image
                 key={r.id}
-                source={{ uri: r.image_url ?? '' }}
+                source={{ uri: getRecipeImageUrl(r.image_url, 'thumb') }}
                 style={{
                   width: 32, height: 32, borderRadius: 8,
                   borderWidth: 2, borderColor: colors.primaryLight,
                   marginLeft: i === 0 ? 0 : -10,
+                  backgroundColor: colors.border,
                 }}
                 contentFit="cover"
+                transition={150}
+                recyclingKey={r.id}
               />
             ))}
           </View>

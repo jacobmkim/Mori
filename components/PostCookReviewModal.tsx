@@ -5,6 +5,8 @@ import { Image } from 'expo-image';
 import { useTheme } from '@/hooks/useTheme';
 import { ReviewComposer } from '@/components/ReviewComposer';
 import { submitReview, updateReview } from '@/lib/api';
+import { getRecipeImageUrl } from '@/lib/recipeImage';
+import { maybePromptForAppReview } from '@/lib/appReviewPrompt';
 import { useUserStore } from '@/stores/userStore';
 import type { Recipe, Review } from '@/types';
 
@@ -45,6 +47,18 @@ export function PostCookReviewModal({ visible, recipe, existing, onClose, onSubm
         : await submitReview(userId, supabaseId, rating, text || null);
       onSubmitted(review);
       dismiss();
+
+      // Positive-moment App Store prompt — only on first-time submission (not
+      // edits) and only on a 4-or-5. Fire-and-forget; eligibility + cooldown
+      // live inside maybePromptForAppReview.
+      if (!existing) {
+        const profile = useUserStore.getState().profile;
+        maybePromptForAppReview({
+          rating,
+          mealsCookedCount: profile?.meals_cooked_count ?? 0,
+          accountCreatedAt: profile?.created_at ?? null,
+        }).catch(() => {});
+      }
     } catch {
       setError('Could not save review. Please try again.');
     }
@@ -70,9 +84,11 @@ export function PostCookReviewModal({ visible, recipe, existing, onClose, onSubm
             <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center', paddingHorizontal: 24, marginBottom: 18 }}>
               {recipe.image_url && (
                 <Image
-                  source={{ uri: recipe.image_url }}
-                  style={{ width: 56, height: 56, borderRadius: 12 }}
+                  source={{ uri: getRecipeImageUrl(recipe.image_url, 'thumb') }}
+                  style={{ width: 56, height: 56, borderRadius: 12, backgroundColor: colors.border }}
                   contentFit="cover"
+                  transition={150}
+                  recyclingKey={recipe.id}
                 />
               )}
               <View style={{ flex: 1 }}>

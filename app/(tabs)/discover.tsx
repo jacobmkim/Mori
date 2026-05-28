@@ -29,6 +29,7 @@ import { RecipeDetailModal } from '@/components/RecipeDetailModal';
 import { LeftoversReminderModal } from '@/components/LeftoversReminderCard';
 import { HeadlineMacroPill, MacroRow } from '@/components/ui/MacroRow';
 import { scaleMacros } from '@/lib/macroUtils';
+import { getRecipeImageUrl } from '@/lib/recipeImage';
 import { MoriLogo } from '@/components/ui/MoriLogo';
 import { AvatarButton } from '@/components/AvatarButton';
 import { useSavedStore } from '@/stores/savedStore';
@@ -182,10 +183,12 @@ function RecipeSwipeCard({
       ]}
     >
       <Image
-        source={{ uri: recipe.image_url ?? '' }}
-        style={{ width: '100%', height: '62%' }}
+        source={{ uri: getRecipeImageUrl(recipe.image_url, 'hero') }}
+        style={{ width: '100%', height: '62%', backgroundColor: colors.border }}
         contentFit="cover"
         priority="high"
+        transition={150}
+        recyclingKey={recipe.id}
       />
 
       {/* Previously cooked indicator — post-cook check-in prompt */}
@@ -351,6 +354,7 @@ export default function Discover() {
   const colors = useTheme();
   const router = useRouter();
   const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [mealPrepRelaxed, setMealPrepRelaxed] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const { mode, setMode, loadMode } = useDiscoverStore();
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -520,7 +524,7 @@ export default function Discover() {
 
     const savedExternalIds = new Set(savedRecipes.map((r) => r.id));
     fetchScoredDeck(userId, dietaryGoals, profile, savedExternalIds, mode)
-      .then((loaded) => {
+      .then(({ deck: loaded, relaxedMealPrep }) => {
         // Pre-populate macro cache from Supabase data so pills show instantly
         // for recipes that already have macros stored — no API call needed.
         loaded.forEach((r) => {
@@ -535,6 +539,7 @@ export default function Discover() {
           setCurrentIndex(0);
         }
         setRecipes(loaded);
+        setMealPrepRelaxed(relaxedMealPrep);
         hasDeckRef.current = true;
       })
       .finally(() => { if (!silent) setIsLoading(false); });
@@ -623,6 +628,17 @@ export default function Discover() {
 
     fetchNearby();
     return () => { cancelled = true; };
+  }, [currentIndex, recipes]);
+
+  // Image prefetch for upcoming cards. Original gpt-image-1 PNGs are 1.5 MB+
+  // and ship with Cache-Control: no-cache, so the next card flashes blank while
+  // the wire pulls bytes. Prefetch the next 2 cards' resized hero images so
+  // they're warm in the disk cache by the time the user swipes.
+  useEffect(() => {
+    const next = [recipes[currentIndex + 1], recipes[currentIndex + 2]]
+      .map((r) => r && getRecipeImageUrl(r.image_url, 'hero'))
+      .filter((u): u is string => Boolean(u));
+    if (next.length) Image.prefetch(next).catch(() => {});
   }, [currentIndex, recipes]);
 
   // Fire-and-forget: log the swipe to Supabase.
@@ -1041,6 +1057,31 @@ export default function Discover() {
           <Ionicons name="cart" size={14} color="white" />
           <Text style={{ color: 'white', fontSize: 13, fontWeight: '600' }}>Added to grocery list</Text>
         </Animated.View>
+      )}
+
+      {/* Soft-fail banner — Meal Prep pool too small for current filters.
+          Filter was dropped to keep the deck browsable. */}
+      {mode === 'meal_prep' && !isLoading && mealPrepRelaxed && (
+        <View
+          style={{
+            marginHorizontal: 16,
+            marginTop: 8,
+            paddingHorizontal: 14,
+            paddingVertical: 10,
+            backgroundColor: colors.card,
+            borderRadius: 12,
+            borderWidth: 1,
+            borderColor: colors.border,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 10,
+          }}
+        >
+          <Ionicons name="information-circle-outline" size={18} color={colors.textMuted} />
+          <Text style={{ flex: 1, color: colors.textMuted, fontSize: 12, lineHeight: 16 }}>
+            Not enough meal-prep matches for your prefs — showing all recipes.
+          </Text>
+        </View>
       )}
 
       {/* Week progress indicator — Meal Prep mode only. Tap → Plan tab */}

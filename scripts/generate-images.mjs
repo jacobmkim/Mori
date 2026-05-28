@@ -124,6 +124,7 @@ async function uploadToSupabase(imageUrl, recipeId) {
     .upload(path, buffer, {
       contentType,
       upsert: true,
+      cacheControl: '31536000',
     });
 
   if (error) throw new Error(`Supabase upload error: ${error.message}`);
