@@ -2,7 +2,7 @@
   "expo": {
     "name": "Mori",
     "slug": "mori",
-    "version": "5.0.2",
+    "version": "5.1.0",
     "orientation": "portrait",
     "icon": "./assets/mori_icon.png",
     "scheme": "mori",
