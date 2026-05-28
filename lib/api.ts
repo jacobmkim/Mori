@@ -1517,6 +1517,11 @@ export async function submitReview(
     .select('*, reviewer:profiles_public!recipe_reviews_user_id_fkey(name, username, avatar_url)')
     .single();
   if (error) throw error;
+
+  // Fire-and-forget creator notification. Server-side guards (60s freshness
+  // window, IDOR check, opt-out flag) make this safe to call from the client.
+  notifyReviewCreator(data.id).catch(() => {});
+
   return {
     id: data.id,
     recipe_id: data.recipe_id,
@@ -1529,6 +1534,17 @@ export async function submitReview(
     reviewer_username: data.reviewer?.username ?? null,
     reviewer_avatar: data.reviewer?.avatar_url ?? null,
   };
+}
+
+async function notifyReviewCreator(reviewId: string): Promise<void> {
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token;
+  if (!token) return;
+  await fetch(`${getApiBaseUrl()}/api/notify-review`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ reviewId }),
+  });
 }
 
 export async function updateReview(
