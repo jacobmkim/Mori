@@ -32,6 +32,9 @@ import { clearRecipeCache } from '@/lib/mealdb';
 import { getApiBaseUrl } from '@/lib/apiBaseUrl';
 import { computeBadges, getShowcaseBadges } from '@/lib/badges';
 import type { Badge, BadgeStats } from '@/lib/badges';
+import { flags } from '@/lib/featureFlags';
+import { toggleDevPremium } from '@/lib/devPremium';
+import { moriPlusEntry } from '@/lib/moriPlusEntry';
 import type { Profile } from '@/types';
 import { EditPreferencesModal } from '@/components/EditPreferencesModal';
 import { PantryModal } from '@/components/PantryModal';
@@ -95,6 +98,8 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
   const colors = useTheme();
   const { profile, setProfile } = useUserStore();
   const savedCount = useSavedStore((s) => s.savedRecipes.length);
+  const isPremium = useUserStore((s) => s.isPremium);
+  const mpEntry = moriPlusEntry(flags.moriPlusEnabled, isPremium);
   const { appearanceMode, setAppearanceMode, unitSystem, setUnitSystem } = useDiscoverStore();
   const [editVisible, setEditVisible] = useState(false);
   const [pantryVisible, setPantryVisible] = useState(false);
@@ -526,6 +531,52 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
             )}
 
             {activeTab === 'overview' && (<>
+
+            {/* Mori+ — gated by the kill switch; dev toggle previews premium without RevenueCat */}
+            {mpEntry && (
+              <View style={{ paddingHorizontal: 16, marginBottom: 20 }}>
+                <Text style={{
+                  fontSize: 11, fontWeight: '700', color: colors.textMuted,
+                  textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10,
+                }}>
+                  Mori+
+                </Text>
+                <View style={{
+                  backgroundColor: colors.card, borderRadius: 12,
+                  borderWidth: 1, borderColor: colors.border, overflow: 'hidden',
+                }}>
+                  <SheetRow
+                    icon={mpEntry.icon}
+                    label={mpEntry.label}
+                    onPress={() => {
+                      Alert.alert(
+                        'Mori+',
+                        mpEntry.mode === 'manage'
+                          ? "You're on Mori+. Subscription management arrives with the paywall."
+                          : 'The paywall is coming in the next update. For now, use the dev toggle below to preview premium.'
+                      );
+                    }}
+                    last={!__DEV__}
+                  />
+                  {__DEV__ && (
+                    <SheetRow
+                      icon="bug-outline"
+                      label="Premium (dev toggle)"
+                      chevron={false}
+                      trailing={
+                        <Switch
+                          value={isPremium}
+                          onValueChange={() => { toggleDevPremium(); }}
+                          trackColor={{ false: colors.border, true: colors.primary }}
+                          thumbColor="white"
+                        />
+                      }
+                      last
+                    />
+                  )}
+                </View>
+              </View>
+            )}
 
             {/* Account */}
             <View style={{ paddingHorizontal: 16, marginBottom: 20 }}>
