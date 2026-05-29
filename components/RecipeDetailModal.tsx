@@ -8,7 +8,7 @@
  */
 import {
   View, Text, Modal, Pressable, ScrollView, Dimensions,
-  ActivityIndicator, Alert, TextInput, Animated, Share,
+  ActivityIndicator, Alert, TextInput, Animated,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -28,6 +28,7 @@ import { supabase } from '@/lib/supabase';
 import { getApiBaseUrl } from '@/lib/apiBaseUrl';
 import { MacroRow } from '@/components/ui/MacroRow';
 import { scaleMacros } from '@/lib/macroUtils';
+import { shareRecipe, canShareRecipe } from '@/lib/shareRecipe';
 import { CookingMode } from '@/components/CookingMode';
 import { timerDoneHaptic } from '@/lib/haptics';
 import { playTimerChime } from '@/lib/sound';
@@ -529,19 +530,9 @@ export function RecipeDetailModal({
           {/* Share — opens the system share sheet with the public web link.
               Hidden for private community drafts (would 404 on the web).
               When recipe.supabase_id is missing, fall back to recipe.id. */}
-          {!(recipe.source_type === 'community' && recipe.is_public === false) && (
+          {canShareRecipe(recipe) && (
             <Pressable
-              onPress={() => {
-                const id = recipe.supabase_id ?? recipe.id;
-                const url = `https://getmori.app/r/${id}`;
-                // Embed the URL inside `message` (NOT as a separate `url` field).
-                // iMessage auto-unfurls URLs in message bodies, so the recipient
-                // sees one bubble: blurb text + preview card. Passing `url` as a
-                // separate field caused iOS to attach it twice (duplicate-link bug).
-                Share.share({
-                  message: `You should try this recipe on Mori\n\n${url}`,
-                }).catch(() => {});
-              }}
+              onPress={() => shareRecipe(recipe)}
               hitSlop={8}
               style={{
                 position: 'absolute', zIndex: 10, top: 52, right: 16,
@@ -647,6 +638,21 @@ export function RecipeDetailModal({
                   Estimated values
                 </Text>
               </View>
+            )}
+
+            {/* Prominent share — nudge users to send recipes to people */}
+            {canShareRecipe(recipe) && (
+              <Pressable
+                onPress={() => shareRecipe(recipe)}
+                style={{
+                  flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+                  marginTop: 12, height: 46, borderRadius: 14,
+                  borderWidth: 1.5, borderColor: colors.primary,
+                }}
+              >
+                <Ionicons name="share-outline" size={18} color={colors.primary} />
+                <Text style={{ fontSize: 14, fontWeight: '600', color: colors.primary }}>Send to a friend</Text>
+              </Pressable>
             )}
           </View>
 

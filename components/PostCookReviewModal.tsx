@@ -7,6 +7,7 @@ import { ReviewComposer } from '@/components/ReviewComposer';
 import { submitReview, updateReview } from '@/lib/api';
 import { getRecipeImageUrl } from '@/lib/recipeImage';
 import { maybePromptForAppReview } from '@/lib/appReviewPrompt';
+import { shareRecipe, canShareRecipe } from '@/lib/shareRecipe';
 import { useUserStore } from '@/stores/userStore';
 import type { Recipe, Review } from '@/types';
 
@@ -30,11 +31,34 @@ export function PostCookReviewModal({ visible, recipe, existing, onClose, onSubm
   const userId = useUserStore((s) => s.profile?.id);
   const [stagedRating, setStagedRating] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // After a great first-time cook (4-5★), nudge the user to send the recipe to
+  // someone before closing.
+  const [showShareNudge, setShowShareNudge] = useState(false);
+  const [nudgeRating, setNudgeRating] = useState(5);
 
   function dismiss() {
     setStagedRating(null);
+    setShowShareNudge(false);
     setError(null);
     onClose();
+  }
+
+  function handleShareNudge() {
+    if (recipe) shareRecipe(recipe);
+    // They just did the positive action — don't pile on an app-review prompt.
+    dismiss();
+  }
+
+  function skipShareNudge() {
+    const profile = useUserStore.getState().profile;
+    // App-review prompt only when they decline sharing, so the native review
+    // dialog never collides with the system share sheet. Gated internally.
+    maybePromptForAppReview({
+      rating: nudgeRating,
+      mealsCookedCount: profile?.meals_cooked_count ?? 0,
+      accountCreatedAt: profile?.created_at ?? null,
+    }).catch(() => {});
+    dismiss();
   }
 
   async function handleSubmit(rating: number, text: string) {
@@ -46,11 +70,21 @@ export function PostCookReviewModal({ visible, recipe, existing, onClose, onSubm
         ? await updateReview(existing.id, rating, text || null)
         : await submitReview(userId, supabaseId, rating, text || null);
       onSubmitted(review);
+
+      // Great first-time cook → nudge them to send the recipe to a friend
+      // before closing. The app-review prompt is deferred into skipShareNudge
+      // so the two never fire at once.
+      if (!existing && rating >= 4 && canShareRecipe(recipe)) {
+        setNudgeRating(rating);
+        setStagedRating(null);
+        setShowShareNudge(true);
+        return;
+      }
+
       dismiss();
 
-      // Positive-moment App Store prompt — only on first-time submission (not
-      // edits) and only on a 4-or-5. Fire-and-forget; eligibility + cooldown
-      // live inside maybePromptForAppReview.
+      // Positive-moment App Store prompt — first-time only, 4-or-5 only.
+      // (Reached for ratings < 4, or recipes that can't be shared.)
       if (!existing) {
         const profile = useUserStore.getState().profile;
         maybePromptForAppReview({
@@ -100,7 +134,7 @@ export function PostCookReviewModal({ visible, recipe, existing, onClose, onSubm
                   color: colors.text,
                   marginBottom: 2,
                 }} numberOfLines={2}>
-                  How was it?
+                  {showShareNudge ? 'Loved it?' : 'How was it?'}
                 </Text>
                 <Text style={{ fontSize: 12, color: colors.textMuted }} numberOfLines={1}>
                   {recipe.title}
@@ -108,7 +142,26 @@ export function PostCookReviewModal({ visible, recipe, existing, onClose, onSubm
               </View>
             </View>
 
-            {stagedRating === null ? (
+            {showShareNudge ? (
+              <View style={{ paddingHorizontal: 24 }}>
+                <Text style={{ fontSize: 14, color: colors.textMuted, textAlign: 'center', marginBottom: 18, lineHeight: 20 }}>
+                  Know someone who'd love this? Send it their way.
+                </Text>
+                <Pressable
+                  onPress={handleShareNudge}
+                  style={{
+                    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+                    height: 50, borderRadius: 14, backgroundColor: colors.primary, marginBottom: 8,
+                  }}
+                >
+                  <Ionicons name="share-outline" size={18} color="#fff" />
+                  <Text style={{ fontSize: 15, fontWeight: '600', color: '#fff' }}>Send to a friend</Text>
+                </Pressable>
+                <Pressable onPress={skipShareNudge} style={{ height: 44, alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ fontSize: 14, color: colors.textMuted }}>No thanks</Text>
+                </Pressable>
+              </View>
+            ) : stagedRating === null ? (
               <>
                 <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 4, marginBottom: 18 }}>
                   {[1, 2, 3, 4, 5].map((star) => (
