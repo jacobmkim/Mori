@@ -24,6 +24,7 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
 
 import {
   fetchRecipeReviews,
+  fetchRecipeCookPhotos,
   getUserReviewForRecipe,
   hasUserCookedRecipe,
   submitReview,
@@ -342,6 +343,98 @@ describe('fetchCreatorStats', () => {
     const stats = await fetchCreatorStats('recipe-1');
     expect(typeof stats.avg_rating).toBe('number');
     expect(stats.avg_rating).toBeCloseTo(4.3);
+  });
+});
+
+// ─── cook photos (photo_url) ──────────────────────────────────────────────────
+
+describe('cook photo support', () => {
+  it('fetchRecipeReviews maps photo_url when present', async () => {
+    mockFrom.mockReturnValue(makeChain([makeRawReview({ photo_url: 'https://cdn.example.com/dish.jpg' })]));
+    const reviews = await fetchRecipeReviews('recipe-1');
+    expect(reviews[0].photo_url).toBe('https://cdn.example.com/dish.jpg');
+  });
+
+  it('fetchRecipeReviews defaults photo_url to null when absent', async () => {
+    mockFrom.mockReturnValue(makeChain([makeRawReview()]));
+    const reviews = await fetchRecipeReviews('recipe-1');
+    expect(reviews[0].photo_url).toBeNull();
+  });
+
+  it('getUserReviewForRecipe maps photo_url', async () => {
+    mockFrom.mockReturnValue(makeChain(makeRawReview({ photo_url: 'https://cdn.example.com/dish.jpg' })));
+    const review = await getUserReviewForRecipe('user-1', 'recipe-1');
+    expect(review?.photo_url).toBe('https://cdn.example.com/dish.jpg');
+  });
+
+  it('submitReview writes photo_url when provided and maps it back', async () => {
+    let payload: Record<string, unknown> | null = null;
+    const chain = makeChain(makeRawReview({ photo_url: 'https://cdn.example.com/dish.jpg' }));
+    chain.insert = jest.fn((p: Record<string, unknown>) => { payload = p; return chain; });
+    mockFrom.mockReturnValue(chain);
+    const review = await submitReview('user-1', 'recipe-1', 5, 'Yum', 'https://cdn.example.com/dish.jpg');
+    expect(payload).toMatchObject({ photo_url: 'https://cdn.example.com/dish.jpg' });
+    expect(review.photo_url).toBe('https://cdn.example.com/dish.jpg');
+  });
+
+  it('submitReview defaults photo_url to null when omitted', async () => {
+    let payload: Record<string, unknown> | null = null;
+    const chain = makeChain(makeRawReview());
+    chain.insert = jest.fn((p: Record<string, unknown>) => { payload = p; return chain; });
+    mockFrom.mockReturnValue(chain);
+    await submitReview('user-1', 'recipe-1', 4, null);
+    expect(payload).toMatchObject({ photo_url: null });
+  });
+
+  it('updateReview includes photo_url in the payload only when explicitly passed', async () => {
+    let payload: Record<string, unknown> | null = null;
+    const chain = makeChain(makeRawReview());
+    chain.update = jest.fn((p: Record<string, unknown>) => { payload = p; return chain; });
+    mockFrom.mockReturnValue(chain);
+
+    // text-only edit (photoUrl omitted) → no photo_url key, leaves existing photo intact
+    await updateReview('rev-1', 3, 'edit');
+    expect(payload).not.toHaveProperty('photo_url');
+
+    // set a new photo
+    await updateReview('rev-1', 3, 'edit', 'https://cdn.example.com/new.jpg');
+    expect(payload).toMatchObject({ photo_url: 'https://cdn.example.com/new.jpg' });
+
+    // clear the photo
+    await updateReview('rev-1', 3, 'edit', null);
+    expect(payload).toHaveProperty('photo_url', null);
+  });
+});
+
+// ─── fetchRecipeCookPhotos ────────────────────────────────────────────────────
+
+describe('fetchRecipeCookPhotos', () => {
+  it('maps id, photo_url and reviewer fields', async () => {
+    mockFrom.mockReturnValue(makeChain([
+      { id: 'rev-1', photo_url: 'https://cdn.example.com/a.jpg', reviewer: { name: 'Alice', username: 'alice99' } },
+      { id: 'rev-2', photo_url: 'https://cdn.example.com/b.jpg', reviewer: null },
+    ]));
+    const photos = await fetchRecipeCookPhotos('recipe-1');
+    expect(photos).toHaveLength(2);
+    expect(photos[0]).toEqual({
+      id: 'rev-1',
+      photo_url: 'https://cdn.example.com/a.jpg',
+      reviewer_name: 'Alice',
+      reviewer_username: 'alice99',
+    });
+    expect(photos[1].reviewer_name).toBeNull();
+    expect(photos[1].reviewer_username).toBeNull();
+  });
+
+  it('returns an empty array when no cook photos exist', async () => {
+    mockFrom.mockReturnValue(makeChain([]));
+    const photos = await fetchRecipeCookPhotos('recipe-1');
+    expect(photos).toEqual([]);
+  });
+
+  it('throws when Supabase returns an error', async () => {
+    mockFrom.mockReturnValue(makeChain(null, null, new Error('DB down')));
+    await expect(fetchRecipeCookPhotos('recipe-1')).rejects.toThrow('DB down');
   });
 });
 
