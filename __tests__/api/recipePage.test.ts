@@ -185,7 +185,7 @@ describe('recipe-page — success render', () => {
     expect(html).toContain('twitter:card');
     // Smart App Banner for iOS — opens App Store sheet in Safari.
     expect(html).toContain('apple-itunes-app');
-    expect(html).toContain('app-id=6743395988');
+    expect(html).toContain('app-id=6761498088');
   });
 
   it('falls back to summary card when the recipe has no image', async () => {

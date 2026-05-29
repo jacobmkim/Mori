@@ -271,10 +271,21 @@ export function RecipeDetailModal({
       return;
     }
     setServings(baseServings);
-    const ings = (recipe.ingredients?.length ?? 0) > 0
-      ? recipe.ingredients
-      : (detail?.ingredients ?? []).map((i) => ({ name: i.name, quantity: i.measure, unit: '' }));
-    fetchMacros(recipe.title, ings, { externalId: recipe.external_id ?? undefined, supabaseId: recipe.supabase_id }).then(setBaseMacros).catch(() => setBaseMacros(null));
+    // Source of truth = the stored per-serving macros column (exactly what the
+    // shareable web recipe page reads). Only fall back to the /api/macros
+    // estimator when a recipe has none stored (e.g. an un-enriched community
+    // submission). Previously this always went through fetchMacros, whose
+    // title-keyed local cache could serve a stale pre-USDA-backfill estimate —
+    // making the app and web show different numbers for the same recipe.
+    const stored = recipe.macros;
+    if (stored && ((stored.calories ?? 0) > 0 || (stored.protein ?? 0) > 0)) {
+      setBaseMacros(stored);
+    } else {
+      const ings = (recipe.ingredients?.length ?? 0) > 0
+        ? recipe.ingredients
+        : (detail?.ingredients ?? []).map((i) => ({ name: i.name, quantity: i.measure, unit: '' }));
+      fetchMacros(recipe.title, ings, { externalId: recipe.external_id ?? undefined, supabaseId: recipe.supabase_id }).then(setBaseMacros).catch(() => setBaseMacros(null));
+    }
 
     // Load existing note
     if (userId && recipe.supabase_id) {
