@@ -46,7 +46,7 @@ interface ReviewRow {
   reviewer: { name: string | null; username: string | null; avatar_url: string | null } | null;
 }
 
-const APP_STORE_URL = 'https://apps.apple.com/us/app/mori/id6743395988';
+const APP_STORE_URL = 'https://apps.apple.com/us/app/mori/id6761498088';
 
 function escapeHtml(input: string): string {
   return input
@@ -227,7 +227,7 @@ function renderRecipe(recipe: RecipeRow, reviews: ReviewRow[], origin: string): 
   ${ogImage ? `<meta name="twitter:image" content="${ogImage}" />` : ''}
 
   <!-- iOS smart banner -->
-  <meta name="apple-itunes-app" content="app-id=6743395988" />
+  <meta name="apple-itunes-app" content="app-id=6761498088" />
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
