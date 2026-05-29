@@ -66,14 +66,12 @@ function notFound(res: VercelResponse) {
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Recipe not found · Mori</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+  <!-- Match the app: Georgia (titles) + SF Pro via the system stack (body). No web fonts. -->
   <style>
     body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center;
-           font-family: 'DM Sans', sans-serif; color: #1A1A1A; background: #F8F3EC; padding: 32px; text-align: center; }
+           font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, system-ui, sans-serif; color: #1A1A1A; background: #F8F3EC; padding: 32px; text-align: center; }
     img.logo { height: 36px; margin-bottom: 28px; }
-    h1 { font-family: 'Playfair Display', serif; font-style: italic; font-weight: 700; margin: 0 0 12px; font-size: 2rem; color: #2E5438; }
+    h1 { font-family: Georgia, serif; font-style: italic; font-weight: 700; margin: 0 0 12px; font-size: 2rem; color: #2E5438; }
     p { max-width: 380px; color: #555; line-height: 1.5; }
     a { display: inline-block; margin-top: 24px; padding: 14px 24px; background: #2E5438; color: white;
         border-radius: 999px; text-decoration: none; font-weight: 600; }
@@ -229,9 +227,7 @@ function renderRecipe(recipe: RecipeRow, reviews: ReviewRow[], origin: string): 
   <!-- iOS smart banner -->
   <meta name="apple-itunes-app" content="app-id=6761498088" />
 
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+  <!-- Match the app: Georgia (titles) + SF Pro via the system stack (body). No web fonts. -->
   <style>
     :root {
       --green: #2E5438;
@@ -246,7 +242,7 @@ function renderRecipe(recipe: RecipeRow, reviews: ReviewRow[], origin: string): 
     * { box-sizing: border-box; }
     body {
       margin: 0;
-      font-family: 'DM Sans', sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, system-ui, sans-serif;
       color: var(--text);
       background: var(--linen);
       line-height: 1.5;
