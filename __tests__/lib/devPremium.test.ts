@@ -118,4 +118,41 @@ describe('toggleDevPremium', () => {
     // store must be untouched (still true)
     expect(useUserStore.getState().isPremium).toBe(true);
   });
+
+  it('flips correctly across repeated calls (false→true→false→true)', () => {
+    setDev(true);
+    expect(toggleDevPremium()).toBe(true);
+    expect(toggleDevPremium()).toBe(false);
+    expect(toggleDevPremium()).toBe(true);
+    expect(useUserStore.getState().isPremium).toBe(true);
+  });
+});
+
+// ─── idempotency + layer-independence ─────────────────────────────────────────
+
+describe('applyDevPremiumOverride — idempotency', () => {
+  it('is stable when called twice (stays true, no flicker)', () => {
+    setDev(true);
+    process.env[ENV_KEY] = 'true';
+    applyDevPremiumOverride();
+    applyDevPremiumOverride();
+    expect(useUserStore.getState().isPremium).toBe(true);
+  });
+});
+
+describe('dev override is independent of the Mori+ kill switch', () => {
+  // devPremium intentionally does NOT read EXPO_PUBLIC_MORI_PLUS_ENABLED — the
+  // kill switch governs whether Mori+ SURFACES render; the premium flag governs
+  // whether the user is PAST the paywall. They are orthogonal layers, so the dev
+  // override must set the store flag regardless of the kill switch. (To actually
+  // SEE the gated UI in dev you still need MORI_PLUS_ENABLED=true — that's the
+  // surfacing layer, tested in featureFlags.test.ts.)
+  it('forces premium even when the kill switch env is off', () => {
+    setDev(true);
+    process.env.EXPO_PUBLIC_MORI_PLUS_ENABLED = 'false';
+    process.env[ENV_KEY] = 'true';
+    applyDevPremiumOverride();
+    expect(useUserStore.getState().isPremium).toBe(true);
+    delete process.env.EXPO_PUBLIC_MORI_PLUS_ENABLED;
+  });
 });
