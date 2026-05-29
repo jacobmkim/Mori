@@ -29,16 +29,39 @@ Bug-fixes and v2.0.0 feature work both land on `main` and ship via normal `eas b
   - Out of scope until Mori+: payout calculation, creator-facing dashboard, public creator profile page, percentage tiers, fraud detection.
   - Marketing framing locked in [design.md](design.md) — never overclaim "earn money" until Mori+ subscriptions are live.
 
-### Future — v1.1 / Mori+ paid IAP submission rules
-When ready to ship the `mori-plus` branch (scaffold already on main, commit `11b0d70`):
-- Sign **Paid Apps Agreement** + Tax forms (W-9) + Banking. Cannot ship IAP without all three Active.
-- Apply to **App Store Small Business Program** (15% rate vs 30%, automatic for new devs).
-- Configure subscription products in App Store Connect: `mori_plus_monthly`, `mori_plus_annual`, `mori_plus_lifetime`.
-- Update App Privacy form — add Purchases → Purchase History (Linked to user, App Functionality).
-- Cardinal rule: **paywall NEW features only, never existing free ones**. Swipe / save / plan / grocery / Instacart stay free forever. Mori+ adds Auto Plan, Sunday Drops, Generate from Pantry, Macro Coach, Saved Decks. Drift from this = Guideline 3.1.2 rejection.
-- IAP review is **separate** from binary review. Both must pass; both submitted together.
-- Once Paid Apps Agreement is signed there's no clean revert to "free only" — sign only when ready to ship Mori+ binary.
-- Mori+ also flips on the creator revenue-share payout flow. Until then `referred_by_code` is an attribution-only column.
+### Mori+ paid IAP — ships AFTER v2.0.0 is live (NOT "v1.1"; corrected 2026-05-28)
+Mori+ is its own paid release that follows the free v2.0.0 store release. Code scaffold lives on the `mori-plus` branch (commit `11b0d70`) — that branch is ~21 commits behind `main`; rebase onto `main` + reconcile against the `lib/revenueCat.ts` stub before resuming. **Full strategy (value prop, CPO/GTM, market data, edge cases, every decision) in `~/.claude/plans/i-want-you-to-harmonic-galaxy.md`.**
+
+**Value prop (the spine):** *"You never decide what's for dinner again — Mori learns your taste, plans your week, and ships the groceries."* It's worth $5 as ONE promise, not a feature pile. The market validates it: PlateJoy/eMeals charge $8–11/mo for weaker versions.
+
+**Flagship = the taste-personalized closed loop (Auto Plan + Sunday Drop)** — the only thing no competitor can copy (swipe taste × 2,600 tested catalog × Instacart). Everything else serves it or waits.
+
+**Business/legal prerequisites — DONE (2026-05-28):**
+- ✅ **Paid Applications Agreement signed.** (Near-irreversible — no clean revert to free-only. Does NOT change the live free app; just enables paid sales.)
+- ✅ **Tax form (W-9)** submitted — Non-Exempt Payee, Individual/Sole proprietor.
+- ✅ **Banking** added for payouts. (Verify it shows linked + verified; micro-deposit confirmation can lag 1–2 days.)
+- ✅ **App Store Small Business Program** enrollment submitted. NB: not "automatic" — it's an enrollment request; the **15% rate applies the month AFTER approval, not retroactively**. Confirm it flips to "Enrolled."
+- Entity: shipping as **individual / sole proprietor**. LLC deferred (tax-neutral by default; the lever is an S-corp election, only worth it above ~$60k net profit). Apps with live subscriptions CAN still be transferred to an LLC org account later (shared-secret handoff, RevenueCat-assisted), so the LLC is not a hard pre-launch deadline.
+
+**Still ahead before submission:**
+- Configure subscription products in App Store Connect: `mori_plus_monthly`, `mori_plus_annual`, `mori_plus_lifetime` (decided: **30-day free trial** on monthly + annual; lifetime founders SKU optional).
+- Update App Privacy form — add Purchases → Purchase History (Linked to user, App Functionality) + User ID (RevenueCat).
+- Build the binary (paywall + RC integration + trial config) from the rebased `mori-plus` branch.
+- **No ads** — decided 2026-05-28. Free tier monetizes via Instacart affiliate only; all paid value goes into Mori+. (If ads ever revisited: rewarded video gated to free AI limits, never banners in editorial surfaces.)
+
+**Converged scope (2026-05-28):**
+- **Flagship:** Auto Plan + Sunday Drop (taste-personalized weekly planning that auto-shops).
+- **Planner modes (same engine, not separate products):** food-waste ("use what's spoiling"), multi-diet household ("one cart, everyone fed"), budget ("a week for $X").
+- **Supporting inputs:** "what do you feel like tonight?" (one-shot, catalog-ranked), Fridge Cam (utility, demoted — commoditized), swipe (free).
+- **Macro Coach:** auto-logs from cooked Mori meals (NO photo), coaches your cooking not your whole diet.
+- **CUT:** Snap-your-plate (redundant — Mori knows cooked macros), AI image generation (catalog has images; placeholder for rare net-new), condition-specific/GERD vertical (medical liability — serve via existing filters only), richer dietary handling (current filters stay as-is), ads.
+- **Prereqs before charging (the whole bet = plan quality):** week-level optimizer (scorer only ranks single cards today), `cost_per_serving` backfill 40%→90%, meal-type tags, feed `flavourDna` into ranking, capture `profiles.timezone`.
+- **Pricing:** $4.99–6.99/mo (headroom exists), lead annual $39.99, 30-day trial. Free tier is revenue-positive via Instacart affiliate → grow the free funnel; subscription is the power-user margin layer.
+
+**Rules that still hold:**
+- Cardinal rule: **paywall NEW features only, never existing free ones**. Swipe / save / plan / grocery / Instacart / dietary filters stay free forever. Drift = Guideline 3.1.2 rejection.
+- IAP review is **separate** from binary review. Both must pass; both submitted together (first IAPs must ship with a binary).
+- Creator revenue-share payout is **DECOUPLED** from Mori+ launch (decided 2026-05-28). Mori+ ships with `referred_by_code` attribution-only; payout flow deferred to v2.1+. Launching the paywall does NOT trigger a payout obligation.
 
 ## Commandments
 - Use subagents for any exploration requiring 3+ file analysis; have it return a summary.
