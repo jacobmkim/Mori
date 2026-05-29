@@ -19,7 +19,8 @@ Bug-fixes and v2.0.0 feature work both land on `main` and ship via normal `eas b
 - **Image + Explore perf** — Supabase Image Transformations (`lib/recipeImage.ts`, width+height+resize=cover → ~30 KB WebP), Explore `SELECT *` → thin column list (~8× faster), 4 horizontal sections converted to `FlatList` lazy-render. Details in Applied Learning.
 
 ### v2.0.0 scope — in progress
-- (none — `5.1.0` building for TestFlight; remaining work is device QA per `.claude/` plan)
+- **Cook photos + review-flow polish + "Cook it" CTA** — on `feat/cook-photos` (`1f61d62`, `ddb9949`), **pending merge to `main`**. User cook photos on reviews (`ReviewComposer` → `cook-photos` bucket → `recipe_reviews.photo_url`; `CookPhotoStrip` on detail); post-cook prompt collapsed to one composer w/ `KeyboardAvoidingView` + photo above notes; `RecipeDetailModal` Save→heart on hero + footer "Cook it"→`CookingMode`; fixed the post-cook share sheet (present after dismiss via `onDismiss`); review flags (`review_flags`). **Migrations `add-cook-photos-202605.sql` + `add-review-flags-202605.sql` applied to prod.** Full detail in `.claude/bugfixes.md` (2026-05-29).
+- (device QA on the `5.1.0` TestFlight build per `.claude/` plan)
 
 ### Deferred to v2.1
 - **Creator referral codes / links (TikTok partner program)** — track new-user signups attributed to TikTok creators so we can revenue-share when those users buy Mori+. **Deferred 2026-05-26 to v2.1** to keep v2.0.0 scope tight. Tradeoff: any TikTok-driven signups during the v2.0.0 window are NOT attributed — that data is permanently lost for early adopters. Acceptable because payout doesn't exist yet (Mori+ not live), so the attribution would have no immediate use.
@@ -410,7 +411,7 @@ Open items only. Resolved fixes are logged in `.claude/bugfixes.md`.
 - [ ] No CSRF protection on public endpoints (`/api/waitlist`).
 - [ ] `kroger_tokens` Supabase table still exists (Kroger code removed 2026-04-28) — drop manually with `DROP TABLE kroger_tokens;` to clear the plaintext-token rows.
 - [ ] **Review-cooked-required gate is RLS-only** — any signed-in user can self-INSERT a `recipe_interactions` row of type `'cooked'` via the anon key (schema.sql allows this), then submit a review. RLS gate on `recipe_reviews` trusts that row. **Cook-funnel trigger was planned (2026-04-28) but deferred** — production data shows only ~3% of cook interactions have a prior `'view'` row (legacy data + view logging gap), so the trigger would block legitimate cooks. Revisit in Phase 5 with a moderation queue or CAPTCHA-on-account-create approach.
-- [ ] **No moderation queue UI** — community recipe submissions default to `moderation_status: 'approved'` (audit gate dropped 2026-05-12) and go live immediately. Build a reactive moderation tool — flag-driven takedown or post-hoc review queue — before submission volume grows or a problematic recipe ships.
+- [ ] **No moderation queue UI** — community recipe submissions default to `moderation_status: 'approved'` (audit gate dropped 2026-05-12) and go live immediately. Build a reactive moderation tool — flag-driven takedown or post-hoc review queue — before submission volume grows or a problematic recipe ships. Flag *storage* now exists for both recipes (`recipe_flags`) and reviews (`review_flags`, added 2026-05-29 on `feat/cook-photos`) — collect-only, still no admin takedown UI.
 - [ ] **Creator-code attribution surface (v2.0.0, in progress)** — `profiles.referred_by_code` + `creators` table not yet built. No fraud detection / rate-limit on code-redemption signups; design must include a guard against self-referral and bulk-burner-account attribution before any payout flow goes live with Mori+.
 
 ### 🟡 Open Edge Cases
