@@ -8,7 +8,18 @@ This file is for: progress tracking · branch-specific commandments · env vars 
 
 ## Status
 
-Branch: `mori-plus` · Forked from `main` · Targets v1.1 release.
+Branch: `mori-plus` · **rebased onto `main` 2026-05-28 (now main + scaffold, 0 behind)** · Ships as a paid release AFTER free v2.0.0 is live (NOT "v1.1"). `lib/revenueCat.ts` full wrapper reconciled over main's stub during the rebase. **68 Mori+ tests green post-rebase.**
+
+### ★ Converged scope (2026-05-28) — read the plan file's value-prop + CPO/GTM sections first
+- **Flagship:** Auto Plan + Sunday Drop (taste-personalized weekly planning that auto-shops) — the only thing no competitor can copy.
+- **Planner modes (same engine):** food-waste · multi-diet household · budget.
+- **Supporting inputs:** "what do you feel like tonight?" (one-shot, catalog-ranked) · Fridge Cam (utility, demoted) · swipe (free).
+- **Macro Coach:** auto-logs from cooked Mori meals (NO photo).
+- **CUT:** Snap-your-plate, AI image generation (placeholder for rare net-new), condition/GERD vertical, richer dietary handling, ads.
+- **Prereqs before charging (the whole bet = plan quality):** week-level optimizer, `cost_per_serving` 40%→90%, meal-type tags, feed `flavourDna` into ranking, capture `profiles.timezone`.
+
+### ★ Build cadence (2026-05-28, user directive)
+**One feature at a time → full test cases → STOP for user to test → next.** Don't batch features. Every unit gets Jest coverage; UI features get a manual test checklist. Hand off at each checkpoint.
 
 | M | Scope | Status |
 |---|---|---|
@@ -88,8 +99,8 @@ Existing vars unchanged: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `SUPABASE_SERVIC
 
 | Apple product ID | Display | Price | Trial | RC package |
 |---|---|---|---|---|
-| `mori_plus_monthly` | Mori+ Monthly | $4.99/mo | 7-day free | `monthly` in `default` offering |
-| `mori_plus_annual` | Mori+ Yearly | $39.99/yr | 7-day free | `annual` |
+| `mori_plus_monthly` | Mori+ Monthly | $4.99–6.99/mo (test) | **30-day free** | `monthly` in `default` offering |
+| `mori_plus_annual` | Mori+ Yearly | $39.99/yr (lead) | **30-day free** | `annual` |
 | `mori_plus_lifetime` | Mori+ Lifetime | $79.99 once | none | `lifetime` (founders, first 60 days only) |
 
 Entitlement: `mori_plus` (single boolean — drives all gating).
@@ -154,6 +165,11 @@ Files this branch will create or modify. Update as you ship.
 - **2026-05-03** — `lib/revenueCat.ts` switched from `await import` to `require()` after Jest tests showed dynamic-import bypassed jest.mock virtual mocks under jest-expo's transform. Same module resolution at runtime, mockable in tests. Sentry usage funnels through a `reportError(err, area)` helper that does the same require-then-call pattern, sidestepping a `(0, _reactNative.captureException) is not a function` Babel CJS-interop bug. Test suite: 68 tests across 3 suites, all green.
 - **2026-05-03** — `EXPO_PUBLIC_REVENUECAT_IOS_KEY` is read inside `initRevenueCat()` (not at module load). EAS env updates that arrive via OTA take effect on the next foreground init without a rebuild. Production logic unchanged in steady state; only the timing of the env read differs.
 - **2026-05-03** — Founders waitlist landing: inline section on `public/index.html`, NOT a separate page. Posts to existing `/api/waitlist` endpoint with `name: 'mori-plus-founders'` as the cohort tag. Trade-off: avoids burning a Vercel function slot pre-launch (Hobby plan capped at 12). Migrate to a dedicated `/api/founders-waitlist` + `founders_waitlist` table when (a) Vercel plan upgrades or (b) we drop a different function. Until then, query the founders cohort via `SELECT email FROM waitlist WHERE name = 'mori-plus-founders'`.
+- **2026-05-28** — **Converged on value-prop-first plan** (flagship = taste-personalized closed loop; cuts: Snap-your-plate, image-gen, condition vertical, ads). Full CPO/GTM strategy + market data in the plan file. **Rebased `mori-plus` onto `main`** (21 commits; reconciled `lib/revenueCat.ts` full wrapper over main's stub, merged `eas.json` channels + kill-switch env, kept main's app.json version 6.0.0). 68 tests green.
+- **2026-05-28** — **Trial = 30-day base; NOT 3 months.** Long trials (17–32d) convert best (~42.5%); 90-day burns compute + kills urgency + raises refunds. Generosity comes via referral *rewards* (+1 month promo offers), not a longer base trial.
+- **2026-05-28** — **Referral (give-a-month / get-a-month) = post-launch growth loop**, via RevenueCat **Offer Codes** + attribution. Not a launch blocker; rides in after the core. Reuses the same Offer Code machinery as comping.
+- **2026-05-28** — **Dev testing without RC:** (1) client dev-only "force premium" override (`lib/devPremium.ts`, `__DEV__`-guarded), (2) `profiles.is_premium=true` comp in Supabase Studio for server-side gating, (3) `EXPO_PUBLIC_MORI_PLUS_ENABLED=true` in local `.env` to surface Mori+. No RevenueCat/App Store setup needed. Offer Codes are the clean comp once RC is live.
+- **2026-05-28** — **Build cadence: one feature → full tests → user-test checkpoint → next.** Increment #1 = the dev premium override (unblocks testing everything else).
 
 ---
 
