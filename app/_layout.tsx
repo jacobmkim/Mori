@@ -14,6 +14,7 @@ import { registerForPushNotifications } from '@/lib/notifications';
 import { updatePushToken, touchLastActive } from '@/lib/api';
 import { isResetPasswordUrl, isVerifyEmailUrl, isRecipeUrl, extractRecipeId } from '@/lib/deepLink';
 import { initRevenueCat } from '@/lib/revenueCat';
+import { applyDevPremiumOverride } from '@/lib/devPremium';
 import { ResumeCookHandler } from '@/components/ResumeCookHandler';
 
 Sentry.init({
@@ -111,6 +112,9 @@ function RootLayout() {
     if (rcInitedFor.current === (profile?.id ?? null)) return;
     rcInitedFor.current = profile?.id ?? null;
     initRevenueCat(profile?.id ?? null).catch(() => {});
+    // Dev-only: honor EXPO_PUBLIC_FORCE_PREMIUM for testing Mori+ without RC.
+    // No-op in production builds (hard-guarded by __DEV__).
+    applyDevPremiumOverride();
   }, [profile?.id]);
 
   useEffect(() => {
