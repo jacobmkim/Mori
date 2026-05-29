@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { View, Text, Modal, Pressable, ScrollView, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
@@ -34,6 +34,8 @@ export function PostCookReviewModal({ visible, recipe, existing, onClose, onSubm
   // someone before closing.
   const [showShareNudge, setShowShareNudge] = useState(false);
   const [nudgeRating, setNudgeRating] = useState(5);
+  // Recipe to share once this prompt has fully closed (see handleShareNudge).
+  const shareTargetRef = useRef<Recipe | null>(null);
 
   function dismiss() {
     setShowShareNudge(false);
@@ -41,10 +43,24 @@ export function PostCookReviewModal({ visible, recipe, existing, onClose, onSubm
     onClose();
   }
 
+  // Present the share sheet only after this prompt is gone. Presenting an iOS
+  // activity sheet from inside this nested, transparent overFullScreen modal
+  // fails silently — it must present from the recipe-detail modal underneath.
+  function flushPendingShare() {
+    const target = shareTargetRef.current;
+    if (!target) return;
+    shareTargetRef.current = null;
+    shareRecipe(target);
+  }
+
   function handleShareNudge() {
-    if (recipe) shareRecipe(recipe);
+    // Stash the target, close this prompt, then share once it's dismissed —
+    // via the Modal's onDismiss, with a timeout fallback in case onDismiss
+    // doesn't fire for a transparent modal. The ref guard makes it fire once.
+    shareTargetRef.current = recipe;
     // They just did the positive action — don't pile on an app-review prompt.
     dismiss();
+    setTimeout(flushPendingShare, 600);
   }
 
   function skipShareNudge() {
@@ -98,7 +114,7 @@ export function PostCookReviewModal({ visible, recipe, existing, onClose, onSubm
   if (!recipe) return null;
 
   return (
-    <Modal visible={visible} animationType="slide" transparent presentationStyle="overFullScreen" onRequestClose={dismiss}>
+    <Modal visible={visible} animationType="slide" transparent presentationStyle="overFullScreen" onRequestClose={dismiss} onDismiss={flushPendingShare}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }}>
         <Pressable style={{ ...StyleSheet.absoluteFillObject }} onPress={dismiss} />
