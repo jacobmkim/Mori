@@ -2169,6 +2169,16 @@ export async function updatePushToken(userId: string, token: string): Promise<vo
   if (error) throw error;
 }
 
+// Marks the user active "now" and re-arms the win-back ladder (returning to the
+// app means they're back, so any pending dormancy stage resets). Called on app
+// foreground; fire-and-forget — never block the UI.
+export async function touchLastActive(userId: string): Promise<void> {
+  await supabase
+    .from('profiles')
+    .update({ last_active_at: new Date().toISOString(), winback_stage: 0, last_winback_reminder_at: null })
+    .eq('id', userId);
+}
+
 export async function insertCommunityRecipe(input: CommunityRecipeInput): Promise<string> {
   const { data, error } = await supabase
     .from('recipes')

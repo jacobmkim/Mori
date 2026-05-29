@@ -8,9 +8,10 @@ import Constants from 'expo-constants';
 import * as Updates from 'expo-updates';
 
 import * as Sentry from '@sentry/react-native';
+import * as Notifications from 'expo-notifications';
 import { useUserStore } from '@/stores/userStore';
 import { registerForPushNotifications } from '@/lib/notifications';
-import { updatePushToken } from '@/lib/api';
+import { updatePushToken, touchLastActive } from '@/lib/api';
 import { isResetPasswordUrl, isVerifyEmailUrl, isRecipeUrl, extractRecipeId } from '@/lib/deepLink';
 import { initRevenueCat } from '@/lib/revenueCat';
 import { ResumeCookHandler } from '@/components/ResumeCookHandler';
@@ -62,6 +63,7 @@ function RootLayout() {
   const profile = useUserStore((s) => s.profile);
   const registeredFor = useRef<string | null>(null);
   const rcInitedFor = useRef<string | null>(null);
+  const lastTouchRef = useRef(0);
 
   useEffect(() => {
     if (!profile?.id || registeredFor.current === profile.id) return;
@@ -69,7 +71,38 @@ function RootLayout() {
     registerForPushNotifications()
       .then((token) => { if (token) updatePushToken(profile.id, token).catch(() => {}); })
       .catch(() => {});
+    // Mark active on load + re-arm the win-back ladder. Fire-and-forget.
+    touchLastActive(profile.id).catch(() => {});
+    lastTouchRef.current = Date.now();
   }, [profile?.id]);
+
+  // Refresh last_active_at on foreground (throttled to ~6h — dormancy only
+  // needs day granularity), so the win-back cron can tell who's gone quiet.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state !== 'active') return;
+      const uid = useUserStore.getState().profile?.id;
+      if (!uid) return;
+      const now = Date.now();
+      if (now - lastTouchRef.current < 6 * 3600_000) return;
+      lastTouchRef.current = now;
+      touchLastActive(uid).catch(() => {});
+    });
+    return () => sub.remove();
+  }, []);
+
+  // Route a tapped push notification's `data.url` (a mori:// link) through the
+  // same deep-link handler used for Universal Links. Covers warm taps + the
+  // cold-start case where the tap launched the app.
+  useEffect(() => {
+    function route(resp: Notifications.NotificationResponse | null) {
+      const url = resp?.notification?.request?.content?.data?.url;
+      if (typeof url === 'string' && url) handleDeepLink({ url });
+    }
+    Notifications.getLastNotificationResponseAsync().then(route).catch(() => {});
+    const sub = Notifications.addNotificationResponseReceivedListener(route);
+    return () => sub.remove();
+  }, []);
 
   // Mori+ — configure RevenueCat once we know who the user is. The wrapper is
   // a no-op when the kill switch is off OR the API key is missing, so this is

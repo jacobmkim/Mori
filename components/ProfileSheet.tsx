@@ -581,6 +581,27 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
                   }
                 />
                 <SheetRow
+                  icon="notifications-outline"
+                  label="Comeback reminders"
+                  chevron={false}
+                  trailing={
+                    <Switch
+                      value={profile?.notify_winback ?? true}
+                      onValueChange={async (v) => {
+                        if (!profile) return;
+                        try {
+                          const updated = await patchProfile(profile.id, { notify_winback: v });
+                          setProfile(updated);
+                        } catch {
+                          Alert.alert('Could not update', 'Please try again.');
+                        }
+                      }}
+                      trackColor={{ false: colors.border, true: colors.primary }}
+                      thumbColor="white"
+                    />
+                  }
+                />
+                <SheetRow
                   icon="help-circle-outline"
                   label="Help & Support"
                   onPress={() => { onClose(); setTimeout(() => router.push('/help' as any), 300); }}

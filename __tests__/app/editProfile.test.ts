@@ -41,6 +41,8 @@ const baseProfile: Profile = {
   notify_creator_events: false,
   last_creator_digest_at: null,
   email_verified_at: null,
+  last_active_at: null,
+  notify_winback: true,
 };
 
 describe('getUsernameUnlockDate', () => {

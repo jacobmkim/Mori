@@ -41,6 +41,8 @@ export interface Profile {
   notify_creator_events: boolean;
   last_creator_digest_at: string | null;
   email_verified_at: string | null;
+  last_active_at: string | null;
+  notify_winback: boolean;
 }
 
 // ─── Macros ───────────────────────────────────────────────────────────────────
