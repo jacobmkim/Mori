@@ -27,7 +27,6 @@ import { getStaticSubs, getCachedSubs, fetchAndCacheSubs, type Swap } from '@/li
 import { supabase } from '@/lib/supabase';
 import { getApiBaseUrl } from '@/lib/apiBaseUrl';
 import { MacroRow } from '@/components/ui/MacroRow';
-import { scaleMacros } from '@/lib/macroUtils';
 import { shareRecipe, canShareRecipe } from '@/lib/shareRecipe';
 import { CookingMode } from '@/components/CookingMode';
 import { timerDoneHaptic } from '@/lib/haptics';
@@ -492,7 +491,11 @@ export function RecipeDetailModal({
   function closeServingsSheet() {
     Animated.timing(sheetAnim, { toValue: SCREEN_HEIGHT, duration: 250, useNativeDriver: true }).start(() => setShowServingsSheet(false));
   }
-  const scaledMacros = baseMacros ? scaleMacros(baseMacros, ratio) : null;
+  // Macros are always shown per serving (matches the web recipe page). The
+  // servings stepper scales ingredient + grocery quantities via `ratio`, not
+  // the macro display — stored macros are per-serving, so scaling them by
+  // servings/baseServings would misreport them.
+  const perServingMacros = baseMacros;
   const timeStr = formatTime(recipe.prep_time_mins, recipe.cook_time_mins);
   const costStr = formatCost(recipe.cost_per_serving);
 
@@ -631,11 +634,11 @@ export function RecipeDetailModal({
             )}
 
             {/* Macros row */}
-            {scaledMacros && (
+            {perServingMacros && (
               <View style={{ marginBottom: 6 }}>
-                <MacroRow macros={scaledMacros} />
+                <MacroRow macros={perServingMacros} />
                 <Text style={{ fontSize: 9, color: colors.textMuted, textAlign: 'center', marginTop: 4 }}>
-                  Estimated values
+                  Per serving · estimated
                 </Text>
               </View>
             )}
@@ -1320,9 +1323,9 @@ export function RecipeDetailModal({
                   </View>
                 </View>
 
-                {scaledMacros && (
+                {perServingMacros && (
                   <View style={{ paddingHorizontal: 24, paddingBottom: 16, alignItems: 'center', gap: 4 }}>
-                    <MacroRow macros={scaledMacros} compact />
+                    <MacroRow macros={perServingMacros} compact />
                     <Text style={{ fontSize: 11, color: colors.textMuted }}>Estimated · per serving</Text>
                   </View>
                 )}
