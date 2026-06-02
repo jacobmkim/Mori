@@ -180,6 +180,12 @@ Motion: train a fresh TikTok algo on food/cooking creators → systematic micro-
 
 The body of this plan was written before v1 shipped. These corrections override it:
 
+> ### ⏩ UPDATE 2026-06-01 (read before the 2026-05-28 items below — these supersede them)
+> - **Trial = 30-day, locked by user.** The body §9.1/§9.2/§12 originally said "7 days free" — those strings have now been corrected to 30-day throughout this spec. The 30-day figure is the data-backed choice (long trials convert ~42.5% vs ~25.5%). Whatever Introductory Offer is configured in App Store Connect MUST match the disclosed string exactly (Guideline 3.1.2). Do NOT reintroduce a 7-day number anywhere.
+> - **v2.0.0 is LIVE on the App Store.** Item 1 below said "don't start Mori+ in earnest until v2.0.0 is in the store" — it now is. The precondition is satisfied; Mori+ is the active next release.
+> - **Branch state (item 2 below is stale).** The scaffold is on `mori-plus` at HEAD `a096fd6` (not `11b0d70`, which is an orphaned pre-rebase commit), and the branch is **3 behind / 8 ahead of `main`** (not "~13 behind"). Merge into `main` is mechanically clean (0 conflicts).
+> - **Live build status is at ~13% of a chargeable product** (client scaffold only; no paywall, no server gate, IAP SDK not installed, plan-quality engine ~0%). The authoritative, continuously-updated status + ranked blockers now live in [`Claude-mori+.md`](../../Claude-mori+.md) → "Audit Findings & Open Blockers (2026-06-01)". Treat that section as current truth; treat this spec as the strategy/why.
+
 1. **Version sequencing.** This plan says "v1.1 ships Mori+." Wrong. v1 has been live (US+CA) since 2026-05-05; the next free release is **v2.0.0** (shareable recipes, counters, creator badges, Plan Tab v2, etc. — already on `main`). **Mori+ ships AFTER v2.0.0 is live**, as its own paid release. Everywhere this doc says "v1.1," read "the Mori+ release, after v2.0.0." Don't start Mori+ build in earnest until v2.0.0 is in the store.
 
 2. **Branch state.** All Mori+ scaffolding (full `lib/revenueCat.ts` wrapper, `supabase/add-mori-plus.sql`, 68 tests, `Claude-mori+.md`, landing-page founders section) is on the **`mori-plus` branch at commit `11b0d70`**. That branch is now **~13 commits behind `main`** — rebase onto `main` and reconcile against the `lib/revenueCat.ts` stub on `main` before resuming.
@@ -351,10 +357,10 @@ Everything except HealthKit and Family Share. v1.2 follows ~6 weeks later as the
 | Subscription must provide ongoing value | AI generation, weekly Sunday Drop, ongoing macro tracking, evolving family plan — ✓ |
 | Available across user's devices | RevenueCat `appUserID` carries entitlement across logins — ✓ |
 | Price + duration shown clearly before purchase | Paywall layout (§7) shows price and "/mo" or "/yr" at same prominence — ✓ |
-| Intro offer must be clearly disclosed | "7 days free, then $4.99/month" disclosure under CTA — ✓ |
+| Intro offer must be clearly disclosed | "30 days free, then $4.99/month" disclosure under CTA — ✓ |
 | Restore Purchases must be present in-app | Footer of paywall + Settings → Subscription — ✓ |
 | Privacy Policy + Terms of Use must be linked in-app | Footer of paywall, opens in-app webview — ✓ |
-| Cannot mislead about "free" | Use "Start 7-day free trial" not "Free!"; full price shown — ✓ |
+| Cannot mislead about "free" | Use "Start 30-day free trial" not "Free!"; full price shown — ✓ |
 | **No toggle paywalls** (banned Jan 2026) | Stacked SKU cards instead of toggle — ✓ |
 | Cannot lock unrelated features behind login that aren't part of the subscription | Free features (swipe, save, plan, grocery) require login but are not paywalled — ✓ |
 
@@ -380,7 +386,7 @@ By default, subscriptions are NOT shareable via Apple Family Sharing. We can opt
 
 ### 3.6 Promotional Offers + Win-Back
 Available via App Store Connect:
-- **Introductory offers** — set per SKU (we use 7-day free trial)
+- **Introductory offers** — set per SKU (we use 30-day free trial)
 - **Promotional offers** — discount codes for re-subs, requires server-side signing
 - **Win-back offers** — automated re-engagement for cancelled users (RC supports)
 - **Subscription pause** — annual subscribers can pause for 1–3 months; RC reports as paused state, gate accordingly
@@ -1214,13 +1220,13 @@ Extend existing `lib/substitutions.ts` (~125 static entries) with context-aware 
 │                                     │
 │  ┌───────────────────────────────┐  │
 │  │ Yearly      $39.99/yr       │  │ ← Selected by default
-│  │ ✓ 7 days free   $3.33/mo    │  │
+│  │ ✓ 30 days free   $3.33/mo    │  │
 │  │           Save 33%          │  │
 │  └───────────────────────────────┘  │
 │                                     │
 │  ┌───────────────────────────────┐  │
 │  │ Monthly     $4.99/mo        │  │
-│  │ ✓ 7 days free               │  │
+│  │ ✓ 30 days free               │  │
 │  └───────────────────────────────┘  │
 │                                     │
 │  ┌───────────────────────────────┐  │ ← Lifetime card only shown
@@ -1228,9 +1234,9 @@ Extend existing `lib/substitutions.ts` (~125 static entries) with context-aware 
 │  │ Founders only · No renewal  │  │
 │  └───────────────────────────────┘  │
 │                                     │
-│  [   Start 7-day free trial   ]    │ ← Primary CTA, full-width
+│  [   Start 30-day free trial   ]    │ ← Primary CTA, full-width
 │                                     │
-│  7 days free, then $39.99/year.    │ ← Disclosure (REQUIRED 3.1.2)
+│  30 days free, then $39.99/year.    │ ← Disclosure (REQUIRED 3.1.2)
 │  Auto-renews unless cancelled at   │
 │  least 24 hours before period end. │
 │  Cancel anytime in Settings.       │
@@ -1249,11 +1255,11 @@ Extend existing `lib/substitutions.ts` (~125 static entries) with context-aware 
 | Value prop 3 | "Cook from what you have" |
 | Annual badge | "Save 33%" |
 | Lifetime badge (founders window) | "Founders only · No renewal" |
-| CTA | "Start 7-day free trial" → flips to "Subscribe" if no trial available |
-| Disclosure | "7 days free, then $39.99/year. Auto-renews unless cancelled at least 24 hours before period end. Cancel anytime in Settings." |
+| CTA | "Start 30-day free trial" → flips to "Subscribe" if no trial available |
+| Disclosure | "30 days free, then $39.99/year. Auto-renews unless cancelled at least 24 hours before period end. Cancel anytime in Settings." |
 | Footer | "Restore · Privacy Policy · Terms of Use" |
 
-If user is on monthly card: "7 days free, then $4.99/month."
+If user is on monthly card: "30 days free, then $4.99/month."
 If user is on lifetime card: "One-time payment of $79.99. No recurring charges."
 
 ### 9.3 Trigger points (where the paywall fires)
@@ -1278,7 +1284,7 @@ If user is on lifetime card: "One-time payment of $79.99. No recurring charges."
 - **Restore tapped, no purchases found:** alert "No active subscription on this Apple ID"
 - **Family Sharing:** disabled per §3.5; if user attempts, show "Mori+ uses our own Family share — see Profile"
 - **Sandbox vs production:** label paywall "[SANDBOX]" in dev/preview builds for QA visibility
-- **Trial already used (re-subscribe after cancel):** SDK reports `introductory_price_eligible: false` → CTA flips to "Subscribe" with "$39.99/year" (no "7 days free" copy)
+- **Trial already used (re-subscribe after cancel):** SDK reports `introductory_price_eligible: false` → CTA flips to "Subscribe" with "$39.99/year" (no "30 days free" copy)
 - **App Store region without local currency:** Apple shows USD; we don't override
 
 ---
@@ -1461,8 +1467,8 @@ Update the existing account-delete flow ([app/account-delete.tsx](app/account-de
 
 | Product | Type | Price | Trial | Reference Name | Display Name |
 |---|---|---|---|---|---|
-| `mori_plus_monthly` | Auto-Renewable Subscription | $4.99 | 7 days free | Mori+ Monthly | Mori+ Monthly |
-| `mori_plus_annual` | Auto-Renewable Subscription | $39.99 | 7 days free | Mori+ Yearly | Mori+ Yearly |
+| `mori_plus_monthly` | Auto-Renewable Subscription | $4.99 | 30 days free | Mori+ Monthly | Mori+ Monthly |
+| `mori_plus_annual` | Auto-Renewable Subscription | $39.99 | 30 days free | Mori+ Yearly | Mori+ Yearly |
 
 **Standalone (Non-Renewing):**
 
@@ -1747,7 +1753,7 @@ curl -X POST https://getmori.app/api/auto-plan-week \
 1. New user installs v1.1 → onboarding → arrives at Discover (free)
 2. Swipes 5 recipes → saves 3
 3. Goes to Plan tab → taps "Build my week" → paywall appears
-4. Taps annual → 7-day trial starts
+4. Taps annual → 30-day trial starts
 5. Plan tab populates → Send to grocery list → Send to Instacart
 6. Sunday: receives push → opens app → Sunday Drop section visible
 7. Cooks a recipe → marks cooked → macros auto-log

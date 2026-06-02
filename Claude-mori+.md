@@ -1,6 +1,6 @@
 # Mori+ — Branch Working Doc
 
-Living doc for the `mori-plus` feature branch. Lean by design — full spec lives at [`~/.claude/plans/i-want-you-to-harmonic-galaxy.md`](../../.claude/plans/i-want-you-to-harmonic-galaxy.md). When in doubt, that file is canonical.
+Living doc for the `mori-plus` feature branch. Lean by design — full spec lives at [`.claude/plans/i-want-you-to-harmonic-galaxy.md`](.claude/plans/i-want-you-to-harmonic-galaxy.md) (vendored into the branch 2026-06-01, commit `a096fd6` — no longer a machine-local `~/.claude` path). When in doubt, that file is canonical.
 
 This file is for: progress tracking · branch-specific commandments · env vars · open decisions. Update as work lands.
 
@@ -8,7 +8,9 @@ This file is for: progress tracking · branch-specific commandments · env vars 
 
 ## Status
 
-Branch: `mori-plus` · **rebased onto `main` 2026-05-28 (now main + scaffold, 0 behind)** · Ships as a paid release AFTER free v2.0.0 is live (NOT "v1.1"). `lib/revenueCat.ts` full wrapper reconciled over main's stub during the rebase. **68 Mori+ tests green post-rebase.**
+Branch: `mori-plus` · HEAD `a096fd6` · **3 behind / 8 ahead of `main`** — the cook-photos batch landed on `main` after the 2026-05-28 rebase, so re-merge `main` before resuming (`git merge-tree` confirms 0 conflicts; disjoint file sets). Ships as a paid release AFTER free **v2.0.0 — which is now LIVE on the App Store (2026-06-01), so the "ship after v2.0.0" precondition is satisfied and Mori+ is unblocked.** `lib/revenueCat.ts` full wrapper supersedes main's stub cleanly.
+
+> ⚠️ **Reality check (2026-06-01 full audit):** what shipped is a **client-only scaffold — roughly 13% of a chargeable product.** Solid: RC wrapper, kill switch, premium UI, schema SQL, strong tests. Missing: **no paywall, no server-side entitlement enforcement, `react-native-purchases` not installed, `initRevenueCat()` never called, and the flagship plan-quality engine is at ~0%.** Mori+ tests (6 suites) pass; full `main` suite is **54 suites / 701 tests green** after `npm install --legacy-peer-deps`. See **"Audit Findings & Open Blockers (2026-06-01)"** below before resuming build.
 
 ### ★ Converged scope (2026-05-28) — read the plan file's value-prop + CPO/GTM sections first
 - **Flagship:** Auto Plan + Sunday Drop (taste-personalized weekly planning that auto-shops) — the only thing no competitor can copy.
@@ -16,15 +18,20 @@ Branch: `mori-plus` · **rebased onto `main` 2026-05-28 (now main + scaffold, 0 
 - **Supporting inputs:** "what do you feel like tonight?" (one-shot, catalog-ranked) · Fridge Cam (utility, demoted) · swipe (free).
 - **Macro Coach:** auto-logs from cooked Mori meals (NO photo).
 - **CUT:** Snap-your-plate, AI image generation (placeholder for rare net-new), condition/GERD vertical, richer dietary handling, ads.
-- **Prereqs before charging (the whole bet = plan quality):** week-level optimizer, `cost_per_serving` 40%→90%, meal-type tags, feed `flavourDna` into ranking, capture `profiles.timezone`.
+- **Prereqs before charging (the whole bet = plan quality) — STATUS per 2026-06-01 audit:**
+  - week-level optimizer — ❌ **not started.** Scorer ranks single cards; Plan tab is 100% manual (`filterPickerRecipes` + "copy last week"). No variety / no-repeat / macro-balance / leftover-chaining logic anywhere.
+  - `cost_per_serving` — ✅ **already 100% filled** (2,617/2,618 live recipes). The "40%→90%" worry is RETIRED — the real gap is that **nothing consumes it** (and `weekly_budget` is likewise collected-but-unused).
+  - meal-type tags — ❌ **the hard blocker.** Only 8 of 2,618 recipes carry any meal-slot-ish tag (scraped MealDB noise in `dietary_tags`). There is no `recipes.meal_type` column. You cannot auto-fill a breakfast/lunch/dinner grid without this → add the column + run a Haiku classifier backfill (reuse the `scripts/audit-recipes-full.mjs` harness pattern).
+  - feed `flavourDna` into ranking — ❌ computed in `api/taste-profile.ts` but **never read by `scoreRecipe`** (only 24/85 profiles even have it). Decide deliberately: wire it in, or stop marketing "taste-personalized" as the hook.
+  - `profiles.timezone` — ❌ column does not exist and is not captured at onboarding. `api/cron/cook-reminders.ts` already documents the gap. Required before any per-user Sunday Drop cron.
 
 ### ★ Build cadence (2026-05-28, user directive)
 **One feature at a time → full test cases → STOP for user to test → next.** Don't batch features. Every unit gets Jest coverage; UI features get a manual test checklist. Hand off at each checkpoint.
 
 | M | Scope | Status |
 |---|---|---|
-| M0 | Pre-work — schema migration, RC dashboard, EAS env | 🟡 Code shipped (SQL + EAS env pin). Manual steps pending — see below |
-| M1 | RevenueCat client (`lib/revenueCat.ts`, init, userStore) | 🟡 Code shipped. Needs `npm install react-native-purchases` + RC API key |
+| M0 | Pre-work — schema migration, RC dashboard, EAS env | 🟡 SQL written, but ❌ NOT applied to live DB and NOT folded into `schema.sql`. ⛔ **Migration has a CRITICAL self-grant-premium RLS hole — must NOT be applied until fixed (see blockers).** RC dashboard + ASC products + grace period still manual-pending |
+| M1 | RevenueCat client (`lib/revenueCat.ts`, init, userStore) | 🟡 Wrapper + tests shipped, but ❌ `react-native-purchases` is NOT in `package.json` (only `expo-dev-client` was added) AND ❌ `initRevenueCat()` is never called in `_layout.tsx` (only the dev override). SDK can't load; binary can't transact until both are fixed + RC key obtained |
 | M2 | Webhook + entitlement sync (`api/rc-webhook.ts`) | ⬜ |
 | M3 | Paywall (`components/paywall/PaywallModal.tsx`) | ⬜ |
 | M4 | Free-tier monthly budgets (`lib/aiUsage.ts`) | ⬜ |
@@ -58,7 +65,7 @@ These extend Mori's main commandments in `CLAUDE.md`. Don't violate.
 - **No toggle paywalls** (Apple banned them Jan 2026). Stacked SKU cards only.
 - **Restore Purchases visible on paywall AND in Settings.** Two locations is intentional — Apple checks both.
 - **Privacy Policy + Terms of Use links visible on paywall**, must open in-app webview, must load successfully when reviewer taps them.
-- **Trial disclosure copy is verbatim** per plan §9.2 — don't paraphrase. "7 days free, then $39.99/year. Auto-renews unless cancelled at least 24 hours before period end. Cancel anytime in Settings."
+- **Trial disclosure copy is verbatim** per plan §9.2 — don't paraphrase. **"30 days free, then $39.99/year. Auto-renews unless cancelled at least 24 hours before period end. Cancel anytime in Settings."** (Monthly card: "30 days free, then $4.99/month.") ⚠️ **Corrected 2026-06-01 — trial is 30-day, decided by user.** The plan body §9.1/§9.2/§12 still showed a stale "7 days" (now also corrected in the spec). The disclosed string MUST exactly match the StoreKit Introductory Offer configured in App Store Connect, or it is an automatic Guideline 3.1.2 rejection.
 - **`Sentry.flush(2000)` in `finally`** on every new Vercel function (per Mori's pre-ship commandments).
 
 ### Cost discipline
@@ -139,7 +146,7 @@ Files this branch will create or modify. Update as you ship.
 - `stores/decksStore.ts`
 
 ### Modified
-- `app/_layout.tsx` — RC init ✅ (push token registration was already wired)
+- `app/_layout.tsx` — ⚠️ **RC init NOT wired** (the prior "✅" was inaccurate): only `applyDevPremiumOverride()` is called; `initRevenueCat(userId)` is never invoked. `loginRevenueCat`/`logoutRevenueCat` are also never wired into sign-in/sign-out → cross-user entitlement bleed (see blockers). Push token registration was already wired.
 - `stores/userStore.ts` — `isPremium` field ✅
 - `eas.json` — `EXPO_PUBLIC_MORI_PLUS_ENABLED` pinned to `"false"` ✅ (RC key still TBA)
 - `public/index.html` — Mori+ founders section + nav link + meta description ✅
@@ -149,7 +156,7 @@ Files this branch will create or modify. Update as you ship.
 - `components/ProfileSheet.tsx` — Manage Subscription row
 - `api/generate-recipe.ts` — `checkAiBudget` + `incrementAiUsage` calls
 - `vercel.json` — Sunday Drop cron schedule
-- `package.json` — `react-native-purchases`, `react-native-purchases-ui`, `expo-server-sdk`
+- `package.json` — ❌ **NOT DONE.** Only `expo-dev-client` was added. `react-native-purchases`, `react-native-purchases-ui`, `expo-server-sdk` are still MISSING and must be installed (`--legacy-peer-deps`).
 - `supabase/schema.sql` — fold migration in after applying
 
 ---
@@ -170,6 +177,49 @@ Files this branch will create or modify. Update as you ship.
 - **2026-05-28** — **Referral (give-a-month / get-a-month) = post-launch growth loop**, via RevenueCat **Offer Codes** + attribution. Not a launch blocker; rides in after the core. Reuses the same Offer Code machinery as comping.
 - **2026-05-28** — **Dev testing without RC:** (1) client dev-only "force premium" override (`lib/devPremium.ts`, `__DEV__`-guarded), (2) `profiles.is_premium=true` comp in Supabase Studio for server-side gating, (3) `EXPO_PUBLIC_MORI_PLUS_ENABLED=true` in local `.env` to surface Mori+. No RevenueCat/App Store setup needed. Offer Codes are the clean comp once RC is live.
 - **2026-05-28** — **Build cadence: one feature → full tests → user-test checkpoint → next.** Increment #1 = the dev premium override (unblocks testing everything else).
+- **2026-06-01** — **v2.0.0 is LIVE on the App Store.** The "Mori+ ships after v2.0.0" precondition is satisfied; Mori+ is the active next release.
+- **2026-06-01** — **Trial = 30-day, locked by user.** Resolves the 7-day-vs-30-day contradiction that was sitting inside the plan body (§9.1/§9.2/§12 said "7 days"; strategy + SKU card said 30). All paywall copy, ASC Introductory Offers, and the §9.2 verbatim string are now 30-day. Reconciled in this doc + the spec.
+- **2026-06-01** — **Vercel function cap is a NON-ISSUE.** The "Hobby plan capped at 12" note in older entries is stale — the project is on **Vercel Pro** (~20 of 100 functions used; see `bugfixes.md`). Adding the ~5 Mori+ endpoints (`rc-webhook`, `auto-plan-week`, `generate-from-pantry`, `macro-coach`, `cron/sunday-drop`) reaches ~25. No function-budget action needed.
+- **2026-06-01** — **Full audit run** (6-agent sweep of branch scaffold + live DB + docs). Findings folded into the "Audit Findings & Open Blockers" section below; this Status header + File Map + prereq list corrected against actual code/DB state.
+
+---
+
+## Audit Findings & Open Blockers (2026-06-01)
+
+Full multi-agent audit of the branch scaffold, the Supabase migration, the plan-quality prereqs (live DB), the M-roadmap, branch hygiene, and Apple/GTM readiness. Ranked. **Nothing here is fixed yet** — captured so the next builder doesn't trust a stale ✅.
+
+### 🔴 Critical (block charging / block migration apply)
+- **Entitlement-forgery RLS hole.** The `profiles` UPDATE policy is `USING (auth.uid() = id)` with no column restriction, and Postgres RLS can't gate per-column. `add-mori-plus.sql` adds `is_premium` (and the other premium columns) but NO column-level protection → **any signed-in user can self-set `is_premium = true` via the anon key and get Mori+ free.** It becomes a *live exploit the instant the migration is applied.* **Fix before applying:** add a service-role-only `BEFORE UPDATE` trigger that pins `is_premium / premium_expires_at / premium_in_grace_period / premium_will_renew / premium_product_id / premium_started_at / revenuecat_user_id` whenever the session is not the service role; fold it INTO `add-mori-plus.sql`.
+- **Plan-quality engine ≈ 0%** — i.e. the thing being priced. No week optimizer, no `meal_type` tags (8/2,618), `flavourDna` unused in scoring, no `profiles.timezone`. See the corrected prereq list above. Auto Plan + Sunday Drop should NOT be the v1 paywall headline until this exists.
+- **No paywall (M3) + 18/18 M2–M14 deliverable files absent.** PaywallModal is the single hard Apple-review blocker. Webhook, AI-budget gate, push pipeline, Auto Plan, Sunday Drop, Generate-from-Pantry, Macro Coach, Saved Decks — none exist.
+- **`react-native-purchases` not installed + `initRevenueCat()` not called.** Binary literally cannot transact. (See M1 + File Map corrections above.)
+
+### 🟠 High
+- **Cross-user entitlement bleed.** `loginRevenueCat`/`logoutRevenueCat` are written + tested but never wired into sign-in/sign-out (`ProfileSheet` calls `supabase.auth.signOut()` directly). On a shared device a premium user's flag/RC identity persists into the next session. **The only real correctness bug in shipped code** — cheapest to fix now (same `_layout`/`userStore`/`ProfileSheet` surfaces as the pending re-merge). Add an integration test asserting `isPremium → false` on sign-out.
+- **Zero server-side entitlement enforcement.** No endpoint reads `is_premium`; M2 webhook + M4 budget gate unbuilt. Build `api/rc-webhook.ts` as the sole `is_premium` writer (insert-first into `rc_webhook_events`, `23505 → 200` noop, `timingSafeEqual` auth, `Sentry.flush(2000)` in `finally`) and a `requirePremium(req)` server helper — gate every premium endpoint from line one.
+- **`increment_ai_usage` (SECURITY DEFINER) trusts caller-supplied `p_user`** — no `auth.uid()` check. Derive the user from `auth.uid()` inside the function OR `REVOKE EXECUTE` from `authenticated`/`anon` and call only via service role.
+- **No Terms of Use / EULA exists** anywhere (repo, in-app, or landing — only a Privacy Policy). Apple requires a functional EULA link on the paywall + ASC listing for auto-renewable subs. Code-independent hard 3.1.2 gate — author/designate one (Apple standard EULA or hosted custom) and wire both Privacy + Terms into the paywall (in-app webview).
+
+### 🟡 Medium
+- **Migration not folded into `schema.sql` and not applied to the live DB.** (Apply only AFTER the RLS trigger is added.)
+- **Small Business Program shows "submitted," not confirmed "Enrolled."** All net-revenue math (15% cut) depends on it; the rate applies the month AFTER approval, never retroactively. Confirm "Enrolled" + banking "verified" in ASC before first sale.
+- **Guideline 3.1.2 boundary.** Keep manual week-planning, swipe, save, grocery, Instacart, dietary filters FREE forever; only AI auto-generation/auto-shop gets gated. QA that gating "Build my week" never degrades the free manual Plan flow.
+- **Thin-v1.1 vs advertised value prop.** If v1.1 ships only Saved Decks / unlimited-gen (no week optimizer needed), the paywall must advertise ONLY those — not Auto Plan / Sunday Drop — or 3.1.2 "performs as advertised" + refund risk applies. Decide: hold the paywall until the engine ships, or ship a narrower honest paywall.
+- **Three external secrets unobtained:** `EXPO_PUBLIC_REVENUECAT_IOS_KEY` (RC dashboard), `RC_WEBHOOK_SECRET` (`openssl rand -hex 32`), `EXPO_ACCESS_TOKEN` (Expo dashboard). Pin the RC key in `eas.json` per-profile once created (project's invisible-state commandment).
+- **App Privacy form** not updated (Purchases → Purchase History Linked; User ID via RevenueCat); RC `PrivacyInfo.xcprivacy` bundling unverified (pod-install pre-flight).
+
+### ✅ Confirmed good
+- Client scaffold is security-conscious: `isPremium` sourced only from RC `customerInfo`; kill switch supersedes any entitlement; dev-premium hard-`__DEV__`-guarded; premium UI double-gated; EAS pins the flag OFF for prod/preview. Tests assert real behavior.
+- Merge into `main` is mechanically clean (0 conflicts; cook-photos batch disjoint; main's stub hasn't diverged).
+- Schema design otherwise sound (idempotency table correct; owner-scoped RLS; no plaintext secrets) — apart from the premium-column hole.
+
+### Recommended critical path (thin v1.1; engine in parallel)
+1. Add the RLS trigger → apply `add-mori-plus.sql` → fold into `schema.sql`.
+2. Install `react-native-purchases`, wire `initRevenueCat()`, obtain RC key.
+3. M2 webhook (sole `is_premium` writer) + server `requirePremium()` gate.
+4. M3 PaywallModal + `manage-subscription.tsx` (Restore in 2 places) + a real EULA.
+5. ONE honest premium feature — Saved Decks (no AI cost, table already in schema) or M4-gated unlimited generation. **Auto Plan + Sunday Drop → v1.2**, gated behind the plan-quality prereqs.
+6. Fix the logout bleed bug + re-merge `main` (do now — cheap, same surfaces).
 
 ---
 
@@ -186,7 +236,7 @@ Files this branch will create or modify. Update as you ship.
 
 ## See Also
 
-- Full implementation spec: [`~/.claude/plans/i-want-you-to-harmonic-galaxy.md`](../../.claude/plans/i-want-you-to-harmonic-galaxy.md)
+- Full implementation spec: [`.claude/plans/i-want-you-to-harmonic-galaxy.md`](.claude/plans/i-want-you-to-harmonic-galaxy.md) (vendored into the branch 2026-06-01)
 - Main project commandments: [`CLAUDE.md`](CLAUDE.md)
 - Bug fix log: [`.claude/bugfixes.md`](.claude/bugfixes.md)
 - Security hardening reference: [`.claude/SECURITY_HARDENING_IMPLEMENTATION.md`](.claude/SECURITY_HARDENING_IMPLEMENTATION.md)
