@@ -94,16 +94,22 @@ DROP POLICY IF EXISTS "ai_usage owner select" ON ai_usage;
 DROP POLICY IF EXISTS "ai_usage owner insert" ON ai_usage;
 DROP POLICY IF EXISTS "ai_usage owner update" ON ai_usage;
 
+-- Users may READ their own usage (to render "2 of 3 used"), but NOT write it.
+-- The owner INSERT/UPDATE policies were removed deliberately: with them, a user
+-- could UPDATE their own row and reset count to 0 via the anon key for unlimited
+-- free generations. Writes are service-role-only — the server increments via
+-- increment_ai_usage() after validating the JWT. With RLS on and no user
+-- INSERT/UPDATE policy, anon/authenticated writes are denied; the service role
+-- (and the SECURITY DEFINER RPC) bypass RLS.
 CREATE POLICY "ai_usage owner select"
   ON ai_usage FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "ai_usage owner insert"
-  ON ai_usage FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "ai_usage owner update"
-  ON ai_usage FOR UPDATE USING (auth.uid() = user_id);
 
 -- Atomic upsert — avoids the read-then-write race when two AI calls fire concurrently.
--- SECURITY DEFINER so the RPC can write regardless of the caller's RLS context;
--- callers must pass their own auth.uid() (validated server-side in lib/aiUsage.ts).
+-- SECURITY DEFINER so it can write ai_usage regardless of RLS. EXECUTE is locked to
+-- the service role (REVOKE/GRANT below): the server calls this after requireAuth
+-- validates the JWT and passes the verified user id. Without the REVOKE, a SECURITY
+-- DEFINER function is EXECUTE-able by PUBLIC, so any signed-in user could call it with
+-- another user's id (p_user) and exhaust that victim's free monthly budget.
 CREATE OR REPLACE FUNCTION increment_ai_usage(p_user UUID, p_endpoint TEXT)
 RETURNS void
 LANGUAGE plpgsql
@@ -116,6 +122,9 @@ BEGIN
   ON CONFLICT (user_id, endpoint, month)
   DO UPDATE SET count = ai_usage.count + 1;
 END $$;
+
+REVOKE EXECUTE ON FUNCTION increment_ai_usage(UUID, TEXT) FROM PUBLIC, anon, authenticated;
+GRANT  EXECUTE ON FUNCTION increment_ai_usage(UUID, TEXT) TO service_role;
 
 
 -- ─── 3. rc_webhook_events — RevenueCat webhook idempotency ────────────────────

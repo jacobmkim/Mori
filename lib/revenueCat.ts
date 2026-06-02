@@ -155,6 +155,31 @@ export async function logoutRevenueCat(): Promise<void> {
 }
 
 /**
+ * Drive RC identity from the app's auth state — call whenever the signed-in user
+ * changes (wired into the session effect in app/_layout.tsx). This is what keeps
+ * one user's entitlement from bleeding into the next session on a shared device.
+ *
+ *   • next set  → initRevenueCat (idempotent) then loginRevenueCat to (re)attach
+ *                 the RC appUserID. loginRevenueCat is a no-op before init, so the
+ *                 pair is safe on cold boot AND correct on an account switch
+ *                 (init alone is a no-op after first run, so it can't re-identify).
+ *   • next null → logoutRevenueCat (drops RC identity + clears the premium flag),
+ *                 but only when there was a previous user — avoids a spurious
+ *                 logout at logged-out boot.
+ */
+export async function syncRevenueCatIdentity(
+  prevUserId: string | null,
+  nextUserId: string | null,
+): Promise<void> {
+  if (nextUserId) {
+    await initRevenueCat(nextUserId);
+    await loginRevenueCat(nextUserId);
+  } else if (prevUserId) {
+    await logoutRevenueCat();
+  }
+}
+
+/**
  * Read the current `mori_plus` entitlement state. Returns false if RC is unavailable
  * or the kill switch is off.
  */

@@ -13,7 +13,7 @@ import { useUserStore } from '@/stores/userStore';
 import { registerForPushNotifications } from '@/lib/notifications';
 import { updatePushToken, touchLastActive } from '@/lib/api';
 import { isResetPasswordUrl, isVerifyEmailUrl, isRecipeUrl, extractRecipeId } from '@/lib/deepLink';
-import { initRevenueCat } from '@/lib/revenueCat';
+import { syncRevenueCatIdentity } from '@/lib/revenueCat';
 import { applyDevPremiumOverride } from '@/lib/devPremium';
 import { ResumeCookHandler } from '@/components/ResumeCookHandler';
 
@@ -109,9 +109,15 @@ function RootLayout() {
   // a no-op when the kill switch is off OR the API key is missing, so this is
   // safe to leave wired before launch day.
   useEffect(() => {
-    if (rcInitedFor.current === (profile?.id ?? null)) return;
-    rcInitedFor.current = profile?.id ?? null;
-    initRevenueCat(profile?.id ?? null).catch(() => {});
+    const uid = profile?.id ?? null;
+    if (rcInitedFor.current === uid) return;
+    const prev = rcInitedFor.current;
+    rcInitedFor.current = uid;
+    // Configure RC on the first user, re-identify on an account switch, and drop
+    // the identity + premium flag on sign-out — so a previous user's entitlement
+    // can't bleed into the next session on a shared device. Driven off profile.id,
+    // so it covers every sign-out path (both handlers, token expiry, delete-account).
+    syncRevenueCatIdentity(prev, uid).catch(() => {});
     // Dev-only: honor EXPO_PUBLIC_FORCE_PREMIUM for testing Mori+ without RC.
     // No-op in production builds (hard-guarded by __DEV__).
     applyDevPremiumOverride();

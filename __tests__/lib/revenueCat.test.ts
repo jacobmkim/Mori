@@ -81,6 +81,7 @@ import {
   initRevenueCat,
   loginRevenueCat,
   logoutRevenueCat,
+  syncRevenueCatIdentity,
   isPremium,
   getOfferings,
   purchasePackage,
@@ -304,6 +305,49 @@ describe('logoutRevenueCat', () => {
     await initRevenueCat('user-1');
     await logoutRevenueCat();
     expect(mockLogOut).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ─── syncRevenueCatIdentity — auth-state wiring (the cross-user bleed guard) ───
+
+describe('syncRevenueCatIdentity', () => {
+  it('configures + identifies on first sign-in (prev null → next set)', async () => {
+    mockGetCustomerInfo.mockResolvedValue(NO_ENTITLEMENT_INFO);
+    mockLogIn.mockResolvedValue({ customerInfo: NO_ENTITLEMENT_INFO });
+    await syncRevenueCatIdentity(null, 'user-1');
+    expect(mockConfigure).toHaveBeenCalledWith(
+      expect.objectContaining({ appUserID: 'user-1' }),
+    );
+    expect(mockLogIn).toHaveBeenCalledWith('user-1');
+  });
+
+  it('re-identifies on an account switch so entitlement cannot bleed (A → B)', async () => {
+    mockGetCustomerInfo.mockResolvedValue(NO_ENTITLEMENT_INFO);
+    mockLogIn.mockResolvedValue({ customerInfo: NO_ENTITLEMENT_INFO });
+    await syncRevenueCatIdentity(null, 'user-a'); // boot as A
+    mockLogIn.mockClear();
+    mockLogIn.mockResolvedValue({ customerInfo: ACTIVE_ENTITLEMENT_INFO }); // B is premium
+    await syncRevenueCatIdentity('user-a', 'user-b'); // switch to B
+    expect(mockLogIn).toHaveBeenCalledWith('user-b');
+    expect(useUserStore.getState().isPremium).toBe(true);
+  });
+
+  it('logs out + clears the premium flag on sign-out (next null)', async () => {
+    mockGetCustomerInfo.mockResolvedValue(ACTIVE_ENTITLEMENT_INFO);
+    mockLogIn.mockResolvedValue({ customerInfo: ACTIVE_ENTITLEMENT_INFO });
+    mockLogOut.mockResolvedValue(undefined);
+    await syncRevenueCatIdentity(null, 'user-a'); // boot as A (premium)
+    expect(useUserStore.getState().isPremium).toBe(true);
+    await syncRevenueCatIdentity('user-a', null); // sign out
+    expect(mockLogOut).toHaveBeenCalledTimes(1);
+    expect(useUserStore.getState().isPremium).toBe(false);
+  });
+
+  it('does nothing at logged-out boot (no prev, no next)', async () => {
+    await syncRevenueCatIdentity(null, null);
+    expect(mockConfigure).not.toHaveBeenCalled();
+    expect(mockLogIn).not.toHaveBeenCalled();
+    expect(mockLogOut).not.toHaveBeenCalled();
   });
 });
 
