@@ -83,6 +83,13 @@ CREATE TRIGGER recipe_interactions_bump_cook_count
   FOR EACH ROW
   EXECUTE FUNCTION recipes_bump_cook_count_on_interaction();
 
+-- SECURITY DEFINER trigger fns fire in the table-owner context regardless of
+-- EXECUTE grants, so clients never need to call them directly. Revoke the
+-- default PUBLIC grant. (Folded from add-storage-trigger-hardening-202606.sql.)
+REVOKE EXECUTE ON FUNCTION recipes_bump_save_count_on_insert()      FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION recipes_drop_save_count_on_delete()      FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION recipes_bump_cook_count_on_interaction() FROM PUBLIC, anon, authenticated;
+
 -- ── 4. One-time backfill ─────────────────────────────────────────────────────
 -- Seeds existing rows so the counters are accurate from day one. Subsequent
 -- writes flow through the triggers above.
