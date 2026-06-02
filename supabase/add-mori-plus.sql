@@ -35,6 +35,46 @@ CREATE INDEX IF NOT EXISTS profiles_is_premium_idx
   WHERE is_premium = TRUE;
 
 
+-- ─── 1a. Lock subscription columns to service-role writes ─────────────────────
+--
+-- The "Users can update own profile" policy is a full-row UPDATE
+-- (auth.uid() = id), and Postgres RLS CANNOT restrict writes per column — so
+-- without this guard any signed-in user could self-set is_premium = TRUE via the
+-- anon key (a free-Mori+ exploit). This trigger blocks the entitlement columns
+-- from being changed by the user-facing roles while leaving normal profile edits
+-- (display_name, username, preferences, push_token, …) completely untouched.
+--
+-- Still writable by:
+--   • service_role          → the RC webhook (api/rc-webhook.ts) — the only legit writer
+--   • postgres / supabase_admin → Supabase Studio SQL editor + Table Editor → DEV COMPS
+--     (set is_premium = TRUE there to test premium without RevenueCat; current_user
+--      is never 'authenticated'/'anon' in those sessions, so comps are unaffected)
+-- Only a CHANGE is blocked (IS DISTINCT FROM OLD); echoing the same value is fine,
+-- so full-row upserts that don't touch entitlement still pass.
+
+CREATE OR REPLACE FUNCTION protect_premium_columns()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+BEGIN
+  IF current_user IN ('authenticated', 'anon') AND (
+       NEW.is_premium              IS DISTINCT FROM OLD.is_premium
+    OR NEW.premium_product_id      IS DISTINCT FROM OLD.premium_product_id
+    OR NEW.premium_expires_at      IS DISTINCT FROM OLD.premium_expires_at
+    OR NEW.premium_will_renew      IS DISTINCT FROM OLD.premium_will_renew
+    OR NEW.premium_in_grace_period IS DISTINCT FROM OLD.premium_in_grace_period
+    OR NEW.premium_started_at      IS DISTINCT FROM OLD.premium_started_at
+    OR NEW.revenuecat_user_id      IS DISTINCT FROM OLD.revenuecat_user_id
+  ) THEN
+    RAISE EXCEPTION 'profiles premium columns are service-role-only (set via the RevenueCat webhook, not the client)';
+  END IF;
+  RETURN NEW;
+END $$;
+
+DROP TRIGGER IF EXISTS trg_protect_premium_columns ON profiles;
+CREATE TRIGGER trg_protect_premium_columns
+  BEFORE UPDATE ON profiles
+  FOR EACH ROW EXECUTE FUNCTION protect_premium_columns();
+
+
 -- ─── 2. ai_usage — monthly free-tier budget ───────────────────────────────────
 --
 -- One row per (user, endpoint, UTC YYYY-MM). Atomic increment RPC below.

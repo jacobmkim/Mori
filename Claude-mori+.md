@@ -30,7 +30,7 @@ Branch: `mori-plus` · HEAD `a096fd6` · **3 behind / 8 ahead of `main`** — th
 
 | M | Scope | Status |
 |---|---|---|
-| M0 | Pre-work — schema migration, RC dashboard, EAS env | 🟡 SQL written, but ❌ NOT applied to live DB and NOT folded into `schema.sql`. ⛔ **Migration has a CRITICAL self-grant-premium RLS hole — must NOT be applied until fixed (see blockers).** RC dashboard + ASC products + grace period still manual-pending |
+| M0 | Pre-work — schema migration, RC dashboard, EAS env | 🟡 SQL written + ✅ **self-grant-premium RLS hole closed** (service-role-only `protect_premium_columns` trigger added 2026-06-02) — migration is now safe to apply. Still ❌ NOT applied to live DB and NOT folded into `schema.sql`. RC dashboard + ASC products + grace period still manual-pending |
 | M1 | RevenueCat client (`lib/revenueCat.ts`, init, userStore) | 🟡 Wrapper + tests shipped, but ❌ `react-native-purchases` is NOT in `package.json` (only `expo-dev-client` was added) AND ❌ `initRevenueCat()` is never called in `_layout.tsx` (only the dev override). SDK can't load; binary can't transact until both are fixed + RC key obtained |
 | M2 | Webhook + entitlement sync (`api/rc-webhook.ts`) | ⬜ |
 | M3 | Paywall (`components/paywall/PaywallModal.tsx`) | ⬜ |
@@ -181,15 +181,18 @@ Files this branch will create or modify. Update as you ship.
 - **2026-06-01** — **Trial = 30-day, locked by user.** Resolves the 7-day-vs-30-day contradiction that was sitting inside the plan body (§9.1/§9.2/§12 said "7 days"; strategy + SKU card said 30). All paywall copy, ASC Introductory Offers, and the §9.2 verbatim string are now 30-day. Reconciled in this doc + the spec.
 - **2026-06-01** — **Vercel function cap is a NON-ISSUE.** The "Hobby plan capped at 12" note in older entries is stale — the project is on **Vercel Pro** (~20 of 100 functions used; see `bugfixes.md`). Adding the ~5 Mori+ endpoints (`rc-webhook`, `auto-plan-week`, `generate-from-pantry`, `macro-coach`, `cron/sunday-drop`) reaches ~25. No function-budget action needed.
 - **2026-06-01** — **Full audit run** (6-agent sweep of branch scaffold + live DB + docs). Findings folded into the "Audit Findings & Open Blockers" section below; this Status header + File Map + prereq list corrected against actual code/DB state.
+- **2026-06-02** — **Closed the self-grant-premium RLS hole.** Added a `protect_premium_columns()` `BEFORE UPDATE` trigger to `add-mori-plus.sql` that blocks `current_user IN ('authenticated','anon')` from changing any entitlement column. Decided AGAINST a "leave it open for dev, remove before launch" approach: dev and prod share one Supabase project, so the self-grant can't be scoped to dev, and a manual "remove before launch" step is the invisible-state failure mode the commandments warn against. Dev premium comps continue via the **service role** (Supabase Studio) + the `__DEV__` client `devPremium` toggle — neither is affected by the trigger. Migration is now safe-by-default.
 
 ---
 
 ## Audit Findings & Open Blockers (2026-06-01)
 
-Full multi-agent audit of the branch scaffold, the Supabase migration, the plan-quality prereqs (live DB), the M-roadmap, branch hygiene, and Apple/GTM readiness. Ranked. **Nothing here is fixed yet** — captured so the next builder doesn't trust a stale ✅.
+Full multi-agent audit of the branch scaffold, the Supabase migration, the plan-quality prereqs (live DB), the M-roadmap, branch hygiene, and Apple/GTM readiness. Ranked. Items below are captured so the next builder doesn't trust a stale ✅; the **one fixed so far is under ✅ Resolved**.
 
-### 🔴 Critical (block charging / block migration apply)
-- **Entitlement-forgery RLS hole.** The `profiles` UPDATE policy is `USING (auth.uid() = id)` with no column restriction, and Postgres RLS can't gate per-column. `add-mori-plus.sql` adds `is_premium` (and the other premium columns) but NO column-level protection → **any signed-in user can self-set `is_premium = true` via the anon key and get Mori+ free.** It becomes a *live exploit the instant the migration is applied.* **Fix before applying:** add a service-role-only `BEFORE UPDATE` trigger that pins `is_premium / premium_expires_at / premium_in_grace_period / premium_will_renew / premium_product_id / premium_started_at / revenuecat_user_id` whenever the session is not the service role; fold it INTO `add-mori-plus.sql`.
+### ✅ Resolved
+- **Entitlement-forgery RLS hole — FIXED 2026-06-02 (this branch).** The `profiles` UPDATE policy is a full-row `USING (auth.uid() = id)` and Postgres RLS can't gate per-column, so it would otherwise let any signed-in user self-set `is_premium = true` via the anon key (free-Mori+ exploit). `add-mori-plus.sql` now installs a `protect_premium_columns()` `BEFORE UPDATE` trigger that blocks the user-facing roles (`current_user IN ('authenticated','anon')`) from changing ANY entitlement column (`is_premium / premium_product_id / premium_expires_at / premium_will_renew / premium_in_grace_period / premium_started_at / revenuecat_user_id`). Service-role writes (the RC webhook) and Supabase Studio dev-comps still pass; normal profile edits (display_name, push_token, …) are untouched; only a *change* to an entitlement column is blocked. Migration is **safe-by-default** now — the hole never exists in prod, even before the webhook ships. NB: this is NOT a "remove before launch" toggle — there was no dev-only grant policy; the lockdown is permanent and dev comps go through the service role.
+
+### 🔴 Critical (block charging)
 - **Plan-quality engine ≈ 0%** — i.e. the thing being priced. No week optimizer, no `meal_type` tags (8/2,618), `flavourDna` unused in scoring, no `profiles.timezone`. See the corrected prereq list above. Auto Plan + Sunday Drop should NOT be the v1 paywall headline until this exists.
 - **No paywall (M3) + 18/18 M2–M14 deliverable files absent.** PaywallModal is the single hard Apple-review blocker. Webhook, AI-budget gate, push pipeline, Auto Plan, Sunday Drop, Generate-from-Pantry, Macro Coach, Saved Decks — none exist.
 - **`react-native-purchases` not installed + `initRevenueCat()` not called.** Binary literally cannot transact. (See M1 + File Map corrections above.)
@@ -201,7 +204,7 @@ Full multi-agent audit of the branch scaffold, the Supabase migration, the plan-
 - **No Terms of Use / EULA exists** anywhere (repo, in-app, or landing — only a Privacy Policy). Apple requires a functional EULA link on the paywall + ASC listing for auto-renewable subs. Code-independent hard 3.1.2 gate — author/designate one (Apple standard EULA or hosted custom) and wire both Privacy + Terms into the paywall (in-app webview).
 
 ### 🟡 Medium
-- **Migration not folded into `schema.sql` and not applied to the live DB.** (Apply only AFTER the RLS trigger is added.)
+- **Migration not folded into `schema.sql` and not applied to the live DB.** (The `protect_premium_columns` trigger is now IN the migration, so it's safe to apply — then fold into `schema.sql`.)
 - **Small Business Program shows "submitted," not confirmed "Enrolled."** All net-revenue math (15% cut) depends on it; the rate applies the month AFTER approval, never retroactively. Confirm "Enrolled" + banking "verified" in ASC before first sale.
 - **Guideline 3.1.2 boundary.** Keep manual week-planning, swipe, save, grocery, Instacart, dietary filters FREE forever; only AI auto-generation/auto-shop gets gated. QA that gating "Build my week" never degrades the free manual Plan flow.
 - **Thin-v1.1 vs advertised value prop.** If v1.1 ships only Saved Decks / unlimited-gen (no week optimizer needed), the paywall must advertise ONLY those — not Auto Plan / Sunday Drop — or 3.1.2 "performs as advertised" + refund risk applies. Decide: hold the paywall until the engine ships, or ship a narrower honest paywall.
@@ -211,10 +214,10 @@ Full multi-agent audit of the branch scaffold, the Supabase migration, the plan-
 ### ✅ Confirmed good
 - Client scaffold is security-conscious: `isPremium` sourced only from RC `customerInfo`; kill switch supersedes any entitlement; dev-premium hard-`__DEV__`-guarded; premium UI double-gated; EAS pins the flag OFF for prod/preview. Tests assert real behavior.
 - Merge into `main` is mechanically clean (0 conflicts; cook-photos batch disjoint; main's stub hasn't diverged).
-- Schema design otherwise sound (idempotency table correct; owner-scoped RLS; no plaintext secrets) — apart from the premium-column hole.
+- Schema design sound: idempotency table correct; owner-scoped RLS; no plaintext secrets; premium-column hole now closed by the `protect_premium_columns` trigger.
 
 ### Recommended critical path (thin v1.1; engine in parallel)
-1. Add the RLS trigger → apply `add-mori-plus.sql` → fold into `schema.sql`.
+1. ✅ RLS protection trigger added (2026-06-02) → next: apply `add-mori-plus.sql` → fold into `schema.sql`.
 2. Install `react-native-purchases`, wire `initRevenueCat()`, obtain RC key.
 3. M2 webhook (sole `is_premium` writer) + server `requirePremium()` gate.
 4. M3 PaywallModal + `manage-subscription.tsx` (Restore in 2 places) + a real EULA.
