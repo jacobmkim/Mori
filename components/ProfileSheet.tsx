@@ -35,6 +35,7 @@ import type { Badge, BadgeStats } from '@/lib/badges';
 import { flags } from '@/lib/featureFlags';
 import { toggleDevPremium } from '@/lib/devPremium';
 import { moriPlusEntry } from '@/lib/moriPlusEntry';
+import { showPremiumRing } from '@/lib/premiumRing';
 import type { Profile } from '@/types';
 import { EditPreferencesModal } from '@/components/EditPreferencesModal';
 import { PantryModal } from '@/components/PantryModal';
@@ -100,6 +101,7 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
   const savedCount = useSavedStore((s) => s.savedRecipes.length);
   const isPremium = useUserStore((s) => s.isPremium);
   const mpEntry = moriPlusEntry(flags.moriPlusEnabled, isPremium);
+  const premiumActive = showPremiumRing(flags.moriPlusEnabled, isPremium);
   const { appearanceMode, setAppearanceMode, unitSystem, setUnitSystem } = useDiscoverStore();
   const [editVisible, setEditVisible] = useState(false);
   const [pantryVisible, setPantryVisible] = useState(false);
@@ -294,7 +296,8 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
           <View style={{
             alignItems: 'center', paddingTop: 12, paddingBottom: 4,
             backgroundColor: colors.card,
-            borderBottomWidth: 1, borderBottomColor: colors.border,
+            borderBottomWidth: premiumActive ? 2 : 1,
+            borderBottomColor: premiumActive ? colors.premiumRing : colors.border,
           }}>
             <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: colors.border, marginBottom: 12 }} />
             <View style={{
@@ -321,9 +324,25 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
                   )}
                 </View>
                 <View>
-                  <Text style={{ fontSize: 17, fontWeight: '700', color: colors.text }}>
-                    {profile?.name ?? (profile as any)?.email?.split('@')[0] ?? 'Mori User'}
-                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Text style={{ fontSize: 17, fontWeight: '700', color: colors.text }}>
+                      {profile?.name ?? (profile as any)?.email?.split('@')[0] ?? 'Mori User'}
+                    </Text>
+                    {premiumActive && (
+                      <View style={{
+                        paddingHorizontal: 7, paddingVertical: 2,
+                        borderRadius: 999,
+                        backgroundColor: colors.premiumRing,
+                      }}>
+                        <Text style={{
+                          fontSize: 9, fontWeight: '800',
+                          color: colors.card, letterSpacing: 0.8,
+                        }}>
+                          MORI+
+                        </Text>
+                      </View>
+                    )}
+                  </View>
                   {profile?.username && (
                     <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 1 }}>
                       @{profile.username}

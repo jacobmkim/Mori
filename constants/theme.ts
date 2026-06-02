@@ -23,6 +23,7 @@ export const lightTheme = {
   weekBarBg:    '#E8F5E9',
   dayFilled:    '#2E7D32',
   dayEmpty:     '#C8E6C9',
+  premiumRing:  '#C8A04D',   // Mori+ avatar rim — muted gold on light
 } as const;
 
 // Spontaneous Dark
@@ -50,6 +51,7 @@ export const darkTheme = {
   weekBarBg:    '#1B2E1C',
   dayFilled:    '#4CAF50',
   dayEmpty:     '#2A4030',
+  premiumRing:  '#E3BE5A',   // Mori+ avatar rim — brighter gold on dark
 } as const;
 
 // Meal Prep Light — Linen & Moss, warm and grounded Sunday prep energy
@@ -77,6 +79,7 @@ export const mealPrepLightTheme = {
   weekBarBg:    '#E0EDD8',   // Sage fill for week progress bar
   dayFilled:    '#2E5438',   // Moss dot — planned days
   dayEmpty:     '#B8D0B0',   // Pale sage — unplanned days
+  premiumRing:  '#BC8A3C',   // Mori+ avatar rim — antique gold on linen/moss
 } as const;
 
 // Meal Prep Dark — Deep forest, rich and focused night prep energy
@@ -104,6 +107,7 @@ export const mealPrepDarkTheme = {
   weekBarBg:    '#1A3028',
   dayFilled:    '#4CAF50',   // Bright green dot — planned days
   dayEmpty:     '#2A4038',   // Dark sage — unplanned days
+  premiumRing:  '#D8B45A',   // Mori+ avatar rim — warm gold on deep forest
 } as const;
 
 export type Theme = { [K in keyof typeof lightTheme]: string };
