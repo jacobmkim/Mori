@@ -175,6 +175,7 @@ Files this branch will create or modify. Update as you ship.
 
 ## Open Questions
 
+- [ ] **Premium visual cue — avatar ring (deferred 2026-05-29).** Add a subtle moss/gold gradient ring on `AvatarButton` when `isPremium`. Pure client-side off the `isPremium` flag → testable now via the dev toggle, no RevenueCat. Chosen over an alternate Mori+ logo (brand-asset risk — assets locked, PNG-only) and Discover-deck badges (clutter on the editorial surface; Mori is single-player so no social signal). Build after the dev build lands.
 - [ ] Sandbox tester Apple account credentials — generate + log to 1Password before M13
 - [ ] Demo video — record after M3 paywall is final
 - [ ] App Store screenshots — need 6.7" iPhone screens for Mori+ features (5 screens), reuse existing 4 free-tier screens
