@@ -237,6 +237,12 @@ Full multi-agent audit of the branch scaffold, the Supabase migration, the plan-
 
 ---
 
+## Product Ideas / Backlog
+
+- [ ] **Fitness-goal intake → goal-tailored food planning (added 2026-06-02).** Ask users their fitness goal up front — lose fat / build muscle / maintain / more energy / eat healthier / hit a protein target — plus a target, then make **Auto Plan + Sunday Drop + recommendations actively serve that goal *food-wise***: not just "dinners you'll like" but "dinners you'll like that move you toward your goal" (protein-forward for muscle, calorie-appropriate for fat loss, fiber/whole-food bias for "eat healthier", etc.). This is the intake/onboarding front-end for **Macro Coach (F4)** and sharpens the **"goals cook" second value prop** (diagnosis → prescription — the user who already pays Cal AI / MyFitnessPal). Open sub-decisions: (1) **where to ask** — onboarding vs Coach setup vs a Mori+ upgrade moment; (2) **gating** — capturing the goal can be **free** (an upgrade hook), with the goal-*tailored* planning as the paid value; (3) **data** — reuse existing `dietary_goals` / `macro_goals` vs a new `fitness_goal` field. **Guardrail:** frame as "we help you hit your goals through the dinners you actually cook" — never medical/clinical claims (per the condition-vertical cut + design.md's no-overclaim rule).
+
+---
+
 ## See Also
 
 - Full implementation spec: [`.claude/plans/i-want-you-to-harmonic-galaxy.md`](.claude/plans/i-want-you-to-harmonic-galaxy.md) (vendored into the branch 2026-06-01)
