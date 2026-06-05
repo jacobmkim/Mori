@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { View, Text, Modal, Pressable, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
+import { useState, useRef } from 'react';
+import { View, Text, Modal, Pressable, ScrollView, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useTheme } from '@/hooks/useTheme';
@@ -29,24 +29,38 @@ interface PostCookReviewModalProps {
 export function PostCookReviewModal({ visible, recipe, existing, onClose, onSubmitted }: PostCookReviewModalProps) {
   const colors = useTheme();
   const userId = useUserStore((s) => s.profile?.id);
-  const [stagedRating, setStagedRating] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   // After a great first-time cook (4-5★), nudge the user to send the recipe to
   // someone before closing.
   const [showShareNudge, setShowShareNudge] = useState(false);
   const [nudgeRating, setNudgeRating] = useState(5);
+  // Recipe to share once this prompt has fully closed (see handleShareNudge).
+  const shareTargetRef = useRef<Recipe | null>(null);
 
   function dismiss() {
-    setStagedRating(null);
     setShowShareNudge(false);
     setError(null);
     onClose();
   }
 
+  // Present the share sheet only after this prompt is gone. Presenting an iOS
+  // activity sheet from inside this nested, transparent overFullScreen modal
+  // fails silently — it must present from the recipe-detail modal underneath.
+  function flushPendingShare() {
+    const target = shareTargetRef.current;
+    if (!target) return;
+    shareTargetRef.current = null;
+    shareRecipe(target);
+  }
+
   function handleShareNudge() {
-    if (recipe) shareRecipe(recipe);
+    // Stash the target, close this prompt, then share once it's dismissed —
+    // via the Modal's onDismiss, with a timeout fallback in case onDismiss
+    // doesn't fire for a transparent modal. The ref guard makes it fire once.
+    shareTargetRef.current = recipe;
     // They just did the positive action — don't pile on an app-review prompt.
     dismiss();
+    setTimeout(flushPendingShare, 600);
   }
 
   function skipShareNudge() {
@@ -61,14 +75,14 @@ export function PostCookReviewModal({ visible, recipe, existing, onClose, onSubm
     dismiss();
   }
 
-  async function handleSubmit(rating: number, text: string) {
+  async function handleSubmit(rating: number, text: string, photoUrl: string | null) {
     if (!recipe || !userId) return;
     setError(null);
     const supabaseId = recipe.supabase_id ?? recipe.id;
     try {
       const review = existing
-        ? await updateReview(existing.id, rating, text || null)
-        : await submitReview(userId, supabaseId, rating, text || null);
+        ? await updateReview(existing.id, rating, text || null, photoUrl)
+        : await submitReview(userId, supabaseId, rating, text || null, photoUrl);
       onSubmitted(review);
 
       // Great first-time cook → nudge them to send the recipe to a friend
@@ -76,7 +90,6 @@ export function PostCookReviewModal({ visible, recipe, existing, onClose, onSubm
       // so the two never fire at once.
       if (!existing && rating >= 4 && canShareRecipe(recipe)) {
         setNudgeRating(rating);
-        setStagedRating(null);
         setShowShareNudge(true);
         return;
       }
@@ -101,7 +114,8 @@ export function PostCookReviewModal({ visible, recipe, existing, onClose, onSubm
   if (!recipe) return null;
 
   return (
-    <Modal visible={visible} animationType="slide" transparent presentationStyle="overFullScreen" onRequestClose={dismiss}>
+    <Modal visible={visible} animationType="slide" transparent presentationStyle="overFullScreen" onRequestClose={dismiss} onDismiss={flushPendingShare}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }}>
         <Pressable style={{ ...StyleSheet.absoluteFillObject }} onPress={dismiss} />
         <View style={{
@@ -161,30 +175,15 @@ export function PostCookReviewModal({ visible, recipe, existing, onClose, onSubm
                   <Text style={{ fontSize: 14, color: colors.textMuted }}>No thanks</Text>
                 </Pressable>
               </View>
-            ) : stagedRating === null ? (
-              <>
-                <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 4, marginBottom: 18 }}>
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <Pressable
-                      key={star}
-                      onPress={() => setStagedRating(star)}
-                      hitSlop={6}
-                      style={{ padding: 4 }}
-                    >
-                      <Ionicons name="star-outline" size={42} color="#FFC107" />
-                    </Pressable>
-                  ))}
-                </View>
-                <Text style={{ fontSize: 12, color: colors.textMuted, textAlign: 'center', marginBottom: 18 }}>
-                  Tap to rate · tap dimissed area to skip
-                </Text>
-              </>
             ) : (
               <View style={{ paddingHorizontal: 16 }}>
                 <ReviewComposer
-                  existing={existing ? { ...existing, rating: stagedRating } : null}
+                  existing={existing}
+                  hideTitle
+                  userId={userId ?? ''}
+                  recipeId={recipe.supabase_id ?? recipe.id}
                   onSubmit={handleSubmit}
-                  onCancel={() => setStagedRating(null)}
+                  onCancel={dismiss}
                 />
                 {error && (
                   <Text style={{ color: colors.error, fontSize: 13, textAlign: 'center', marginTop: 8 }}>{error}</Text>
@@ -194,6 +193,7 @@ export function PostCookReviewModal({ visible, recipe, existing, onClose, onSubm
           </ScrollView>
         </View>
       </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

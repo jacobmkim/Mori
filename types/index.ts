@@ -123,6 +123,7 @@ export interface Review {
   user_id: string;
   rating: number;
   review_text: string | null;
+  photo_url?: string | null;
   created_at: string;
   updated_at: string;
   reviewer_name?: string | null;

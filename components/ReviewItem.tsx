@@ -2,6 +2,7 @@ import { View, Text, Pressable, Alert } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks/useTheme';
+import { getRecipeImageUrl } from '@/lib/recipeImage';
 import type { Review } from '@/types';
 
 function StarRow({ rating, size = 14 }: { rating: number; size?: number }) {
@@ -25,9 +26,10 @@ interface ReviewItemProps {
   isOwn: boolean;
   onEdit: () => void;
   onDelete: () => void;
+  onReport?: () => void;
 }
 
-export function ReviewItem({ review, isOwn, onEdit, onDelete }: ReviewItemProps) {
+export function ReviewItem({ review, isOwn, onEdit, onDelete, onReport }: ReviewItemProps) {
   const colors = useTheme();
 
   const displayName = review.reviewer_username
@@ -81,7 +83,7 @@ export function ReviewItem({ review, isOwn, onEdit, onDelete }: ReviewItemProps)
 
         <StarRow rating={review.rating} />
 
-        {isOwn && (
+        {isOwn ? (
           <View style={{ flexDirection: 'row', gap: 8 }}>
             <Pressable onPress={onEdit} hitSlop={8}>
               <Ionicons name="pencil-outline" size={16} color={colors.textMuted} />
@@ -90,13 +92,29 @@ export function ReviewItem({ review, isOwn, onEdit, onDelete }: ReviewItemProps)
               <Ionicons name="trash-outline" size={16} color={colors.textMuted} />
             </Pressable>
           </View>
-        )}
+        ) : onReport ? (
+          <Pressable onPress={onReport} hitSlop={8}>
+            <Ionicons name="flag-outline" size={15} color={colors.textMuted} />
+          </Pressable>
+        ) : null}
       </View>
 
       {review.review_text ? (
         <Text style={{ fontSize: 14, color: colors.text, lineHeight: 20 }}>
           {review.review_text}
         </Text>
+      ) : null}
+
+      {review.photo_url ? (
+        <Image
+          source={{ uri: getRecipeImageUrl(review.photo_url, 'card') }}
+          style={{
+            width: '100%', aspectRatio: 4 / 3,
+            borderRadius: 10, backgroundColor: colors.border,
+            marginTop: review.review_text ? 10 : 0,
+          }}
+          contentFit="cover"
+        />
       ) : null}
     </View>
   );

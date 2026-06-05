@@ -15,10 +15,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
 import { useTheme } from '@/hooks/useTheme';
 import { formatTime, formatCost } from '@/lib/utils';
-import { fetchMacros, flagRecipe, getRecipeNote, saveRecipeNote, fetchRecipeReviews, getUserReviewForRecipe, hasUserCookedRecipe, submitReview, updateReview, deleteReview, fetchCreatorStats, rateRecipe } from '@/lib/api';
+import { fetchMacros, flagRecipe, flagReview, getRecipeNote, saveRecipeNote, fetchRecipeReviews, fetchRecipeCookPhotos, getUserReviewForRecipe, hasUserCookedRecipe, submitReview, updateReview, deleteReview, fetchCreatorStats, rateRecipe, type CookPhoto } from '@/lib/api';
 import { getRecipeImageUrl } from '@/lib/recipeImage';
 import { ReviewItem } from '@/components/ReviewItem';
 import { ReviewComposer } from '@/components/ReviewComposer';
+import { CookPhotoStrip } from '@/components/CookPhotoStrip';
 import { CreatorStatsCard } from '@/components/CreatorStatsCard';
 import { PostCookLeftoversModal } from '@/components/PostCookLeftoversModal';
 import { PostCookReviewModal } from '@/components/PostCookReviewModal';
@@ -220,6 +221,7 @@ export function RecipeDetailModal({
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [hasCooked, setHasCooked] = useState(false);
   const [userReview, setUserReview] = useState<Review | null>(null);
+  const [cookPhotos, setCookPhotos] = useState<CookPhoto[]>([]);
   const [editingReview, setEditingReview] = useState(false);
   const [reviewDismissed, setReviewDismissed] = useState(false);
   const [creatorStats, setCreatorStats] = useState<CreatorStats | null>(null);
@@ -268,6 +270,7 @@ export function RecipeDetailModal({
       setShowLeftoversModal(false);
       setReviews([]); setUserReview(null); setHasCooked(false);
       setEditingReview(false); setReviewDismissed(false); setCreatorStats(null);
+      setCookPhotos([]);
       return;
     }
     setServings(baseServings);
@@ -374,16 +377,30 @@ export function RecipeDetailModal({
     }
   }, [activeTab, recipe?.id, userId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function handleSubmitReview(rating: number, text: string) {
+  // Load community cook photos on open (any tab) for the "Photos from people who
+  // cooked this" strip. Cheap, photo-only query; non-blocking.
+  const refreshCookPhotos = useCallback(() => {
+    if (!recipe) return;
+    fetchRecipeCookPhotos(recipe.supabase_id ?? recipe.id)
+      .then(setCookPhotos)
+      .catch(() => {});
+  }, [recipe?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!visible || !recipe) return;
+    refreshCookPhotos();
+  }, [visible, recipe?.id, refreshCookPhotos]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function handleSubmitReview(rating: number, text: string, photoUrl: string | null) {
     if (!userId || !recipe) return;
     const recipeId = recipe.supabase_id ?? recipe.id;
     try {
       if (userReview) {
-        const updated = await updateReview(userReview.id, rating, text || null);
+        const updated = await updateReview(userReview.id, rating, text || null, photoUrl);
         setUserReview(updated);
         setReviews((prev) => prev.map((r) => r.id === updated.id ? updated : r));
       } else {
-        const created = await submitReview(userId, recipeId, rating, text || null);
+        const created = await submitReview(userId, recipeId, rating, text || null, photoUrl);
         setUserReview(created);
         setReviews((prev) => [created, ...prev]);
       }
@@ -391,6 +408,7 @@ export function RecipeDetailModal({
       if (recipe.supabase_id) rateRecipe(userId, recipe.supabase_id, rating).catch(() => {});
       setUserRating(rating);
       setEditingReview(false);
+      refreshCookPhotos();
     } catch (err: any) {
       if (err?.message?.includes('review_insert') || err?.code === '42501') {
         Alert.alert('Not available', 'You need to mark this recipe as cooked before reviewing.');
@@ -398,6 +416,45 @@ export function RecipeDetailModal({
         Alert.alert('Error', 'Could not save review. Try again.');
       }
     }
+  }
+
+  function openReportRecipe() {
+    if (!recipe) return;
+    const reasons = ['Inappropriate or offensive', 'Incorrect or unsafe instructions', 'Spam or fake recipe', 'Wrong or stolen photo', 'Other'];
+    Alert.alert('Report this recipe', `"${recipe.title}"`, [
+      ...reasons.map((r) => ({
+        text: r,
+        onPress: async () => {
+          try {
+            await flagRecipe(recipe, r);
+            Alert.alert('Thanks for reporting', 'Our team will review this recipe.');
+          } catch {
+            Alert.alert('Could not submit report', 'Please try again.');
+          }
+        },
+      })),
+      { text: 'Cancel', style: 'cancel' as const },
+    ]);
+  }
+
+  function openReportReview(review: Review) {
+    if (!recipe) return;
+    const recipeId = recipe.supabase_id ?? recipe.id;
+    const reasons = ['Inappropriate or offensive', 'Spam or advertising', 'Off-topic / not a real review', 'Harassment', 'Other'];
+    Alert.alert('Report this review', undefined, [
+      ...reasons.map((r) => ({
+        text: r,
+        onPress: async () => {
+          try {
+            await flagReview(review.id, recipeId, r);
+            Alert.alert('Thanks for reporting', "We'll review it shortly.");
+          } catch {
+            Alert.alert('Could not submit report', 'Please try again.');
+          }
+        },
+      })),
+      { text: 'Cancel', style: 'cancel' as const },
+    ]);
   }
 
   async function handleDeleteReview() {
@@ -530,6 +587,22 @@ export function RecipeDetailModal({
           >
             <Ionicons name="chevron-back" size={20} color="#1A1A1A" />
           </Pressable>
+
+          {/* Save toggle — heart "flag" on the hero. Moved here from the footer
+              so the footer's primary action can be "Cook it". */}
+          {onSaveToggle && (
+            <Pressable
+              onPress={onSaveToggle} hitSlop={8}
+              style={{
+                position: 'absolute', zIndex: 10, top: 52, right: 16,
+                width: 36, height: 36, borderRadius: 18,
+                backgroundColor: 'rgba(255,255,255,0.88)',
+                alignItems: 'center', justifyContent: 'center',
+              }}
+            >
+              <Ionicons name={isSaved ? 'heart' : 'heart-outline'} size={20} color={isSaved ? colors.primary : '#1A1A1A'} />
+            </Pressable>
+          )}
           {/* Share — opens the system share sheet with the public web link.
               Hidden for private community drafts (would 404 on the web).
               When recipe.supabase_id is missing, fall back to recipe.id. */}
@@ -538,7 +611,7 @@ export function RecipeDetailModal({
               onPress={() => shareRecipe(recipe)}
               hitSlop={8}
               style={{
-                position: 'absolute', zIndex: 10, top: 52, right: 16,
+                position: 'absolute', zIndex: 10, top: 52, right: 62,
                 width: 36, height: 36, borderRadius: 18,
                 backgroundColor: 'rgba(255,255,255,0.88)',
                 alignItems: 'center', justifyContent: 'center',
@@ -548,19 +621,13 @@ export function RecipeDetailModal({
             </Pressable>
           )}
 
-          {/* Dev flag */}
+          {/* Dev flag — quick access to the same report flow */}
           {__DEV__ && (
             <Pressable
-              onPress={() => {
-                const reasons = ['Wrong image', 'Bad recipe / not tasty', 'Wrong ingredients', 'Bad macro data', 'Incorrect cuisine', 'Duplicate recipe'];
-                Alert.alert('Flag Recipe', `"${recipe.title}"`, [
-                  ...reasons.map((r) => ({ text: r, onPress: () => { flagRecipe(recipe, r); Alert.alert('Flagged', `"${recipe.title}" flagged.`); } })),
-                  { text: 'Cancel', style: 'cancel' },
-                ]);
-              }}
+              onPress={openReportRecipe}
               hitSlop={8}
               style={{
-                position: 'absolute', zIndex: 10, top: 52, right: 62,
+                position: 'absolute', zIndex: 10, top: 52, right: 108,
                 width: 34, height: 34, borderRadius: 17,
                 backgroundColor: 'rgba(180,0,0,0.7)',
                 alignItems: 'center', justifyContent: 'center',
@@ -570,7 +637,7 @@ export function RecipeDetailModal({
             </Pressable>
           )}
 
-          <ScrollView stickyHeaderIndices={[1]} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
+          <ScrollView stickyHeaderIndices={[1]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets contentContainerStyle={{ paddingBottom: 120 }}>
           {/* 0: Header — scrolls away */}
           <View>
             <Image
@@ -838,17 +905,6 @@ export function RecipeDetailModal({
                   </View>
                 ) : (
                   <>
-                    {/* Start cooking — top of steps */}
-                    <Pressable
-                      onPress={() => setCookingModeVisible(true)}
-                      style={{
-                        paddingVertical: 14, borderRadius: 14, alignItems: 'center',
-                        backgroundColor: colors.primary, marginBottom: 14,
-                      }}
-                    >
-                      <Text style={{ fontSize: 15, fontWeight: '700', color: 'white' }}>Start cooking →</Text>
-                    </Pressable>
-
                     {/* Ingredient quick-reference */}
                     <Pressable
                       onPress={() => setIngredRefExpanded((v) => !v)}
@@ -1040,6 +1096,11 @@ export function RecipeDetailModal({
                       </View>
                     )}
 
+                    {/* Community cook photos */}
+                    <View style={{ marginTop: 16 }}>
+                      <CookPhotoStrip photos={cookPhotos} />
+                    </View>
+
                     {/* Post-cook review prompt */}
                     {isCooked && (
                       userReview ? (
@@ -1062,6 +1123,8 @@ export function RecipeDetailModal({
                       ) : !reviewDismissed ? (
                         <View style={{ marginTop: 12 }}>
                           <ReviewComposer
+                            userId={userId ?? ''}
+                            recipeId={recipe?.supabase_id ?? recipe?.id ?? ''}
                             onSubmit={handleSubmitReview}
                             onCancel={() => setReviewDismissed(true)}
                           />
@@ -1147,6 +1210,8 @@ export function RecipeDetailModal({
                   </View>
                 )}
 
+                <CookPhotoStrip photos={cookPhotos} />
+
                 {reviewsLoading ? (
                   <ActivityIndicator color={colors.primary} style={{ marginTop: 32 }} />
                 ) : (
@@ -1156,6 +1221,8 @@ export function RecipeDetailModal({
                       editingReview || !userReview ? (
                         <ReviewComposer
                           existing={editingReview ? userReview : null}
+                          userId={userId ?? ''}
+                          recipeId={recipe?.supabase_id ?? recipe?.id ?? ''}
                           onSubmit={handleSubmitReview}
                           onCancel={() => setEditingReview(false)}
                         />
@@ -1206,6 +1273,7 @@ export function RecipeDetailModal({
                           isOwn={review.user_id === userId}
                           onEdit={() => setEditingReview(true)}
                           onDelete={handleDeleteReview}
+                          onReport={() => openReportReview(review)}
                         />
                       ))
                     )}
@@ -1215,6 +1283,16 @@ export function RecipeDetailModal({
             )}
 
           </View>{/* end tab content */}
+
+          {/* Report a problem — available on every recipe */}
+          <Pressable
+            onPress={openReportRecipe}
+            hitSlop={8}
+            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 18 }}
+          >
+            <Ionicons name="flag-outline" size={13} color={colors.textMuted} />
+            <Text style={{ fontSize: 12, color: colors.textMuted }}>Report a problem with this recipe</Text>
+          </Pressable>
           </ScrollView>{/* end outer sticky ScrollView */}
 
           {/* Grocery toast — inside modal so visible when modal stays open */}
@@ -1267,15 +1345,15 @@ export function RecipeDetailModal({
                   </Text>
                 </Pressable>
                 <Pressable
-                  onPress={onSaveToggle}
+                  onPress={() => setCookingModeVisible(true)}
+                  disabled={steps.length === 0}
                   style={{
-                    flex: 1, height: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center',
-                    backgroundColor: isSaved ? colors.primaryLight : colors.primary,
+                    flex: 1, height: 52, borderRadius: 14, flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center',
+                    backgroundColor: steps.length === 0 ? colors.border : colors.primary,
                   }}
                 >
-                  <Text style={{ fontSize: 15, fontWeight: '600', color: isSaved ? colors.primary : 'white' }}>
-                    {isSaved ? 'Saved ✓' : 'Save recipe'}
-                  </Text>
+                  <Ionicons name="restaurant-outline" size={18} color="white" />
+                  <Text style={{ fontSize: 15, fontWeight: '600', color: 'white' }}>Cook it</Text>
                 </Pressable>
               </>
             )}
@@ -1393,6 +1471,7 @@ export function RecipeDetailModal({
           onSubmitted={(review) => {
             setUserReview(review);
             setReviews((prev) => [review, ...prev.filter((r) => r.id !== review.id)]);
+            refreshCookPhotos();
           }}
         />
       </Modal>

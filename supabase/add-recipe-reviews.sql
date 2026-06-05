@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS recipe_reviews (
   user_id     uuid REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
   rating      integer CHECK (rating BETWEEN 1 AND 5) NOT NULL,
   review_text text,
+  photo_url   text,                          -- optional user "cook photo"; see add-cook-photos-202605.sql
   created_at  timestamp with time zone DEFAULT now(),
   updated_at  timestamp with time zone DEFAULT now(),
   UNIQUE (recipe_id, user_id)

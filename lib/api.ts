@@ -1465,11 +1465,39 @@ export async function fetchRecipeReviews(recipeId: string): Promise<Review[]> {
     user_id: r.user_id,
     rating: r.rating,
     review_text: r.review_text ?? null,
+    photo_url: r.photo_url ?? null,
     created_at: r.created_at,
     updated_at: r.updated_at,
     reviewer_name: r.reviewer?.name ?? null,
     reviewer_username: r.reviewer?.username ?? null,
     reviewer_avatar: r.reviewer?.avatar_url ?? null,
+  }));
+}
+
+// Lightweight fetch for the "Photos from people who cooked this" strip. Pulls
+// only reviews that have a cook photo, newest first — used on the recipe detail
+// (Overview + Reviews tabs) without loading the full review payload on open.
+export interface CookPhoto {
+  id: string;
+  photo_url: string;
+  reviewer_name: string | null;
+  reviewer_username: string | null;
+}
+
+export async function fetchRecipeCookPhotos(recipeId: string, limit = 12): Promise<CookPhoto[]> {
+  const { data, error } = await supabase
+    .from('recipe_reviews')
+    .select('id, photo_url, reviewer:profiles_public!recipe_reviews_user_id_fkey(name, username)')
+    .eq('recipe_id', recipeId)
+    .not('photo_url', 'is', null)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? []).map((r: any) => ({
+    id: r.id,
+    photo_url: r.photo_url,
+    reviewer_name: r.reviewer?.name ?? null,
+    reviewer_username: r.reviewer?.username ?? null,
   }));
 }
 
@@ -1488,6 +1516,7 @@ export async function getUserReviewForRecipe(userId: string, recipeId: string): 
     user_id: data.user_id,
     rating: data.rating,
     review_text: data.review_text ?? null,
+    photo_url: data.photo_url ?? null,
     created_at: data.created_at,
     updated_at: data.updated_at,
     reviewer_name: data.reviewer?.name ?? null,
@@ -1509,11 +1538,12 @@ export async function hasUserCookedRecipe(userId: string, recipeId: string): Pro
 }
 
 export async function submitReview(
-  userId: string, recipeId: string, rating: number, reviewText: string | null
+  userId: string, recipeId: string, rating: number, reviewText: string | null,
+  photoUrl: string | null = null,
 ): Promise<Review> {
   const { data, error } = await supabase
     .from('recipe_reviews')
-    .insert({ user_id: userId, recipe_id: recipeId, rating, review_text: reviewText ?? null })
+    .insert({ user_id: userId, recipe_id: recipeId, rating, review_text: reviewText ?? null, photo_url: photoUrl ?? null })
     .select('*, reviewer:profiles_public!recipe_reviews_user_id_fkey(name, username, avatar_url)')
     .single();
   if (error) throw error;
@@ -1528,6 +1558,7 @@ export async function submitReview(
     user_id: data.user_id,
     rating: data.rating,
     review_text: data.review_text ?? null,
+    photo_url: data.photo_url ?? null,
     created_at: data.created_at,
     updated_at: data.updated_at,
     reviewer_name: data.reviewer?.name ?? null,
@@ -1548,11 +1579,19 @@ async function notifyReviewCreator(reviewId: string): Promise<void> {
 }
 
 export async function updateReview(
-  reviewId: string, rating: number, reviewText: string | null
+  reviewId: string, rating: number, reviewText: string | null,
+  // Pass a string to set/replace the cook photo, null to clear it, or omit
+  // (undefined) to leave the existing photo untouched on a text-only edit.
+  photoUrl?: string | null,
 ): Promise<Review> {
   const { data, error } = await supabase
     .from('recipe_reviews')
-    .update({ rating, review_text: reviewText ?? null, updated_at: new Date().toISOString() })
+    .update({
+      rating,
+      review_text: reviewText ?? null,
+      ...(photoUrl !== undefined ? { photo_url: photoUrl } : {}),
+      updated_at: new Date().toISOString(),
+    })
     .eq('id', reviewId)
     .select('*, reviewer:profiles_public!recipe_reviews_user_id_fkey(name, username, avatar_url)')
     .single();
@@ -1563,6 +1602,7 @@ export async function updateReview(
     user_id: data.user_id,
     rating: data.rating,
     review_text: data.review_text ?? null,
+    photo_url: data.photo_url ?? null,
     created_at: data.created_at,
     updated_at: data.updated_at,
     reviewer_name: data.reviewer?.name ?? null,
@@ -1996,18 +2036,37 @@ export async function flagRecipe(
   recipe: { supabase_id?: string; id: string; title: string },
   reason: string
 ): Promise<void> {
-  try {
-    const { data: { user } } = await supabase.auth.getUser();
-    await supabase.from('recipe_flags').insert({
-      recipe_id: recipe.supabase_id || null,
-      external_id: recipe.id,
-      recipe_title: recipe.title,
-      reason,
-      flagged_by: user?.id ?? null,
-    });
-  } catch {
-    // Non-critical
-  }
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not signed in');
+  const { error } = await supabase.from('recipe_flags').insert({
+    recipe_id: recipe.supabase_id || null,
+    external_id: recipe.id,
+    recipe_title: recipe.title,
+    reason,
+    flagged_by: user.id,
+  });
+  // 23505 = this user already flagged this recipe (uq_recipe_flags_user_recipe).
+  // Treat a repeat report as success rather than surfacing an error.
+  if (error && error.code !== '23505') throw error;
+}
+
+// Report a review (its cook photo, text, and rating, as one unit) for manual
+// moderation. Collect-only — nothing is auto-hidden. Deduped one-per-user-per
+// review by uq_review_flags_user_review; a repeat report resolves as success.
+export async function flagReview(
+  reviewId: string,
+  recipeId: string | null,
+  reason: string,
+): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not signed in');
+  const { error } = await supabase.from('review_flags').insert({
+    review_id: reviewId,
+    recipe_id: recipeId,
+    reason,
+    flagged_by: user.id,
+  });
+  if (error && error.code !== '23505') throw error;
 }
 
 export async function getFlaggedRecipes(): Promise<FlaggedRecipe[]> {
