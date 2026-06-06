@@ -4,9 +4,14 @@
  * accepts this fixed-UTC skew so we don't need a per-user timezone column;
  * follow-up will be a `profiles.timezone` migration + per-user dispatch.
  *
- * For each user with a meal_plan slot on today's day-of-week, sends a push
- * naming tonight's planned recipe — but only if they haven't already cooked
- * it today.
+ * For each user whose *current-week* meal plan has a slot on today's
+ * day-of-week, sends a push naming tonight's planned recipe — but only if they
+ * haven't already cooked it today.
+ *
+ * NB: we MUST scope to the current week. Matching on day-of-week alone against a
+ * user's most-recent plan re-fires a stale plan from a past week every time that
+ * weekday comes around (the bug behind the "I keep getting reminders for last
+ * week's meals" report). week_start_date is a Monday-anchored YYYY-MM-DD.
  *
  * Trigger manually: GET /api/cron/cook-reminders
  * with Authorization: Bearer <CRON_SECRET>
@@ -45,6 +50,22 @@ export function utcDayToSlotDay(utcDay: number): number {
   return (utcDay + 6) % 7;
 }
 
+// The Monday that starts the week containing `now`, as a YYYY-MM-DD string in
+// UTC. Derived from the same UTC `now` as `today` (utcDayToSlotDay) so the
+// week-start filter and the day-of-week slot match never drift relative to each
+// other. The cron fires at 22:00 UTC, where every US/CA timezone shares the
+// same calendar date as UTC, so this aligns with the client's locally-computed
+// getWeekStart() for the supported markets.
+export function getUtcWeekStart(now: Date): string {
+  const slotDay = utcDayToSlotDay(now.getUTCDay()); // Mon=0..Sun=6
+  const monday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  monday.setUTCDate(monday.getUTCDate() - slotDay);
+  const y = monday.getUTCFullYear();
+  const m = String(monday.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(monday.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 // "Pick tonight's slot" — prefer dinner, then lunch, then breakfast. The cron
 // fires at the dinner-prep time of day so dinner is the natural primary.
 export function pickFeaturedSlot(slots: Slot[], today: number): Slot | null {
@@ -66,14 +87,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const now = new Date();
   const today = utcDayToSlotDay(now.getUTCDay());
+  const currentWeekStart = getUtcWeekStart(now);
   const cooldownCutoff = new Date(now.getTime() - REMINDER_COOLDOWN_HOURS * 3600_000).toISOString();
 
-  // Most recent (= current-week) plan per user. We sort desc by week_start_date
-  // and grab the latest row per user. Simpler than computing today's
-  // week_start_date in TZ-agnostic JS — and tolerant of clock skew.
+  // Only the CURRENT week's plan per user. Filtering on week_start_date is what
+  // stops a stale plan from a past week re-firing every time its weekday comes
+  // around. We still order desc + dedupe defensively in case a user somehow has
+  // more than one row for the same week.
   const { data: plans, error: plansErr } = await sb
     .from('meal_plans')
     .select('user_id, slots, week_start_date')
+    .eq('week_start_date', currentWeekStart)
     .order('week_start_date', { ascending: false });
 
   if (plansErr) return res.status(500).json({ error: 'Failed to fetch plans' });

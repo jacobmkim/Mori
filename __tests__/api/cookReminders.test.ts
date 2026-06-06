@@ -31,9 +31,18 @@ jest.mock('@supabase/supabase-js', () => ({
   createClient: jest.fn(() => ({
     from: jest.fn((table: string) => {
       if (table === 'meal_plans') {
+        // Faithfully simulate `.eq('week_start_date', X)` so the current-week
+        // filter is actually exercised by the handler under test.
         return {
           select: jest.fn(() => ({
-            order: jest.fn().mockImplementation(() => Promise.resolve(mockPlansResult)),
+            eq: jest.fn((_col: string, val: string) => ({
+              order: jest.fn().mockImplementation(() =>
+                Promise.resolve({
+                  data: (mockPlansResult.data ?? []).filter((p: any) => p.week_start_date === val),
+                  error: mockPlansResult.error,
+                }),
+              ),
+            })),
           })),
         };
       }
@@ -79,7 +88,13 @@ jest.mock('@supabase/supabase-js', () => ({
   })),
 }));
 
-import handler, { utcDayToSlotDay, pickFeaturedSlot } from '@/api/cron/cook-reminders';
+import handler, { utcDayToSlotDay, pickFeaturedSlot, getUtcWeekStart } from '@/api/cron/cook-reminders';
+
+// The Monday-anchored week-start the handler computes for "right now". Test data
+// must use this for a plan to count as the current week.
+const CURRENT_WEEK_START = getUtcWeekStart(new Date());
+// A plainly-past week — used to assert stale plans never re-fire.
+const PAST_WEEK_START = '2026-05-11';
 
 const makeReq = (overrides: Record<string, any> = {}) => ({ method: 'GET', headers: {}, ...overrides });
 const makeRes = () => {
@@ -164,14 +179,30 @@ describe('cook-reminders — gate + no-op', () => {
   });
 
   it('returns 0/0 when no plans have a slot on today', async () => {
-    // Slot exists but for a different day-of-week.
+    // Slot exists in the current week but for a different day-of-week.
     mockPlansResult = {
-      data: [{ user_id: 'u1', slots: [{ day: 99, meal_type: 'dinner', recipe_id: 'r' }], week_start_date: '2026-05-11' }],
+      data: [{ user_id: 'u1', slots: [{ day: 99, meal_type: 'dinner', recipe_id: 'r' }], week_start_date: CURRENT_WEEK_START }],
       error: null,
     };
     const res = makeRes();
     await handler(makeReq() as any, res as any);
     expect(res.json).toHaveBeenCalledWith({ sent: 0, checked: 0 });
+  });
+});
+
+// ─── getUtcWeekStart — current-week Monday in UTC ──────────────────────────────
+
+describe('getUtcWeekStart', () => {
+  it('returns the Monday of the week for a mid-week UTC date', () => {
+    // 2026-06-03 is a Wednesday → week Monday is 2026-06-01.
+    expect(getUtcWeekStart(new Date('2026-06-03T22:00:00Z'))).toBe('2026-06-01');
+  });
+  it('maps Sunday back to the prior Monday (Mon-anchored weeks)', () => {
+    // 2026-06-07 is a Sunday → still belongs to the 2026-06-01 week.
+    expect(getUtcWeekStart(new Date('2026-06-07T22:00:00Z'))).toBe('2026-06-01');
+  });
+  it('returns the same date when given a Monday', () => {
+    expect(getUtcWeekStart(new Date('2026-06-01T22:00:00Z'))).toBe('2026-06-01');
   });
 });
 
@@ -186,7 +217,7 @@ describe('cook-reminders — push behaviour', () => {
       data: [{
         user_id: 'u1',
         slots: [{ day: today, meal_type: 'dinner', recipe_id: 'r1' }],
-        week_start_date: '2026-05-11',
+        week_start_date: CURRENT_WEEK_START,
       }],
       error: null,
     };
@@ -216,7 +247,7 @@ describe('cook-reminders — push behaviour', () => {
       data: [{
         user_id: 'u1',
         slots: [{ day: today, meal_type: 'dinner', recipe_id: 'r1' }],
-        week_start_date: '2026-05-11',
+        week_start_date: CURRENT_WEEK_START,
       }],
       error: null,
     };
@@ -246,7 +277,12 @@ describe('cook-reminders — push behaviour', () => {
       }],
       error: null,
     };
+    const slots = [{ day: today, meal_type: 'dinner', recipe_id: 'r1' }];
     const recent = new Date(Date.now() - 60_000).toISOString();
+    mockPlansResult = {
+      data: [{ user_id: 'u1', slots, week_start_date: CURRENT_WEEK_START }],
+      error: null,
+    };
     mockProfilesResult = {
       data: [{ id: 'u1', push_token: 'tok', notify_meal_plan: true, last_meal_plan_reminder_at: recent }],
       error: null,
@@ -260,12 +296,40 @@ describe('cook-reminders — push behaviour', () => {
     expect(mockSendExpoPush).not.toHaveBeenCalled();
   });
 
-  it('takes only the latest meal_plan per user when multiple weeks exist', async () => {
-    // Two plans for the same user — DB returns desc, so the FIRST one wins.
+  // ─── Regression: stale-plan re-fire (the reported bug) ──────────────────────
+
+  it('does NOT fire for a plan from a past week (current-week filter)', async () => {
+    // User planned a slot on today's weekday LAST week and made no plan this
+    // week. The old code would re-send forever; the week filter must drop it.
+    mockPlansResult = {
+      data: [{
+        user_id: 'u1',
+        slots: [{ day: today, meal_type: 'dinner', recipe_id: 'stale' }],
+        week_start_date: PAST_WEEK_START,
+      }],
+      error: null,
+    };
+    mockProfilesResult = {
+      data: [{ id: 'u1', push_token: 'tok', notify_meal_plan: true, last_meal_plan_reminder_at: null }],
+      error: null,
+    };
+    mockRecipesResult = {
+      data: [{ id: 'stale', title: 'Stale', prep_time_mins: 5, cook_time_mins: 10 }],
+      error: null,
+    };
+    const res = makeRes();
+    await handler(makeReq() as any, res as any);
+    expect(mockSendExpoPush).not.toHaveBeenCalled();
+    expect(res.json).toHaveBeenCalledWith({ sent: 0, checked: 0 });
+  });
+
+  it('fires the current-week plan and ignores a coexisting past-week plan', async () => {
+    // Same user has both a current-week and a past-week plan. Only the current
+    // week's recipe should be featured.
     mockPlansResult = {
       data: [
-        { user_id: 'u1', slots: [{ day: today, meal_type: 'dinner', recipe_id: 'new' }], week_start_date: '2026-05-11' },
-        { user_id: 'u1', slots: [{ day: today, meal_type: 'dinner', recipe_id: 'old' }], week_start_date: '2026-05-04' },
+        { user_id: 'u1', slots: [{ day: today, meal_type: 'dinner', recipe_id: 'current' }], week_start_date: CURRENT_WEEK_START },
+        { user_id: 'u1', slots: [{ day: today, meal_type: 'dinner', recipe_id: 'old' }], week_start_date: PAST_WEEK_START },
       ],
       error: null,
     };
@@ -274,11 +338,12 @@ describe('cook-reminders — push behaviour', () => {
       error: null,
     };
     mockRecipesResult = {
-      data: [{ id: 'new', title: 'New', prep_time_mins: 5, cook_time_mins: 10 }],
+      data: [{ id: 'current', title: 'Current', prep_time_mins: 5, cook_time_mins: 10 }],
       error: null,
     };
     await handler(makeReq() as any, makeRes() as any);
+    expect(mockSendExpoPush).toHaveBeenCalledTimes(1);
     const call = mockSendExpoPush.mock.calls[0][0];
-    expect(call.data.recipe_id).toBe('new');
+    expect(call.data.recipe_id).toBe('current');
   });
 });
