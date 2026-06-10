@@ -55,23 +55,45 @@ CREATE INDEX IF NOT EXISTS profiles_is_premium_idx
 CREATE OR REPLACE FUNCTION protect_premium_columns()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
 BEGIN
-  IF current_user IN ('authenticated', 'anon') AND (
-       NEW.is_premium              IS DISTINCT FROM OLD.is_premium
+  -- service_role (RC webhook) + postgres/supabase_admin (Studio) write freely.
+  IF current_user NOT IN ('authenticated', 'anon') THEN
+    RETURN NEW;
+  END IF;
+
+  IF TG_OP = 'INSERT' THEN
+    -- handle_new_user() pre-creates the profile row as a SECURITY DEFINER
+    -- trigger (current_user = postgres), so it's exempt above. But any path
+    -- that leaves an auth user without a profiles row (partial deletion, a
+    -- signup edge) would let a client INSERT { id, is_premium: true }
+    -- unchallenged. A client-created row may only carry safe entitlement
+    -- defaults — FALSE / NULL; anything else is a self-grant attempt.
+    IF NEW.is_premium              IS DISTINCT FROM FALSE
+    OR NEW.premium_in_grace_period IS DISTINCT FROM FALSE
+    OR NEW.premium_product_id      IS NOT NULL
+    OR NEW.premium_expires_at      IS NOT NULL
+    OR NEW.premium_will_renew      IS NOT NULL
+    OR NEW.premium_started_at      IS NOT NULL
+    OR NEW.revenuecat_user_id      IS NOT NULL THEN
+      RAISE EXCEPTION 'profiles premium columns are service-role-only (set via the RevenueCat webhook, not the client)';
+    END IF;
+  ELSE  -- UPDATE: only a CHANGE to an entitlement column is blocked.
+    IF NEW.is_premium              IS DISTINCT FROM OLD.is_premium
     OR NEW.premium_product_id      IS DISTINCT FROM OLD.premium_product_id
     OR NEW.premium_expires_at      IS DISTINCT FROM OLD.premium_expires_at
     OR NEW.premium_will_renew      IS DISTINCT FROM OLD.premium_will_renew
     OR NEW.premium_in_grace_period IS DISTINCT FROM OLD.premium_in_grace_period
     OR NEW.premium_started_at      IS DISTINCT FROM OLD.premium_started_at
-    OR NEW.revenuecat_user_id      IS DISTINCT FROM OLD.revenuecat_user_id
-  ) THEN
-    RAISE EXCEPTION 'profiles premium columns are service-role-only (set via the RevenueCat webhook, not the client)';
+    OR NEW.revenuecat_user_id      IS DISTINCT FROM OLD.revenuecat_user_id THEN
+      RAISE EXCEPTION 'profiles premium columns are service-role-only (set via the RevenueCat webhook, not the client)';
+    END IF;
   END IF;
+
   RETURN NEW;
 END $$;
 
 DROP TRIGGER IF EXISTS trg_protect_premium_columns ON profiles;
 CREATE TRIGGER trg_protect_premium_columns
-  BEFORE UPDATE ON profiles
+  BEFORE INSERT OR UPDATE ON profiles
   FOR EACH ROW EXECUTE FUNCTION protect_premium_columns();
 
 

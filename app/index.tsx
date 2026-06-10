@@ -12,7 +12,7 @@ export default function Index() {
   const colors = useTheme();
   const [checking, setChecking] = useState(true);
   const [hasSession, setHasSession] = useState(false);
-  const { setProfile, setSessionNumber } = useUserStore();
+  const { setProfile, setSessionNumber, setAuthResolved } = useUserStore();
   const loadSavedRecipes = useSavedStore((s) => s.loadSavedRecipes);
   const loadLeftovers = useLeftoversStore((s) => s.loadLeftovers);
 
@@ -39,6 +39,9 @@ export default function Index() {
           .catch(() => {}); // non-critical
         setHasSession(true);
       }
+      // Signal that the session-restore attempt is done (logged in or not) so
+      // deferred cold-start deep links can route with a ready session.
+      setAuthResolved(true);
       setChecking(false);
     });
   }, []);

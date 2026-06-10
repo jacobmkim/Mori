@@ -97,30 +97,47 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const cooksCrossed = nextTierCrossed(totalCooksEarned, cooksLast, COOKS_TIERS);
 
     if (savesCrossed) {
-      const msg = savesMessage(savesCrossed);
-      await sendExpoPush({
-        to: user.push_token,
-        title: msg.title,
-        body: msg.body,
-        data: { type: 'creator_milestone', metric: 'saves', tier: savesCrossed },
-      });
-      await sb.from('profiles').update({ last_saves_earned_milestone_notified: savesCrossed }).eq('id', user.id);
-      sent++;
-      // Pace sends to avoid Expo rate limits.
-      await new Promise((r) => setTimeout(r, 50));
+      // Claim the tier with a conditional UPDATE *before* pushing. Only the run
+      // whose update actually moves the watermark forward sends the push, so
+      // two overlapping cron runs (cold-start race) can't double-notify.
+      const { data: claimed } = await sb
+        .from('profiles')
+        .update({ last_saves_earned_milestone_notified: savesCrossed })
+        .eq('id', user.id)
+        .or(`last_saves_earned_milestone_notified.is.null,last_saves_earned_milestone_notified.lt.${savesCrossed}`)
+        .select('id');
+      if (claimed && claimed.length > 0) {
+        const msg = savesMessage(savesCrossed);
+        await sendExpoPush({
+          to: user.push_token,
+          title: msg.title,
+          body: msg.body,
+          data: { type: 'creator_milestone', metric: 'saves', tier: savesCrossed },
+        });
+        sent++;
+        // Pace sends to avoid Expo rate limits.
+        await new Promise((r) => setTimeout(r, 50));
+      }
     }
 
     if (cooksCrossed) {
-      const msg = cooksMessage(cooksCrossed);
-      await sendExpoPush({
-        to: user.push_token,
-        title: msg.title,
-        body: msg.body,
-        data: { type: 'creator_milestone', metric: 'cooks', tier: cooksCrossed },
-      });
-      await sb.from('profiles').update({ last_cooks_earned_milestone_notified: cooksCrossed }).eq('id', user.id);
-      sent++;
-      await new Promise((r) => setTimeout(r, 50));
+      const { data: claimed } = await sb
+        .from('profiles')
+        .update({ last_cooks_earned_milestone_notified: cooksCrossed })
+        .eq('id', user.id)
+        .or(`last_cooks_earned_milestone_notified.is.null,last_cooks_earned_milestone_notified.lt.${cooksCrossed}`)
+        .select('id');
+      if (claimed && claimed.length > 0) {
+        const msg = cooksMessage(cooksCrossed);
+        await sendExpoPush({
+          to: user.push_token,
+          title: msg.title,
+          body: msg.body,
+          data: { type: 'creator_milestone', metric: 'cooks', tier: cooksCrossed },
+        });
+        sent++;
+        await new Promise((r) => setTimeout(r, 50));
+      }
     }
   }
 

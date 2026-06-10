@@ -1,9 +1,12 @@
 /**
  * validateImageForUpload — guards image uploads against:
  *   - Empty / oversize buffers (low-memory iOS app kill, egress abuse).
- *   - Non-image MIME types (previous code uploaded any blob as fake image/jpeg).
+ *   - Non-image content (previous code uploaded any blob as fake image/jpeg).
  *
  * Used by AddRecipeWizard (5 MB cap) and edit-profile (2 MB cap).
+ *
+ * Content type is now derived from the file's MAGIC NUMBER, not its extension
+ * or the picker-supplied MIME — both are spoofable (rename evil.html → x.jpg).
  *
  * The implementation reads files via expo-file-system's `File.bytes()` rather
  * than `fetch(uri).blob()` because the Blob path silently corrupts uploads
@@ -20,90 +23,92 @@ jest.mock('expo-file-system', () => ({
 
 import { validateImageForUpload, ImageValidationError } from '@/lib/imageUpload';
 
-function bytesOfSize(n: number): Uint8Array {
-  return new Uint8Array(n);
+// ── Real format signatures ──────────────────────────────────────────────────
+const JPEG = [0xff, 0xd8, 0xff, 0xe0];
+const PNG = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+const WEBP = [0x52, 0x49, 0x46, 0x46, 0x00, 0x00, 0x00, 0x00, 0x57, 0x45, 0x42, 0x50];
+const HEIC = [0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70, 0x68, 0x65, 0x69, 0x63];
+const HTML = [0x3c, 0x21, 0x44, 0x4f, 0x43, 0x54, 0x59, 0x50, 0x45]; // <!DOCTYPE
+
+// Build a buffer of `size` bytes that begins with `sig`.
+function signed(sig: number[], size = 100): Uint8Array {
+  const arr = new Uint8Array(Math.max(size, sig.length));
+  arr.set(sig, 0);
+  return arr;
 }
 
 beforeEach(() => {
   mockBytes.mockReset();
 });
 
-describe('validateImageForUpload — happy path', () => {
+describe('validateImageForUpload — happy path (content sniffed from bytes)', () => {
   it('returns Uint8Array + contentType for an in-bounds JPEG', async () => {
-    mockBytes.mockResolvedValueOnce(bytesOfSize(100_000));
+    mockBytes.mockResolvedValueOnce(signed(JPEG, 100_000));
     const result = await validateImageForUpload('file:///tmp/ok.jpg');
     expect(result.contentType).toBe('image/jpeg');
     expect(result.byteLength).toBe(100_000);
     expect(result.data).toBeInstanceOf(Uint8Array);
   });
 
-  it('infers contentType from .png/.webp/.heic/.heif extensions', async () => {
+  it('sniffs PNG / WebP / HEIC from magic numbers regardless of extension', async () => {
     const cases = [
-      { uri: 'file:///tmp/x.png', expected: 'image/png' },
-      { uri: 'file:///tmp/x.webp', expected: 'image/webp' },
-      { uri: 'file:///tmp/x.heic', expected: 'image/heic' },
-      { uri: 'file:///tmp/x.heif', expected: 'image/heif' },
-      { uri: 'file:///tmp/x.JPEG', expected: 'image/jpeg' },
+      { sig: PNG, expected: 'image/png' },
+      { sig: WEBP, expected: 'image/webp' },
+      { sig: HEIC, expected: 'image/heic' },
     ];
-    for (const { uri, expected } of cases) {
-      mockBytes.mockResolvedValueOnce(bytesOfSize(100));
-      const result = await validateImageForUpload(uri);
+    for (const { sig, expected } of cases) {
+      mockBytes.mockResolvedValueOnce(signed(sig));
+      // Deliberately misleading extension — bytes win.
+      const result = await validateImageForUpload('file:///tmp/x.jpg');
       expect(result.contentType).toBe(expected);
     }
   });
 
-  it('strips query strings before inferring extension', async () => {
-    mockBytes.mockResolvedValueOnce(bytesOfSize(100));
-    const result = await validateImageForUpload('file:///tmp/x.png?v=1');
-    expect(result.contentType).toBe('image/png');
-  });
-
-  it('uses mimeOverride when provided and valid', async () => {
-    mockBytes.mockResolvedValueOnce(bytesOfSize(100));
+  it('trusts the bytes over a contradictory mimeOverride', async () => {
+    mockBytes.mockResolvedValueOnce(signed(JPEG));
     const result = await validateImageForUpload('file:///tmp/no-ext', undefined, 'image/heic');
-    expect(result.contentType).toBe('image/heic');
+    expect(result.contentType).toBe('image/jpeg');
   });
 
-  it('defaults to image/jpeg when URI has no recognizable extension', async () => {
-    mockBytes.mockResolvedValueOnce(bytesOfSize(100));
-    const result = await validateImageForUpload('file:///tmp/asset-id');
-    expect(result.contentType).toBe('image/jpeg');
+  it('accepts a file exactly at the cap', async () => {
+    mockBytes.mockResolvedValueOnce(signed(JPEG, 5 * 1024 * 1024));
+    const result = await validateImageForUpload('file:///tmp/edge.jpg');
+    expect(result.byteLength).toBe(5 * 1024 * 1024);
   });
 });
 
 describe('validateImageForUpload — rejection cases', () => {
+  it('rejects a non-image disguised with an image extension (HTML bytes, .jpg name)', async () => {
+    mockBytes.mockResolvedValueOnce(signed(HTML));
+    await expect(validateImageForUpload('file:///tmp/evil.jpg')).rejects.toBeInstanceOf(
+      ImageValidationError,
+    );
+  });
+
+  it('rejects a non-image even with an image mimeOverride', async () => {
+    mockBytes.mockResolvedValueOnce(signed(HTML));
+    await expect(
+      validateImageForUpload('file:///tmp/x', undefined, 'image/jpeg'),
+    ).rejects.toBeInstanceOf(ImageValidationError);
+  });
+
   it('rejects empty file', async () => {
-    mockBytes.mockResolvedValueOnce(bytesOfSize(0));
+    mockBytes.mockResolvedValueOnce(new Uint8Array(0));
     await expect(validateImageForUpload('file:///tmp/empty.jpg')).rejects.toBeInstanceOf(
       ImageValidationError,
     );
   });
 
   it('rejects file over the default 5 MB cap', async () => {
-    mockBytes.mockResolvedValueOnce(bytesOfSize(6 * 1024 * 1024));
+    mockBytes.mockResolvedValueOnce(signed(JPEG, 6 * 1024 * 1024));
     await expect(validateImageForUpload('file:///tmp/huge.jpg')).rejects.toThrow(/under 5 MB/);
   });
 
   it('rejects file over an explicit 2 MB cap (avatar path)', async () => {
-    mockBytes.mockResolvedValueOnce(bytesOfSize(3 * 1024 * 1024));
+    mockBytes.mockResolvedValueOnce(signed(JPEG, 3 * 1024 * 1024));
     await expect(
       validateImageForUpload('file:///tmp/avatar.jpg', 2 * 1024 * 1024),
     ).rejects.toThrow(/under 2 MB/);
-  });
-
-  it('accepts a file exactly at the cap', async () => {
-    mockBytes.mockResolvedValueOnce(bytesOfSize(5 * 1024 * 1024));
-    const result = await validateImageForUpload('file:///tmp/edge.jpg');
-    expect(result.byteLength).toBe(5 * 1024 * 1024);
-  });
-
-  it('ignores a bogus mimeOverride and falls back to extension/default', async () => {
-    mockBytes.mockResolvedValueOnce(bytesOfSize(100));
-    // application/pdf is not in the allowlist — override is dropped, extension
-    // .pdf has no mapping, so we land on the safe image/jpeg default.
-    // ImagePicker is configured for Images only, so this path is defensive.
-    const result = await validateImageForUpload('file:///tmp/x.pdf', undefined, 'application/pdf');
-    expect(result.contentType).toBe('image/jpeg');
   });
 
   it('wraps File-read errors as ImageValidationError', async () => {

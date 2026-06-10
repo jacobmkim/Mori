@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import Anthropic from '@anthropic-ai/sdk';
 import { createClient } from '@supabase/supabase-js';
 import { timingSafeEqual } from 'crypto';
-import { rateLimitUser } from './_rateLimit';
+import { rateLimitUser, rateLimitIP, getClientIP } from './_rateLimit';
 import { validate, GenerateRecipeRequestSchema, ValidationError, formatValidationError } from '../lib/validation';
 import { requireAuth } from './_apiAuth';
 import { captureException } from './_sentry';
@@ -163,7 +163,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (provided.length !== expected.length || !timingSafeEqual(provided, expected)) {
         return res.status(401).json({ error: 'Unauthorized' });
       }
-      // Seed script authenticated — no per-user rate limiting
+      // Seed script authenticated. No per-user limit (bulk seeding is the whole
+      // point), but cap by IP so a leaked SEED_SECRET can't run up unbounded
+      // Claude spend. 1000/hr is far above any paced legit seed run.
+      const seedIpLimit = await rateLimitIP(getClientIP(req), 'generate-recipe-seed', 1000, 3600);
+      if (!seedIpLimit.success) {
+        res.setHeader('Retry-After', seedIpLimit.retryAfter || 3600);
+        return res.status(429).json({ error: 'Rate limit exceeded', retryAfter: seedIpLimit.retryAfter });
+      }
     } else {
       return res.status(401).json({ error: 'Unauthorized' });
     }

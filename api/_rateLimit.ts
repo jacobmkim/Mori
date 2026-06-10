@@ -19,7 +19,10 @@ type RateLimitResult = {
 
 interface RateLimitStore {
   get(key: string): Promise<number | null>;
-  set(key: string, value: number, ttlSeconds: number): Promise<void>;
+  // Returns true only if the write was durably persisted. A false return lets
+  // the limiter fail CLOSED instead of silently letting the counter never
+  // increment (which would pass requests unthrottled — a fail-open hole).
+  set(key: string, value: number, ttlSeconds: number): Promise<boolean>;
   incr(key: string): Promise<number>;
 }
 
@@ -38,11 +41,12 @@ class InMemoryStore implements RateLimitStore {
     return entry.count;
   }
 
-  async set(key: string, value: number, ttlSeconds: number): Promise<void> {
+  async set(key: string, value: number, ttlSeconds: number): Promise<boolean> {
     this.store.set(key, {
       count: value,
       resetAt: Date.now() + ttlSeconds * 1000,
     });
+    return true;
   }
 
   async incr(key: string): Promise<number> {
@@ -80,12 +84,15 @@ class KVStore implements RateLimitStore {
     }
   }
 
-  async set(key: string, value: number, ttlSeconds: number): Promise<void> {
-    if (!this.client) return;
+  async set(key: string, value: number, ttlSeconds: number): Promise<boolean> {
+    if (!this.client) return false;
     try {
       await this.client.setex(key, ttlSeconds, value);
+      return true;
     } catch {
-      // Silently fail — fallback to in-memory
+      // Write failed — report it so the caller fails closed rather than
+      // letting the counter silently never increment.
+      return false;
     }
   }
 
@@ -135,7 +142,8 @@ export async function rateLimitUser(
     const current = await s.get(key);
     if (current === null) {
       // First request in window
-      await s.set(key, 1, windowSeconds);
+      const ok = await s.set(key, 1, windowSeconds);
+      if (!ok) return { success: false, remaining: 0, resetAt: Date.now() + windowSeconds * 1000 };
       return { success: true, remaining: limit - 1, resetAt: Date.now() + windowSeconds * 1000 };
     }
 
@@ -150,7 +158,8 @@ export async function rateLimitUser(
       };
     }
 
-    await s.set(key, count, windowSeconds);
+    const ok = await s.set(key, count, windowSeconds);
+    if (!ok) return { success: false, remaining: 0, resetAt: Date.now() + windowSeconds * 1000 };
     return {
       success: true,
       remaining: limit - count,
@@ -174,7 +183,8 @@ export async function rateLimitIP(
 
     const current = await s.get(key);
     if (current === null) {
-      await s.set(key, 1, windowSeconds);
+      const ok = await s.set(key, 1, windowSeconds);
+      if (!ok) return { success: false, remaining: 0, resetAt: Date.now() + windowSeconds * 1000 };
       return { success: true, remaining: limit - 1, resetAt: Date.now() + windowSeconds * 1000 };
     }
 
@@ -189,7 +199,8 @@ export async function rateLimitIP(
       };
     }
 
-    await s.set(key, count, windowSeconds);
+    const ok = await s.set(key, count, windowSeconds);
+    if (!ok) return { success: false, remaining: 0, resetAt: Date.now() + windowSeconds * 1000 };
     return {
       success: true,
       remaining: limit - count,

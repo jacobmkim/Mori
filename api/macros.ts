@@ -279,7 +279,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const effectiveServings = servings && servings > 0 ? servings : 4;
     const estimated = await estimateWithClaude(recipeTitle, ings, effectiveServings);
     if (estimated) {
-      saveMacrosToDB(estimated, userId, externalId, supabaseId); // fire-and-forget
+      // Must await: Vercel kills the event loop on response, so a
+      // fire-and-forget write dies mid-flight and every repeat request
+      // re-hits Claude (Pre-Ship Commandment: await side effects before res).
+      await saveMacrosToDB(estimated, userId, externalId, supabaseId);
       return res.json({ macros: estimated });
     }
 

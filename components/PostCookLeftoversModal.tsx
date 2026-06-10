@@ -22,7 +22,10 @@ interface StorageTip {
 }
 
 function daysLabel(days: number): string {
-  if (days >= 30) return `${Math.round(days / 30)} month${Math.round(days / 30) !== 1 ? 's' : ''}`;
+  if (days >= 30) {
+    const months = Math.round(days / 30);
+    return `${months} month${months !== 1 ? 's' : ''}`;
+  }
   return `${days} day${days !== 1 ? 's' : ''}`;
 }
 

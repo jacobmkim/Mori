@@ -48,6 +48,31 @@ function inferContentType(uri: string, override?: string | null): string {
   return EXT_TO_MIME[ext] ?? 'image/jpeg';
 }
 
+// Magic-number sniffing — the extension/override can be spoofed (rename
+// evil.html → x.jpg and it would otherwise upload as image/jpeg to a public
+// bucket). Returns the true MIME from the file's leading bytes, or null if the
+// signature doesn't match any allowed image format.
+function sniffImageMime(b: Uint8Array): string | null {
+  if (b.length < 12) return null;
+  // JPEG: FF D8 FF
+  if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return 'image/jpeg';
+  // PNG: 89 50 4E 47 0D 0A 1A 0A
+  if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) return 'image/png';
+  // WebP: 'RIFF' .... 'WEBP'
+  if (b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46 &&
+      b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50) return 'image/webp';
+  // HEIF/HEIC: ISO-BMFF 'ftyp' box at offset 4, with a heif/heic-family brand.
+  if (b[4] === 0x66 && b[5] === 0x74 && b[6] === 0x79 && b[7] === 0x70) {
+    const brand = String.fromCharCode(b[8], b[9], b[10], b[11]);
+    const HEIF_BRANDS = new Set([
+      'heic', 'heix', 'heim', 'heis', 'hevc', 'hevx', 'hevm', 'hevs',
+      'mif1', 'msf1', 'heif',
+    ]);
+    if (HEIF_BRANDS.has(brand)) return 'image/heic';
+  }
+  return null;
+}
+
 /**
  * Reads the image at `uri`, validates size + MIME, and returns a Uint8Array
  * ready for `supabase.storage.from(...).upload(path, payload.data, ...)`.
@@ -78,7 +103,12 @@ export async function validateImageForUpload(
     throw new ImageValidationError(`Image must be under ${mb} MB. Try a smaller photo.`);
   }
 
-  const contentType = inferContentType(uri, mimeOverride);
+  // Trust the actual bytes over the (spoofable) extension / picker-supplied MIME.
+  const sniffed = sniffImageMime(bytes);
+  if (!sniffed) {
+    throw new ImageValidationError('That file doesn’t look like a supported image. Use a JPEG, PNG, WebP, or HEIC photo.');
+  }
+  const contentType = sniffed;
   if (!ALLOWED_MIME.has(contentType)) {
     throw new ImageValidationError('Only JPEG, PNG, WebP, or HEIC images are supported.');
   }

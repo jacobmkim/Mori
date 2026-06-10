@@ -1,15 +1,18 @@
 import type { Macros, MealSlot, Recipe } from '@/types';
 
 export function scaleMacros(macros: Macros, ratio: number): Macros {
+  // Guard against bad upstream servings (0, NaN, Infinity, negative) which would
+  // otherwise render negative or Infinity macros. Fall back to 1× (unscaled).
+  const r = Number.isFinite(ratio) && ratio > 0 ? ratio : 1;
   return {
-    calories: Math.round(macros.calories * ratio),
-    protein: Math.round(macros.protein * ratio * 10) / 10,
-    carbohydrates: Math.round(macros.carbohydrates * ratio * 10) / 10,
-    fat: Math.round(macros.fat * ratio * 10) / 10,
-    fibre: Math.round(macros.fibre * ratio * 10) / 10,
+    calories: Math.round(macros.calories * r),
+    protein: Math.round(macros.protein * r * 10) / 10,
+    carbohydrates: Math.round(macros.carbohydrates * r * 10) / 10,
+    fat: Math.round(macros.fat * r * 10) / 10,
+    fibre: Math.round(macros.fibre * r * 10) / 10,
     netCarbs:
       macros.netCarbs != null
-        ? Math.round(macros.netCarbs * ratio * 10) / 10
+        ? Math.round(macros.netCarbs * r * 10) / 10
         : undefined,
     isEstimated: macros.isEstimated,
   };
@@ -42,7 +45,8 @@ export function aggregateWeeklyMacros(
   for (const slot of slots) {
     const recipe = recipesById[slot.recipe_id];
     if (!recipe?.macros) continue;
-    const ratio = slot.servings_multiplier ?? 1;
+    const rawRatio = slot.servings_multiplier ?? 1;
+    const ratio = Number.isFinite(rawRatio) && rawRatio > 0 ? rawRatio : 1;
 
     // Accumulate raw (unrounded) values; round once at the end to avoid drift.
     weekly.calories += recipe.macros.calories * ratio;

@@ -63,6 +63,21 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+-- DELETE counterpart — without this, account-deletion cascades and phantom-cook
+-- cleanups leave cook_count permanently inflated (the INSERT trigger above only
+-- ever bumps up). GREATEST guard mirrors the save_count delete path.
+CREATE OR REPLACE FUNCTION recipes_drop_cook_count_on_interaction_delete()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF OLD.interaction_type = 'cooked' THEN
+    UPDATE recipes
+    SET cook_count = GREATEST(0, COALESCE(cook_count, 0) - 1)
+    WHERE id = OLD.recipe_id;
+  END IF;
+  RETURN OLD;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
 -- ── 3. Triggers ──────────────────────────────────────────────────────────────
 
 DROP TRIGGER IF EXISTS saved_recipes_bump_save_count ON saved_recipes;
@@ -82,6 +97,32 @@ CREATE TRIGGER recipe_interactions_bump_cook_count
   AFTER INSERT ON recipe_interactions
   FOR EACH ROW
   EXECUTE FUNCTION recipes_bump_cook_count_on_interaction();
+
+DROP TRIGGER IF EXISTS recipe_interactions_drop_cook_count ON recipe_interactions;
+CREATE TRIGGER recipe_interactions_drop_cook_count
+  AFTER DELETE ON recipe_interactions
+  FOR EACH ROW
+  EXECUTE FUNCTION recipes_drop_cook_count_on_interaction_delete();
+
+-- ── 3b. Recipe-FK ON DELETE actions (counter-integrity + orphan guard) ────────
+-- Child rows referencing recipes(id) were created with NO ACTION, so deleting a
+-- recipe would either error or (if forced) orphan rows and desync save_count.
+-- CASCADE: a save/interaction/swipe/affinity for a deleted recipe is meaningless.
+ALTER TABLE saved_recipes DROP CONSTRAINT IF EXISTS saved_recipes_recipe_id_fkey;
+ALTER TABLE saved_recipes ADD CONSTRAINT saved_recipes_recipe_id_fkey
+  FOREIGN KEY (recipe_id) REFERENCES recipes(id) ON DELETE CASCADE;
+
+ALTER TABLE recipe_interactions DROP CONSTRAINT IF EXISTS recipe_interactions_recipe_id_fkey;
+ALTER TABLE recipe_interactions ADD CONSTRAINT recipe_interactions_recipe_id_fkey
+  FOREIGN KEY (recipe_id) REFERENCES recipes(id) ON DELETE CASCADE;
+
+ALTER TABLE swipe_events DROP CONSTRAINT IF EXISTS swipe_events_recipe_id_fkey;
+ALTER TABLE swipe_events ADD CONSTRAINT swipe_events_recipe_id_fkey
+  FOREIGN KEY (recipe_id) REFERENCES recipes(id) ON DELETE CASCADE;
+
+ALTER TABLE recipe_cohort_affinities DROP CONSTRAINT IF EXISTS recipe_cohort_affinities_recipe_id_fkey;
+ALTER TABLE recipe_cohort_affinities ADD CONSTRAINT recipe_cohort_affinities_recipe_id_fkey
+  FOREIGN KEY (recipe_id) REFERENCES recipes(id) ON DELETE CASCADE;
 
 -- ── 4. One-time backfill ─────────────────────────────────────────────────────
 -- Seeds existing rows so the counters are accurate from day one. Subsequent

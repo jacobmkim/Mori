@@ -331,18 +331,22 @@ export async function getUserRatings(userId: string): Promise<Map<string, number
 }
 
 async function getInteractionCounts(userId: string): Promise<Map<string, { grocery_add: number; cooked: number; unsave: number; view: number; lastCookedAt: string | null }>> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('recipe_interactions')
-    .select('recipe_id, interaction_type, created_at')
+    .select('recipe_id, interaction_type, interacted_at')
     .eq('user_id', userId)
     .in('interaction_type', ['grocery_add', 'cooked', 'unsave', 'view']);
+  // Surface query failures — a silent error here zeroes out every
+  // interaction-based scoring signal (this exact bug shipped to prod once
+  // when the column was wrongly named `created_at`).
+  if (error && __DEV__) console.warn('getInteractionCounts failed:', error.message);
   const map = new Map<string, { grocery_add: number; cooked: number; unsave: number; view: number; lastCookedAt: string | null }>();
   for (const row of data ?? []) {
     const cur = map.get(row.recipe_id) ?? { grocery_add: 0, cooked: 0, unsave: 0, view: 0, lastCookedAt: null };
     if (row.interaction_type === 'grocery_add') cur.grocery_add++;
     if (row.interaction_type === 'cooked') {
       cur.cooked++;
-      if (!cur.lastCookedAt || row.created_at > cur.lastCookedAt) cur.lastCookedAt = row.created_at;
+      if (!cur.lastCookedAt || row.interacted_at > cur.lastCookedAt) cur.lastCookedAt = row.interacted_at;
     }
     if (row.interaction_type === 'unsave') cur.unsave++;
     if (row.interaction_type === 'view') cur.view++;

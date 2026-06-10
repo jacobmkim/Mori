@@ -50,3 +50,48 @@ CREATE POLICY "Users can update own reviews" ON recipe_reviews
 
 CREATE POLICY "Users can delete own reviews" ON recipe_reviews
   FOR DELETE USING (auth.uid() = user_id);
+
+-- ─── Rating aggregation (avg_rating / rating_count on recipes) ────────────────
+-- Captured in the repo as of 2026-06-09 — previously this function + trigger
+-- existed ONLY in prod (created via Studio), and the function was NOT
+-- SECURITY DEFINER, so its inner `UPDATE recipes ...` ran as the reviewing user
+-- and was filtered by the recipes RLS policy (auth.uid() = submitted_by) — i.e.
+-- it updated 0 rows for any recipe the reviewer didn't submit. Result: every
+-- recipe sat at rating_count = 0 and the `rating_count >= 3` star gate could
+-- never pass. SECURITY DEFINER makes the aggregate write bypass RLS.
+
+ALTER TABLE recipes ADD COLUMN IF NOT EXISTS avg_rating   numeric(3,2) NOT NULL DEFAULT 0;
+ALTER TABLE recipes ADD COLUMN IF NOT EXISTS rating_count integer      NOT NULL DEFAULT 0;
+
+CREATE OR REPLACE FUNCTION recompute_recipe_rating()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE rid UUID;
+BEGIN
+  rid := COALESCE(NEW.recipe_id, OLD.recipe_id);
+  UPDATE recipes SET
+    avg_rating   = COALESCE((SELECT ROUND(AVG(rating)::numeric, 2) FROM recipe_reviews WHERE recipe_id = rid), 0),
+    rating_count = (SELECT COUNT(*) FROM recipe_reviews WHERE recipe_id = rid)
+  WHERE id = rid;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS after_review_change ON recipe_reviews;
+CREATE TRIGGER after_review_change
+  AFTER INSERT OR UPDATE OR DELETE ON recipe_reviews
+  FOR EACH ROW EXECUTE FUNCTION recompute_recipe_rating();
+
+-- One-time backfill (idempotent — recomputes from current reviews).
+UPDATE recipes r SET
+  avg_rating   = COALESCE(sub.avg_r, 0),
+  rating_count = COALESCE(sub.cnt, 0)
+FROM (
+  SELECT recipe_id, ROUND(AVG(rating)::numeric, 2) AS avg_r, COUNT(*) AS cnt
+  FROM recipe_reviews
+  GROUP BY recipe_id
+) sub
+WHERE r.id = sub.recipe_id;

@@ -201,7 +201,9 @@ export function convertMeasurementToUs(m: { quantity: number; unit: string }): {
  * Handles combined quantities ("1 + 2"), fractions ("1/2"), and bare counts.
  */
 export function formatGroceryQuantity(qty: string, unit: string, unitSystem: 'us' | 'metric'): string {
-  if (!qty && !unit) return '';
+  // Empty/whitespace-only → missing. A literal "0" is a real value and must
+  // pass through (".trim()" keeps it null-safe against undefined callers).
+  if (!qty?.trim() && !unit?.trim()) return '';
   const parsed = parseGroceryMeasurement(qty, unit);
   if (!parsed) return unit ? `${qty} ${unit}`.trim() : qty;
   const m = (unitSystem === 'us' && METRIC_UNITS.has(parsed.unit)) ? convertMeasurementToUs(parsed) : parsed;

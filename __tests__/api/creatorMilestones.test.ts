@@ -44,11 +44,16 @@ jest.mock('@supabase/supabase-js', () => ({
               })),
             })),
           })),
+          // Race-safe claim: update().eq().or().select() returns the claimed row.
           update: jest.fn((patch: any) => ({
-            eq: jest.fn(async (_col: string, id: string) => {
-              mockProfileUpdates.push({ patch, id });
-              return { error: null };
-            }),
+            eq: jest.fn((_col: string, id: string) => ({
+              or: jest.fn(() => ({
+                select: jest.fn(async () => {
+                  mockProfileUpdates.push({ patch, id });
+                  return { data: [{ id }], error: null };
+                }),
+              })),
+            })),
           })),
         };
       }

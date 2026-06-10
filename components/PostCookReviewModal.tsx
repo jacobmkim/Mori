@@ -36,6 +36,9 @@ export function PostCookReviewModal({ visible, recipe, existing, onClose, onSubm
   const [nudgeRating, setNudgeRating] = useState(5);
   // Recipe to share once this prompt has fully closed (see handleShareNudge).
   const shareTargetRef = useRef<Recipe | null>(null);
+  // Fallback timer id, so whichever of {onDismiss, timeout} fires first cancels
+  // the other — a single guarded path, not two racing ones.
+  const shareTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   function dismiss() {
     setShowShareNudge(false);
@@ -46,7 +49,13 @@ export function PostCookReviewModal({ visible, recipe, existing, onClose, onSubm
   // Present the share sheet only after this prompt is gone. Presenting an iOS
   // activity sheet from inside this nested, transparent overFullScreen modal
   // fails silently — it must present from the recipe-detail modal underneath.
+  // Idempotent: cancels the fallback timer and consumes the target ref, so it
+  // runs exactly once no matter how many callers reach it.
   function flushPendingShare() {
+    if (shareTimerRef.current) {
+      clearTimeout(shareTimerRef.current);
+      shareTimerRef.current = null;
+    }
     const target = shareTargetRef.current;
     if (!target) return;
     shareTargetRef.current = null;
@@ -56,11 +65,11 @@ export function PostCookReviewModal({ visible, recipe, existing, onClose, onSubm
   function handleShareNudge() {
     // Stash the target, close this prompt, then share once it's dismissed —
     // via the Modal's onDismiss, with a timeout fallback in case onDismiss
-    // doesn't fire for a transparent modal. The ref guard makes it fire once.
+    // doesn't fire for a transparent modal. flushPendingShare runs once.
     shareTargetRef.current = recipe;
     // They just did the positive action — don't pile on an app-review prompt.
     dismiss();
-    setTimeout(flushPendingShare, 600);
+    shareTimerRef.current = setTimeout(flushPendingShare, 600);
   }
 
   function skipShareNudge() {

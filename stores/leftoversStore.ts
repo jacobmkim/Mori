@@ -84,6 +84,9 @@ export const useLeftoversStore = create<LeftoversStore>()(
       reset: () => set({ leftovers: [], loading: false, error: null }),
 
       extendLeftover: (id, extraDays) => {
+        // Reject non-positive / non-finite extensions — a negative value would
+        // back-date spoils_at and immediately re-trigger the expiry flow.
+        if (!Number.isFinite(extraDays) || extraDays <= 0) return;
         set((s) => ({
           leftovers: s.leftovers.map((l) => {
             if (l.id !== id) return l;

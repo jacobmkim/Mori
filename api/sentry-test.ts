@@ -21,7 +21,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
   const provided = req.headers['x-seed-secret'];
-  const expected = process.env.SEED_SECRET;
+  // Prefer a dedicated SENTRY_TEST_SECRET so this diagnostic endpoint doesn't
+  // share blast radius with the recipe-seed secret. Falls back to SEED_SECRET
+  // when the dedicated one isn't configured (backwards compatible).
+  const expected = process.env.SENTRY_TEST_SECRET || process.env.SEED_SECRET;
   if (!expected) return res.status(500).json({ error: 'Server misconfigured' });
   const providedStr = Array.isArray(provided) ? provided[0] : provided;
   const providedBuf = Buffer.from(providedStr ?? '');

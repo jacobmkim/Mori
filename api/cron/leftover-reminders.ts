@@ -128,16 +128,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ? `${joined} expires soon. Tap for recipes that use it.`
       : `${joined} expire soon. Tap for recipes that use them.`;
 
+    // Claim the cooldown slot with a conditional UPDATE *before* pushing. If a
+    // concurrent run already bumped last_leftover_reminder_at past the cutoff,
+    // our update matches 0 rows and we skip — prevents a double push.
+    const { data: claimed } = await sb
+      .from('profiles')
+      .update({ last_leftover_reminder_at: new Date().toISOString() })
+      .eq('id', profile.id)
+      .or(`last_leftover_reminder_at.is.null,last_leftover_reminder_at.lt.${cooldownCutoff}`)
+      .select('id');
+    if (!claimed || claimed.length === 0) continue;
+
     await sendExpoPush({
       to: profile.push_token,
       title,
       body,
       data: { type: 'leftover_reminder', ingredients: names },
     });
-    await sb
-      .from('profiles')
-      .update({ last_leftover_reminder_at: new Date().toISOString() })
-      .eq('id', profile.id);
 
     sent++;
     // Pace sends to avoid Expo rate limits on large user counts.
