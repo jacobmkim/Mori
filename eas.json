@@ -17,7 +17,10 @@
       "channel": "preview",
       "env": {
         "EXPO_PUBLIC_API_URL": "https://getmori.app",
-        "EXPO_PUBLIC_MORI_PLUS_ENABLED": "false"
+        "EXPO_PUBLIC_MORI_PLUS_ENABLED": "false",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://gsqvhepgjzjwbezivfid.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdzcXZoZXBnanpqd2Jleml2ZmlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4MzA2NDIsImV4cCI6MjA4ODQwNjY0Mn0.m0TsiNsRrKro6MYx9RE3GsttehF84ShdCSPZVs7wqp4",
+        "EXPO_PUBLIC_SENTRY_DSN": "https://59eecaa7b60a4f0a210f8c92fa782c67@o4511275352326144.ingest.us.sentry.io/4511275354423296"
       }
     },
     "production": {
@@ -25,7 +28,10 @@
       "channel": "production",
       "env": {
         "EXPO_PUBLIC_API_URL": "https://getmori.app",
-        "EXPO_PUBLIC_MORI_PLUS_ENABLED": "false"
+        "EXPO_PUBLIC_MORI_PLUS_ENABLED": "false",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://gsqvhepgjzjwbezivfid.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdzcXZoZXBnanpqd2Jleml2ZmlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4MzA2NDIsImV4cCI6MjA4ODQwNjY0Mn0.m0TsiNsRrKro6MYx9RE3GsttehF84ShdCSPZVs7wqp4",
+        "EXPO_PUBLIC_SENTRY_DSN": "https://59eecaa7b60a4f0a210f8c92fa782c67@o4511275352326144.ingest.us.sentry.io/4511275354423296"
       }
     }
   },

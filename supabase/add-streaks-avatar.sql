@@ -11,8 +11,12 @@ INSERT INTO storage.buckets (id, name, public)
 CREATE POLICY "avatar_insert" ON storage.objects FOR INSERT
   WITH CHECK (bucket_id = 'avatars' AND auth.uid()::text = (storage.foldername(name))[1]);
 
+-- SELECT is scoped to the owner's own folder so clients can't list()/enumerate
+-- other users' files. Public image rendering is unaffected (the bucket is public;
+-- getPublicUrl reads bypass RLS). Folded from add-storage-trigger-hardening-202606.sql.
+DROP POLICY IF EXISTS "avatar_select" ON storage.objects;
 CREATE POLICY "avatar_select" ON storage.objects FOR SELECT
-  USING (bucket_id = 'avatars');
+  USING (bucket_id = 'avatars' AND auth.uid()::text = (storage.foldername(name))[1]);
 
 CREATE POLICY "avatar_update" ON storage.objects FOR UPDATE
   USING (bucket_id = 'avatars' AND auth.uid()::text = (storage.foldername(name))[1]);

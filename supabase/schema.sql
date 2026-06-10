@@ -61,6 +61,11 @@ CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE PROCEDURE handle_new_user();
 
+-- A SECURITY DEFINER trigger fn fires in the table-owner context regardless of
+-- EXECUTE grants, so clients never need to call it directly. Revoke the default
+-- PUBLIC grant. (Folded from add-storage-trigger-hardening-202606.sql, applied 2026-06-02.)
+REVOKE EXECUTE ON FUNCTION handle_new_user() FROM PUBLIC, anon, authenticated;
+
 -- ─── Recipes ──────────────────────────────────────────────────────────────────
 
 CREATE TABLE recipes (

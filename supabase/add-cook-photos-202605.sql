@@ -20,10 +20,13 @@ INSERT INTO storage.buckets (id, name, public)
   VALUES ('cook-photos', 'cook-photos', true)
   ON CONFLICT (id) DO NOTHING;
 
--- Storage RLS — readers public, writes scoped to {userId}/... folder
+-- Storage RLS — SELECT scoped to the owner's {userId}/ folder (kills cross-user
+-- enumeration). Public rendering is unaffected: the bucket is public, so
+-- getPublicUrl reads bypass RLS. Folded from add-storage-trigger-hardening-202606.sql.
 DROP POLICY IF EXISTS "Anyone can view cook photos" ON storage.objects;
-CREATE POLICY "Anyone can view cook photos" ON storage.objects
-  FOR SELECT USING (bucket_id = 'cook-photos');
+DROP POLICY IF EXISTS "Users can list own cook photos" ON storage.objects;
+CREATE POLICY "Users can list own cook photos" ON storage.objects
+  FOR SELECT USING (bucket_id = 'cook-photos' AND auth.uid()::text = (storage.foldername(name))[1]);
 
 DROP POLICY IF EXISTS "Users can upload own cook photos" ON storage.objects;
 CREATE POLICY "Users can upload own cook photos" ON storage.objects

@@ -124,6 +124,15 @@ ALTER TABLE recipe_cohort_affinities DROP CONSTRAINT IF EXISTS recipe_cohort_aff
 ALTER TABLE recipe_cohort_affinities ADD CONSTRAINT recipe_cohort_affinities_recipe_id_fkey
   FOREIGN KEY (recipe_id) REFERENCES recipes(id) ON DELETE CASCADE;
 
+-- SECURITY DEFINER trigger fns fire in the table-owner context regardless of
+-- EXECUTE grants, so clients never need to call them directly. Revoke the
+-- default PUBLIC grant. (Folded from add-storage-trigger-hardening-202606.sql;
+-- the delete-counterpart fn was added 2026-06-09 and revoked 2026-06-10.)
+REVOKE EXECUTE ON FUNCTION recipes_bump_save_count_on_insert()                 FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION recipes_drop_save_count_on_delete()                 FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION recipes_bump_cook_count_on_interaction()            FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION recipes_drop_cook_count_on_interaction_delete()     FROM PUBLIC, anon, authenticated;
+
 -- ── 4. One-time backfill ─────────────────────────────────────────────────────
 -- Seeds existing rows so the counters are accurate from day one. Subsequent
 -- writes flow through the triggers above.
