@@ -2232,10 +2232,22 @@ export interface CommunityRecipeInput {
   is_public: boolean;
 }
 
+// Exclusive claim via SECURITY DEFINER RPC — strips this device token from any
+// other profile before writing it to the caller's. Plain own-row UPDATE can't
+// do that under RLS, and without it multi-account devices receive crons for
+// every profile they ever signed into (the apple-review-pushes-the-dev bug).
 export async function updatePushToken(userId: string, token: string): Promise<void> {
+  const { error } = await supabase.rpc('claim_push_token', { p_token: token });
+  if (error) throw error;
+}
+
+// Sign-out hygiene: detach the device from this profile's pushes BEFORE the
+// session dies (RLS needs the auth). Callers swallow errors — a failed clear
+// must never block sign-out; claim_push_token self-heals on next sign-in.
+export async function clearPushToken(userId: string): Promise<void> {
   const { error } = await supabase
     .from('profiles')
-    .update({ push_token: token })
+    .update({ push_token: null })
     .eq('id', userId);
   if (error) throw error;
 }

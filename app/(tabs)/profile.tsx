@@ -9,7 +9,7 @@ import type { ReactNode } from 'react';
 import { useUserStore } from '@/stores/userStore';
 import { useSavedStore } from '@/stores/savedStore';
 import { supabase } from '@/lib/supabase';
-import { patchProfile, clearDiscoverCache, getPantryItems, addPantryItem, deletePantryItem, getAdventureCardsEnabled, setAdventureCardsEnabled, getUnitSystem, setUnitSystem, getFlaggedRecipes, clearFlaggedRecipes, fetchBadgeStats, getProfile, type FlaggedRecipe } from '@/lib/api';
+import { patchProfile, clearDiscoverCache, getPantryItems, addPantryItem, deletePantryItem, getAdventureCardsEnabled, setAdventureCardsEnabled, getUnitSystem, setUnitSystem, getFlaggedRecipes, clearFlaggedRecipes, fetchBadgeStats, getProfile, clearPushToken, type FlaggedRecipe } from '@/lib/api';
 import { clearRecipeCache } from '@/lib/mealdb';
 import { getApiBaseUrl } from '@/lib/apiBaseUrl';
 import { useTheme } from '@/hooks/useTheme';
@@ -688,6 +688,9 @@ export default function Profile() {
         text: 'Sign out',
         style: 'destructive',
         onPress: async () => {
+          // Detach this device's push token while the session can still write
+          // (next signer-in must not receive this account's crons).
+          if (profile?.id) await clearPushToken(profile.id).catch(() => {});
           await supabase.auth.signOut();
           setProfile(null);
           router.replace('/onboarding/welcome');

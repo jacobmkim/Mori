@@ -66,6 +66,34 @@ CREATE TRIGGER on_auth_user_created
 -- PUBLIC grant. (Folded from add-storage-trigger-hardening-202606.sql, applied 2026-06-02.)
 REVOKE EXECUTE ON FUNCTION handle_new_user() FROM PUBLIC, anon, authenticated;
 
+-- Exclusive push-token claim — one device token lives on exactly one profile.
+-- Strips the token from every other profile, then writes it to the caller
+-- (auth.uid(), never caller-supplied). Without this, multi-account devices
+-- receive crons for every profile they ever signed into.
+-- (Folded from add-claim-push-token-202606.sql, applied 2026-06-10.)
+CREATE OR REPLACE FUNCTION claim_push_token(p_token TEXT)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE uid UUID;
+BEGIN
+  uid := auth.uid();
+  IF uid IS NULL THEN
+    RAISE EXCEPTION 'not authenticated';
+  END IF;
+  IF p_token IS NULL OR length(p_token) = 0 OR length(p_token) > 200 THEN
+    RAISE EXCEPTION 'invalid token';
+  END IF;
+
+  UPDATE profiles SET push_token = NULL  WHERE push_token = p_token AND id <> uid;
+  UPDATE profiles SET push_token = p_token WHERE id = uid;
+END $$;
+
+REVOKE EXECUTE ON FUNCTION claim_push_token(TEXT) FROM PUBLIC, anon;
+GRANT  EXECUTE ON FUNCTION claim_push_token(TEXT) TO authenticated;
+
 -- ─── Recipes ──────────────────────────────────────────────────────────────────
 
 CREATE TABLE recipes (
