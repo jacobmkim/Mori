@@ -26,7 +26,7 @@ import {
   patchProfile, clearDiscoverCache,
   getAdventureCardsEnabled, setAdventureCardsEnabled,
   getProfile, fetchBadgeStats, getEffectiveStreak,
-  deleteMyAccount,
+  deleteMyAccount, clearPushToken,
 } from '@/lib/api';
 import { clearRecipeCache } from '@/lib/mealdb';
 import { getApiBaseUrl } from '@/lib/apiBaseUrl';
@@ -249,6 +249,9 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
       {
         text: 'Sign out', style: 'destructive',
         onPress: async () => {
+          // Detach this device's push token while the session can still write
+          // (next signer-in must not receive this account's crons).
+          if (profile?.id) await clearPushToken(profile.id).catch(() => {});
           await supabase.auth.signOut();
           setProfile(null);
           useLeftoversStore.getState().reset();
