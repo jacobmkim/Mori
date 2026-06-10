@@ -1,8 +1,8 @@
 # Mori — CLAUDE.md
 
-## Current Priority — 6.0.1 bug-fix release over the live "Mori 2.0"
+## Current Priority — Mori+ build-out (6.0.1 submitted to App Review 2026-06-10)
 
-**"Mori 2.0" (technical app version `6.0.0`) is LIVE in the US + CA App Store** (confirmed 2026-06-10; free tier only; v1 had been live since 2026-05-05). Since 6.0.0 is released, that version string is burned with Apple — **the next submission is `6.0.1`** (set in app.json 2026-06-10), carrying the 2026-06-09 bug-scan batch + cook-photos work, none of which were in the released 6.0.0 binary (cut from `ffc34c2`, 2026-05-29). Versioning history: the "2.0" is marketing/listing copy only, NOT the version number — the store train went 5.0.2 → 6.0.0 because CFBundleShortVersionString must always exceed the last released version. Build number auto-increments on EAS (`appVersionSource: remote` + `autoIncrement`). Mori+ (paid tier) remains on the `mori-plus` branch — RevenueCat scaffold merged to `main` as a no-op stub ([lib/revenueCat.ts](lib/revenueCat.ts)); no IAP code runs in 6.0.x.
+**"Mori 2.0" (technical app version `6.0.0`) is LIVE in the US + CA App Store** (confirmed 2026-06-10; free tier only; v1 had been live since 2026-05-05). **`6.0.1` (bug-fix release, cut from `872d5e8`) was submitted to App Review 2026-06-10** — it carries the 2026-06-09 bug-scan batch + cook-photos work. **The next submission after that is `6.1.0`: the Mori+ paid binary** (new native module `react-native-purchases` ⇒ new binary + runtimeVersion, can't OTA). Versioning history: the "2.0" is marketing/listing copy only, NOT the version number — the store train went 5.0.2 → 6.0.0 because CFBundleShortVersionString must always exceed the last released version. Build number auto-increments on EAS (`appVersionSource: remote` + `autoIncrement`). Mori+ work happens on the `mori-plus` branch (kill-switched via `EXPO_PUBLIC_MORI_PLUS_ENABLED`, default OFF); `main` carries only the no-op stub ([lib/revenueCat.ts](lib/revenueCat.ts)).
 
 Bug-fixes and v2.0.0 feature work both land on `main` and ship via normal `eas build` + `eas submit` cadence. Each submission triggers a fresh App Store Review — keep the `apple-review@getmori.app` demo account intact.
 
@@ -18,7 +18,7 @@ Bug-fixes and v2.0.0 feature work both land on `main` and ship via normal `eas b
 - **Reminder crons + review push** — `api/cron/cook-reminders.ts` (22:00 UTC, pushes tonight's planned recipe), `api/cron/leftover-reminders.ts` (16:00 UTC, spoil-date warnings), `api/notify-review.ts` (pushes the recipe creator when reviewed, fired from `submitReview`), `lib/appReviewPrompt.ts` (native store-review gate via expo-store-review). Requires `supabase/add-notification-prefs-202605.sql` — applied to prod 2026-05-28.
 - **Image + Explore perf** — Supabase Image Transformations (`lib/recipeImage.ts`, width+height+resize=cover → ~30 KB WebP), Explore `SELECT *` → thin column list (~8× faster), 4 horizontal sections converted to `FlatList` lazy-render. Details in Applied Learning.
 
-### 6.0.1 scope — on `main`, awaiting `eas build` + `eas submit` (not in the released 6.0.0 binary)
+### 6.0.1 scope — submitted to App Review 2026-06-10 (not in the released 6.0.0 binary)
 - **Cook photos + review-flow polish + "Cook it" CTA** — merged to `main` (`1f61d62`, `ddb9949`). User cook photos on reviews (`ReviewComposer` → `cook-photos` bucket → `recipe_reviews.photo_url`; `CookPhotoStrip` on detail); post-cook prompt collapsed to one composer w/ `KeyboardAvoidingView` + photo above notes; `RecipeDetailModal` Save→heart on hero + footer "Cook it"→`CookingMode`; fixed the post-cook share sheet (present after dismiss via `onDismiss`); review flags (`review_flags`). **Migrations `add-cook-photos-202605.sql` + `add-review-flags-202605.sql` applied to prod.** Full detail in `.claude/bugfixes.md` (2026-05-29).
 - **2026-06-09 deep bug-scan batch** (`3b6a709`) + cook-reminder current-week fix (`2fcab71`) — client-side fixes (scorer `interacted_at`, image sniffing, deep-link auth gate, share race, macro guards) reach users only via this build; server/DB layers already live (deep-verified 2026-06-10, see `.claude/bugfixes.md`).
 - **Prod-hardening repatriation** (`9ff2845`) — `eas.json` now pins `EXPO_PUBLIC_SUPABASE_URL`/`ANON_KEY`/`SENTRY_DSN` for production + preview profiles.
@@ -31,10 +31,10 @@ Bug-fixes and v2.0.0 feature work both land on `main` and ship via normal `eas b
   - Out of scope until Mori+: payout calculation, creator-facing dashboard, public creator profile page, percentage tiers, fraud detection.
   - Marketing framing locked in [design.md](design.md) — never overclaim "earn money" until Mori+ subscriptions are live.
 
-### Mori+ paid IAP — ships AFTER v2.0.0 is live (NOT "v1.1"; corrected 2026-05-28)
-Mori+ is its own paid release that follows the free v2.0.0 store release. Code scaffold lives on the `mori-plus` branch (commit `11b0d70`) — that branch is ~21 commits behind `main`; rebase onto `main` + reconcile against the `lib/revenueCat.ts` stub before resuming. **Full strategy (value prop, CPO/GTM, market data, edge cases, every decision) in `~/.claude/plans/i-want-you-to-harmonic-galaxy.md`.**
+### Mori+ paid IAP — ACTIVE (build started 2026-06-10; ships as 6.1.0 after 6.0.1)
+Work happens on the `mori-plus` branch (main @ `872d5e8` merged in 2026-06-10). Live build status + ranked blockers: `Claude-mori+.md` (on the branch — canonical). Strategy spec: `~/.claude/plans/i-want-you-to-harmonic-galaxy.md`. **Kill-strategy review + execution plan (2026-06-09): `~/.claude/plans/review-the-mori-implementation-synthetic-lampson.md`** — competitive gap, per-competitor kill matrix, measurable launch gates, compressed calendar (code ~1 wk; 1-week dogfood gate; submit end of wk 2).
 
-**Value prop (the spine):** *"You never decide what's for dinner again — Mori learns your taste, plans your week, and ships the groceries."* It's worth $5 as ONE promise, not a feature pile. The market validates it: PlateJoy/eMeals charge $8–11/mo for weaker versions.
+**Value prop (the spine):** *"You never decide what's for dinner again — Mori learns your taste, plans your week, and ships the groceries."* It's worth $5.99 as ONE promise, not a feature pile. Market check (2026-06-09): **PlateJoy is DEAD (July 2025)** — the white space is open; eMeals $4.99 (fixed menus), Mealime ≤$5.99 (no delivery handoff), Samsung Food $6.99 (the 12–24mo threat). No active product combines swipe-learned taste × audited catalog × Instacart handoff.
 
 **Flagship = the taste-personalized closed loop (Auto Plan + Sunday Drop)** — the only thing no competitor can copy (swipe taste × 2,600 tested catalog × Instacart). Everything else serves it or waits.
 
@@ -45,11 +45,12 @@ Mori+ is its own paid release that follows the free v2.0.0 store release. Code s
 - ✅ **App Store Small Business Program** enrollment submitted. NB: not "automatic" — it's an enrollment request; the **15% rate applies the month AFTER approval, not retroactively**. Confirm it flips to "Enrolled."
 - Entity: shipping as **individual / sole proprietor**. LLC deferred (tax-neutral by default; the lever is an S-corp election, only worth it above ~$60k net profit). Apps with live subscriptions CAN still be transferred to an LLC org account later (shared-secret handoff, RevenueCat-assisted), so the LLC is not a hard pre-launch deadline.
 
-**Still ahead before submission:**
-- Configure subscription products in App Store Connect: `mori_plus_monthly`, `mori_plus_annual`, `mori_plus_lifetime` (decided: **30-day free trial** on monthly + annual; lifetime founders SKU optional).
-- Update App Privacy form — add Purchases → Purchase History (Linked to user, App Functionality) + User ID (RevenueCat).
-- Build the binary (paywall + RC integration + trial config) from the rebased `mori-plus` branch.
-- **No ads** — decided 2026-05-28. Free tier monetizes via Instacart affiliate only; all paid value goes into Mori+. (If ads ever revisited: rewarded video gated to free AI limits, never banners in editorial surfaces.)
+**Still ahead before submission (full sequencing in the 2026-06-09 plan):**
+- **Day-1 admin (user, manual):** ASC SKUs `mori_plus_monthly` $5.99 / `mori_plus_annual` $39.99 / `mori_plus_lifetime` $99.99 (30-day free trial on monthly+annual; 16-day grace); RC dashboard (project, `mori_plus` entitlement, iOS key → pin in `eas.json`, webhook secret); EULA/Terms; confirm SBP "Enrolled" + banking verified; App Privacy form (Purchase History + User ID via RevenueCat).
+- **Track A — commerce:** install `react-native-purchases` (identity wiring already complete in `_layout.tsx`, runs dark); apply `add-mori-plus.sql` to prod (+ INSERT-side premium-trigger hardening, bug-scan #6); `api/rc-webhook.ts` sole `is_premium` writer + `requirePremium()` + AI budget gate; paywall via RevenueCat Paywalls v2 (no toggle paywalls — banned Jan 2026); minimal churn kit (cancel survey, exit offer, grace push).
+- **Track B — engine (the bet):** `recipes.meal_types` backfill (8/2,618 tagged — THE hard blocker, ~$2 Haiku); `profiles.timezone` capture; wire `flavourDna` into `scoreRecipe`; week-level optimizer (`lib/autoPlan.ts`, budget-aware, slot provenance); Sunday Drop cron + UI + explanations.
+- **Launch gate (decided 2026-06-10, supersedes 2-week):** 1-week dogfood — cooked-rate on auto-planned slots **≥40%** or no submission; fallback = thin honest paywall (pantry-gen/Decks/budget), never Auto Plan as headline.
+- **No ads** — decided 2026-05-28. Free tier monetizes via Instacart affiliate only; all paid value goes into Mori+.
 
 **Converged scope (2026-05-28):**
 - **Flagship:** Auto Plan + Sunday Drop (taste-personalized weekly planning that auto-shops).
@@ -57,8 +58,8 @@ Mori+ is its own paid release that follows the free v2.0.0 store release. Code s
 - **Supporting inputs:** "what do you feel like tonight?" (one-shot, catalog-ranked), Fridge Cam (utility, demoted — commoditized), swipe (free).
 - **Macro Coach:** auto-logs from cooked Mori meals (NO photo), coaches your cooking not your whole diet.
 - **CUT:** Snap-your-plate (redundant — Mori knows cooked macros), AI image generation (catalog has images; placeholder for rare net-new), condition-specific/GERD vertical (medical liability — serve via existing filters only), richer dietary handling (current filters stay as-is), ads.
-- **Prereqs before charging (the whole bet = plan quality):** week-level optimizer (scorer only ranks single cards today), `cost_per_serving` backfill 40%→90%, meal-type tags, feed `flavourDna` into ranking, capture `profiles.timezone`.
-- **Pricing:** $4.99–6.99/mo (headroom exists), lead annual $39.99, 30-day trial. Free tier is revenue-positive via Instacart affiliate → grow the free funnel; subscription is the power-user margin layer.
+- **Prereqs before charging (the whole bet = plan quality):** week-level optimizer (scorer only ranks single cards today), meal-type tags (8/2,618 — hard blocker), feed `flavourDna` into ranking (computed, never read by scorer), capture `profiles.timezone`. ~~`cost_per_serving` backfill~~ — already 100% (2,617/2,618); real gap is nothing consumes it yet.
+- **Pricing (LOCKED 2026-06-09):** **$5.99/mo, $39.99/yr lead, $99.99 lifetime (founders, first 60 days), 30-day free trial.** Verbatim ASC disclosure strings must match exactly (3.1.2). Free tier is revenue-positive via Instacart affiliate → grow the free funnel; subscription is the power-user margin layer.
 
 **Rules that still hold:**
 - Cardinal rule: **paywall NEW features only, never existing free ones**. Swipe / save / plan / grocery / Instacart / dietary filters stay free forever. Drift = Guideline 3.1.2 rejection.
