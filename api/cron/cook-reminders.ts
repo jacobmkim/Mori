@@ -133,14 +133,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Anyone who already cooked their featured recipe today — skip those.
     sb
       .from('recipe_interactions')
-      .select('user_id, recipe_id, created_at')
+      .select('user_id, recipe_id, interacted_at')
       .in('user_id', userIds)
       .in('recipe_id', recipeIds)
       .eq('interaction_type', 'cooked')
-      .gte('created_at', new Date(now.getTime() - 12 * 3600_000).toISOString()),
+      .gte('interacted_at', new Date(now.getTime() - 12 * 3600_000).toISOString())
+      // Lift the implicit 1000-row cap so a high-volume night doesn't silently
+      // drop cooked rows from the dedupe set (would re-notify users who cooked).
+      .limit(10000),
   ]);
 
-  if (profilesRes.error || recipesRes.error) {
+  if (profilesRes.error || recipesRes.error || cookedRes.error) {
     return res.status(500).json({ error: 'Lookup failed' });
   }
 

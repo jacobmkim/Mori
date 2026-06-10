@@ -496,6 +496,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return notFound(res);
   }
 
+  // Reviews are best-effort, but a silent Supabase failure shouldn't be
+  // invisible — log it so blank reviews can be distinguished from "no reviews".
+  if (reviewsRes.error) {
+    console.error('[recipe-page] reviews query failed:', reviewsRes.error.message);
+  }
+
   const proto = (req.headers['x-forwarded-proto'] as string) || 'https';
   const host = (req.headers['x-forwarded-host'] as string) || req.headers.host || 'getmori.app';
   const origin = `${proto}://${host}`;

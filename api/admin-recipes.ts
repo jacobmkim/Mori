@@ -61,7 +61,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (q && typeof q === 'string') {
-      query = query.ilike('title', `%${q}%`);
+      // Cap length before building the ilike pattern — an unbounded search term
+      // is a cheap way to push expensive scans / oversized patterns.
+      query = query.ilike('title', `%${q.slice(0, 100)}%`);
     }
 
     const { data, error } = await query;

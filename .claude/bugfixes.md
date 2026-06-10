@@ -1,5 +1,29 @@
 # Mori — Bug Fix Log
 
+## 2026-06-09 (Deep bug-scan batch — all 24 findings of `bug-scan-2026-06-09.md`)
+Landing on `main` via `fix/bug-scan-2026-06-09` (also committed on `mori-plus` as `01f5e50`; `add-mori-plus.sql` #6 is excluded here — it stays branch-isolated). Top-4 criticals were re-verified against the **live prod DB** before fixing, and behaviorally re-proven afterward via rolled-back transactions. Two prod migrations applied via MCP. Jest **800/800** on `mori-plus` / **705/705** on `main` (which lacks the Mori+-only suites); `tsc` clean except pre-existing typed-route errors. (The 2026-06-06 cook-reminder current-week fix reached `main` separately as `2fcab71`/PR #4; this branch's #4/#11 edits build on it.)
+
+### 🔴 CRITICAL (verified live)
+- **#1 Scorer interaction signals were dead in prod.** `getInteractionCounts` selected/compared `created_at` on `recipe_interactions`, but the live column is `interacted_at`; the query errored, the error was destructured away → empty map → cooked/grocery_add/unsave/view/leftover signals all no-ops. Fix: `created_at`→`interacted_at` (×2) + a `__DEV__` error log. ([lib/api.ts](lib/api.ts))
+- **#2 Review ratings never aggregated — RLS blocked the trigger.** `recompute_recipe_rating()` wasn't `SECURITY DEFINER`, so its inner `UPDATE recipes` ran as the reviewing user and was filtered by the recipes RLS policy (0 rows for any non-owned recipe). Evidence: 8 reviews, 0 rated recipes. Fix: migration → `SECURITY DEFINER` + `SET search_path` + backfill (0→8 rated). Captured in `add-recipe-reviews.sql` (had no repo source).
+- **#3 `'unsave'` violated the live CHECK** (`IN ('view','grocery_add','cooked')`) — every unsave insert failed silently. Fix: migration extends the CHECK; `schema.sql` synced.
+- **#4 cook-reminders dedupe dead** — same `created_at` drift + the interactions result's `.error` was never checked. Fix: `interacted_at` + `|| cookedRes.error`. ([api/cron/cook-reminders.ts](api/cron/cook-reminders.ts))
+
+### 🟠 HIGH
+- **#5** `await saveMacrosToDB` (was fire-and-forget → died on Vercel event-loop kill → every repeat re-hit Claude). ([api/macros.ts](api/macros.ts))
+- **#7** `cook_count` had no DELETE trigger (account-deletion/phantom cleanups never decremented) and four `recipes(id)` FKs had no `ON DELETE` action. Fix: migration adds the DELETE trigger + `ON DELETE CASCADE` on `saved_recipes`/`recipe_interactions`/`swipe_events`/`recipe_cohort_affinities`. (#6 premium-trigger INSERT hardening stays on `mori-plus`.)
+
+### 🟡 MEDIUM
+- **#8** rate-limiter now fails **closed** when the KV write fails (was fail-open). ([api/_rateLimit.ts](api/_rateLimit.ts))
+- **#9** cron double-push race: claim the slot with a conditional `UPDATE…or…select` before pushing; push only if it matched. ([creator-milestones.ts](api/cron/creator-milestones.ts), [leftover-reminders.ts](api/cron/leftover-reminders.ts))
+- **#10** generate-recipe seed path now IP-rate-limited (1000/hr). **#11** cook-reminders interactions query `.limit(10000)` (was truncating at 1000). **#13** imageUpload magic-number sniffing (was extension/override-only). **#14** post-cook share-race consolidated to one guarded path. **#15** cold-start recipe deep link held until `authResolved` (new userStore flag set by `index.tsx`); reset-password/verify-email still route immediately.
+- **#12 UTC day-skew — NOT fixed (documented)**, needs `profiles.timezone` (Mori+ prereq).
+
+### 🟢 LOW
+- **#16** `scaleMacros`/`aggregateWeeklyMacros` ratio guards. **#17** plan.tsx `baseServings()` (0/null no longer → Infinity multiplier) + multiplier clamp. **#18** `formatGroceryQuantity` null-safe/whitespace guard. **#19** `daysLabel` single rounded value. **#20** `extendLeftover` rejects non-positive days. **#21** admin `q` capped at 100 chars. **#22** recipe-page logs `reviewsRes.error`. **#23** sentry-test prefers `SENTRY_TEST_SECRET`. **#24** `recipe_reviews.photo_url` CHECK pinned to the cook-photos bucket (migration applied; folded into `add-cook-photos-202605.sql`).
+
+### Tests
+Rewrote `imageUpload.test.ts` (magic-number + spoof rejection); updated 3 cron mocks for the new query chains; added a claim-loses-race regression to `leftoverReminders.test.ts`. 800/800.
 ## 2026-06-06 (Cook-reminder push re-fired stale plans from past weeks)
 - **Users kept getting "🍳 Tonight: …" push reminders for recipes they planned in a *previous* week.** [api/cron/cook-reminders.ts](api/cron/cook-reminders.ts) fetched every `meal_plans` row, sorted by `week_start_date` desc, took the **latest plan per user**, then matched slots on **day-of-week only** (`s.day === today`). It never checked the plan was for the *current* week — the code comment even asserted "Most recent (= current-week) plan per user", which is false. So a user who planned meals one week and made no plan the next still had last week's plan as their "latest"; every time a slotted weekday came around, the cron re-fired that recipe — indefinitely, until they created a newer plan. (Leftover-reminders is keyed off `spoils_at`, not the meal plan, so it was unaffected.)
 - **Fix**: compute the current week's Monday in UTC (`getUtcWeekStart(now)`, derived from the same UTC `now` as `today` so the week filter and day-of-week match can't drift) and scope the query with `.eq('week_start_date', currentWeekStart)`. `week_start_date` is a Mon-anchored `YYYY-MM-DD`; at the cron's 22:00 UTC fire time every US/CA timezone shares the same calendar date as UTC, so this matches the client's locally-computed `getWeekStart()`. Latest-per-user dedupe kept as defense against duplicate same-week rows. No data cleanup needed — stale plan rows are simply no longer matched; the fix takes effect on the next Vercel deploy.

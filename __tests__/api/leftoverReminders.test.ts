@@ -25,6 +25,9 @@ jest.mock('@/api/_pushUtils', () => ({
 let mockLeftoversResult: { data: any[] | null; error: any } = { data: [], error: null };
 let mockProfilesResult: { data: any[] | null; error: any } = { data: [], error: null };
 const mockProfileUpdates: Array<{ patch: any; id: string }> = [];
+// Whether the race-safe conditional claim (update…or…select) matches a row.
+// false simulates a concurrent run having already claimed the cooldown slot.
+let mockClaimWins = true;
 
 jest.mock('@supabase/supabase-js', () => ({
   createClient: jest.fn(() => ({
@@ -49,11 +52,17 @@ jest.mock('@supabase/supabase-js', () => ({
               })),
             })),
           })),
+          // Race-safe claim: update().eq().or().select() returns the claimed row.
           update: jest.fn((patch: any) => ({
-            eq: jest.fn(async (_col: string, id: string) => {
-              mockProfileUpdates.push({ patch, id });
-              return { error: null };
-            }),
+            eq: jest.fn((_col: string, id: string) => ({
+              or: jest.fn(() => ({
+                select: jest.fn(async () => {
+                  if (!mockClaimWins) return { data: [], error: null };
+                  mockProfileUpdates.push({ patch, id });
+                  return { data: [{ id }], error: null };
+                }),
+              })),
+            })),
           })),
         };
       }
@@ -78,6 +87,7 @@ beforeEach(() => {
   mockLeftoversResult = { data: [], error: null };
   mockProfilesResult = { data: [], error: null };
   mockProfileUpdates.length = 0;
+  mockClaimWins = true;
   mockVerifyCronAuth.mockReturnValue(true);
   mockSendExpoPush.mockResolvedValue(undefined);
   process.env.EXPO_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
@@ -204,6 +214,22 @@ describe('leftover-reminders — bundles + pushes', () => {
     await handler(makeReq() as any, res as any);
     expect(mockSendExpoPush).toHaveBeenCalledTimes(2);
     expect(res.json).toHaveBeenCalledWith({ sent: 2, checked: 2 });
+  });
+
+  it('does NOT push when the conditional claim loses the race (no double-send)', async () => {
+    mockClaimWins = false; // a concurrent run already bumped the cooldown column
+    mockLeftoversResult = {
+      data: [{ user_id: 'u1', ingredient_name: 'chicken', spoils_at: soon }],
+      error: null,
+    };
+    mockProfilesResult = {
+      data: [{ id: 'u1', push_token: 'tok', notify_leftovers: true, last_leftover_reminder_at: null }],
+      error: null,
+    };
+    const res = makeRes();
+    await handler(makeReq() as any, res as any);
+    expect(mockSendExpoPush).not.toHaveBeenCalled();
+    expect(res.json).toHaveBeenCalledWith({ sent: 0, checked: 1 });
   });
 
   it('uses a singular title when only one item is expiring', async () => {

@@ -95,7 +95,7 @@ CREATE TABLE recipes (
 CREATE TABLE swipe_events (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid REFERENCES profiles(id) NOT NULL,
-  recipe_id uuid REFERENCES recipes(id) NOT NULL,
+  recipe_id uuid REFERENCES recipes(id) ON DELETE CASCADE NOT NULL,
   direction text CHECK (direction IN ('right', 'left')) NOT NULL,
   mode text CHECK (mode IN ('meal_prep', 'spontaneous')) NOT NULL,
   time_of_day text CHECK (time_of_day IN ('morning', 'afternoon', 'evening', 'night')),
@@ -109,7 +109,7 @@ CREATE TABLE swipe_events (
 CREATE TABLE saved_recipes (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid REFERENCES profiles(id) NOT NULL,
-  recipe_id uuid REFERENCES recipes(id) NOT NULL,
+  recipe_id uuid REFERENCES recipes(id) ON DELETE CASCADE NOT NULL,
   liked boolean DEFAULT false,
   user_rating integer CHECK (user_rating BETWEEN 1 AND 5),
   saved_at timestamp with time zone DEFAULT now(),
@@ -178,8 +178,8 @@ CREATE TABLE user_cohorts (
 CREATE TABLE recipe_interactions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid REFERENCES profiles(id) NOT NULL,
-  recipe_id uuid REFERENCES recipes(id) NOT NULL,
-  interaction_type text CHECK (interaction_type IN ('view', 'grocery_add', 'cooked')) NOT NULL,
+  recipe_id uuid REFERENCES recipes(id) ON DELETE CASCADE NOT NULL,
+  interaction_type text CHECK (interaction_type IN ('view', 'grocery_add', 'cooked', 'unsave')) NOT NULL,
   session_number integer,
   interacted_at timestamp with time zone DEFAULT now()
 );
@@ -187,7 +187,7 @@ CREATE TABLE recipe_interactions (
 -- ─── Recipe Cohort Affinities ─────────────────────────────────────────────────
 
 CREATE TABLE recipe_cohort_affinities (
-  recipe_id uuid REFERENCES recipes(id) NOT NULL,
+  recipe_id uuid REFERENCES recipes(id) ON DELETE CASCADE NOT NULL,
   cohort_key text NOT NULL,
   affinity_score numeric(4,3),
   PRIMARY KEY (recipe_id, cohort_key)

@@ -8,6 +8,13 @@
 -- 1. Photo column on reviews
 ALTER TABLE recipe_reviews ADD COLUMN IF NOT EXISTS photo_url text;
 
+-- DB-level guard: photo_url must be NULL or a public URL in our cook-photos
+-- bucket. The client already validates, but this stops a forged direct write
+-- (anon key + JWT) from parking an arbitrary off-domain URL on a public review.
+ALTER TABLE recipe_reviews DROP CONSTRAINT IF EXISTS recipe_reviews_photo_url_check;
+ALTER TABLE recipe_reviews ADD CONSTRAINT recipe_reviews_photo_url_check
+  CHECK (photo_url IS NULL OR photo_url LIKE 'https://%/storage/v1/object/public/cook-photos/%');
+
 -- 2. Storage bucket for user-uploaded cook photos
 INSERT INTO storage.buckets (id, name, public)
   VALUES ('cook-photos', 'cook-photos', true)

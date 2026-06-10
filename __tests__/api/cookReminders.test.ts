@@ -76,7 +76,9 @@ jest.mock('@supabase/supabase-js', () => ({
             in: jest.fn(() => ({
               in: jest.fn(() => ({
                 eq: jest.fn(() => ({
-                  gte: jest.fn().mockImplementation(() => Promise.resolve(mockCookedResult)),
+                  gte: jest.fn(() => ({
+                    limit: jest.fn().mockImplementation(() => Promise.resolve(mockCookedResult)),
+                  })),
                 })),
               })),
             })),
@@ -260,7 +262,7 @@ describe('cook-reminders — push behaviour', () => {
       error: null,
     };
     mockCookedResult = {
-      data: [{ user_id: 'u1', recipe_id: 'r1', created_at: new Date().toISOString() }],
+      data: [{ user_id: 'u1', recipe_id: 'r1', interacted_at: new Date().toISOString() }],
       error: null,
     };
 

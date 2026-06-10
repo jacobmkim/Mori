@@ -61,9 +61,12 @@ async function emitBootHeartbeatOnce() {
 
 function RootLayout() {
   const profile = useUserStore((s) => s.profile);
+  const authResolved = useUserStore((s) => s.authResolved);
   const registeredFor = useRef<string | null>(null);
   const rcInitedFor = useRef<string | null>(null);
   const lastTouchRef = useRef(0);
+  // A cold-start recipe link held until the session restore finishes.
+  const pendingRecipeUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!profile?.id || registeredFor.current === profile.id) return;
@@ -147,10 +150,30 @@ function RootLayout() {
     // URL ourselves. Without this, tapping a shared recipe link with the app
     // not running would just dump the user on the home screen.
     Linking.getInitialURL()
-      .then((url) => { if (url) handleDeepLink({ url }); })
+      .then((url) => {
+        if (!url) return;
+        // A recipe link opens a modal whose Save/Review/Cart actions need the
+        // restored session. On cold start the user store hasn't rehydrated yet,
+        // so hold the recipe link until auth resolves (flushed below). Pre-auth
+        // links (reset-password, verify-email) must route immediately.
+        if (isRecipeUrl(url) && !useUserStore.getState().authResolved) {
+          pendingRecipeUrlRef.current = url;
+          return;
+        }
+        handleDeepLink({ url });
+      })
       .catch(() => {});
     return () => subscription.remove();
   }, []);
+
+  // Flush a deferred cold-start recipe link once the session restore completes.
+  useEffect(() => {
+    if (authResolved && pendingRecipeUrlRef.current) {
+      const url = pendingRecipeUrlRef.current;
+      pendingRecipeUrlRef.current = null;
+      handleDeepLink({ url });
+    }
+  }, [authResolved]);
 
   function handleDeepLink(event: { url: string }) {
     if (isResetPasswordUrl(event.url)) {

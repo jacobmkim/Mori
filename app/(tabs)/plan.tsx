@@ -242,23 +242,32 @@ export default function Plan() {
   // Default the picker servings stepper to the recipe's base each time a
   // preview opens from the picker.
   useEffect(() => {
-    if (previewRecipe && pickerOpen) setPendingServings(previewRecipe.servings ?? 2);
+    if (previewRecipe && pickerOpen) setPendingServings(baseServings(previewRecipe));
   }, [previewRecipe, pickerOpen]);
 
   function getSlot(day: number, mealType: MealType): MealSlot | undefined {
     return slots.find((s) => s.day === day && s.meal_type === mealType);
   }
 
+  // A recipe's base serving count, guarded: `?? 2` leaves a literal 0 in place
+  // (?? only catches null/undefined), which would divide-by-zero below → an
+  // Infinity multiplier. Treat any non-positive/missing value as 2.
+  function baseServings(recipe: Recipe): number {
+    return recipe.servings && recipe.servings > 0 ? recipe.servings : 2;
+  }
+
   // Absolute serving count for a slot (multiplier × the recipe's base servings).
   function servingsForSlot(slot: MealSlot, recipe: Recipe): number {
-    return Math.max(1, Math.round((slot.servings_multiplier ?? 1) * (recipe.servings ?? 2)));
+    return Math.max(1, Math.round((slot.servings_multiplier ?? 1) * baseServings(recipe)));
   }
 
   function addRecipeToSlot(recipe: Recipe, day: number, mealType: MealType, servings?: number) {
     if (!userId) return;
     const recipeId = recipe.supabase_id ?? recipe.id;
-    const base = recipe.servings ?? 2;
-    const multiplier = servings && servings > 0 ? servings / base : 1;
+    const base = baseServings(recipe);
+    // Clamp to a sane range so a bad servings value can't store an absurd
+    // multiplier (1 portion … 10× the base batch).
+    const multiplier = servings && servings > 0 ? Math.min(10, Math.max(0.1, servings / base)) : 1;
     addSlot({ day, meal_type: mealType, recipe_id: recipeId, servings_multiplier: multiplier });
     setSlotRecipes((prev) => ({ ...prev, [recipeId]: recipe }));
     savePlan(userId, weekStart);
