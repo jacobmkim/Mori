@@ -1,5 +1,8 @@
 -- Migration: Mori+ subscription tier — schema additions
--- Run this once in the Supabase SQL Editor
+-- ✅ APPLIED TO PROD 2026-06-10 (Track A2, migration `add_mori_plus_202606`).
+--    Verified live: all 9 tables + RLS, trigger covers INSERT OR UPDATE,
+--    self-grant attempt as `authenticated` raises (rolled-back behavioral test),
+--    normal profile edits pass. This file is canonical — repo == prod.
 -- Safe to re-run (uses IF NOT EXISTS / ADD COLUMN IF NOT EXISTS / DROP POLICY IF EXISTS)
 --
 -- Adds:
@@ -95,6 +98,10 @@ DROP TRIGGER IF EXISTS trg_protect_premium_columns ON profiles;
 CREATE TRIGGER trg_protect_premium_columns
   BEFORE INSERT OR UPDATE ON profiles
   FOR EACH ROW EXECUTE FUNCTION protect_premium_columns();
+
+-- Trigger fns fire in table-owner context regardless of EXECUTE grants; revoke
+-- the default PUBLIC grant anyway (prod-hardening convention, 2026-06-02 batch).
+REVOKE EXECUTE ON FUNCTION protect_premium_columns() FROM PUBLIC, anon, authenticated;
 
 
 -- ─── 2. ai_usage — monthly free-tier budget ───────────────────────────────────

@@ -32,7 +32,7 @@ Branch: `mori-plus` · main @ `872d5e8` (the 6.0.1 base) **merged 2026-06-10 (`e
 
 | M | Scope | Status |
 |---|---|---|
-| M0 | Pre-work — schema migration, RC dashboard, EAS env | 🟡 SQL written + ✅ self-grant hole closed (2026-06-02) + ✅ trigger extended `BEFORE INSERT OR UPDATE` (2026-06-09, closes bug-scan #6) + ✅ `increment_ai_usage` locked to service role. Still ❌ NOT applied to live DB and NOT folded into `schema.sql`. RC dashboard + ASC products ($6.99 monthly / $59.99 annual; Family Sharing ON; lifetime cut) + grace period still manual-pending |
+| M0 | Pre-work — schema migration, RC dashboard, EAS env | ✅ **Migration APPLIED to prod 2026-06-10** (`add_mori_plus_202606`) — all 9 tables + RLS live; trigger verified behaviorally (self-grant as `authenticated` raises; normal edits pass; both rolled back). `add-mori-plus.sql` is canonical (repo == prod, incl. the trigger-fn EXECUTE revoke) — consistent with the push_token/streaks precedent of feature-file-as-canonical rather than a schema.sql mega-fold. EAS env ✅ (RC key pinned, A1). Remaining manual: RC entitlement rename to `mori_plus` + product attach (user, in progress); ASC grace period check |
 | M1 | RevenueCat client (`lib/revenueCat.ts`, init, userStore) | 🟡 Wrapper + tests shipped + ✅ **init/identity wiring complete (`be0e55e`** — `syncRevenueCatIdentity` in `_layout.tsx`, covers boot/switch/sign-out). ❌ `react-native-purchases` NOT in `package.json` — SDK can't load; binary can't transact until installed + RC key obtained |
 | M2 | Webhook + entitlement sync (`api/rc-webhook.ts`) | ⬜ |
 | M3 | Paywall (`components/paywall/PaywallModal.tsx`) | ⬜ |

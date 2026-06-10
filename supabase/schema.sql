@@ -326,5 +326,8 @@ CREATE INDEX idx_recipe_interactions_type ON recipe_interactions(user_id, intera
 CREATE TABLE IF NOT EXISTS waitlist (
   id         uuid primary key default gen_random_uuid(),
   email      text not null unique,
+  -- Cohort tag from the landing form (e.g. 'mori-plus-founders'). Was missing
+  -- from prod until 2026-06-10 — every tagged signup 500'd; column added live.
+  name       text,
   created_at timestamp with time zone default now()
 );
