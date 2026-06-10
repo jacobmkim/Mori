@@ -81,6 +81,8 @@ CREATE TABLE recipes (
   servings integer,
   cost_per_serving numeric(6,2),
   dietary_tags text[] DEFAULT '{}',
+  -- Meal-slot routing for the week optimizer; NULL = unclassified (backfill-meal-types.mjs)
+  meal_types text[] CHECK (meal_types <@ ARRAY['breakfast','lunch','dinner','snack','dessert']::text[]),
   meal_prep_friendly boolean DEFAULT false,
   macros jsonb,
   badge text CHECK (badge IN ('none', 'staff_pick', 'community_verified', 'community_favorite')) DEFAULT 'none',
@@ -281,6 +283,7 @@ CREATE INDEX idx_pantry_items_user_id ON pantry_items(user_id);
 CREATE INDEX idx_grocery_lists_user_id ON grocery_lists(user_id);
 CREATE INDEX idx_meal_plans_user_id ON meal_plans(user_id);
 CREATE INDEX idx_recipes_cuisine ON recipes(cuisine);
+CREATE INDEX IF NOT EXISTS recipes_meal_types_idx ON recipes USING GIN (meal_types);
 CREATE INDEX idx_recipes_badge ON recipes(badge);
 CREATE INDEX idx_recipes_external_id ON recipes(external_id);
 CREATE INDEX idx_recipes_active ON recipes(created_at DESC) WHERE deleted_at IS NULL;
