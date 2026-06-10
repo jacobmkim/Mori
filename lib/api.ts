@@ -821,15 +821,23 @@ export function scoreRecipe(
       score += Math.min(ix.grocery_add, 2) * 3;
       // Cooked signal: penalise recently-cooked recipes so they don't resurface
       // immediately, then restore the favourite bonus once enough time has passed.
+      // The positive side scales by eating style — favourites_rotation ×1,
+      // variety ×0 (exploring users: fresh recipes win ties over the back-
+      // catalog), everyone else ×0.5. Recency penalties stay style-blind:
+      // nobody wants last night's dinner back on the deck.
       if (ix.cooked > 0) {
         const daysSinceCooked = ix.lastCookedAt
           ? (Date.now() - new Date(ix.lastCookedAt).getTime()) / 86_400_000
           : 365;
+        const repeatAffinity =
+          profile?.eating_style === 'favourites_rotation' ? 1
+          : profile?.eating_style === 'variety' ? 0
+          : 0.5;
         if (daysSinceCooked < 3)  score -= 20; // just cooked — keep off the deck
         else if (daysSinceCooked < 7)  score -= 10;
         else if (daysSinceCooked < 14) score -= 4;
-        else if (daysSinceCooked < 30) score += 2;
-        else score += Math.min(ix.cooked, 2) * 4; // familiar favourite
+        else if (daysSinceCooked < 30) score += 2 * repeatAffinity;
+        else score += Math.min(ix.cooked, 2) * 4 * repeatAffinity; // familiar favourite
       }
       if (ix.unsave > 0) score -= 3;
       if (ix.view > 2 && !ix.grocery_add && !ix.cooked) score -= 2;

@@ -246,6 +246,64 @@ describe('scoreRecipe — personal user_rating signal', () => {
     Math.random = origRandom;
     expect(rated - baseline).toBe(0);
   });
+});
+
+// ─── Cooked repeat-boost × eating style ──────────────────────────────────────
+// Penalties for recently-cooked recipes are style-blind; the positive
+// "familiar favourite" boost scales: favourites_rotation ×1, default ×0.5,
+// variety ×0 (fresh recipes win ties over the back-catalog).
+
+describe('scoreRecipe — cooked repeat boost scales by eating style', () => {
+  const SID = 'sb-r1';
+  const daysAgo = (d: number) => new Date(Date.now() - d * 86_400_000).toISOString();
+
+  function scoreWithCook(eatingStyle: string | null, daysSince: number, cookedCount = 2): number {
+    const profile = eatingStyle
+      ? ({ eating_style: eatingStyle, cuisine_preferences: [], dietary_goals: [], ingredient_dislikes: [] } as any)
+      : null;
+    const interactionMap = new Map([
+      [SID, { grocery_add: 0, cooked: cookedCount, unsave: 0, view: 0, lastCookedAt: daysAgo(daysSince) }],
+    ]);
+    return scoreRecipe(
+      makeRecipe(['chicken']),
+      profile,
+      EMPTY_MAP,        // swipeMap
+      EMPTY_SET,        // savedExternalIds
+      EMPTY_MAP,        // affinityMap
+      interactionMap,
+      EMPTY_SET,        // pantrySet
+    );
+  }
+
+  let origRandom: () => number;
+  beforeEach(() => { origRandom = Math.random; Math.random = () => 0; });
+  afterEach(() => { Math.random = origRandom; });
+
+  it('favourites_rotation keeps the full +8 familiar-favourite boost (>30d, cooked ×2)', () => {
+    expect(scoreWithCook('favourites_rotation', 60)).toBe(8);
+  });
+
+  it('default/unset style gets half the boost (+4)', () => {
+    expect(scoreWithCook(null, 60)).toBe(4);
+  });
+
+  it('variety gets no repeat boost — fresh recipes win ties', () => {
+    expect(scoreWithCook('variety', 60)).toBe(0);
+  });
+
+  it('variety still gets the just-cooked penalty (style-blind)', () => {
+    expect(scoreWithCook('variety', 2)).toBe(-20);
+  });
+
+  it('favourites_rotation also keeps the just-cooked penalty', () => {
+    expect(scoreWithCook('favourites_rotation', 2)).toBe(-20);
+  });
+
+  it('scales the 14–30 day window the same way (+2 / +1 / 0)', () => {
+    expect(scoreWithCook('favourites_rotation', 20)).toBe(2);
+    expect(scoreWithCook(null, 20)).toBe(1);
+    expect(scoreWithCook('variety', 20)).toBe(0);
+  });
 
   it('adds nothing when ratingMap is undefined', () => {
     const origRandom = Math.random;
