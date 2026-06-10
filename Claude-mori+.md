@@ -12,7 +12,7 @@ Branch: `mori-plus` · main @ `872d5e8` (the 6.0.1 base) **merged 2026-06-10 (`e
 
 > ⚠️ **Reality check (2026-06-01 audit, corrected 2026-06-10):** the scaffold is **client-only — roughly 6–13% of a chargeable product.** Solid: RC wrapper, kill switch, premium UI, schema SQL, strong tests, and — **corrected:** since `be0e55e`, RC init/identity wiring IS complete in `_layout.tsx` (`syncRevenueCatIdentity` off `profile?.id`), running dark only because the SDK isn't installed and no RC key exists. Missing: **no paywall, no server-side entitlement enforcement, `react-native-purchases` not installed, flagship plan-quality engine at ~0%.** See **"Audit Findings & Open Blockers"** below.
 
-> ★ **Execution plan (approved 2026-06-10):** `~/.claude/plans/review-the-mori-implementation-synthetic-lampson.md` — competitive gap, per-competitor kill matrix, measurable gates, compressed calendar (code ~1 wk → submit end of wk 2). **Decisions locked:** pricing **$5.99/mo · $39.99/yr lead · $99.99 lifetime (founders, 60d) · 30-day trial**; hold the paywall until Auto Plan + Sunday Drop are real (no thin launch); **1-week dogfood gate (supersedes the 2-week gate): cooked-rate ≥40% on auto-planned slots or no submission**; Macro Coach first to cut if slipping. Market correction: **PlateJoy is DEAD (Jul 2025)** — closest-comp white space is open; Samsung Food ($6.99) is the 12–24mo threat.
+> ★ **Execution plan (approved 2026-06-10):** `~/.claude/plans/review-the-mori-implementation-synthetic-lampson.md` — competitive gap, per-competitor kill matrix, measurable gates, compressed calendar (code ~1 wk → submit end of wk 2). **Decisions locked:** pricing **$5.99/mo · $49.99/yr lead ("Save 30%", raised from $39.99 2026-06-10) · 30-day trial · lifetime SKU CUT (2026-06-10)**; hold the paywall until Auto Plan + Sunday Drop are real (no thin launch); **1-week dogfood gate (supersedes the 2-week gate): cooked-rate ≥40% on auto-planned slots or no submission**; Macro Coach first to cut if slipping. Market correction: **PlateJoy is DEAD (Jul 2025)** — closest-comp white space is open; Samsung Food ($6.99) is the 12–24mo threat.
 
 ### ★ Converged scope (2026-05-28) — read the plan file's value-prop + CPO/GTM sections first
 - **Flagship:** Auto Plan + Sunday Drop (taste-personalized weekly planning that auto-shops) — the only thing no competitor can copy.
@@ -32,7 +32,7 @@ Branch: `mori-plus` · main @ `872d5e8` (the 6.0.1 base) **merged 2026-06-10 (`e
 
 | M | Scope | Status |
 |---|---|---|
-| M0 | Pre-work — schema migration, RC dashboard, EAS env | 🟡 SQL written + ✅ self-grant hole closed (2026-06-02) + ✅ trigger extended `BEFORE INSERT OR UPDATE` (2026-06-09, closes bug-scan #6) + ✅ `increment_ai_usage` locked to service role. Still ❌ NOT applied to live DB and NOT folded into `schema.sql`. RC dashboard + ASC products ($5.99/$39.99/$99.99) + grace period still manual-pending |
+| M0 | Pre-work — schema migration, RC dashboard, EAS env | 🟡 SQL written + ✅ self-grant hole closed (2026-06-02) + ✅ trigger extended `BEFORE INSERT OR UPDATE` (2026-06-09, closes bug-scan #6) + ✅ `increment_ai_usage` locked to service role. Still ❌ NOT applied to live DB and NOT folded into `schema.sql`. RC dashboard + ASC products ($5.99 monthly / $49.99 annual; lifetime cut) + grace period still manual-pending |
 | M1 | RevenueCat client (`lib/revenueCat.ts`, init, userStore) | 🟡 Wrapper + tests shipped + ✅ **init/identity wiring complete (`be0e55e`** — `syncRevenueCatIdentity` in `_layout.tsx`, covers boot/switch/sign-out). ❌ `react-native-purchases` NOT in `package.json` — SDK can't load; binary can't transact until installed + RC key obtained |
 | M2 | Webhook + entitlement sync (`api/rc-webhook.ts`) | ⬜ |
 | M3 | Paywall (`components/paywall/PaywallModal.tsx`) | ⬜ |
@@ -67,7 +67,7 @@ These extend Mori's main commandments in `CLAUDE.md`. Don't violate.
 - **No toggle paywalls** (Apple banned them Jan 2026). Stacked SKU cards only.
 - **Restore Purchases visible on paywall AND in Settings.** Two locations is intentional — Apple checks both.
 - **Privacy Policy + Terms of Use links visible on paywall**, must open in-app webview, must load successfully when reviewer taps them.
-- **Trial disclosure copy is verbatim** per plan §9.2 — don't paraphrase. **"30 days free, then $39.99/year. Auto-renews unless cancelled at least 24 hours before period end. Cancel anytime in Settings."** (Monthly card: "30 days free, then $5.99/month." — updated 2026-06-10 to the locked $5.99 price.) ⚠️ **Corrected 2026-06-01 — trial is 30-day, decided by user.** The plan body §9.1/§9.2/§12 still showed a stale "7 days" (now also corrected in the spec). The disclosed string MUST exactly match the StoreKit Introductory Offer configured in App Store Connect, or it is an automatic Guideline 3.1.2 rejection.
+- **Trial disclosure copy is verbatim** per plan §9.2 — don't paraphrase. **"30 days free, then $49.99/year. Auto-renews unless cancelled at least 24 hours before period end. Cancel anytime in Settings."** (Monthly card: "30 days free, then $5.99/month." — both updated 2026-06-10 to the locked $5.99/$49.99 prices.) ⚠️ **Corrected 2026-06-01 — trial is 30-day, decided by user.** The plan body §9.1/§9.2/§12 still showed a stale "7 days" (now also corrected in the spec). The disclosed string MUST exactly match the StoreKit Introductory Offer configured in App Store Connect, or it is an automatic Guideline 3.1.2 rejection.
 - **`Sentry.flush(2000)` in `finally`** on every new Vercel function (per Mori's pre-ship commandments).
 
 ### Cost discipline
@@ -109,12 +109,13 @@ Existing vars unchanged: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `SUPABASE_SERVIC
 | Apple product ID | Display | Price | Trial | RC package |
 |---|---|---|---|---|
 | `mori_plus_monthly` | Mori+ Monthly | **$5.99/mo (LOCKED 2026-06-09)** | **30-day free** | `monthly` in `default` offering |
-| `mori_plus_annual` | Mori+ Yearly | $39.99/yr (lead) | **30-day free** | `annual` |
-| `mori_plus_lifetime` | Mori+ Lifetime | **$99.99 once (raised from $79.99, 2026-06-09)** | none | `lifetime` (founders, first 60 days only) |
+| `mori_plus_annual` | Mori+ Yearly | **$49.99/yr (lead, "Save 30%" — raised from $39.99, 2026-06-10)** | **30-day free** | `annual` |
+
+**Lifetime SKU CUT — 2026-06-10, user decision.** Mori+ carries ongoing per-user AI cost (Auto Plan / Sunday Drop / pantry-gen), so a one-time $99.99 funding unlimited usage forever is structurally bad for an AI product; also simplifies the paywall to two SKU cards. One-way door in the right direction: a non-consumable can be added later, but can't be gracefully removed after sale. If launch urgency is wanted later: limited-time annual pricing, NOT lifetime. NB: the founders-waitlist perk was implicitly the lifetime window — needs redefining (e.g. early access).
 
 Entitlement: `mori_plus` (single boolean — drives all gating). ⚠️ ASC products + paywall copy + disclosure strings must all carry these EXACT prices — any drift = automatic 3.1.2 rejection.
 
-Apple cut: 15% via Small Business Program. Net per sub: ~$5.09/mo · ~$33.99/yr · ~$84.99 lifetime. RevenueCat cut: 0% until $2,500 MTR, then 1% of gross.
+Apple cut: 15% via Small Business Program. Net per sub: ~$5.09/mo · ~$42.49/yr. RevenueCat cut: 0% until $2,500 MTR, then 1% of gross.
 
 Billing Grace Period: 16 days (set in App Store Connect).
 
