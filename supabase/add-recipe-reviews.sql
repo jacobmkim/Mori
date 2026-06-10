@@ -85,6 +85,11 @@ CREATE TRIGGER after_review_change
   AFTER INSERT OR UPDATE OR DELETE ON recipe_reviews
   FOR EACH ROW EXECUTE FUNCTION recompute_recipe_rating();
 
+-- SECURITY DEFINER trigger fns fire in the table-owner context regardless of
+-- EXECUTE grants — revoke the default PUBLIC grant so the function can't be
+-- invoked directly (matches the add-storage-trigger-hardening-202606 policy).
+REVOKE EXECUTE ON FUNCTION recompute_recipe_rating() FROM PUBLIC, anon, authenticated;
+
 -- One-time backfill (idempotent — recomputes from current reviews).
 UPDATE recipes r SET
   avg_rating   = COALESCE(sub.avg_r, 0),
