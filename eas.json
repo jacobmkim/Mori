@@ -10,7 +10,8 @@
       "env": {
         "EXPO_PUBLIC_API_URL": "https://getmori.app",
         "EXPO_PUBLIC_MORI_PLUS_ENABLED": "true",
-        "EXPO_PUBLIC_REVENUECAT_IOS_KEY": "appl_HiVeWnNsCRZKNuWGSgMBsiMKVJm"
+        "EXPO_PUBLIC_REVENUECAT_IOS_KEY": "appl_HiVeWnNsCRZKNuWGSgMBsiMKVJm",
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       }
     },
     "preview": {
