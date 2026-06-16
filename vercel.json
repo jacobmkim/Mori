@@ -68,6 +68,7 @@
   ],
   "rewrites": [
     { "source": "/privacy", "destination": "/privacy.html" },
+    { "source": "/terms", "destination": "/terms.html" },
     { "source": "/verify-email", "destination": "/verify-email.html" },
     { "source": "/support", "destination": "/support.html" },
     { "source": "/r/:id", "destination": "/api/recipe-page?id=:id" }
