@@ -33,10 +33,10 @@ Branch: `mori-plus` · main @ `872d5e8` (the 6.0.1 base) **merged 2026-06-10 (`e
 | M | Scope | Status |
 |---|---|---|
 | M0 | Pre-work — schema migration, RC dashboard, EAS env | ✅ **Migration APPLIED to prod 2026-06-10** (`add_mori_plus_202606`) — all 9 tables + RLS live; trigger verified behaviorally. EAS env ✅ (RC key pinned, A1). **RC dashboard:** entitlement `mori_plus` + both products attached + `default` offering (monthly/annual) — user-confirmed 2026-06-10. **ASC products:** both `mori_plus_monthly` ($6.99) + `mori_plus_annual` ($59.99) at **"Ready to Submit" 2026-06-10** — ⚠️ using DUMMY review screenshots (see Open Questions; replace before 6.1.0 submit). Remaining manual: sandbox tester, grace-period (Production+Sandbox) + Family-Sharing-per-SKU confirmations, SBP "Enrolled" |
-| M1 | RevenueCat client (`lib/revenueCat.ts`, init, userStore) | 🟡 Wrapper + tests shipped + ✅ **init/identity wiring complete (`be0e55e`** — `syncRevenueCatIdentity` in `_layout.tsx`, covers boot/switch/sign-out). ❌ `react-native-purchases` NOT in `package.json` — SDK can't load; binary can't transact until installed + RC key obtained |
-| M2 | Webhook + entitlement sync (`api/rc-webhook.ts`) | ⬜ |
-| M3 | Paywall (`components/paywall/PaywallModal.tsx`) | ⬜ |
-| M4 | Free-tier monthly budgets (`lib/aiUsage.ts`) | ⬜ |
+| M1 | RevenueCat client (`lib/revenueCat.ts`, init, userStore) | ✅ **DONE (A1, `b79b796`)** — `react-native-purchases`@10.2.2 + `-ui` installed; init/identity wired (`be0e55e`); iOS key pinned in `eas.json` (dev/preview/prod). Runs dark until paywall + launch flag flip. |
+| M2 | Webhook + entitlement sync (`api/rc-webhook.ts`) | ✅ **DONE (A3, `c483dc6`)** — sole `is_premium` writer; timing-safe auth, apply-then-mark idempotency, TRANSFER/grace/expiry handled. + `api/_requirePremium.ts` gate. **Adversarially reviewed (3 agents) → ~8 real bugs fixed pre-merge.** 86 tests. ❌ Not deployed; `RC_WEBHOOK_SECRET` not set (handoff pending). |
+| M3 | Paywall (RevenueCat Paywalls v2, not hand-coded) | ⬜ next (A4) — + dev RC-Debug offerings readout |
+| M4 | Free-tier monthly budgets (`api/_aiUsage.ts`) | ✅ **DONE (A3, `c483dc6`)** — `checkAiBudget`/`incrementAiUsage`; wire into gen endpoints when they land. (Moved `lib/`→`api/_` so the service-role key can't bundle into the client.) |
 | M5 | Push pipeline (`lib/push.ts`, token registration) | ⬜ |
 | M6 | Auto Plan (`api/auto-plan-week.ts`) | ⬜ |
 | M7 | Sunday Drop (cron + section) **+ household family vote (stretch, CUT-FIRST if slipping)** — `households`/`household_members` tables, owner invite link (`mori://household/join/{code}` — Apple never exposes the family graph, linking is ours), members swipe-vote drop candidates, majority fills week, ties → cook decides | ⬜ |
@@ -49,6 +49,14 @@ Branch: `mori-plus` · main @ `872d5e8` (the 6.0.1 base) **merged 2026-06-10 (`e
 | M14 | Phased rollout 1% → 100% | ⬜ |
 
 v1.2 (after v1.1 ships): M15 Apple Health · M16 Household taste-merge (everyone's swipes → one family week plan; entitlement sharing already live day-1 via Apple Family Sharing, so M16 is the data layer — the natural v1.2 flagship) · M17 Win-back.
+
+### In-app layout (IA) — premium DEEPENS existing tabs, no new "Mori+" tab
+Cardinal-rule-safe: every paid feature lives where its free equivalent already does; manual flows stay free. Paywall = contextual trigger (RC Paywalls v2 modal) at each gate, plus the ProfileSheet "Mori+" entry. Premium identity = avatar ring (built).
+- **Plan tab** → Auto Plan home. "Build my week" button (free tap → paywall; paid → generates). Manual grid untouched. *Primary conversion surface ("your week is ready").*
+- **Sunday Drop** → weekend ritual. Sunday-morning push → full-screen reveal (7 picks + "why these" + "Add all to plan" + "Send groceries"); weekend hero card in Discover as fallback. Household family vote lives in this flow.
+- **Discover** → Saved Decks picker row at top + "Cook with what I have" (pantry-gen) entry. Creating/saving custom decks + unlimited pantry-gen are gated.
+- **Profile** → Macro Coach (goals · daily gaps · weekly review) + Household setup (invite link) + Mori+ manage/paywall entry.
+- **Recipe detail** → Substitution AI upgrades the existing static table in-place.
 
 ---
 

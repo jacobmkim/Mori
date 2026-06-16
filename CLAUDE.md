@@ -68,6 +68,7 @@ Work happens on the `mori-plus` branch (main @ `872d5e8` merged in 2026-06-10). 
 
 ## Commandments
 - Use subagents for any exploration requiring 3+ file analysis; have it return a summary.
+- **Always adversarially double-check substantial or security-critical code with review agents BEFORE writing its tests** — spawn parallel reviewers (domain / security / edge-case lenses) to hunt real bugs, fix what they find, then write tests against the corrected behavior. (A3's webhook review caught ~8 money-losing bugs pre-merge, 2026-06-11.)
 - Use relevant models for best purposes. Opus for deep planning and tasks. Sonnet for most of the work. Haiku for easy tasks and large amounts of writing.
 - Run long tasks (scripts, backfills, builds) via a background agent so the user can keep working.
 - Keep this file LEAN. Any changes should be reflected here or updated on the respective .md files.
