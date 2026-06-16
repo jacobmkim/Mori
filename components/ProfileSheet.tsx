@@ -35,6 +35,8 @@ import type { Badge, BadgeStats } from '@/lib/badges';
 import { flags } from '@/lib/featureFlags';
 import { toggleDevPremium } from '@/lib/devPremium';
 import { moriPlusEntry } from '@/lib/moriPlusEntry';
+import { presentMoriPlusPaywall, presentManageSubscription } from '@/lib/paywall';
+import { restorePurchases } from '@/lib/revenueCat';
 import { showPremiumRing } from '@/lib/premiumRing';
 import type { Profile } from '@/types';
 import { EditPreferencesModal } from '@/components/EditPreferencesModal';
@@ -571,11 +573,17 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
                     icon={mpEntry.icon}
                     label={mpEntry.label}
                     onPress={() => {
-                      Alert.alert(
-                        'Mori+',
-                        mpEntry.mode === 'manage'
-                          ? "You're on Mori+. Subscription management arrives with the paywall."
-                          : 'The paywall is coming in the next update. For now, use the dev toggle below to preview premium.'
+                      if (mpEntry.mode === 'manage') presentManageSubscription();
+                      else presentMoriPlusPaywall();
+                    }}
+                  />
+                  {/* Restore Purchases — Apple requires it in Settings (2nd location; the paywall has the 1st). */}
+                  <SheetRow
+                    icon="refresh-outline"
+                    label="Restore purchases"
+                    onPress={() => {
+                      restorePurchases().then((premium) =>
+                        Alert.alert('Restore purchases', premium ? 'Mori+ restored.' : 'No active subscription found for this Apple ID.'),
                       );
                     }}
                     last={!__DEV__}
@@ -593,6 +601,14 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
                           thumbColor="white"
                         />
                       }
+                    />
+                  )}
+                  {__DEV__ && (
+                    <SheetRow
+                      icon="construct-outline"
+                      label="RC Debug (offerings/paywall)"
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dev-only route; expo-router typed-routes union regenerates on `expo start`
+                      onPress={() => { onClose(); router.push('/rc-debug' as any); }}
                       last
                     />
                   )}

@@ -242,3 +242,20 @@ function handleCustomerInfoUpdate(info: CustomerInfo): void {
   const premium = isPremium(info);
   useUserStore.getState().setPremium(premium);
 }
+
+/**
+ * Force a fresh customer-info read and reconcile userStore.isPremium. Call after
+ * the Customer Center dismisses — a synchronous cancel/refund there changes
+ * entitlement immediately, and we don't want to wait for the next app foreground
+ * for the listener to catch up. No-op if RC isn't initialized.
+ */
+export async function refreshCustomerInfo(): Promise<void> {
+  if (!initialized) return;
+  try {
+    const Purchases = getPurchases();
+    if (!Purchases) return;
+    handleCustomerInfoUpdate(await Purchases.getCustomerInfo());
+  } catch (err) {
+    reportError(err, 'revenuecat-refresh');
+  }
+}
