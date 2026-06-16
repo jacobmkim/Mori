@@ -96,11 +96,9 @@ export async function initRevenueCat(userId: string | null): Promise<void> {
     return;
   }
 
-  initialized = true;
-
   try {
     const Purchases = getPurchases();
-    if (!Purchases) return;
+    if (!Purchases) return; // native module unavailable — stay uninitialized so a later call retries
 
     const LOG_LEVEL = getLogLevel();
     if (LOG_LEVEL) {
@@ -112,6 +110,11 @@ export async function initRevenueCat(userId: string | null): Promise<void> {
     });
 
     Purchases.addCustomerInfoUpdateListener(handleCustomerInfoUpdate);
+
+    // Latch ONLY after configure succeeds. Latching earlier meant a null native
+    // module (or a configure throw) would leave us "initialized" but unconfigured,
+    // and the top-of-function idempotency guard would block every retry all session.
+    initialized = true;
 
     // Initial sync — flips userStore.isPremium if entitlement is already active
     // (e.g. user reinstalled and we restored automatically).

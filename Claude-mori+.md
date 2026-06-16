@@ -10,7 +10,7 @@ This file is for: progress tracking · branch-specific commandments · env vars 
 
 Branch: `mori-plus` · main @ `872d5e8` (the 6.0.1 base) **merged 2026-06-10 (`e996362`); full Jest suite green post-merge.** Free v2.0.0 is LIVE (2026-06-01); **6.0.1 submitted to App Review 2026-06-10**; Mori+ ships as **6.1.0** (new native module `react-native-purchases` ⇒ new binary + runtimeVersion, can't OTA). `lib/revenueCat.ts` full wrapper supersedes main's stub cleanly.
 
-> ⚠️ **Reality check (2026-06-01 audit, corrected 2026-06-10):** the scaffold is **client-only — roughly 6–13% of a chargeable product.** Solid: RC wrapper, kill switch, premium UI, schema SQL, strong tests, and — **corrected:** since `be0e55e`, RC init/identity wiring IS complete in `_layout.tsx` (`syncRevenueCatIdentity` off `profile?.id`), running dark only because the SDK isn't installed and no RC key exists. Missing: **no paywall, no server-side entitlement enforcement, `react-native-purchases` not installed, flagship plan-quality engine at ~0%.** See **"Audit Findings & Open Blockers"** below.
+> ✅ **State (2026-06-16, full-suite debug):** **Track A commerce is code-complete** — RC SDK installed (10.2.2) + key pinned, init/identity wired, webhook (sole `is_premium` writer) + `requirePremium` + AI-budget gate, paywall (Paywalls v2) + Customer Center (manage/cancel/restore/win-back). **925/925 tests; repo == live prod DB (verified, no drift); pre-launch DB pristine.** Running dark behind the kill switch (default OFF). **Remaining: Track B engine (Auto Plan / Sunday Drop — ~0%), wire the AI-budget gate into existing AI endpoints before charging, EULA/Terms, deploy webhook + set `RC_WEBHOOK_SECRET`, bump done (app.json now 6.1.0).** The 2026-06-01 audit block below is SUPERSEDED — see the M-table.
 
 > ★ **Execution plan (approved 2026-06-10):** `~/.claude/plans/review-the-mori-implementation-synthetic-lampson.md` — competitive gap, per-competitor kill matrix, measurable gates, compressed calendar (code ~1 wk → submit end of wk 2). **Decisions locked (final, 2026-06-10):** pricing **$6.99/mo · $59.99/yr lead ("Save 28%") · Family Sharing ON both SKUs (irreversible — household included at one price, matches Samsung Food+ pricing with family in) · 30-day trial · lifetime SKU CUT**; hold the paywall until Auto Plan + Sunday Drop are real (no thin launch); **1-week dogfood gate (supersedes the 2-week gate): cooked-rate ≥40% on auto-planned slots or no submission**; Macro Coach first to cut if slipping; **household family vote ships at launch as a CUTTABLE stretch inside Sunday Drop (decided 2026-06-10)** — members swipe-vote the drop candidates, majority fills the week; full taste-merge stays v1.2 (M16). Market correction: **PlateJoy is DEAD (Jul 2025)** — closest-comp white space is open; Samsung Food ($6.99) is the 12–24mo threat.
 
@@ -35,9 +35,9 @@ Branch: `mori-plus` · main @ `872d5e8` (the 6.0.1 base) **merged 2026-06-10 (`e
 | M0 | Pre-work — schema migration, RC dashboard, EAS env | ✅ **Migration APPLIED to prod 2026-06-10** (`add_mori_plus_202606`) — all 9 tables + RLS live; trigger verified behaviorally. EAS env ✅ (RC key pinned, A1). **RC dashboard:** entitlement `mori_plus` + both products attached + `default` offering (monthly/annual) — user-confirmed 2026-06-10. **ASC products:** both `mori_plus_monthly` ($6.99) + `mori_plus_annual` ($59.99) at **"Ready to Submit" 2026-06-10** — ⚠️ using DUMMY review screenshots (see Open Questions; replace before 6.1.0 submit). Remaining manual: sandbox tester, grace-period (Production+Sandbox) + Family-Sharing-per-SKU confirmations, SBP "Enrolled" |
 | M1 | RevenueCat client (`lib/revenueCat.ts`, init, userStore) | ✅ **DONE (A1, `b79b796`)** — `react-native-purchases`@10.2.2 + `-ui` installed; init/identity wired (`be0e55e`); iOS key pinned in `eas.json` (dev/preview/prod). Runs dark until paywall + launch flag flip. |
 | M2 | Webhook + entitlement sync (`api/rc-webhook.ts`) | ✅ **DONE (A3, `c483dc6`)** — sole `is_premium` writer; timing-safe auth, apply-then-mark idempotency, TRANSFER/grace/expiry handled. + `api/_requirePremium.ts` gate. **Adversarially reviewed (3 agents) → ~8 real bugs fixed pre-merge.** 86 tests. ❌ Not deployed; `RC_WEBHOOK_SECRET` not set (handoff pending). |
-| M3 | Paywall (RevenueCat Paywalls v2, not hand-coded) | ⬜ next (A4) — + dev RC-Debug offerings readout |
-| M4 | Free-tier monthly budgets (`api/_aiUsage.ts`) | ✅ **DONE (A3, `c483dc6`)** — `checkAiBudget`/`incrementAiUsage`; wire into gen endpoints when they land. (Moved `lib/`→`api/_` so the service-role key can't bundle into the client.) |
-| M5 | Push pipeline (`lib/push.ts`, token registration) | ⬜ |
+| M3 | Paywall (RevenueCat Paywalls v2) | ✅ **DONE (A4, `61183d1`)** — `lib/paywall.ts` (present/gate/Customer Center) + ProfileSheet wiring + dev `app/rc-debug.tsx` offerings readout. ⚠️ paywall Terms/Privacy + Restore configured in RC dashboard (not code). |
+| M4 | Free-tier monthly budgets (`api/_aiUsage.ts`) | ✅ **DONE (A3, `c483dc6`)** — `checkAiBudget`/`incrementAiUsage`. ⚠️ **not yet called by any AI endpoint** — wire into `generate-recipe`/`taste-profile`/`substitutions` before charging or free tier stays unlimited. |
+| M5 | Push pipeline | ✅ **DONE earlier** via `api/_pushUtils.ts` (token claim + 6 crons); the planned `lib/push.ts` was never needed. |
 | M6 | Auto Plan (`api/auto-plan-week.ts`) | ⬜ |
 | M7 | Sunday Drop (cron + section) **+ household family vote (stretch, CUT-FIRST if slipping)** — `households`/`household_members` tables, owner invite link (`mori://household/join/{code}` — Apple never exposes the family graph, linking is ours), members swipe-vote drop candidates, majority fills week, ties → cook decides | ⬜ |
 | M8 | Generate from Pantry (`api/generate-from-pantry.ts`) | ⬜ |
@@ -99,7 +99,7 @@ These extend Mori's main commandments in `CLAUDE.md`. Don't violate.
 
 ### Client (EAS — pin in `eas.json`, mirror in EAS dashboard)
 ```
-EXPO_PUBLIC_REVENUECAT_IOS_KEY=appl_XXX        # production key in production profile, sandbox key elsewhere
+EXPO_PUBLIC_REVENUECAT_IOS_KEY=appl_XXX        # ONE public iOS SDK key for the single RC project, same in all eas.json profiles + local .env. RC auto-detects sandbox vs prod from the StoreKit receipt — there is NO separate "sandbox key" (the old two-project note was wrong).
 EXPO_PUBLIC_MORI_PLUS_ENABLED=false            # kill switch; flip to true on launch day
 ```
 
@@ -199,7 +199,9 @@ Files this branch will create or modify. Update as you ship.
 
 ---
 
-## Audit Findings & Open Blockers (2026-06-01)
+## Audit Findings & Open Blockers (2026-06-01) — ⚠️ SUPERSEDED 2026-06-16
+
+> A3/A4/A5/B1 shipped since this 2026-06-01 audit: webhook + `requirePremium` + AI-budget gate, paywall + Customer Center, and the `meal_types` backfill (**2,618/2,618**) are all DONE. The 🔴/🟠 "unbuilt / not installed / 8-of-2,618 / no paywall / no endpoint reads is_premium" items below are RESOLVED — kept only for history. Live state is the ✅ banner at the top + the M-table. Still genuinely open: Track B engine (Auto Plan/Sunday Drop), wiring the AI-budget gate into existing AI endpoints, EULA/Terms, webhook deploy + `RC_WEBHOOK_SECRET`.
 
 Full multi-agent audit of the branch scaffold, the Supabase migration, the plan-quality prereqs (live DB), the M-roadmap, branch hygiene, and Apple/GTM readiness. Ranked. Items below are captured so the next builder doesn't trust a stale ✅; fixed items live under ✅ Resolved.
 
