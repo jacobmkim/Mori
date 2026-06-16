@@ -4,14 +4,19 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Mori — Swipe. Order. Cook.</title>
-<meta name="description" content="The recipe app that learns your taste. Swipe through personalised recipes, build a smart grocery list, and order ingredients in one tap. Mori+ adds AI weekly meal planning, Sunday recipe drops, and a macro coach — coming summer 2026.">
+<meta name="description" content="The recipe app that learns your taste. Swipe through recipes picked for you, build a grocery list automatically, and send it to Instacart in one tap. 2,600+ curated recipes. Mori+ — your week on autopilot — coming summer 2026.">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Mori">
-<meta name="theme-color" content="#2E7D32">
+<meta name="theme-color" content="#2E5438">
 <link rel="icon" type="image/png" href="/mori_icon.png">
 <link rel="apple-touch-icon" href="/mori_icon.png">
 <meta name="apple-itunes-app" content="app-id=6761498088">
+<meta property="og:title" content="Mori — Swipe. Order. Cook.">
+<meta property="og:description" content="The recipe app that learns your taste. Swipe to discover, send your list to Instacart in one tap, cook.">
+<meta property="og:image" content="https://getmori.app/mori_icon.png">
+<meta property="og:url" content="https://getmori.app">
+<meta property="og:type" content="website">
 <!-- Google tag (gtag.js) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-QDT5NHPKW5"></script>
 <script>
@@ -20,9 +25,6 @@
   gtag('js', new Date());
   gtag('config', 'G-QDT5NHPKW5');
 </script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet">
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
@@ -32,53 +34,127 @@ button, a { touch-action: manipulation; -webkit-tap-highlight-color: transparent
   html { scroll-behavior: auto; }
 }
 
+/* ── Brand palette (design.md, locked) ── */
 :root {
-  --green:       #2E7D32;
-  --green-mid:   #4CAF50;
-  --green-light: #E8F5E9;
-  --green-pale:  #F2FAF2;
-  --text:        #1A1A1A;
-  --text-mid:    #444444;
-  --text-muted:  #888888;
-  --border:      #E0E0E0;
-  --bg:          #FFFFFF;
-  --bg-soft:     #FAFAF8;
-  --linen:       #F8F3EC;
   --moss:        #2E5438;
-  /* Instacart brand */
-  --ic-orange:   #FF7009;
+  --forest:      #1E4D35;
+  --green:       #2D6A4F;
+  --green-lt:    #52B788;
+  --green-pale:  #95D5B2;
+  --linen:       #F8F3EC;
+  --cream:       #F8F4ED;
+  --offwhite:    #F0EBE1;
+  --warm:        #E8DDD0;
+  --orange:      #E8854A;
+  --dark:        #181812;
+  --charcoal:    #2C2C24;
+  --ink:         #232520;
+  --ink-mid:     #4C5048;
+  --ink-soft:    #84887E;
+  --hairline:    rgba(46,84,56,0.18);
+  --hairline-lt: rgba(248,243,236,0.16);
+  /* Instacart brand — theirs, only for their badge/chip */
+  --ic-orange:      #FF7009;
   --ic-orange-dark: #E55A00;
-  --ic-cream:    #FFF4E6;
-  /* Accent + warm earth tones for backgrounds */
-  --warm-blush:  #F4ECE0;
-  --sage-light:  #DDE8DC;
-  --paper:       #FBF7F1;
+  --ic-cream:       #FFF4E6;
+  --serif: Georgia, 'Times New Roman', serif;
+  --sans:  -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --mono:  ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
 }
 
+html, body { background: var(--linen); }
 body {
-  font-family: 'DM Sans', sans-serif;
-  background: var(--bg);
-  color: var(--text);
+  font-family: var(--sans);
+  color: var(--ink);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
 }
-/* App icon */
-.app-icon {
-  width: 72px; height: 72px;
-  border-radius: 18px;
-  background: #F8F3EC;
-  border: 1px solid #E0D4C4;
-  display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 4px 16px rgba(46,84,56,0.10);
-  flex-shrink: 0;
-  overflow: hidden;
+
+/* ── Type system ── */
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--moss);
+  display: inline-block;
+  margin-bottom: 1rem;
 }
-.app-icon-sm { width: 52px; height: 52px; border-radius: 13px; }
-.launch-badge {
-  display: inline-flex; align-items: center; gap: 8px;
-  background: #fff; border: 1px solid #E0E0E0;
-  border-radius: 999px; padding: 6px 14px 6px 8px;
-  font-size: 0.8rem; color: #444; margin-bottom: 1.5rem;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+.eyebrow-pale { color: var(--green-pale); }
+.headline {
+  font-family: var(--serif);
+  font-style: italic;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.headline em { font-style: italic; color: var(--moss); }
+.section-title {
+  font-family: var(--serif);
+  font-style: italic;
+  font-weight: 700;
+  font-size: clamp(2rem, 4vw, 2.9rem);
+  line-height: 1.12;
+  color: var(--ink);
+  margin-bottom: 0.85rem;
+}
+.section-title em { color: var(--moss); }
+.section-sub {
+  font-size: 1rem;
+  color: var(--ink-mid);
+  max-width: 540px;
+  line-height: 1.7;
+  margin-bottom: 3rem;
+}
+
+/* ── Buttons ── */
+.btn-moss {
+  background: var(--moss); color: var(--linen);
+  border: none; padding: 0.8rem 1.5rem;
+  border-radius: 999px;
+  font-family: var(--sans);
+  font-size: 0.875rem; font-weight: 500;
+  cursor: pointer; text-decoration: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 44px; /* Apple HIG minimum */
+  transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
+}
+.btn-moss:hover { background: var(--forest); transform: translateY(-1px); box-shadow: 0 10px 26px rgba(46,84,56,0.22); }
+.btn-ghost {
+  background: transparent; color: var(--moss);
+  border: 1px solid var(--hairline);
+  padding: 0.8rem 1.5rem; border-radius: 999px;
+  font-family: var(--sans);
+  font-size: 0.875rem; font-weight: 500;
+  cursor: pointer; text-decoration: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 44px;
+  transition: border-color 0.2s, background 0.2s;
+}
+.btn-ghost:hover { border-color: var(--moss); background: rgba(46,84,56,0.05); }
+.btn-cream {
+  background: var(--linen); color: var(--moss);
+  border: none; padding: 0.8rem 1.5rem;
+  border-radius: 999px;
+  font-family: var(--sans);
+  font-size: 0.875rem; font-weight: 500;
+  cursor: pointer; white-space: nowrap; text-decoration: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 44px;
+  transition: background 0.2s, transform 0.2s;
+}
+.btn-cream:hover { background: #fff; transform: translateY(-1px); }
+
+/* ── App icon ── */
+.app-icon {
+  border-radius: 12px;
+  background: var(--linen);
+  border: 1px solid var(--warm);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; overflow: hidden;
 }
 
 /* ── NAV ── */
@@ -86,266 +162,220 @@ nav {
   position: fixed; top: 0; left: 0; right: 0; z-index: 100;
   display: flex; align-items: center; justify-content: space-between;
   padding: 1rem 2.5rem;
-  background: rgba(255,255,255,0.92);
+  background: rgba(248,243,236,0.9);
   backdrop-filter: blur(16px);
-  border-bottom: 1px solid var(--border);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--hairline);
 }
-.nav-logo {
-  font-family: 'Playfair Display', serif;
-  font-style: italic;
-  font-size: 1.5rem;
-  font-weight: 400;
-  color: var(--green);
-  letter-spacing: -0.03em;
-  position: relative;
-  display: flex; align-items: center;
+.nav-logo { line-height: 0; }
+.nav-right { display: flex; align-items: center; gap: 1.75rem; }
+.nav-link {
+  font-family: var(--mono);
+  font-size: 0.72rem; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--ink-mid); text-decoration: none; transition: color 0.2s;
 }
-.nav-right { display: flex; align-items: center; gap: 1.5rem; }
-.nav-link { font-size: 0.875rem; color: var(--text-muted); text-decoration: none; transition: color 0.2s; }
-.nav-link:hover { color: var(--text); }
-.btn-primary {
-  background: var(--green); color: #fff;
-  border: none; padding: 0.75rem 1.4rem;
-  border-radius: 999px;
-  font-family: 'DM Sans', sans-serif;
-  font-size: 0.875rem; font-weight: 500;
-  cursor: pointer; text-decoration: none;
-  display: inline-flex; align-items: center; min-height: 44px; /* Apple HIG minimum */
-  transition: all 0.2s;
-}
-.btn-primary:hover { background: #236227; transform: translateY(-1px); }
-.btn-outline {
-  background: transparent; color: var(--green);
-  border: 1.5px solid var(--green);
-  padding: 0.7rem 1.3rem; border-radius: 999px;
-  font-family: 'DM Sans', sans-serif;
-  font-size: 0.875rem; font-weight: 500;
-  cursor: pointer; text-decoration: none;
-  display: inline-flex; align-items: center; min-height: 44px;
-  transition: all 0.2s;
-}
-.btn-outline:hover { background: var(--green-pale); }
+.nav-link:hover { color: var(--moss); }
 
 /* ── HERO ── */
 .hero-wrap {
   position: relative;
-  background: linear-gradient(160deg, #F9FBF9 0%, #FFFFFF 50%, #FBF8F4 100%);
+  background: var(--linen);
   overflow: hidden;
 }
-.hero-wrap::before {
-  content: ''; position: absolute; pointer-events: none;
-  width: 600px; height: 600px; border-radius: 50%;
-  background: radial-gradient(circle, rgba(46,125,50,0.08) 0%, transparent 70%);
-  top: -200px; right: -150px; filter: blur(20px);
-}
-.hero-wrap::after {
-  content: ''; position: absolute; pointer-events: none;
-  width: 500px; height: 500px; border-radius: 50%;
-  background: radial-gradient(circle, rgba(248,243,236,0.9) 0%, transparent 70%);
-  bottom: -100px; left: -200px; filter: blur(30px);
+/* 森 — quiet watermark */
+.hero-kanji {
+  position: absolute; pointer-events: none; user-select: none;
+  font-family: var(--serif);
+  font-size: clamp(18rem, 34vw, 34rem);
+  line-height: 1;
+  color: rgba(46,84,56,0.05);
+  top: 6%; right: -4%;
+  z-index: 0;
 }
 .hero {
   position: relative; z-index: 1;
   min-height: 100vh;
   display: grid;
-  grid-template-columns: 1.1fr 1fr;
+  grid-template-columns: 1.05fr 1fr;
   align-items: center;
   gap: 3rem;
-  padding: 8rem 4rem 4rem;
-  max-width: 1320px; margin: 0 auto;
+  padding: 8rem 4rem 5rem;
+  max-width: 1280px; margin: 0 auto;
 }
-.hero-eyebrow {
-  display: inline-flex; align-items: center; gap: 8px;
-  background: var(--green-light); color: var(--green);
-  font-size: 0.75rem; font-weight: 500; letter-spacing: 0.12em;
-  text-transform: uppercase; padding: 6px 14px;
-  border-radius: 999px; margin-bottom: 1.5rem;
-  opacity: 0; animation: fadeUp 0.6s 0.1s forwards;
+.launch-badge {
+  display: inline-flex; align-items: center; gap: 10px;
+  background: #fff; border: 1px solid var(--warm);
+  border-radius: 999px; padding: 6px 16px 6px 8px;
+  font-size: 0.8rem; color: var(--ink-mid); margin-bottom: 1.75rem;
+  box-shadow: 0 2px 10px rgba(46,84,56,0.07);
+  opacity: 0; animation: fadeUp 0.6s 0.05s forwards;
 }
-.eyebrow-dot {
-  width: 5px; height: 5px; border-radius: 50%;
-  background: var(--green);
-  animation: pulse 2s infinite;
+.hero-dict {
+  font-family: var(--mono);
+  font-size: 0.72rem; letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--ink-soft);
+  margin-bottom: 1.25rem;
+  opacity: 0; animation: fadeUp 0.6s 0.15s forwards;
 }
-@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.7)} }
-
+.hero-dict span { color: var(--moss); }
 .hero-title {
-  font-family: 'Playfair Display', serif;
-  font-size: clamp(2.8rem, 5vw, 5rem);
-  font-weight: 700; line-height: 1.08;
-  letter-spacing: -0.02em; color: var(--text);
-  margin-bottom: 1rem;
+  font-family: var(--serif);
+  font-style: italic; font-weight: 700;
+  font-size: clamp(3.2rem, 6.5vw, 5.6rem);
+  line-height: 1.02; letter-spacing: -0.015em;
+  color: var(--ink);
+  margin-bottom: 1.5rem;
   opacity: 0; animation: fadeUp 0.6s 0.25s forwards;
 }
-.hero-title em { font-style: italic; color: var(--green); }
-
-.hero-tagline {
-  font-size: 0.8rem; font-weight: 400;
-  color: var(--text-muted); letter-spacing: 0.25em;
-  text-transform: uppercase; margin-bottom: 0.5rem;
+.hero-title .w-order { color: var(--moss); }
+.hero-title .w-cook  { color: var(--orange); }
+.hero-brand-line {
+  font-family: var(--serif);
+  font-style: italic; font-size: 1.15rem;
+  color: var(--moss); margin-bottom: 1.25rem;
   opacity: 0; animation: fadeUp 0.6s 0.38s forwards;
 }
-.hero-brand-line {
-  font-family: 'Playfair Display', serif;
-  font-style: italic; font-size: 1.1rem;
-  color: var(--moss); margin-bottom: 1.5rem;
-  opacity: 0; animation: fadeUp 0.6s 0.45s forwards;
-}
-
 .hero-sub {
-  font-size: 1.05rem; font-weight: 300; line-height: 1.75;
-  color: var(--text-mid); max-width: 460px;
-  margin-bottom: 2.5rem;
-  opacity: 0; animation: fadeUp 0.6s 0.5s forwards;
+  font-size: 1.02rem; line-height: 1.75;
+  color: var(--ink-mid); max-width: 470px;
+  margin-bottom: 2.25rem;
+  opacity: 0; animation: fadeUp 0.6s 0.48s forwards;
+}
+.hero-ctas {
+  display: flex; gap: 12px; flex-wrap: wrap;
+  opacity: 0; animation: fadeUp 0.6s 0.6s forwards;
 }
 
-.hero-form {
-  display: flex; gap: 8px; max-width: 400px;
-  opacity: 0; animation: fadeUp 0.6s 0.65s forwards;
-}
-.hero-input {
-  flex: 1; background: var(--bg-soft);
-  border: 1.5px solid var(--border);
-  border-radius: 999px; padding: 0.75rem 1.2rem;
-  font-family: 'DM Sans', sans-serif; font-size: 1rem; /* 16px min — prevents iOS auto-zoom */
-  color: var(--text); outline: none; transition: border-color 0.2s;
-  -webkit-appearance: none;
-}
-.hero-input::placeholder { color: var(--text-muted); }
-.hero-input:focus { border-color: var(--green); }
-.hero-note { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.75rem; }
-
-/* ── PHONE STACK ── */
+/* ── Phone stack ── */
 .hero-right {
-  position: relative; display: flex; justify-content: center;
+  position: relative;
+  display: flex; flex-direction: column; align-items: center; gap: 1.5rem;
   opacity: 0; animation: fadeUp 0.8s 0.3s forwards;
 }
 .phone-stack { position: relative; width: 300px; height: 560px; }
 .phone-back {
   position: absolute; left: -52px; top: 28px; width: 256px;
   border-radius: 38px; overflow: hidden;
-  border: 2px solid #E0E0E0;
+  border: 1px solid var(--warm);
   transform: rotate(-5deg);
-  box-shadow: -8px 16px 40px rgba(0,0,0,0.10);
-  opacity: 0.75;
+  box-shadow: -10px 18px 44px rgba(46,84,56,0.16);
+  opacity: 0.8;
 }
 .phone-back img { width: 100%; display: block; }
 .phone-front {
   position: absolute; right: -12px; top: 0; width: 272px;
   border-radius: 38px; overflow: hidden;
-  border: 2px solid #E0E0E0;
-  box-shadow: 16px 16px 60px rgba(0,0,0,0.13), 0 0 0 1px rgba(46,125,50,0.08);
+  border: 1px solid var(--warm);
+  box-shadow: 18px 20px 64px rgba(46,84,56,0.2), 0 4px 14px rgba(0,0,0,0.06);
 }
 .phone-front img { width: 100%; display: block; }
-
-/* ── STATS BAR ── */
-.stats-bar {
-  background: var(--green-pale);
-  border-top: 1px solid var(--green-light);
-  border-bottom: 1px solid var(--green-light);
-  padding: 1.5rem 2rem;
+.hero-get-card {
+  display: flex; align-items: center; gap: 10px;
+  background: #fff; border: 1px solid var(--warm);
+  border-radius: 16px; padding: 10px 16px 10px 10px;
+  box-shadow: 0 10px 28px rgba(46,84,56,0.12);
+  margin-top: 2.25rem;
+  text-decoration: none; color: inherit;
+  transition: transform 0.2s, box-shadow 0.2s;
 }
-.stats-inner {
-  max-width: 900px; margin: 0 auto;
-  display: grid; grid-template-columns: repeat(3,1fr);
-  gap: 1rem; text-align: center;
-}
-.stat-num {
-  font-family: 'Playfair Display', serif;
-  font-size: 2rem; font-weight: 700; color: var(--green);
-  line-height: 1;
-}
-.stat-label { font-size: 0.8rem; color: var(--text-muted); margin-top: 4px; }
-
-/* ── FEATURES ── */
-.features-wrap {
-  position: relative;
-  background:
-    radial-gradient(ellipse 80% 60% at 50% 0%, rgba(232,245,233,0.4) 0%, transparent 60%),
-    var(--bg);
-  overflow: hidden;
-}
-.features-wrap::before {
-  content: ''; position: absolute; pointer-events: none;
-  width: 320px; height: 320px; border-radius: 50%;
-  background: radial-gradient(circle, rgba(248,243,236,0.7) 0%, transparent 70%);
-  top: 30%; right: -100px; filter: blur(20px);
-}
-.features {
-  position: relative; z-index: 1;
-  padding: 6rem 2rem;
-  max-width: 1240px; margin: 0 auto;
-}
-.section-eyebrow {
-  display: inline-block; font-size: 0.72rem; font-weight: 500;
-  letter-spacing: 0.18em; text-transform: uppercase;
-  color: var(--green); margin-bottom: 0.75rem;
-}
-.section-title {
-  font-family: 'Playfair Display', serif;
-  font-size: clamp(2rem, 4vw, 2.8rem);
-  font-weight: 700; line-height: 1.15;
-  margin-bottom: 0.75rem; color: var(--text);
-}
-.section-title em { font-style: italic; color: var(--green); }
-.section-sub {
-  font-size: 1rem; font-weight: 300; color: var(--text-mid);
-  max-width: 520px; line-height: 1.7; margin-bottom: 3.5rem;
+.hero-get-card:hover { transform: translateY(-2px); box-shadow: 0 14px 34px rgba(46,84,56,0.16); }
+.hero-get-pill {
+  margin-left: 8px; background: var(--moss); color: var(--linen);
+  font-size: 0.65rem; font-weight: 600; padding: 4px 12px;
+  border-radius: 999px;
 }
 
-.features-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 1.5rem; }
-.feature-card {
-  position: relative;
-  background: rgba(255,255,255,0.7);
-  border: 1px solid var(--border);
-  border-radius: 22px; padding: 2rem;
-  transition: all 0.35s cubic-bezier(.2,.8,.2,1);
-  backdrop-filter: blur(6px);
-  overflow: hidden;
+/* ── COLOPHON (stats strip) ── */
+.colophon {
+  background: var(--cream);
+  border-top: 1px solid var(--hairline);
+  border-bottom: 1px solid var(--hairline);
+  padding: 2rem;
 }
-.feature-card::before {
-  content: ''; position: absolute; inset: 0;
-  background: linear-gradient(135deg, rgba(46,125,50,0.04) 0%, transparent 60%);
-  opacity: 0; transition: opacity 0.35s;
-  pointer-events: none;
+.colophon-inner {
+  max-width: 980px; margin: 0 auto;
+  display: grid; grid-template-columns: repeat(3, 1fr);
 }
-.feature-card:hover {
-  border-color: rgba(46,125,50,0.25);
-  background: #fff;
-  transform: translateY(-6px);
-  box-shadow: 0 16px 40px rgba(46,125,50,0.12), 0 4px 12px rgba(0,0,0,0.05);
+.colophon-cell { text-align: center; padding: 0.5rem 1.5rem; }
+.colophon-cell + .colophon-cell { border-left: 1px solid var(--hairline); }
+.colophon-num {
+  font-family: var(--serif);
+  font-style: italic; font-weight: 700;
+  font-size: 2.1rem; color: var(--moss);
+  line-height: 1.1;
 }
-.feature-card:hover::before { opacity: 1; }
-.feature-card:nth-child(2):hover { box-shadow: 0 16px 40px rgba(255,112,9,0.12), 0 4px 12px rgba(0,0,0,0.05); border-color: rgba(255,112,9,0.25); }
-.feature-card:nth-child(2):hover::before { background: linear-gradient(135deg, rgba(255,112,9,0.06) 0%, transparent 60%); }
-.feature-icon {
-  width: 48px; height: 48px; border-radius: 14px;
-  background: linear-gradient(135deg, var(--green-light) 0%, rgba(232,245,233,0.5) 100%);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 1.15rem; color: var(--green);
-  margin-bottom: 1.2rem; font-weight: 700;
-  box-shadow: 0 4px 12px rgba(46,125,50,0.08);
+.colophon-lbl {
+  font-family: var(--mono);
+  font-size: 0.66rem; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--ink-soft); margin-top: 6px;
 }
-.feature-title { font-size: 1.05rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--text); font-family: 'DM Sans', sans-serif; }
-.feature-desc { font-size: 0.9rem; font-weight: 400; color: var(--text-mid); line-height: 1.65; }
 
-/* ── SHOWCASE ── */
+/* ── INTERLUDE — the 7pm problem ── */
+.interlude {
+  background: var(--charcoal);
+  padding: 7rem 2rem;
+  text-align: center;
+}
+.interlude-text {
+  font-family: var(--serif);
+  font-style: italic; font-weight: 400;
+  font-size: clamp(1.6rem, 3.4vw, 2.6rem);
+  line-height: 1.35;
+  color: var(--linen);
+  max-width: 760px; margin: 0 auto 1.5rem;
+}
+.interlude-text em { color: var(--orange); }
+.interlude-kicker {
+  font-family: var(--mono);
+  font-size: 0.72rem; letter-spacing: 0.18em; text-transform: uppercase;
+  color: rgba(248,243,236,0.45);
+}
+
+/* ── FEATURE INDEX ── */
+.index-section {
+  background: var(--cream);
+  padding: 6.5rem 2rem;
+}
+.index-inner { max-width: 1080px; margin: 0 auto; }
+.index-head {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 2rem; margin-bottom: 3rem; flex-wrap: wrap;
+}
+.index-rows { border-top: 1px solid var(--hairline); }
+.index-row {
+  display: grid;
+  grid-template-columns: 72px 300px 1fr;
+  gap: 2rem; align-items: baseline;
+  padding: 1.75rem 0.75rem;
+  border-bottom: 1px solid var(--hairline);
+  transition: background 0.25s;
+}
+.index-row:hover { background: var(--linen); }
+.index-num {
+  font-family: var(--mono);
+  font-size: 0.78rem; color: var(--ink-soft);
+  letter-spacing: 0.08em;
+}
+.index-title {
+  font-family: var(--serif);
+  font-style: italic; font-weight: 700;
+  font-size: 1.35rem; color: var(--moss);
+  line-height: 1.25;
+}
+.index-desc {
+  font-size: 0.94rem; color: var(--ink-mid); line-height: 1.65;
+  max-width: 560px;
+}
+
+/* ── SCREENS ── */
 .showcase {
-  position: relative;
-  background:
-    radial-gradient(ellipse 50% 70% at 0% 50%, rgba(46,84,56,0.06) 0%, transparent 60%),
-    radial-gradient(ellipse 50% 70% at 100% 50%, rgba(255,112,9,0.05) 0%, transparent 60%),
-    var(--paper);
-  border-top: 1px solid rgba(46,84,56,0.08);
-  border-bottom: 1px solid rgba(46,84,56,0.08);
-  padding: 6rem 2rem; overflow: hidden;
+  background: var(--offwhite);
+  border-top: 1px solid var(--hairline);
+  border-bottom: 1px solid var(--hairline);
+  padding: 6.5rem 2rem;
+  overflow: hidden;
 }
-.showcase::before {
-  content: ''; position: absolute; pointer-events: none;
-  width: 100%; height: 1px; top: 0; left: 0;
-  background: linear-gradient(90deg, transparent, rgba(46,125,50,0.2), transparent);
-}
-.showcase-inner { position: relative; z-index: 1; max-width: 1240px; margin: 0 auto; }
+.showcase-inner { max-width: 1240px; margin: 0 auto; }
 .screens-showcase {
   display: flex; gap: 1.75rem;
   justify-content: center; align-items: flex-start;
@@ -354,19 +384,22 @@ nav {
 .screen-phone-wrap { text-align: center; flex-shrink: 0; }
 .screen-phone {
   width: 220px; border-radius: 30px; overflow: hidden;
-  border: 1.5px solid rgba(0,0,0,0.07);
-  box-shadow: 0 24px 60px rgba(0,0,0,0.13), 0 6px 16px rgba(0,0,0,0.06);
+  border: 1px solid rgba(46,84,56,0.12);
+  box-shadow: 0 22px 56px rgba(46,84,56,0.16), 0 6px 16px rgba(0,0,0,0.05);
   cursor: zoom-in;
   background: #000;
   transition: transform 0.4s cubic-bezier(.2,.8,.2,1), box-shadow 0.4s ease;
 }
 .screen-phone:hover {
   transform: translateY(-10px);
-  box-shadow: 0 30px 72px rgba(0,0,0,0.16), 0 8px 24px rgba(0,0,0,0.07);
+  box-shadow: 0 30px 72px rgba(46,84,56,0.22), 0 8px 24px rgba(0,0,0,0.07);
 }
 .screen-phone img { width: 100%; display: block; }
-.screen-phone-label { font-size: 0.72rem; color: var(--text-muted); margin-top: 0.65rem; }
-/* staggered heights */
+.screen-phone-label {
+  font-family: var(--mono);
+  font-size: 0.66rem; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--ink-soft); margin-top: 0.75rem;
+}
 .screen-phone-wrap:nth-child(1) .screen-phone { margin-top: 56px; }
 .screen-phone-wrap:nth-child(2) .screen-phone { margin-top: 16px; }
 .screen-phone-wrap:nth-child(3) .screen-phone { margin-top: 0; }
@@ -377,10 +410,11 @@ nav {
   .screens-showcase { overflow-x: auto; justify-content: flex-start; padding-left: 1rem; }
   .screen-phone { width: 155px; }
 }
+
 /* Lightbox */
 #lightbox {
   display: none; position: fixed; inset: 0;
-  background: rgba(0,0,0,0.88); z-index: 9999;
+  background: rgba(24,24,18,0.92); z-index: 9999;
   align-items: center; justify-content: center;
   cursor: zoom-out;
 }
@@ -391,102 +425,40 @@ nav {
   box-shadow: 0 32px 80px rgba(0,0,0,0.6);
   animation: fadeUp 0.2s ease forwards;
 }
-.screen-item {
-  flex-shrink: 0; width: 200px;
-  border-radius: 28px; overflow: hidden;
-  border: 1.5px solid var(--border);
-  box-shadow: 0 12px 32px rgba(0,0,0,0.08);
-  transition: transform 0.3s;
-}
-.screen-item:hover { transform: translateY(-6px) scale(1.02); }
-.screen-item img { width: 100%; display: block; }
-.screen-item.offset-up { margin-top: -24px; }
-.screen-item.offset-down { margin-top: 24px; }
-.screen-caption {
-  text-align: center; margin-top: 0.6rem;
-  font-size: 0.72rem; color: var(--text-muted);
-}
 
-/* ── HOW IT WORKS ── */
-.how { padding: 5rem 2rem; max-width: 900px; margin: 0 auto; }
-.steps { display: grid; grid-template-columns: repeat(3,1fr); gap: 2rem; margin-top: 3rem; }
-.step { text-align: center; padding: 1.5rem 1rem; }
-.step-num {
-  width: 48px; height: 48px; border-radius: 50%;
-  background: var(--green-light); border: 1.5px solid var(--green);
-  display: flex; align-items: center; justify-content: center;
-  font-family: 'Playfair Display', serif;
-  font-size: 1.1rem; font-weight: 700; color: var(--green);
-  margin: 0 auto 1.25rem;
-}
-.step-title { font-size: 1rem; font-weight: 500; margin-bottom: 0.4rem; color: var(--text); }
-.step-desc { font-size: 0.855rem; font-weight: 300; color: var(--text-mid); line-height: 1.65; }
-
-/* ── TASTE PROFILE HIGHLIGHT ── */
-.profile-section {
-  position: relative;
-  background:
-    radial-gradient(ellipse 60% 50% at 80% 0%, rgba(46,84,56,0.10) 0%, transparent 60%),
-    radial-gradient(ellipse 50% 50% at 0% 100%, rgba(232,221,208,0.6) 0%, transparent 60%),
-    var(--linen);
-  border-top: 1px solid #E8DDD0;
-  border-bottom: 1px solid #E8DDD0;
+/* ── FLAVOUR DNA ── */
+.dna-section {
+  background: var(--linen);
   padding: 7rem 2rem;
   overflow: hidden;
 }
-.profile-section::before {
-  content: ''; position: absolute; pointer-events: none;
-  width: 700px; height: 700px; border-radius: 50%;
-  background: radial-gradient(circle, rgba(46,84,56,0.08) 0%, transparent 70%);
-  top: -250px; left: -250px; filter: blur(40px);
-  z-index: 0;
-}
-.profile-inner {
-  position: relative; z-index: 1;
+.dna-inner {
   max-width: 1240px; margin: 0 auto;
   display: grid; grid-template-columns: 1.05fr 1fr;
   gap: 5rem; align-items: center;
 }
-.profile-quote {
-  background: #fff;
-  border: 1px solid #E8DDD0;
-  border-radius: 18px; padding: 2rem;
-  font-family: 'Playfair Display', serif;
-  font-style: italic; font-size: 1.05rem;
-  color: var(--moss); line-height: 1.7;
-  position: relative;
-}
-.profile-quote-mark {
-  font-size: 4rem; color: #E0EDD8; line-height: 0;
-  position: absolute; top: 24px; left: 20px;
-  font-family: Georgia, serif;
-}
-.profile-text { padding-top: 1rem; }
-.profile-text .section-sub { margin-bottom: 2rem; }
-
-/* Flavour DNA bars */
 .dna-list { display: flex; flex-direction: column; gap: 1rem; margin-bottom: 2rem; }
 .dna-row {
   display: grid;
-  grid-template-columns: 90px 1fr;
+  grid-template-columns: 96px 1fr;
   grid-template-rows: auto auto;
   column-gap: 14px; row-gap: 4px;
   align-items: center;
 }
 .dna-label {
-  font-family: 'Playfair Display', serif;
+  font-family: var(--serif);
   font-style: italic; font-weight: 700;
   font-size: 0.95rem; color: var(--moss);
   grid-row: 1 / 2;
 }
 .dna-bar {
   position: relative; height: 6px; border-radius: 999px;
-  background: rgba(46,84,56,0.10);
+  background: rgba(46,84,56,0.12);
   grid-row: 1 / 2; overflow: hidden;
 }
 .dna-bar > span {
   position: absolute; left: 0; top: 0; bottom: 0;
-  background: linear-gradient(90deg, var(--green) 0%, var(--green-mid) 100%);
+  background: linear-gradient(90deg, var(--moss) 0%, var(--green-lt) 100%);
   border-radius: 999px;
   transform: scaleX(0);
   transform-origin: left;
@@ -499,31 +471,43 @@ nav {
 .dna-list .dna-row:nth-child(4) .dna-bar > span { transition-delay: 0.46s; }
 .dna-meta {
   grid-column: 2 / 3; grid-row: 2 / 3;
-  font-size: 0.78rem; color: var(--text-mid);
+  font-size: 0.78rem; color: var(--ink-mid);
   letter-spacing: 0.02em;
 }
-.dna-meta em { font-family: 'Playfair Display', serif; font-style: italic; color: var(--text-muted); font-weight: 400; }
-
-/* Two-phone stack for taste profile */
-.profile-phones {
+.dna-meta em { font-family: var(--serif); font-style: italic; color: var(--ink-soft); }
+.dna-quote {
+  background: #fff;
+  border: 1px solid var(--warm);
+  border-radius: 18px; padding: 2rem;
+  font-family: var(--serif);
+  font-style: italic; font-size: 1.05rem;
+  color: var(--moss); line-height: 1.7;
+  position: relative;
+}
+.dna-quote-mark {
+  font-family: var(--serif);
+  font-size: 4rem; color: var(--warm); line-height: 0;
+  position: absolute; top: 24px; left: 20px;
+}
+.dna-quote-attr {
+  padding-left: 2.5rem; margin-top: 0.5rem;
+  font-family: var(--mono); font-style: normal;
+  font-size: 0.64rem; color: var(--ink-soft);
+  letter-spacing: 0.12em; text-transform: uppercase;
+}
+.dna-phones {
   position: relative;
   display: flex; justify-content: center; align-items: flex-start;
   min-height: 660px;
   padding: 1rem;
 }
-.profile-phones::before {
-  content: '';
-  position: absolute; inset: 0;
-  background: radial-gradient(ellipse at center, rgba(46,84,56,0.06) 0%, transparent 60%);
-  z-index: 0;
-}
-.profile-phone {
+.dna-phone {
   border-radius: 38px; overflow: hidden;
-  border: 1.5px solid rgba(0,0,0,0.07);
+  border: 1px solid rgba(46,84,56,0.1);
   background: #000;
 }
-.profile-phone img { width: 100%; display: block; }
-.profile-phone-back {
+.dna-phone img { width: 100%; display: block; }
+.dna-phone-back {
   position: absolute; left: 0; top: 60px;
   width: 240px;
   transform: rotate(-7deg);
@@ -531,65 +515,41 @@ nav {
   opacity: 0.92;
   z-index: 1;
 }
-.profile-phone-front {
+.dna-phone-front {
   position: relative;
   width: 280px;
   margin-left: 70px;
-  box-shadow:
-    24px 28px 80px rgba(46,84,56,0.28),
-    0 10px 24px rgba(0,0,0,0.10);
+  box-shadow: 24px 28px 80px rgba(46,84,56,0.26), 0 10px 24px rgba(0,0,0,0.08);
   z-index: 2;
   transform: rotate(2deg);
 }
-.profile-chip {
+.dna-chip {
   position: absolute; bottom: 20px; right: 10px; z-index: 3;
   display: flex; align-items: center; gap: 14px;
   background: #fff;
-  border: 1px solid #E8DDD0;
+  border: 1px solid var(--warm);
   border-radius: 18px; padding: 14px 20px 14px 14px;
   box-shadow: 0 18px 40px rgba(46,84,56,0.18), 0 4px 12px rgba(0,0,0,0.06);
   max-width: 260px;
 }
-.profile-chip-icon {
+.dna-chip-icon {
   width: 44px; height: 44px; border-radius: 12px;
-  background: linear-gradient(135deg, var(--green-light) 0%, rgba(232,245,233,0.5) 100%);
+  background: var(--linen);
+  border: 1px solid var(--warm);
   display: flex; align-items: center; justify-content: center;
   font-size: 1.3rem;
-  box-shadow: 0 4px 12px rgba(46,125,50,0.10);
 }
-.profile-chip-title { font-size: 0.95rem; font-weight: 700; color: var(--moss); font-family: 'Playfair Display',serif; font-style: italic; }
-.profile-chip-sub { font-size: 0.72rem; color: var(--text-muted); font-family: 'DM Sans',sans-serif; margin-top: 3px; }
+.dna-chip-title { font-family: var(--serif); font-style: italic; font-weight: 700; font-size: 0.95rem; color: var(--moss); }
+.dna-chip-sub { font-size: 0.72rem; color: var(--ink-soft); margin-top: 3px; }
 
-/* ── DUO SECTION (Plan + Grocery) ── */
+/* ── DUO (Plan + Grocery) ── */
 .duo-section {
-  position: relative;
-  background:
-    radial-gradient(ellipse 70% 50% at 85% 20%, rgba(255,112,9,0.06) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 50% at 15% 80%, rgba(46,125,50,0.07) 0%, transparent 60%),
-    var(--paper);
+  background: var(--cream);
+  border-top: 1px solid var(--hairline);
   padding: 7rem 2rem;
   overflow: hidden;
 }
-/* Decorative blob shapes */
-.duo-section::before,
-.duo-section::after {
-  content: ''; position: absolute; pointer-events: none;
-  border-radius: 50%;
-  filter: blur(40px); opacity: 0.45;
-  z-index: 0;
-}
-.duo-section::before {
-  width: 380px; height: 380px;
-  background: radial-gradient(circle, var(--green-light) 0%, transparent 70%);
-  top: -80px; right: -120px;
-}
-.duo-section::after {
-  width: 480px; height: 480px;
-  background: radial-gradient(circle, var(--ic-cream) 0%, transparent 70%);
-  bottom: -160px; left: -160px;
-}
 .duo-inner {
-  position: relative; z-index: 1;
   max-width: 1240px; margin: 0 auto;
   display: flex; flex-direction: column; gap: 7rem;
 }
@@ -603,16 +563,17 @@ nav {
 .duo-tile-reverse > * { direction: ltr; }
 .duo-text { padding: 1rem 0; max-width: 520px; }
 .duo-title {
-  font-family: 'Playfair Display', serif;
-  font-size: clamp(2rem, 3.6vw, 2.9rem);
-  font-weight: 700; line-height: 1.12;
-  color: var(--text);
+  font-family: var(--serif);
+  font-style: italic; font-weight: 700;
+  font-size: clamp(2rem, 3.6vw, 2.8rem);
+  line-height: 1.12;
+  color: var(--ink);
   margin-bottom: 1.25rem;
 }
-.duo-title em { font-style: italic; color: var(--green); }
+.duo-title em { color: var(--moss); }
 .duo-desc {
-  font-size: 1.08rem; font-weight: 300; line-height: 1.7;
-  color: var(--text-mid); margin-bottom: 2rem;
+  font-size: 1.05rem; line-height: 1.7;
+  color: var(--ink-mid); margin-bottom: 2rem;
   max-width: 480px;
 }
 .duo-list {
@@ -621,20 +582,16 @@ nav {
 }
 .duo-list li {
   display: flex; gap: 12px; align-items: flex-start;
-  font-size: 0.98rem; color: var(--text-mid);
-  font-family: 'DM Sans', sans-serif;
+  font-size: 0.96rem; color: var(--ink-mid);
   line-height: 1.55;
 }
 .duo-list li::before {
   content: ''; flex-shrink: 0;
   width: 7px; height: 7px; border-radius: 50%;
-  background: var(--green);
+  background: var(--moss);
   margin-top: 9px;
-  box-shadow: 0 0 0 4px rgba(46,125,50,0.10);
+  box-shadow: 0 0 0 4px rgba(46,84,56,0.1);
 }
-.duo-list li span { display: none; }
-
-/* Backdrop card behind the phone — fills empty space */
 .duo-phone-wrap {
   position: relative;
   display: flex; justify-content: center; align-items: center;
@@ -646,41 +603,31 @@ nav {
   content: '';
   position: absolute; inset: 1.5rem;
   border-radius: 36px;
-  background:
-    linear-gradient(135deg, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0.2) 100%);
-  border: 1px solid rgba(46,84,56,0.08);
-  backdrop-filter: blur(8px);
+  background: var(--linen);
+  border: 1px solid var(--warm);
   z-index: 0;
 }
-/* Variant: Instacart-tinted backdrop on the grocery tile */
 .duo-tile-grocery .duo-phone-wrap::before {
-  background:
-    linear-gradient(135deg, rgba(255,112,9,0.08) 0%, rgba(255,244,230,0.5) 100%);
-  border: 1px solid rgba(255,112,9,0.15);
+  background: linear-gradient(135deg, rgba(255,112,9,0.07) 0%, var(--ic-cream) 100%);
+  border: 1px solid rgba(255,112,9,0.18);
 }
 .duo-phone {
   position: relative; z-index: 1;
   width: 300px; border-radius: 40px; overflow: hidden;
-  border: 1.5px solid rgba(0,0,0,0.07);
+  border: 1px solid rgba(46,84,56,0.12);
   background: #000;
-  box-shadow:
-    0 40px 90px rgba(0,0,0,0.22),
-    0 12px 28px rgba(0,0,0,0.10),
-    0 0 0 1px rgba(255,255,255,0.06) inset;
+  box-shadow: 0 36px 84px rgba(46,84,56,0.24), 0 12px 28px rgba(0,0,0,0.08);
 }
 .duo-phone img { width: 100%; display: block; }
 
-/* ── BIG floating chips ── */
+/* Floating chips */
 .duo-floater {
   position: absolute;
   background: #fff;
-  border: 1px solid rgba(0,0,0,0.06);
+  border: 1px solid var(--warm);
   border-radius: 20px;
   padding: 18px 22px;
-  box-shadow:
-    0 24px 56px rgba(0,0,0,0.14),
-    0 6px 14px rgba(0,0,0,0.06);
-  font-family: 'DM Sans', sans-serif;
+  box-shadow: 0 24px 56px rgba(46,84,56,0.16), 0 6px 14px rgba(0,0,0,0.05);
   z-index: 4;
   display: flex; align-items: center; gap: 14px;
   min-width: 180px;
@@ -690,63 +637,50 @@ nav {
 .duo-floater-br { bottom: 6%; right: -6%; }
 .duo-floater-icon {
   width: 44px; height: 44px; border-radius: 12px;
-  background: var(--green-light);
+  background: var(--linen);
+  border: 1px solid var(--warm);
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
 }
-.duo-floater-icon svg { width: 22px; height: 22px; color: var(--green); }
+.duo-floater-icon svg { width: 22px; height: 22px; color: var(--moss); }
 .duo-floater-num {
-  font-family: 'Playfair Display', serif;
-  font-size: 1.5rem; font-weight: 700; color: var(--text);
+  font-family: var(--serif);
+  font-style: italic; font-weight: 700;
+  font-size: 1.5rem; color: var(--ink);
   line-height: 1;
 }
-.duo-floater-num em { font-style: italic; color: var(--green); font-weight: 700; }
+.duo-floater-num em { color: var(--moss); }
 .duo-floater-lbl {
-  font-size: 0.78rem; color: var(--text-muted);
-  margin-top: 6px; letter-spacing: 0.02em;
-  font-weight: 400;
+  font-family: var(--mono);
+  font-size: 0.62rem; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--ink-soft);
+  margin-top: 7px;
 }
 
-/* Instacart-branded floater (the orange one) */
+/* Instacart-branded floater (their orange, intentionally off-palette) */
 .duo-floater-ic {
-  background: linear-gradient(135deg, #FF7009 0%, #E55A00 100%);
+  background: linear-gradient(135deg, var(--ic-orange) 0%, var(--ic-orange-dark) 100%);
   border: none;
-  color: #fff;
-  box-shadow:
-    0 24px 56px rgba(255,112,9,0.32),
-    0 6px 14px rgba(255,112,9,0.18);
+  box-shadow: 0 24px 56px rgba(255,112,9,0.32), 0 6px 14px rgba(255,112,9,0.18);
 }
-.duo-floater-ic .duo-floater-icon {
-  background: #fff; /* white circle so the carrot pops */
-}
-.duo-floater-ic .duo-floater-icon svg { color: #FF7009; }
-.duo-floater-ic .duo-floater-num { color: #fff; font-weight: 700; }
-.duo-floater-ic .duo-floater-lbl { color: rgba(255,255,255,0.9); font-weight: 500; }
-
-/* Instacart carrot image inside the orange chip */
-.duo-floater-icon-img {
-  background: #fff;
-  padding: 6px;
-}
-.duo-floater-icon-img img {
-  width: 100%; height: 100%;
-  object-fit: contain;
-  display: block;
-}
+.duo-floater-ic .duo-floater-icon { background: #fff; border: none; }
+.duo-floater-ic .duo-floater-num { color: #fff; }
+.duo-floater-ic .duo-floater-lbl { color: rgba(255,255,255,0.9); }
+.duo-floater-icon-img { padding: 6px; }
+.duo-floater-icon-img img { width: 100%; height: 100%; object-fit: contain; display: block; }
 
 /* Dark "staples skipped" variant */
 .duo-floater-dark {
-  background: #0F1F12;
-  border: 1px solid #1F3322;
-  color: #E8F5E9;
+  background: var(--dark);
+  border: 1px solid var(--charcoal);
 }
-.duo-floater-dark .duo-floater-icon { background: rgba(165,214,167,0.15); }
-.duo-floater-dark .duo-floater-icon svg { color: #A5D6A7; }
-.duo-floater-dark .duo-floater-num { color: #fff; }
-.duo-floater-dark .duo-floater-num em { color: #A5D6A7; }
-.duo-floater-dark .duo-floater-lbl { color: #9DB39E; }
+.duo-floater-dark .duo-floater-icon { background: rgba(149,213,178,0.14); border: none; }
+.duo-floater-dark .duo-floater-icon svg { color: var(--green-pale); }
+.duo-floater-dark .duo-floater-num { color: var(--linen); }
+.duo-floater-dark .duo-floater-num em { color: var(--green-pale); }
+.duo-floater-dark .duo-floater-lbl { color: rgba(248,243,236,0.55); }
 
-/* Small Instacart partnership badge under grocery title */
+/* Instacart partner badge */
 .ic-partner-badge {
   display: inline-flex; align-items: center; gap: 8px;
   background: var(--ic-cream);
@@ -755,15 +689,10 @@ nav {
   padding: 6px 12px 6px 8px;
   border-radius: 999px;
   font-size: 0.75rem; font-weight: 600;
-  font-family: 'DM Sans', sans-serif;
   letter-spacing: 0.02em;
   margin-bottom: 1rem;
 }
-.ic-partner-badge .ic-mark {
-  width: 18px; height: 18px;
-  display: block;
-  object-fit: contain;
-}
+.ic-partner-badge .ic-mark { width: 18px; height: 18px; display: block; object-fit: contain; }
 
 @media (max-width: 900px) {
   .duo-section { padding: 5rem 1.5rem; }
@@ -782,39 +711,60 @@ nav {
   .duo-floater { padding: 12px 16px; min-width: 150px; }
   .duo-floater-icon { width: 36px; height: 36px; }
   .duo-floater-num { font-size: 1.15rem; }
-  .duo-floater-lbl { font-size: 0.7rem; }
+  .duo-floater-lbl { font-size: 0.58rem; }
 }
+
+/* ── HOW IT WORKS ── */
+.how {
+  background: var(--linen);
+  border-top: 1px solid var(--hairline);
+  padding: 6.5rem 2rem;
+}
+.how-inner { max-width: 1000px; margin: 0 auto; }
+.steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; margin-top: 3rem; border-top: 1px solid var(--hairline); }
+.step { padding: 2.5rem 2rem 1rem; position: relative; }
+.step + .step { border-left: 1px solid var(--hairline); }
+.step-num {
+  font-family: var(--serif);
+  font-style: italic; font-weight: 700;
+  font-size: 3.4rem; color: var(--warm);
+  line-height: 1;
+  margin-bottom: 1.25rem;
+}
+.step-title {
+  font-family: var(--serif);
+  font-style: italic; font-weight: 700;
+  font-size: 1.2rem; color: var(--moss);
+  margin-bottom: 0.5rem;
+}
+.step-desc { font-size: 0.9rem; color: var(--ink-mid); line-height: 1.65; }
 
 /* ── MORI+ ── */
 .plus-section {
-  background:
-    radial-gradient(ellipse 50% 40% at 100% 0%, rgba(46,84,56,0.10) 0%, transparent 60%),
-    radial-gradient(ellipse 50% 50% at 0% 100%, rgba(232,221,208,0.6) 0%, transparent 60%),
-    var(--linen);
-  border-top: 1px solid #E8DDD0;
-  border-bottom: 1px solid #E8DDD0;
-  padding: 6rem 2rem;
+  background: var(--forest);
+  padding: 7rem 2rem;
 }
 .plus-inner { max-width: 1100px; margin: 0 auto; }
-.plus-eyebrow { display: flex; align-items: center; gap: 12px; margin-bottom: 1.25rem; }
+.plus-eyebrow { display: flex; align-items: center; gap: 12px; margin-bottom: 1.5rem; }
 .plus-badge {
   width: 28px; height: 28px; border-radius: 8px;
-  background: var(--moss); color: #fff;
+  background: var(--green-pale); color: var(--forest);
   display: inline-flex; align-items: center; justify-content: center;
-  font-family: 'Playfair Display', serif;
+  font-family: var(--serif);
   font-style: italic; font-size: 1.2rem; font-weight: 700;
   line-height: 1;
 }
 .plus-title {
-  font-family: 'Playfair Display', serif;
-  font-size: clamp(2rem, 4.5vw, 3.25rem);
-  font-weight: 700; color: var(--moss); line-height: 1.05;
-  margin-bottom: 1.25rem; letter-spacing: -0.02em;
+  font-family: var(--serif);
+  font-style: italic; font-weight: 700;
+  font-size: clamp(2.2rem, 4.5vw, 3.4rem);
+  color: var(--linen); line-height: 1.08;
+  margin-bottom: 1.25rem; letter-spacing: -0.01em;
 }
-.plus-title em { font-style: italic; font-weight: 400; }
+.plus-title em { color: var(--green-pale); font-weight: 400; }
 .plus-sub {
-  font-size: 1.05rem; line-height: 1.6;
-  color: var(--text-mid); font-weight: 300;
+  font-size: 1.05rem; line-height: 1.7;
+  color: rgba(248,243,236,0.78);
   max-width: 680px; margin-bottom: 3.5rem;
 }
 .plus-grid {
@@ -822,84 +772,79 @@ nav {
   gap: 1.5rem; margin-bottom: 4rem;
 }
 .plus-card {
-  background: #fff;
-  border: 1px solid rgba(46,84,56,0.12);
+  background: rgba(248,243,236,0.06);
+  border: 1px solid var(--hairline-lt);
   border-radius: 18px;
   padding: 2rem 1.75rem;
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition: background 0.25s, border-color 0.25s, transform 0.2s;
 }
 .plus-card:hover {
+  background: rgba(248,243,236,0.1);
+  border-color: rgba(149,213,178,0.4);
   transform: translateY(-2px);
-  box-shadow: 0 12px 28px rgba(46,84,56,0.12);
 }
 .plus-icon {
-  width: 40px; height: 40px;
-  border-radius: 10px;
-  background: var(--linen);
-  border: 1px solid #E8DDD0;
-  color: var(--moss);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 1.1rem;
+  font-family: var(--mono);
+  font-size: 0.7rem; letter-spacing: 0.14em;
+  color: var(--green-pale);
   margin-bottom: 1rem;
 }
 .plus-card-title {
-  font-family: 'Playfair Display', serif;
-  font-style: italic; font-size: 1.25rem;
-  color: var(--moss); margin-bottom: 0.5rem;
-  font-weight: 400;
+  font-family: var(--serif);
+  font-style: italic; font-weight: 700;
+  font-size: 1.3rem;
+  color: var(--linen); margin-bottom: 0.5rem;
 }
 .plus-card-desc {
-  font-size: 0.9rem; line-height: 1.6;
-  color: var(--text-mid); font-weight: 300;
+  font-size: 0.9rem; line-height: 1.65;
+  color: rgba(248,243,236,0.7);
 }
 .plus-cta {
-  background: var(--moss); color: #fff;
+  background: var(--linen);
   border-radius: 24px;
   padding: 3rem 2.5rem;
   text-align: center;
 }
 .plus-cta-title {
-  font-family: 'Playfair Display', serif;
-  font-size: clamp(1.4rem, 3vw, 1.85rem);
-  font-weight: 700;
+  font-family: var(--serif);
+  font-style: italic; font-weight: 700;
+  font-size: clamp(1.4rem, 3vw, 1.9rem);
+  color: var(--moss);
   margin-bottom: 0.5rem; line-height: 1.2;
 }
-.plus-cta-title em { font-style: italic; color: #D4C9B5; font-weight: 400; }
 .plus-cta-sub {
-  font-size: 0.875rem; color: rgba(255,255,255,0.75);
-  margin-bottom: 1.75rem; font-weight: 300;
+  font-size: 0.875rem; color: var(--ink-mid);
+  margin-bottom: 1.75rem;
 }
-.plus-form {
-  display: flex; gap: 8px; max-width: 420px; margin: 0 auto;
-}
+.plus-form { display: flex; gap: 8px; max-width: 420px; margin: 0 auto; }
 .plus-form input {
-  flex: 1; background: rgba(255,255,255,0.12);
-  border: 1.5px solid rgba(255,255,255,0.3);
+  flex: 1; background: #fff;
+  border: 1px solid var(--warm);
   border-radius: 999px; padding: 0.75rem 1.2rem;
-  font-family: 'DM Sans', sans-serif; font-size: 1rem; /* 16px min — prevents iOS auto-zoom */
-  color: #fff; outline: none; transition: all 0.2s;
+  font-family: var(--sans); font-size: 1rem; /* 16px min — prevents iOS auto-zoom */
+  color: var(--ink); outline: none; transition: border-color 0.2s;
   -webkit-appearance: none;
 }
-.plus-form input::placeholder { color: rgba(255,255,255,0.5); }
-.plus-form input:focus { border-color: rgba(255,255,255,0.65); }
+.plus-form input::placeholder { color: var(--ink-soft); }
+.plus-form input:focus { border-color: var(--moss); }
 .plus-form button {
-  background: #fff; color: var(--moss);
-  border: none; padding: 0.75rem 1.4rem;
+  background: var(--moss); color: var(--linen);
+  border: none; padding: 0.75rem 1.5rem;
   border-radius: 999px;
-  font-family: 'DM Sans', sans-serif;
+  font-family: var(--sans);
   font-size: 0.875rem; font-weight: 500;
   cursor: pointer; white-space: nowrap;
   min-height: 44px;
-  transition: all 0.2s;
+  transition: background 0.2s;
 }
-.plus-form button:hover { background: #F1F0EA; }
+.plus-form button:hover { background: var(--forest); }
 .plus-msg {
   margin-top: 0.875rem; font-size: 0.8rem;
   min-height: 1em;
-  color: rgba(255,255,255,0.85);
+  color: var(--ink-mid);
 }
 @media (max-width: 768px) {
-  .plus-section { padding: 4rem 1.25rem; }
+  .plus-section { padding: 5rem 1.25rem; }
   .plus-grid { grid-template-columns: 1fr; gap: 1rem; margin-bottom: 2.5rem; }
   .plus-card { padding: 1.5rem 1.25rem; }
   .plus-cta { padding: 2.25rem 1.5rem; border-radius: 20px; }
@@ -907,59 +852,44 @@ nav {
   .plus-form button { width: 100%; }
 }
 
-/* ── CTA ── */
+/* ── FINAL CTA ── */
 .cta-section {
-  padding: 6rem 2rem; text-align: center;
-  background: var(--green);
+  padding: 7rem 2rem; text-align: center;
+  background: var(--moss);
 }
 .cta-title {
-  font-family: 'Playfair Display', serif;
-  font-size: clamp(2rem, 4.5vw, 3.5rem);
-  font-weight: 700; color: #fff; line-height: 1.1;
+  font-family: var(--serif);
+  font-style: italic; font-weight: 700;
+  font-size: clamp(2.2rem, 4.5vw, 3.6rem);
+  color: var(--linen); line-height: 1.1;
   margin-bottom: 1rem;
 }
-.cta-title em { font-style: italic; color: #A5D6A7; }
-.cta-sub { font-size: 1rem; color: rgba(255,255,255,0.75); margin-bottom: 2.5rem; font-weight: 300; }
-.cta-form { display: flex; gap: 8px; max-width: 400px; margin: 0 auto; }
-.cta-input {
-  flex: 1; background: rgba(255,255,255,0.15);
-  border: 1.5px solid rgba(255,255,255,0.35);
-  border-radius: 999px; padding: 0.75rem 1.2rem;
-  font-family: 'DM Sans', sans-serif; font-size: 1rem; /* 16px min — prevents iOS auto-zoom */
-  color: #fff; outline: none; transition: all 0.2s;
-  -webkit-appearance: none;
+.cta-title em { color: var(--green-pale); }
+.cta-sub { font-size: 1rem; color: rgba(248,243,236,0.75); margin-bottom: 2.5rem; }
+.cta-note {
+  font-family: var(--mono);
+  font-size: 0.66rem; letter-spacing: 0.14em; text-transform: uppercase;
+  color: rgba(248,243,236,0.5); margin-top: 1rem;
 }
-.cta-input::placeholder { color: rgba(255,255,255,0.5); }
-.cta-input:focus { border-color: rgba(255,255,255,0.7); }
-.btn-white {
-  background: #fff; color: var(--green);
-  border: none; padding: 0.75rem 1.4rem;
-  border-radius: 999px;
-  font-family: 'DM Sans', sans-serif;
-  font-size: 0.875rem; font-weight: 500;
-  cursor: pointer; white-space: nowrap;
-  display: inline-flex; align-items: center; min-height: 44px;
-  transition: all 0.2s;
-}
-.btn-white:hover { background: #F1FBF1; }
-.cta-note { font-size: 0.75rem; color: rgba(255,255,255,0.5); margin-top: 0.75rem; }
 
 /* ── FOOTER ── */
+.footer-wrap { background: var(--linen); border-top: 1px solid var(--hairline); }
 footer {
-  border-top: 1px solid var(--border);
-  padding: 2.5rem 2.5rem;
+  padding: 2.5rem;
   display: flex; align-items: center; justify-content: space-between;
   max-width: 1100px; margin: 0 auto;
 }
-.footer-logo {
-  font-family: 'Playfair Display', serif;
-  font-style: italic; font-size: 1.25rem; font-weight: 400;
-  color: var(--green); letter-spacing: -0.02em;
+.footer-links { display: flex; gap: 1.75rem; }
+.footer-link {
+  font-family: var(--mono);
+  font-size: 0.68rem; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--ink-soft); text-decoration: none; transition: color 0.2s;
 }
-.footer-links { display: flex; gap: 1.5rem; }
-.footer-link { font-size: 0.8rem; color: var(--text-muted); text-decoration: none; transition: color 0.2s; }
-.footer-link:hover { color: var(--text); }
-.footer-copy { font-size: 0.75rem; color: var(--text-muted); }
+.footer-link:hover { color: var(--moss); }
+.footer-copy {
+  font-family: var(--serif); font-style: italic;
+  font-size: 0.8rem; color: var(--ink-soft);
+}
 
 /* ── ANIMATIONS ── */
 @keyframes fadeUp {
@@ -972,51 +902,45 @@ footer {
 /* ── RESPONSIVE ── */
 @media (max-width: 900px) {
   .hero { grid-template-columns: 1fr; padding: 7rem 2rem 3rem; text-align: center; gap: 3rem; }
-  .hero-sub { margin: 0 auto 2.5rem; }
-  .hero-form { margin: 0 auto; }
-  .hero-note { text-align: center; }
-  .hero-right { justify-content: center; }
+  .hero-sub { margin: 0 auto 2.25rem; }
+  .hero-ctas { justify-content: center; }
+  .hero-kanji { font-size: 22rem; top: auto; bottom: -6%; right: -18%; }
   .phone-stack { width: 240px; height: 460px; }
   .phone-back { left: -42px; top: 22px; width: 210px; }
   .phone-front { right: -10px; width: 224px; }
-  .features-grid { grid-template-columns: 1fr 1fr; }
-  .steps { grid-template-columns: 1fr; gap: 1rem; }
-  .screens-row { gap: 0.75rem; }
-  .screen-item { width: 148px; }
-  .profile-inner { grid-template-columns: 1fr; gap: 3rem; }
-  .profile-text { text-align: center; }
-  .profile-text .section-sub { margin: 0 auto 2rem; }
+  .index-row { grid-template-columns: 56px 1fr; }
+  .index-desc { grid-column: 2 / 3; }
+  .steps { grid-template-columns: 1fr; border-top: none; }
+  .step { border-top: 1px solid var(--hairline); padding: 2rem 0.5rem 1rem; }
+  .step + .step { border-left: none; }
+  .dna-inner { grid-template-columns: 1fr; gap: 3rem; }
+  .dna-text { text-align: center; }
+  .dna-text .section-sub { margin: 0 auto 2rem; }
   .dna-list { max-width: 460px; margin-left: auto; margin-right: auto; margin-bottom: 2rem; }
-  .profile-quote { max-width: 460px; margin-left: auto; margin-right: auto; text-align: left; }
-  .profile-phones { min-height: 480px; }
-  .profile-phone-back { left: calc(50% - 130px); }
-  .profile-phone-front { margin-left: 30px; }
-  .profile-chip { right: calc(50% - 200px); }
-  footer { flex-direction: column; gap: 1rem; text-align: center; }
+  .dna-quote { max-width: 460px; margin-left: auto; margin-right: auto; text-align: left; }
+  .dna-phones { min-height: 480px; }
+  .dna-phone-back { left: calc(50% - 130px); }
+  .dna-phone-front { margin-left: 30px; }
+  .dna-chip { right: calc(50% - 200px); }
+  footer { flex-direction: column; gap: 1.25rem; text-align: center; }
   .footer-links { justify-content: center; }
 }
 @media (max-width: 560px) {
-  .features-grid { grid-template-columns: 1fr; }
   nav { padding: 1rem 1.25rem; }
   .nav-link { display: none; }
-  .screen-item { width: 120px; border-radius: 20px; }
-  .stats-inner { grid-template-columns: 1fr; gap: 1.5rem; }
-  .profile-phones { min-height: 420px; }
-  .profile-phone-back { width: 170px; left: calc(50% - 110px); top: 28px; }
-  .profile-phone-front { width: 200px; margin-left: 20px; }
-  .profile-chip { position: relative; bottom: auto; right: auto; margin: 1rem auto 0; }
-  /* Stack the email form vertically on small phones */
-  .hero-form, .cta-form {
-    flex-direction: column; align-items: stretch;
-  }
-  .hero-form .btn-primary, .cta-form .btn-white {
-    justify-content: center;
-  }
+  .colophon-inner { grid-template-columns: 1fr; }
+  .colophon-cell + .colophon-cell { border-left: none; border-top: 1px solid var(--hairline); margin-top: 0.75rem; padding-top: 1.25rem; }
+  .interlude { padding: 5rem 1.5rem; }
+  .index-section { padding: 5rem 1.25rem; }
+  .index-row { gap: 0.75rem 1.25rem; padding: 1.5rem 0.5rem; }
+  /* flex-wrap keeps the now-relative chip from widening the flex row past the viewport */
+  .dna-phones { min-height: 420px; flex-wrap: wrap; }
+  .dna-phone-back { width: 170px; left: calc(50% - 110px); top: 28px; }
+  .dna-phone-front { width: 200px; margin-left: 20px; }
+  .dna-chip { position: relative; bottom: auto; right: auto; margin: 1rem auto 0; }
   /* Safe area padding for notch/Dynamic Island */
   nav { padding-top: max(1rem, env(safe-area-inset-top)); }
   body { padding-bottom: env(safe-area-inset-bottom); }
-  /* Screens row: left-align so swipe feels natural */
-  .screens-row { justify-content: flex-start; padding-left: 1rem; padding-right: 1rem; }
 }
 </style>
 </head>
@@ -1029,37 +953,42 @@ footer {
 
 <!-- NAV -->
 <nav>
-  <div class="nav-logo" style="line-height:0;">
+  <div class="nav-logo">
     <img src="mori-green.png" alt="Mori" width="152" height="38" style="display:block;">
   </div>
   <div class="nav-right">
     <a href="#features" class="nav-link">Features</a>
-    <a href="#screens" class="nav-link">App</a>
+    <a href="#screens" class="nav-link">The app</a>
     <a href="#plus" class="nav-link">Mori+</a>
-    <a href="https://apps.apple.com/app/mori-recipe-discovery/id6761498088" class="btn-primary js-appstore-cta" data-placement="nav" target="_blank" rel="noopener">Download</a>
+    <a href="https://apps.apple.com/app/mori-recipe-discovery/id6761498088" class="btn-moss js-appstore-cta" data-placement="nav" target="_blank" rel="noopener">Download</a>
   </div>
 </nav>
 
 <!-- HERO -->
 <div class="hero-wrap">
+<div class="hero-kanji" aria-hidden="true">森</div>
 <section class="hero">
   <div class="hero-left">
     <div class="launch-badge">
-      <div class="app-icon app-icon-sm">
-        <img src="mori_icon.png" width="40" height="40" alt="Mori" style="border-radius:10px;">
+      <div class="app-icon" style="width:40px;height:40px;border-radius:10px;">
+        <img src="mori_icon.png" width="40" height="40" alt="Mori" style="border-radius:10px;display:block;">
       </div>
       <span>Now on the App Store · iOS</span>
     </div>
+    <p class="hero-dict">mori · <span>森</span> · noun — forest</p>
     <h1 class="hero-title">
-      <em>Mori.</em><br><nobr>Swipe. Order.</nobr><br>Cook.
+      Swipe.<br><span class="w-order">Order.</span><br><span class="w-cook">Cook.</span>
     </h1>
-    <p class="hero-brand-line">Rooted in your taste</p>
+    <p class="hero-brand-line">Rooted in your taste.</p>
     <p class="hero-sub">
-      A recipe app with opinions about you. Swipe a few times and Mori figures out your kitchen — what you'd actually cook, the staples already in your pantry, the cuisines you keep cheating on. Then it builds the grocery list and ships it.
+      A recipe app with opinions about you. Swipe a few times and Mori figures out your kitchen — what you'd actually cook, the staples already in your pantry, the cuisines you keep cheating on. Then it builds the grocery list and sends it to Instacart.
     </p>
-    <a href="https://apps.apple.com/app/mori-recipe-discovery/id6761498088" class="btn-primary js-appstore-cta" data-placement="hero" target="_blank" rel="noopener" style="display:inline-block;text-decoration:none;">Download on the App Store</a>
+    <div class="hero-ctas">
+      <a href="https://apps.apple.com/app/mori-recipe-discovery/id6761498088" class="btn-moss js-appstore-cta" data-placement="hero" target="_blank" rel="noopener">Download on the App Store</a>
+      <a href="#screens" class="btn-ghost">See the app</a>
+    </div>
   </div>
-  <div class="hero-right" style="flex-direction:column;align-items:center;gap:1.5rem;">
+  <div class="hero-right">
     <div class="phone-stack">
       <div class="phone-back">
         <img src="IMG_9179.PNG" alt="Mori discover screen dark mode">
@@ -1068,94 +997,98 @@ footer {
         <img src="IMG_9222.PNG" alt="Mori discover screen">
       </div>
     </div>
-    <!-- App icon floating badge — sits below phones, centered. Tapping anywhere on the card opens the App Store. -->
-    <a href="https://apps.apple.com/app/mori-recipe-discovery/id6761498088" class="js-appstore-cta" data-placement="hero_card" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #E0E0E0;border-radius:16px;padding:10px 16px 10px 10px;box-shadow:0 8px 24px rgba(0,0,0,0.1);align-self:center;margin-top:2.5rem;text-decoration:none;color:inherit;">
-      <div class="app-icon" style="width:48px;height:48px;border-radius:12px;">
+    <!-- App icon floating badge — tapping anywhere opens the App Store -->
+    <a href="https://apps.apple.com/app/mori-recipe-discovery/id6761498088" class="hero-get-card js-appstore-cta" data-placement="hero_card" target="_blank" rel="noopener">
+      <div class="app-icon" style="width:48px;height:48px;">
         <img src="mori_icon.png" width="48" height="48" alt="Mori" style="border-radius:12px;display:block;">
       </div>
       <div>
-        <div style="font-size:0.8rem;font-weight:500;color:#1A1A1A;font-family:'DM Sans',sans-serif;">Mori</div>
-        <div style="font-size:0.7rem;color:#888;font-family:'DM Sans',sans-serif;">Recipe discovery</div>
+        <div style="font-size:0.8rem;font-weight:500;color:var(--ink);">Mori</div>
+        <div style="font-size:0.7rem;color:var(--ink-soft);">Recipe discovery</div>
       </div>
-      <div style="margin-left:8px;background:#2E7D32;color:#fff;font-size:0.65rem;font-weight:600;padding:4px 10px;border-radius:999px;font-family:'DM Sans',sans-serif;">GET</div>
+      <div class="hero-get-pill">GET</div>
     </a>
   </div>
 </section>
 </div>
 
-<!-- STATS -->
-<div class="stats-bar reveal">
-  <div class="stats-inner">
-    <div>
-      <div class="stat-num">2,600+</div>
-      <div class="stat-label">Curated recipes, every one tested</div>
+<!-- COLOPHON / STATS -->
+<div class="colophon reveal">
+  <div class="colophon-inner">
+    <div class="colophon-cell">
+      <div class="colophon-num">2,600+</div>
+      <div class="colophon-lbl">Curated recipes, every one tested</div>
     </div>
-    <div>
-      <div class="stat-num">15</div>
-      <div class="stat-label">Cuisines waiting for you to commit</div>
+    <div class="colophon-cell">
+      <div class="colophon-num">15</div>
+      <div class="colophon-lbl">Cuisines waiting for you to commit</div>
     </div>
-    <div>
-      <div class="stat-num">1 tap</div>
-      <div class="stat-label">From your list to ingredients at the door</div>
+    <div class="colophon-cell">
+      <div class="colophon-num">1 tap</div>
+      <div class="colophon-lbl">From your list to Instacart</div>
     </div>
   </div>
 </div>
 
-<!-- FEATURES -->
-<div class="features-wrap">
-<section class="features" id="features">
+<!-- INTERLUDE — the 7pm problem -->
+<section class="interlude">
   <div class="reveal">
-    <div style="display:flex;align-items:center;gap:16px;margin-bottom:1rem;">
-      <img src="mori_icon.png" alt="Mori" style="width:48px;height:48px;border-radius:12px;flex-shrink:0;box-shadow:0 2px 6px rgba(46,84,56,0.08);">
-      <span class="section-eyebrow" style="margin-bottom:0;">Why Mori</span>
-    </div>
-    <h2 class="section-title">Everything in<br><em>its place</em></h2>
-    <p class="section-sub">First swipe to last bite — Mori has opinions about every step.</p>
+    <p class="interlude-text">It's 7pm. The fridge is open. You're staring into it like it owes you an answer. <em>Mori was built for exactly this moment.</em></p>
+    <p class="interlude-kicker">Decision fatigue ends here</p>
   </div>
-  <div class="features-grid reveal">
-    <div class="feature-card">
-      <div class="feature-icon">✦</div>
-      <h3 class="feature-title">Reads you fast</h3>
-      <p class="feature-desc">Tell it your cuisines, dietary goals, what's already in the pantry. The first deck feels suspiciously well-targeted.</p>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon">
-        <svg width="20" height="14" viewBox="0 0 20 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M1 7h18M14 2l5 5-5 5M6 2L1 7l5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
+</section>
+
+<!-- FEATURE INDEX -->
+<section class="index-section" id="features">
+  <div class="index-inner">
+    <div class="index-head reveal">
+      <div>
+        <span class="eyebrow">01 · Why Mori</span>
+        <h2 class="section-title">Everything in<br><em>its place</em></h2>
+        <p class="section-sub" style="margin-bottom:0;">First swipe to last bite — Mori has opinions about every step.</p>
       </div>
-      <h3 class="feature-title">Swipe like you mean it</h3>
-      <p class="feature-desc">Right to save. Left to pass. Long-press to delete. Every flick teaches Mori something — and it remembers.</p>
+      <img src="mori_icon.png" alt="Mori" style="width:56px;height:56px;border-radius:14px;flex-shrink:0;box-shadow:0 2px 8px rgba(46,84,56,0.1);">
     </div>
-    <div class="feature-card">
-      <div class="feature-icon">◉</div>
-      <h3 class="feature-title">Flavour DNA</h3>
-      <p class="feature-desc">"Confident cook who rotates through fifteen cuisines obsessively." Mori reads your patterns and roasts you in the nicest way.</p>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon">◫</div>
-      <h3 class="feature-title">A plan, not a panic</h3>
-      <p class="feature-desc">Drop recipes into a calendar week. Mori adds up macros per day, per week, and warns you when Wednesday is just two crackers.</p>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon">☰</div>
-      <h3 class="feature-title">Grocery list with a brain</h3>
-      <p class="feature-desc">Deduped, grouped by aisle, and quietly skipping the salt and olive oil you definitely already own.</p>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon">◎</div>
-      <h3 class="feature-title">Streaks &amp; badges</h3>
-      <p class="feature-desc">Cook three days in a row? Streak. Hit fourteen cuisines? Badge. Mori keeps score so you don't have to pretend you don't care.</p>
+    <div class="index-rows reveal">
+      <div class="index-row">
+        <div class="index-num">№ 01</div>
+        <h3 class="index-title">Reads you fast</h3>
+        <p class="index-desc">Tell it your cuisines, dietary goals, what's already in the pantry. The first deck feels suspiciously well-targeted.</p>
+      </div>
+      <div class="index-row">
+        <div class="index-num">№ 02</div>
+        <h3 class="index-title">Swipe like you mean it</h3>
+        <p class="index-desc">Right to save. Left to pass. Every flick teaches Mori something — and it remembers.</p>
+      </div>
+      <div class="index-row">
+        <div class="index-num">№ 03</div>
+        <h3 class="index-title">Flavour DNA</h3>
+        <p class="index-desc">"Confident cook who rotates through fifteen cuisines obsessively." Mori reads your patterns and roasts you in the nicest way.</p>
+      </div>
+      <div class="index-row">
+        <div class="index-num">№ 04</div>
+        <h3 class="index-title">A plan, not a panic</h3>
+        <p class="index-desc">Drop recipes into a calendar week. Mori adds up macros per day, per week, and warns you when Wednesday is just two crackers.</p>
+      </div>
+      <div class="index-row">
+        <div class="index-num">№ 05</div>
+        <h3 class="index-title">A grocery list with a brain</h3>
+        <p class="index-desc">Deduped, grouped by aisle, and quietly skipping the salt and olive oil you definitely already own.</p>
+      </div>
+      <div class="index-row">
+        <div class="index-num">№ 06</div>
+        <h3 class="index-title">Streaks &amp; badges</h3>
+        <p class="index-desc">Cook three days in a row? Streak. Hit fourteen cuisines? Badge. Mori keeps score so you don't have to pretend you don't care.</p>
+      </div>
     </div>
   </div>
 </section>
-</div>
 
 <!-- SCREENS -->
 <section class="showcase" id="screens">
   <div class="showcase-inner">
     <div class="reveal" style="text-align:center;margin-bottom:2.5rem;">
-      <span class="section-eyebrow">The app</span>
+      <span class="eyebrow">02 · The app</span>
       <h2 class="section-title" style="text-align:center;">Built for <em>real cooks</em></h2>
       <p class="section-sub" style="margin:0 auto;">Every screen built around the moment you're actually in. Tap any to peek.</p>
     </div>
@@ -1188,11 +1121,11 @@ footer {
   </div>
 </section>
 
-<!-- TASTE PROFILE HIGHLIGHT -->
-<section class="profile-section">
-  <div class="profile-inner reveal">
-    <div class="profile-text">
-      <span class="section-eyebrow">Your Flavour DNA</span>
+<!-- FLAVOUR DNA -->
+<section class="dna-section" id="dna">
+  <div class="dna-inner reveal">
+    <div class="dna-text">
+      <span class="eyebrow">03 · Your Flavour DNA</span>
       <h2 class="section-title">The app that<br><em>reads you</em></h2>
       <p class="section-sub">After a few sessions, Mori stops guessing and starts knowing. It scores you on five axes — Explorer, Committed, Speed, Planner, Devoted — and writes you a one-line verdict that's a little too accurate.</p>
 
@@ -1221,27 +1154,27 @@ footer {
       </div>
 
       <!-- Pull quote -->
-      <div class="profile-quote">
-        <span class="profile-quote-mark">"</span>
+      <div class="dna-quote">
+        <span class="dna-quote-mark">&ldquo;</span>
         <div style="padding-left:2.5rem;">Confident cook who rotates through fifteen cuisines obsessively.</div>
-        <div style="padding-left:2.5rem;margin-top:0.5rem;font-size:0.75rem;font-style:normal;color:var(--text-muted);letter-spacing:0.06em;text-transform:uppercase;font-family:'DM Sans',sans-serif;">— Mori, about you, probably</div>
+        <div class="dna-quote-attr">— Mori, about you, probably</div>
       </div>
     </div>
 
     <!-- Two-phone stack: Overview front, Badges behind -->
-    <div class="profile-phones">
-      <div class="profile-phone profile-phone-back">
+    <div class="dna-phones">
+      <div class="dna-phone dna-phone-back">
         <img src="IMG_9786.PNG" alt="Mori badges grid">
       </div>
-      <div class="profile-phone profile-phone-front">
+      <div class="dna-phone dna-phone-front">
         <img src="IMG_9785.PNG" alt="Mori taste profile overview">
       </div>
       <!-- Floating badge chip — gets parallax drift -->
-      <div class="profile-chip" data-parallax="-0.25">
-        <div class="profile-chip-icon">🏆</div>
+      <div class="dna-chip" data-parallax="-0.25">
+        <div class="dna-chip-icon">🏆</div>
         <div>
-          <div class="profile-chip-title">14 of 14 earned</div>
-          <div class="profile-chip-sub">10-day streak · 100 meals cooked</div>
+          <div class="dna-chip-title">14 of 14 earned</div>
+          <div class="dna-chip-sub">10-day streak · 100 meals cooked</div>
         </div>
       </div>
     </div>
@@ -1249,12 +1182,12 @@ footer {
 </section>
 
 <!-- PLAN + GROCERY DEEP DIVE -->
-<section class="duo-section">
+<section class="duo-section" id="planning">
   <div class="duo-inner">
     <!-- Plan tile -->
     <div class="duo-tile reveal">
       <div class="duo-text">
-        <span class="section-eyebrow">The week, planned</span>
+        <span class="eyebrow">04 · The week, planned</span>
         <h3 class="duo-title">A meal plan that<br><em>does the math</em></h3>
         <p class="duo-desc">Drop recipes into days and meal slots. Mori adds up calories and macros per day, per week — and tells you when Wednesday is mostly carbs.</p>
         <ul class="duo-list">
@@ -1282,7 +1215,7 @@ footer {
           </div>
           <div>
             <div class="duo-floater-num">2 <em>/</em> 21</div>
-            <div class="duo-floater-lbl">meals planned</div>
+            <div class="duo-floater-lbl">Meals planned</div>
           </div>
         </div>
       </div>
@@ -1296,7 +1229,7 @@ footer {
           Powered by Instacart
         </span>
         <h3 class="duo-title">A list that already<br><em>knows your kitchen</em></h3>
-        <p class="duo-desc">Every saved recipe builds one deduplicated list grouped by aisle. Mori quietly skips the salt, vinegar, and olive oil you already own — then ships the rest with one tap.</p>
+        <p class="duo-desc">Every saved recipe builds one deduplicated list grouped by aisle. Mori quietly skips the salt, vinegar, and olive oil you already own — then sends the rest to Instacart in one tap.</p>
         <ul class="duo-list">
           <li>Auto-skips your pantry items + USDA staples</li>
           <li>Quantities merged across recipes (no "1 onion + 1 onion")</li>
@@ -1313,7 +1246,7 @@ footer {
             <img src="instacart-carrot.png" alt="Instacart">
           </div>
           <div>
-            <div class="duo-floater-num">Shop now</div>
+            <div class="duo-floater-num" style="font-style:normal;font-family:var(--sans);font-weight:700;font-size:1.1rem;">Shop now</div>
             <div class="duo-floater-lbl">via Instacart</div>
           </div>
         </div>
@@ -1324,7 +1257,7 @@ footer {
           </div>
           <div>
             <div class="duo-floater-num">6</div>
-            <div class="duo-floater-lbl">staples skipped</div>
+            <div class="duo-floater-lbl">Staples skipped</div>
           </div>
         </div>
       </div>
@@ -1333,26 +1266,28 @@ footer {
 </section>
 
 <!-- HOW IT WORKS -->
-<section class="how">
-  <div class="reveal" style="text-align:center;">
-    <span class="section-eyebrow">How it works</span>
-    <h2 class="section-title" style="text-align:center;">Three steps to<br><em>dinner sorted</em></h2>
-  </div>
-  <div class="steps reveal">
-    <div class="step">
-      <div class="step-num">1</div>
-      <h3 class="step-title">Swipe your taste</h3>
-      <p class="step-desc">Swipe through recipes personalised to your cuisines, dietary goals, and what's already in your kitchen.</p>
+<section class="how" id="how">
+  <div class="how-inner">
+    <div class="reveal" style="text-align:center;">
+      <span class="eyebrow">05 · How it works</span>
+      <h2 class="section-title" style="text-align:center;">Three steps to<br><em>dinner sorted</em></h2>
     </div>
-    <div class="step">
-      <div class="step-num">2</div>
-      <h3 class="step-title">Build your list</h3>
-      <p class="step-desc">Select the meals you want. Mori consolidates every ingredient, removes what you already have, and groups by category.</p>
-    </div>
-    <div class="step">
-      <div class="step-num">3</div>
-      <h3 class="step-title">Order in one tap</h3>
-      <p class="step-desc">Send your grocery list with one tap. Ingredients delivered in as fast as an hour. You just cook.</p>
+    <div class="steps reveal">
+      <div class="step">
+        <div class="step-num">1</div>
+        <h3 class="step-title">Swipe your taste</h3>
+        <p class="step-desc">Swipe through recipes picked for your taste — your cuisines, your dietary goals, what's already in your kitchen.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <h3 class="step-title">Build your list</h3>
+        <p class="step-desc">Pick the meals you want. Mori merges every ingredient, skips what you already have, and groups the rest by aisle.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <h3 class="step-title">One tap to Instacart</h3>
+        <p class="step-desc">Send your list to Instacart in one tap and finish the order there. You just cook.</p>
+      </div>
     </div>
   </div>
 </section>
@@ -1362,36 +1297,36 @@ footer {
   <div class="plus-inner reveal">
     <div class="plus-eyebrow">
       <span class="plus-badge">+</span>
-      <span class="section-eyebrow" style="margin:0;color:var(--moss);">Mori+ · Coming summer 2026</span>
+      <span class="eyebrow eyebrow-pale" style="margin-bottom:0;">Mori+ · Coming summer 2026</span>
     </div>
     <h2 class="plus-title">Your kitchen,<br><em>on autopilot.</em></h2>
-    <p class="plus-sub">The free Mori finds you recipes. Mori+ runs your week. AI builds the meal plan, a fresh recipe pack lands every Sunday morning, and a coach quietly keeps you on macros.</p>
+    <p class="plus-sub">The free Mori finds you recipes. Mori+ runs your week — it learns your taste, plans your meals, and has the list ready for Instacart before you've thought about Sunday.</p>
 
     <div class="plus-grid">
       <div class="plus-card">
-        <div class="plus-icon">✦</div>
+        <div class="plus-icon">PLUS / 01</div>
         <h3 class="plus-card-title">Build your week</h3>
-        <p class="plus-card-desc">One tap. AI fills the empty meal slots from your saved library, leftovers, pantry, and macro targets — in seconds, not Sunday-night-spreadsheet minutes.</p>
+        <p class="plus-card-desc">One tap. Mori+ fills the empty meal slots from your taste profile, saved library, leftovers, pantry, and macro targets — in seconds, not Sunday-night-spreadsheet minutes.</p>
       </div>
       <div class="plus-card">
-        <div class="plus-icon">◉</div>
+        <div class="plus-icon">PLUS / 02</div>
         <h3 class="plus-card-title">Sunday Drop</h3>
         <p class="plus-card-desc">Seven new personalised recipes hit your phone every Sunday morning. Tuned to your taste, the season, and what you've actually been cooking.</p>
       </div>
       <div class="plus-card">
-        <div class="plus-icon">◫</div>
+        <div class="plus-icon">PLUS / 03</div>
         <h3 class="plus-card-title">Cook what you have</h3>
-        <p class="plus-card-desc">Mori+ generates dinners using only what's in your kitchen — a half-pack of salmon, the broccoli that's about to turn, the lemon you forgot. Minimal extra grocery runs.</p>
+        <p class="plus-card-desc">Mori+ builds dinners using only what's in your kitchen — a half-pack of salmon, the broccoli that's about to turn, the lemon you forgot. Minimal extra grocery runs.</p>
       </div>
       <div class="plus-card">
-        <div class="plus-icon">◎</div>
+        <div class="plus-icon">PLUS / 04</div>
         <h3 class="plus-card-title">Macro coach</h3>
-        <p class="plus-card-desc">Set a goal, log a meal, get gap-filling dinner suggestions. The weekly review tells you which days you nailed it and which Wednesday was just two crackers.</p>
+        <p class="plus-card-desc">Set a goal, cook your meals, and Mori+ logs them as you go. The weekly review tells you which days you nailed it and which Wednesday was just two crackers.</p>
       </div>
     </div>
 
     <div class="plus-cta">
-      <h3 class="plus-cta-title"><em>Founders</em> get first access.</h3>
+      <h3 class="plus-cta-title">Founders get first access.</h3>
       <p class="plus-cta-sub">Be first in when Mori+ launches · 30 days free · Cancel anytime.</p>
       <form id="plus-form" class="plus-form" data-source="mori-plus-founders" onsubmit="handleSubmit(event, 'plus')" novalidate>
         <input type="email" required placeholder="you@example.com" aria-label="Email" autocomplete="email" inputmode="email">
@@ -1406,12 +1341,12 @@ footer {
 <section class="cta-section" id="beta">
   <h2 class="cta-title">Stop staring<br><em>at the fridge.</em></h2>
   <p class="cta-sub">Mori is live on the App Store. Free.</p>
-  <a href="https://apps.apple.com/app/mori-recipe-discovery/id6761498088" class="btn-white js-appstore-cta" data-placement="cta_section" target="_blank" rel="noopener" style="display:inline-block;text-decoration:none;">Download on the App Store</a>
+  <a href="https://apps.apple.com/app/mori-recipe-discovery/id6761498088" class="btn-cream js-appstore-cta" data-placement="cta_section" target="_blank" rel="noopener">Download on the App Store</a>
   <p class="cta-note">iOS 16+ · Free, no waitlist</p>
 </section>
 
 <!-- FOOTER -->
-<div style="border-top:1px solid var(--border);">
+<div class="footer-wrap">
   <footer>
     <div style="display:flex;align-items:center;gap:10px;">
       <img src="mori_icon.png" alt="Mori" style="width:32px;height:32px;border-radius:8px;">
@@ -1438,9 +1373,7 @@ async function handleSubmit(e, id) {
   // founders_waitlist endpoint ships, this rides on the existing waitlist
   // table's `name` column — query by name to extract the founders cohort.
   const source = form.dataset.source || null;
-  // Visual style flips per-surface: dark sections use light error/success text.
-  const onDarkBg = id === 'cta' || id === 'plus';
-
+  // The plus form now sits on a light card, so success/error colors stay dark.
   btn.disabled = true;
   btn.style.opacity = '0.7';
 
@@ -1454,18 +1387,18 @@ async function handleSubmit(e, id) {
 
     if (res.ok && data.success) {
       input.value = '';
-      msg.style.color = onDarkBg ? 'rgba(255,255,255,0.85)' : '#2E7D32';
+      msg.style.color = '#2E5438';
       msg.textContent = id === 'plus'
         ? "You're on the founders list — we'll email you when Mori+ launches."
         : "You're on the list — we'll be in touch before launch.";
       track(id === 'plus' ? 'plus_waitlist_signup' : 'waitlist_signup', { placement: id });
       setTimeout(() => { msg.textContent = ''; }, 6000);
     } else {
-      msg.style.color = onDarkBg ? 'rgba(255,170,170,0.95)' : '#D32F2F';
+      msg.style.color = '#C0392B';
       msg.textContent = data.error || 'Something went wrong. Try again.';
     }
   } catch {
-    msg.style.color = onDarkBg ? 'rgba(255,170,170,0.95)' : '#D32F2F';
+    msg.style.color = '#C0392B';
     msg.textContent = 'Something went wrong. Try again.';
   } finally {
     btn.disabled = false;
