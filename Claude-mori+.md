@@ -32,7 +32,7 @@ Branch: `mori-plus` · main @ `872d5e8` (the 6.0.1 base) **merged 2026-06-10 (`e
 
 | M | Scope | Status |
 |---|---|---|
-| M0 | Pre-work — schema migration, RC dashboard, EAS env | ✅ **Migration APPLIED to prod 2026-06-10** (`add_mori_plus_202606`) — all 9 tables + RLS live; trigger verified behaviorally (self-grant as `authenticated` raises; normal edits pass; both rolled back). `add-mori-plus.sql` is canonical (repo == prod, incl. the trigger-fn EXECUTE revoke) — consistent with the push_token/streaks precedent of feature-file-as-canonical rather than a schema.sql mega-fold. EAS env ✅ (RC key pinned, A1). Remaining manual: RC entitlement rename to `mori_plus` + product attach (user, in progress); ASC grace period check |
+| M0 | Pre-work — schema migration, RC dashboard, EAS env | ✅ **Migration APPLIED to prod 2026-06-10** (`add_mori_plus_202606`) — all 9 tables + RLS live; trigger verified behaviorally. EAS env ✅ (RC key pinned, A1). **RC dashboard:** entitlement `mori_plus` + both products attached + `default` offering (monthly/annual) — user-confirmed 2026-06-10. **ASC products:** both `mori_plus_monthly` ($6.99) + `mori_plus_annual` ($59.99) at **"Ready to Submit" 2026-06-10** — ⚠️ using DUMMY review screenshots (see Open Questions; replace before 6.1.0 submit). Remaining manual: sandbox tester, grace-period (Production+Sandbox) + Family-Sharing-per-SKU confirmations, SBP "Enrolled" |
 | M1 | RevenueCat client (`lib/revenueCat.ts`, init, userStore) | 🟡 Wrapper + tests shipped + ✅ **init/identity wiring complete (`be0e55e`** — `syncRevenueCatIdentity` in `_layout.tsx`, covers boot/switch/sign-out). ❌ `react-native-purchases` NOT in `package.json` — SDK can't load; binary can't transact until installed + RC key obtained |
 | M2 | Webhook + entitlement sync (`api/rc-webhook.ts`) | ⬜ |
 | M3 | Paywall (`components/paywall/PaywallModal.tsx`) | ⬜ |
@@ -238,6 +238,7 @@ Full multi-agent audit of the branch scaffold, the Supabase migration, the plan-
 - [ ] Sandbox tester Apple account credentials — generate + log to 1Password before M13
 - [ ] Demo video — record after M3 paywall is final
 - [ ] App Store screenshots — need 6.7" iPhone screens for Mori+ features (5 screens), reuse existing 4 free-tier screens
+- [ ] ⚠️ **IAP review screenshots are DUMMY placeholders (2026-06-10).** Both `mori_plus_monthly` + `mori_plus_annual` reached "Ready to Submit" using placeholder images in the Review Information → Screenshot field (just to clear "Missing Metadata"). **MUST replace both with real paywall screenshots before submitting 6.1.0** — capture from the finished RevenueCat Paywalls v2 screen (M3/A4). A placeholder/irrelevant IAP review screenshot is a Guideline 2.3.3 rejection risk. Pre-submit checklist gate.
 - [x] ~~Founders waitlist landing — separate page on getmori.app or inline modal?~~ Decided 2026-05-03: inline section on `public/index.html` posting to `/api/waitlist` with `name: 'mori-plus-founders'` cohort tag.
 - [ ] Apple Privacy Manifest — verify RC's PrivacyInfo.xcprivacy bundles correctly after `npx pod-install` (M13 pre-flight)
 
