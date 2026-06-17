@@ -47,3 +47,13 @@ scripts/reports/
 scripts/*-log.txt
 scripts/*-err.txt
 scripts/new-recipes-*-draft.json
+
+# Local marketing / design working files — regenerated locally, never part of the app build.
+# Keep these out of the git tree so they don't clutter branches.
+marketing-assets/
+*.docx
+public/Generated Image*
+redesign-mockup.html
+scripts/conform-carousel-images.py
+scripts/prep-paywall-image.py
+scripts/upload-nano-images.mjs
