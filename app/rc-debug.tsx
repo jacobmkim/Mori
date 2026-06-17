@@ -8,6 +8,7 @@
  */
 import { useState, useCallback } from 'react';
 import { View, Text, ScrollView, Pressable, ActivityIndicator } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack } from 'expo-router';
 import { useTheme } from '@/hooks/useTheme';
 import { useUserStore } from '@/stores/userStore';
@@ -59,7 +60,8 @@ export default function RcDebugScreen() {
   );
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 16 }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top']}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16 }}>
       <Stack.Screen options={{ title: 'RC Debug' }} />
 
       <Text style={{ color: colors.text, fontSize: 13, marginBottom: 4 }}>
@@ -87,6 +89,7 @@ export default function RcDebugScreen() {
           <Text style={{ color: colors.textMuted, fontSize: 12 }}>product: {r.productId}</Text>
         </View>
       ))}
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
