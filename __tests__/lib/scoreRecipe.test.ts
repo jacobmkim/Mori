@@ -314,3 +314,94 @@ describe('scoreRecipe — cooked repeat boost scales by eating style', () => {
     expect(noMap - baseline).toBe(0);
   });
 });
+
+// ─── Cook DNA (flavourDna) personalization ──────────────────────────────────
+// Soft behavioural nudges from the taste profile (explorer/committed/speed/planner/
+// devoted, each 0–100). Each test holds the recipe/profile fixed and only changes the
+// DNA score (jitter pinned to 0) so the diff isolates one dimension's contribution.
+describe('scoreRecipe — flavourDna (Cook DNA) bonuses', () => {
+  const baseProfile = (overrides: Record<string, unknown> = {}) =>
+    ({ eating_style: null, cuisine_preferences: [], dietary_goals: [], ingredient_dislikes: [], ...overrides } as any);
+
+  // Build a flavourDna object from a {dimension: score} map
+  const dna = (dims: Record<string, number>) =>
+    Object.fromEntries(Object.entries(dims).map(([k, v]) => [k, { score: v, note: '' }]));
+
+  function score(recipe: any, profile: any, flavourDna: any): number {
+    return scoreRecipe(
+      recipe, profile,
+      EMPTY_MAP,   // swipeMap
+      EMPTY_SET,   // savedExternalIds
+      EMPTY_MAP,   // affinityMap
+      EMPTY_MAP,   // interactionMap
+      EMPTY_SET,   // pantrySet
+      undefined,   // leftoversSet
+      undefined,   // ratingMap
+      undefined,   // savedAtMap
+      flavourDna,
+    );
+  }
+
+  let origRandom: () => number;
+  beforeEach(() => { origRandom = Math.random; Math.random = () => 0; });
+  afterEach(() => { Math.random = origRandom; });
+
+  it('null flavourDna is a no-op (regression — identical to the pre-DNA signature)', () => {
+    const r = makeRecipe(['chicken'], { cuisine: 'Thai' });
+    const withNull = score(r, baseProfile(), null);
+    const preDna = scoreRecipe(r, baseProfile(), EMPTY_MAP, EMPTY_SET, EMPTY_MAP, EMPTY_MAP, EMPTY_SET);
+    expect(withNull).toBe(preDna);
+  });
+
+  it('explorer >65 rewards a non-preferred cuisine (+1.5)', () => {
+    const r = makeRecipe(['chicken'], { cuisine: 'Thai' });
+    const p = baseProfile({ cuisine_preferences: ['Italian'] });
+    expect(score(r, p, dna({ explorer: 80 })) - score(r, p, dna({ explorer: 50 }))).toBeCloseTo(1.5);
+  });
+
+  it('explorer does not fire for a cuisine the user already prefers', () => {
+    const r = makeRecipe(['chicken'], { cuisine: 'Italian' });
+    const p = baseProfile({ cuisine_preferences: ['Italian'] });
+    expect(score(r, p, dna({ explorer: 80, devoted: 0 })) - score(r, p, dna({ explorer: 50, devoted: 0 }))).toBe(0);
+  });
+
+  it('devoted >65 penalizes a non-preferred cuisine (-1.5) and never double-counts the +3 on a preferred one', () => {
+    const p = baseProfile({ cuisine_preferences: ['Italian'] });
+    const nonPref = makeRecipe(['chicken'], { cuisine: 'Thai' });
+    const pref = makeRecipe(['chicken'], { cuisine: 'Italian' });
+    // devoted nudges the loyal cook away from an unfamiliar cuisine
+    expect(score(nonPref, p, dna({ devoted: 80 })) - score(nonPref, p, dna({ devoted: 50 }))).toBeCloseTo(-1.5);
+    // and leaves a preferred cuisine to the base +3 match (no double-count)
+    expect(score(pref, p, dna({ devoted: 80 })) - score(pref, p, dna({ devoted: 50 }))).toBe(0);
+  });
+
+  it('speed >65 rewards quick recipes (+1) and penalizes slow ones (-1.5)', () => {
+    const p = baseProfile();
+    const quick = makeRecipe(['chicken'], { prep_time_mins: 10, cook_time_mins: 10 }); // 20m
+    const slow = makeRecipe(['chicken'], { prep_time_mins: 30, cook_time_mins: 40 });  // 70m
+    expect(score(quick, p, dna({ speed: 80 })) - score(quick, p, dna({ speed: 50 }))).toBeCloseTo(1);
+    expect(score(slow, p, dna({ speed: 80 })) - score(slow, p, dna({ speed: 50 }))).toBeCloseTo(-1.5);
+  });
+
+  it('planner >65 rewards meal-prep-friendly recipes (+1)', () => {
+    const p = baseProfile();
+    const r = makeRecipe(['chicken'], { meal_prep_friendly: true });
+    expect(score(r, p, dna({ planner: 80 })) - score(r, p, dna({ planner: 50 }))).toBeCloseTo(1);
+  });
+
+  it('a missing dimension defaults to neutral — no throw, no effect', () => {
+    const r = makeRecipe(['chicken'], { cuisine: 'Thai', meal_prep_friendly: true });
+    const p = baseProfile({ cuisine_preferences: ['Italian'] });
+    // only explorer supplied; speed/planner/devoted absent → only explorer fires
+    expect(score(r, p, dna({ explorer: 80 })) - score(r, p, dna({ explorer: 50 }))).toBeCloseTo(1.5);
+  });
+
+  it('all bonuses combined stay small — never dominating the +20 dietary cap', () => {
+    const r = makeRecipe(['chicken'], { cuisine: 'Thai', prep_time_mins: 5, cook_time_mins: 10, meal_prep_friendly: true });
+    const p = baseProfile({ cuisine_preferences: ['Italian'] });
+    const delta = score(r, p, dna({ explorer: 80, speed: 80, planner: 80 }))
+                - score(r, p, dna({ explorer: 50, speed: 50, planner: 50 }));
+    expect(delta).toBeGreaterThan(0);
+    expect(delta).toBeLessThanOrEqual(4); // 1.5 + 1 + 1 = 3.5
+  });
+});

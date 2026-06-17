@@ -729,6 +729,7 @@ export function scoreRecipe(
   leftoversSet?: Set<string>,
   ratingMap?: Map<string, number>,
   savedAtMap?: Map<string, string>,
+  flavourDna?: Record<string, { score: number; note: string }> | null,
 ): number {
   // Bug 7 — session penalty: instantly exclude anything swiped this session
   const sid = recipe.supabase_id;
@@ -793,6 +794,35 @@ export function scoreRecipe(
     }
   }
   score += Math.min(dietaryBonus, 20);
+
+  // Cook DNA (flavourDna) — the learned behavioural palette from the taste profile
+  // (api/taste-profile.ts: explorer/committed/speed/planner/devoted, each 0–100).
+  // Soft nudges only (≤ ~3.5 total), well under the +20 dietary cap, so they break ties
+  // and personalise ranking without overriding declared preferences or swipe history.
+  // Guarded: legacy profiles without a taste_profile are a clean no-op, and a missing
+  // dimension defaults to 50 (neutral → no effect).
+  if (flavourDna) {
+    const dna = (k: string): number => flavourDna[k]?.score ?? 50;
+    const cuisineInPrefs = recipeCuisines.some((c) => profile?.cuisine_preferences?.includes(c));
+    const dnaMins = (recipe.prep_time_mins ?? 0) + (recipe.cook_time_mins ?? 0);
+
+    // explorer (cuisine breadth) — reward a cuisine they don't already prefer (novelty)
+    if (dna('explorer') > 65 && recipeCuisines.length > 0 && !cuisineInPrefs) score += 1.5;
+    // devoted (cuisine loyalty, true inverse of explorer) — a devoted cook is averse to
+    // unfamiliar cuisines, so penalise a NON-preferred cuisine. Preferred-cuisine loyalty is
+    // already rewarded by the +3 cuisine match above; rewarding it again here would double-count.
+    if (dna('devoted') > 65 && recipeCuisines.length > 0 && !cuisineInPrefs) score -= 1.5;
+    // speed (fast-cooking preference) — reward genuinely quick recipes, nudge away from slow ones
+    if (dna('speed') > 65 && dnaMins > 0) {
+      if (dnaMins <= 25) score += 1;
+      else if (dnaMins > 50) score -= 1.5;
+    }
+    // planner (meal-prep / grocery signals) — reward meal-prep-friendly recipes
+    if (dna('planner') > 65 && recipe.meal_prep_friendly === true) score += 1;
+    // committed (follow-through) has no clean per-recipe signal that doesn't double-count
+    // the rating/cooked logic, so it is intentionally left out of per-recipe scoring here
+    // (it informs deck composition in a later increment).
+  }
 
   // Eating style
   if (profile?.eating_style === 'quick_simple') {
@@ -1020,9 +1050,13 @@ export async function fetchScoredDeck(
     }
   }
 
+  // Cook DNA (flavourDna) from the taste profile — feeds the learned palette into
+  // ranking so Discover AND Auto Plan rank consistently (I1). Null for legacy profiles.
+  const flavourDna = (profile?.taste_profile as any)?.flavourDna ?? null;
+
   let scored = filtered.map((r) => ({
     recipe: r,
-    score: scoreRecipe(r, profile, swipeMap, savedExternalIds, affinityMap, interactionMap, pantrySet, leftoversSet, ratingMap, savedAtMap),
+    score: scoreRecipe(r, profile, swipeMap, savedExternalIds, affinityMap, interactionMap, pantrySet, leftoversSet, ratingMap, savedAtMap, flavourDna),
   }));
 
   // Phase 2.5 — Meal Prep mode: only show explicitly flagged recipes
@@ -1071,7 +1105,7 @@ export async function fetchScoredDeck(
     console.warn(`[fetchScoredDeck] skill filter too aggressive — relaxing`);
     const rescored = applyModeFilter(afterSaved.map((r) => ({
       recipe: r,
-      score: scoreRecipe(r, profile, swipeMap, savedExternalIds, affinityMap, interactionMap, pantrySet, leftoversSet, ratingMap, savedAtMap),
+      score: scoreRecipe(r, profile, swipeMap, savedExternalIds, affinityMap, interactionMap, pantrySet, leftoversSet, ratingMap, savedAtMap, flavourDna),
     })));
     rescored.sort((a, b) => b.score - a.score);
     finalDeck = rescored;
@@ -1081,7 +1115,7 @@ export async function fetchScoredDeck(
     console.warn(`[fetchScoredDeck] very few unsaved recipes — re-including saved as last resort`);
     const rescored = applyModeFilter(afterDislikes.map((r) => ({
       recipe: r,
-      score: scoreRecipe(r, profile, swipeMap, savedExternalIds, affinityMap, interactionMap, pantrySet, leftoversSet, ratingMap, savedAtMap),
+      score: scoreRecipe(r, profile, swipeMap, savedExternalIds, affinityMap, interactionMap, pantrySet, leftoversSet, ratingMap, savedAtMap, flavourDna),
     })));
     rescored.sort((a, b) => b.score - a.score);
     finalDeck = rescored;
@@ -1099,7 +1133,7 @@ export async function fetchScoredDeck(
     console.warn(`[fetchScoredDeck] meal_prep pool exhausted (${finalDeck.length}) — soft-failing to all recipes with banner`);
     const rescored = afterDislikes.map((r) => ({
       recipe: r,
-      score: scoreRecipe(r, profile, swipeMap, savedExternalIds, affinityMap, interactionMap, pantrySet, leftoversSet, ratingMap, savedAtMap),
+      score: scoreRecipe(r, profile, swipeMap, savedExternalIds, affinityMap, interactionMap, pantrySet, leftoversSet, ratingMap, savedAtMap, flavourDna),
     }));
     rescored.sort((a, b) => b.score - a.score);
     finalDeck = rescored;
