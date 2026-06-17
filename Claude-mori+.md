@@ -245,7 +245,7 @@ Full multi-agent audit of the branch scaffold, the Supabase migration, the plan-
 ## Open Questions
 
 - [ ] **Premium visual cue — avatar ring (deferred 2026-05-29).** Add a subtle moss/gold gradient ring on `AvatarButton` when `isPremium`. Pure client-side off the `isPremium` flag → testable now via the dev toggle, no RevenueCat. Chosen over an alternate Mori+ logo (brand-asset risk — assets locked, PNG-only) and Discover-deck badges (clutter on the editorial surface; Mori is single-player so no social signal). Build after the dev build lands.
-- [ ] Sandbox tester Apple account credentials — generate + log to 1Password before M13
+- [x] **Sandbox tester created (2026-06-10): `morisandbox1@gmail.com`** (US region). Password is NOT stored here — it's in the user's password manager. Sign it into the device's Sandbox Account slot at purchase time for Layer-3 sandbox purchase testing.
 - [ ] Demo video — record after M3 paywall is final
 - [ ] App Store screenshots — need 6.7" iPhone screens for Mori+ features (5 screens), reuse existing 4 free-tier screens
 - [ ] ⚠️ **IAP review screenshots are DUMMY placeholders (2026-06-10).** Both `mori_plus_monthly` + `mori_plus_annual` reached "Ready to Submit" using placeholder images in the Review Information → Screenshot field (just to clear "Missing Metadata"). **MUST replace both with real paywall screenshots before submitting 6.1.0** — capture from the finished RevenueCat Paywalls v2 screen (M3/A4). A placeholder/irrelevant IAP review screenshot is a Guideline 2.3.3 rejection risk. Pre-submit checklist gate.
