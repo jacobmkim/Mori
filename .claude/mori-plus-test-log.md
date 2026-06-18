@@ -15,7 +15,7 @@ Build plan: [`.claude/plans/mori-plus-flagship-build-plan-2026-06-16.md`](plans/
 | # | Increment | Code | Jest | Agent review | Suite | Committed | Device-tested |
 |---|---|---|---|---|---|---|---|
 | I1 | flavourDna → scoreRecipe | ✅ | ✅ 8 | ✅ 3-agent | 933/933 | ✅ `7c40b47` | ⏳ pending user |
-| I2 | profiles.timezone capture | ⬜ | | | | | |
+| I2 | profiles.timezone capture | ✅ | ✅ 9 | ✅ 3-agent | 942/942 | ✅ `f0a02de` | ⏳ Hermes-Intl gate |
 | I3 | lib/autoPlan.ts optimizer | ⬜ | | | | | |
 | I4 | api/auto-plan-week.ts | ⬜ | | | | | |
 | I5 | "Build my week" UI + paywall | ⬜ | | | | | |
@@ -67,3 +67,40 @@ never dominate (no binary scoring).
 
 > Note: the effect is intentionally subtle (small nudges), so "still works + feels right" is the bar.
 > `lib/api.ts` hot-reloads via Fast Refresh; reload the Discover deck to pick up the new scoring.
+
+---
+
+## I2 — `profiles.timezone` capture
+**Commit:** `f0a02de` · **Suite:** 942/942 · **Status:** code done + reviewed; migration applied to prod; device test (Hermes-Intl gate) pending
+
+### What it does
+Adds `profiles.timezone` (IANA, default `'UTC'`) so Sunday Drop can fire at each user's LOCAL
+Sunday morning. Client captures the device zone once per user in `_layout.tsx`; existing users
+backfill from `'UTC'` organically. Pure `lib/timezone.ts` (`isValidTimeZone`, `localSundayFor`)
+is the seam the Sunday Drop cron (I7) reuses — DST-safe, import-free.
+
+### Automated tests — `__tests__/lib/timezone.test.ts` (9 new)
+- `isValidTimeZone`: accepts real IANA zones; rejects junk / empty / null / undefined
+- `localSundayFor`: Sunday 08:00 local → that Sunday · local-not-UTC across midnight (west: LA) ·
+  local-not-UTC east of UTC (Tokyo: UTC Sat → local Sun) · midweek → prior local Sunday ·
+  DST-safe across the spring-forward week · UTC passthrough · invalid-zone → UTC fallback (no throw)
+
+### Adversarial review — 3 agents (date-correctness / RN-runtime-integration / migration-safety)
+- ✅ **FIXED with I2 (R2, MEDIUM):** `timezone` was missing from the `Profile` TS interface →
+  added `timezone?: string | null` to `types/index.ts` (I7 reads it without a cast).
+- ✅ **DONE (R3, MEDIUM):** migration applied to prod + verified (`text default 'UTC'` +
+  `profiles_timezone_idx` live) + folded into `schema.sql`.
+- 🟠 **R1 (HIGH — device gate for I7, NOT the binary):** `Intl.DateTimeFormat().resolvedOptions()
+  .timeZone` on Hermes (Expo SDK 54) may return `"UTC"` instead of the real zone. Degrades safely
+  (UTC default → mistimed Drops, no breakage). **Must verify on-device before I7;** if it returns
+  `UTC`, layer `react-native-localize.getTimeZone()` ahead of the Intl read.
+- ✅ Confirmed: `localSundayFor` DST-safe; migration idempotent + metadata-only (no lock); RLS fine
+  (normal user-writable column, not gated by `protect_premium_columns`); errors swallowed; additive
+  (no interference with RC identity / dev-premium in the same effect).
+- Dropped non-issues: en-US weekday locale (hard-coded both places — safe); fire-and-forget no
+  error-check (intentional, matches `touchLastActive` / `updatePushToken`).
+
+### Manual device checklist (STOP-and-test) — **this is the I7 gate**
+- [ ] Cold-launch the dev build signed in → `SELECT timezone FROM profiles WHERE id=<you>` →
+  shows your **real IANA zone** (e.g. `America/Chicago`) → Hermes Intl works ✅
+- [ ] If it shows **`UTC`** → swap to `react-native-localize.getTimeZone()` before building I7
