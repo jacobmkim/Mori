@@ -54,6 +54,18 @@ export async function upsertProfile(profile: Partial<Profile> & { id: string }):
 // Patches specific fields on an existing profile row.
 // Safer than upsert for preference updates — guarantees UPDATE semantics,
 // never risks inserting a partial row.
+/**
+ * Persist the device's IANA timezone to profiles.timezone (best-effort, fire-and-forget).
+ * Used for per-user local-time scheduling (Sunday Drop). Idempotent — safe to call on
+ * every app open; existing users backfill from the 'UTC' default to their real zone
+ * organically. supabase-js returns errors in the result (doesn't reject on a DB error),
+ * but a network failure can reject — the caller fire-and-forgets with .catch.
+ */
+export async function updateProfileTimezone(userId: string, tz: string): Promise<void> {
+  if (!userId || !tz) return;
+  await supabase.from('profiles').update({ timezone: tz }).eq('id', userId);
+}
+
 export async function patchProfile(id: string, updates: Partial<Omit<Profile, 'id'>>): Promise<Profile> {
   const { data, error } = await supabase
     .from('profiles')

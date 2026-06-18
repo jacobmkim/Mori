@@ -11,7 +11,7 @@ import * as Sentry from '@sentry/react-native';
 import * as Notifications from 'expo-notifications';
 import { useUserStore } from '@/stores/userStore';
 import { registerForPushNotifications } from '@/lib/notifications';
-import { updatePushToken, touchLastActive } from '@/lib/api';
+import { updatePushToken, touchLastActive, updateProfileTimezone } from '@/lib/api';
 import { isResetPasswordUrl, isVerifyEmailUrl, isRecipeUrl, extractRecipeId } from '@/lib/deepLink';
 import { syncRevenueCatIdentity } from '@/lib/revenueCat';
 import { applyDevPremiumOverride } from '@/lib/devPremium';
@@ -124,6 +124,12 @@ function RootLayout() {
     // Dev-only: honor EXPO_PUBLIC_FORCE_PREMIUM for testing Mori+ without RC.
     // No-op in production builds (hard-guarded by __DEV__).
     applyDevPremiumOverride();
+    // Capture the device's IANA timezone for per-user local scheduling (Sunday Drop).
+    // Best-effort; existing users backfill from the 'UTC' default on their next app open.
+    if (uid) {
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (tz) updateProfileTimezone(uid, tz).catch(() => {});
+    }
   }, [profile?.id]);
 
   useEffect(() => {

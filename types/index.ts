@@ -43,6 +43,7 @@ export interface Profile {
   email_verified_at: string | null;
   last_active_at: string | null;
   notify_winback: boolean;
+  timezone?: string | null; // IANA zone for per-user local scheduling (Sunday Drop); DB default 'UTC'
 }
 
 // ─── Macros ───────────────────────────────────────────────────────────────────

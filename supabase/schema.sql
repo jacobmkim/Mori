@@ -40,12 +40,15 @@ CREATE TABLE profiles (
   email_verified_at timestamptz,
   email_verification_token uuid,
   email_verification_sent_at timestamptz,
+  timezone text DEFAULT 'UTC', -- IANA zone for per-user local scheduling (Sunday Drop); see add-profiles-timezone-202606.sql
   created_at timestamp with time zone DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS idx_profiles_email_verification_token
   ON profiles(email_verification_token)
   WHERE email_verification_token IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS profiles_timezone_idx ON profiles (timezone);
 
 -- Auto-create profile row on sign up
 CREATE OR REPLACE FUNCTION handle_new_user()
