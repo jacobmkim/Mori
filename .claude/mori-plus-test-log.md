@@ -16,7 +16,7 @@ Build plan: [`.claude/plans/mori-plus-flagship-build-plan-2026-06-16.md`](plans/
 |---|---|---|---|---|---|---|---|
 | I1 | flavourDna → scoreRecipe | ✅ | ✅ 8 | ✅ 3-agent | 933/933 | ✅ `7c40b47` | ⏳ pending user |
 | I2 | profiles.timezone capture | ✅ | ✅ 9 | ✅ 3-agent | 942/942 | ✅ `f0a02de` | ⏳ Hermes-Intl gate |
-| I3 | lib/autoPlan.ts optimizer | ⬜ | | | | | |
+| I3 | lib/autoPlan.ts optimizer | ✅ | ✅ 12 | ✅ 3-agent | 954/954 | ✅ `9703622` | N/A (pure lib) |
 | I4 | api/auto-plan-week.ts | ⬜ | | | | | |
 | I5 | "Build my week" UI + paywall | ⬜ | | | | | |
 | I6 | checkAiBudget wiring | ⬜ | | | | | |
@@ -104,3 +104,50 @@ is the seam the Sunday Drop cron (I7) reuses — DST-safe, import-free.
 - [ ] Cold-launch the dev build signed in → `SELECT timezone FROM profiles WHERE id=<you>` →
   shows your **real IANA zone** (e.g. `America/Chicago`) → Hermes Intl works ✅
 - [ ] If it shows **`UTC`** → swap to `react-native-localize.getTimeZone()` before building I7
+
+---
+
+## Locked product decisions (2026-06-18, drive I3–I7)
+1. **Meals/day v1:** dinners only (catalog dinner-deep; breakfast too thin)
+2. **Budget:** soft +5% overage with a warning
+3. **Overwrite a filled week:** replace-all with a confirm alert
+4. **"Build my week" for free users:** always visible → tap opens paywall (Cardinal-rule-safe)
+5. **Sunday Drop count:** deferred to I7 (default 7)
+
+---
+
+## I3 — `lib/autoPlan.ts` pure week optimizer
+**Commit:** `9703622` · **Suite:** 954/954 · **Status:** code done + reviewed (ships as-is); no device test (pure lib)
+
+### What it does
+`autoPlanWeek(input)` greedily fills the week's slots to maximise taste score under HARD
+constraints (meal-type fit, no-repeat, soft +5% budget cap) + SOFT shaping (cuisine/protein
+variety, macro balance, leftover chaining, saved-library preference). Pure, synchronous,
+seedable (entropy via `input.random`). Honors the 1-gen rule — never generates; flags
+`generateNeeded` for the I4 endpoint. Built to the locked decisions above.
+
+### Automated tests — `__tests__/lib/autoPlan.test.ts` (12)
+no-repeat fill · thin-catalog → generateNeeded · meal-type fit (lunch-only never fills dinner) ·
+budget hard-stops at +5% + `overBudget` flag · no-budget ignores cost · saved +2 preference ·
+leftover chaining (used once) + explanation · cuisine variety (not all one cuisine) · protein
+variety · seeded determinism (twin-seed byte-identical) · null-macros no-crash · empty catalog.
+
+### Adversarial review — 3 agents (algorithm-correctness / purity-spec / I4-I5-integration)
+- ✅ **Optimizer ships as-is.** Positively verified: pure/deterministic/seedable, no input mutation,
+  budget no off-by-one, variety penalties correct (count-before-place), macro guard (no div-by-zero),
+  leftover used-once, hard gates = exactly the spec'd three, 1-gen rule honored, all edges guarded.
+- 🟡 **LOW (deferred to v1.1):** protein heuristic is substring/order-dependent ("chicken stock" in a
+  beef dish → 'chicken'). Bounded — soft −3 nudge only, never a gate. Fix = `\b`-boundary regex later.
+
+### ⚠️ Carry-forward TODOs for I4 / I5 (integration — NOT I3 bugs)
+- 🔴 **I4 CRITICAL:** the catalog fetch (`lib/api.ts:232` `fetchDiscoverRecipes` SELECT + its map at
+  `:262`) omits `meal_types` → at runtime `recipe.meal_types` is `undefined` → meal-type filter
+  empties the whole week (`generateNeeded=7`). **Backfill verified live: 2,618/2,618 (2,367 dinners).**
+  Fix in I4: add `meal_types` to the SELECT used by the catalog loader + `meal_types: r.meal_types ?? null`
+  in the projection.
+- 🟠 **I5 HIGH:** `AutoPlanSlot.provenance`/`explanation` don't exist on `MealSlot` (`types/index.ts`).
+  Add `provenance?: SlotProvenance` to `MealSlot` (JSONB `slots` needs no migration) — load-bearing for
+  the I9 dogfood-gate (cooked-rate by `auto_plan` slot).
+- 🟠 **I5 MEDIUM:** map `AutoPlanSlot.recipe` (full `Recipe`) → `MealSlot.recipe_id` + default
+  `servings_multiplier: 1`.
+- 🟢 **I4 LOW:** bind the 11-arg `scoreRecipe` into the single-arg `scoreFn` closure (by design).
