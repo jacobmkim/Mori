@@ -86,6 +86,7 @@ export interface Recipe {
   servings: number | null;
   cost_per_serving: number | null;
   dietary_tags: string[];
+  meal_types?: string[] | null; // ['dinner','lunch',...] — backfilled; drives Auto Plan slot fit
   meal_prep_friendly?: boolean;
   skill_level?: 'beginner' | 'home_cook' | 'confident_chef' | null;
   macros?: Macros | null;
@@ -114,6 +115,41 @@ export interface Recipe {
   submitter_name?: string | null;
   submitter_avatar?: string | null;
   submitter_username?: string | null;
+}
+
+// ─── Auto Plan (Mori+ flagship) ──────────────────────────────────────────────
+
+export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack' | 'dessert';
+
+export type SlotProvenance = 'auto_plan' | 'sunday_drop' | 'manual';
+
+/** A single planned slot produced by the week optimizer (lib/autoPlan.ts). */
+export interface AutoPlanSlot {
+  day: number;            // 0-based index into the planned week
+  mealType: MealType;
+  recipe: Recipe | null;  // null = no catalog fit; the endpoint may fill with <=1 generation
+  provenance: SlotProvenance;
+  explanation: string;    // short per-slot "why this"
+}
+
+/** Inputs to the PURE week optimizer. The caller pre-filters the catalog for dietary rules. */
+export interface AutoPlanInput {
+  catalog: Recipe[];
+  savedExternalIds: Set<string>;
+  scoreFn: (recipe: Recipe) => number;  // taste score (scoreRecipe bound to the user)
+  mealTypes: MealType[];                 // v1 = ['dinner']
+  days: number;                          // e.g. 7
+  weeklyBudgetUsd?: number | null;       // soft cap (+5% tolerance); null/undefined = ignore
+  leftoversSet?: Set<string>;            // active leftover ingredient names, lowercased
+  random: () => number;                  // injected RNG (Math.random in prod, seeded in tests)
+}
+
+export interface AutoPlanResult {
+  slots: AutoPlanSlot[];
+  generateNeeded: number;   // count of empty (recipe === null) slots
+  totalCost: number;        // sum of cost_per_serving for filled slots
+  overBudget: boolean;      // totalCost exceeded the base (pre-tolerance) budget
+  explanation: string;      // one-paragraph "why these"
 }
 
 // ─── Reviews ─────────────────────────────────────────────────────────────────
