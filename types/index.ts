@@ -118,8 +118,9 @@ export interface Recipe {
 }
 
 // ─── Auto Plan (Mori+ flagship) ──────────────────────────────────────────────
-
-export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack' | 'dessert';
+// MealType (breakfast/lunch/dinner) is defined above and reused here — Auto Plan fills
+// meal-plan slots, so its slot types match MealSlot. (recipes.meal_types is a separate
+// string[] that may also include snack/dessert; the optimizer only checks membership.)
 
 export type SlotProvenance = 'auto_plan' | 'sunday_drop' | 'manual';
 
