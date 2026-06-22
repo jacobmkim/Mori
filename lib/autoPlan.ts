@@ -28,6 +28,9 @@ const PROTEIN_KEYWORDS: ReadonlyArray<readonly [string, readonly string[]]> = [
   ['beans', ['lentil', 'chickpea', 'black bean', 'kidney bean', 'cannellini', 'bean']],
 ];
 
+// How many next-best candidates to keep per slot for one-tap swapping.
+const MAX_ALTERNATES = 8;
+
 const recipeId = (r: Recipe): string => r.supabase_id ?? r.external_id ?? r.id ?? '';
 const savedKey = (r: Recipe): string => r.external_id ?? r.supabase_id ?? r.id ?? '';
 const recipeMealTypes = (r: Recipe): string[] => (Array.isArray(r.meal_types) ? r.meal_types : []);
@@ -102,10 +105,9 @@ export function autoPlanWeek(input: AutoPlanInput): AutoPlanResult {
       continue;
     }
 
-    let best: Recipe | null = null;
-    let bestScore = -Infinity;
-    let bestLeftover: string | null = null;
-
+    // Score every candidate, then sort so we can take the best AND keep the next-best
+    // as swap alternates. Stable sort + seeded jitter keeps this deterministic.
+    const scored: { recipe: Recipe; score: number; leftover: string | null }[] = [];
     for (const r of candidates) {
       let s = scoreFn(r);
 
@@ -141,15 +143,20 @@ export function autoPlanWeek(input: AutoPlanInput): AutoPlanResult {
       // Seeded jitter for deterministic tie-breaks.
       s += random() * 0.5;
 
-      if (s > bestScore) {
-        bestScore = s;
-        best = r;
-        bestLeftover = lo;
-      }
+      scored.push({ recipe: r, score: s, leftover: lo });
     }
 
+    // Stable descending sort: scored[0] is the top pick and the tail becomes the swap
+    // alternates. The per-candidate jitter (random()*0.5) is the real tie-breaker; for the
+    // degenerate zero-jitter case the stable sort preserves first-occurrence-of-max order.
+    scored.sort((a, b) => b.score - a.score);
+    const top = scored[0] ?? null;
+    const best: Recipe | null = top?.recipe ?? null;
+    const bestLeftover: string | null = top?.leftover ?? null;
+    const alternates = scored.slice(1, 1 + MAX_ALTERNATES).map((x) => x.recipe);
+
     if (!best) {
-      slots.push({ day: spec.day, mealType: spec.mealType, recipe: null, provenance: 'auto_plan', explanation: '' });
+      slots.push({ day: spec.day, mealType: spec.mealType, recipe: null, provenance: 'auto_plan', explanation: '', alternates: [] });
       continue;
     }
 
@@ -175,6 +182,7 @@ export function autoPlanWeek(input: AutoPlanInput): AutoPlanResult {
       recipe: best,
       provenance: 'auto_plan',
       explanation: explainSlot(best, isSaved, bestLeftover),
+      alternates,
     });
   }
 
@@ -191,6 +199,21 @@ export function autoPlanWeek(input: AutoPlanInput): AutoPlanResult {
   });
 
   return { slots, generateNeeded, totalCost: round2(totalCost), overBudget, explanation };
+}
+
+/**
+ * One-tap "swap to next best": return the first alternate whose recipe isn't already used
+ * elsewhere in the week, or null when the slot has no free alternate left. PURE.
+ */
+export function nextSlotAlternate(
+  alternates: Recipe[] | undefined,
+  usedSupabaseIds: Set<string>,
+): Recipe | null {
+  for (const alt of alternates ?? []) {
+    const id = alt?.supabase_id;
+    if (id && !usedSupabaseIds.has(id)) return alt;
+  }
+  return null;
 }
 
 /**

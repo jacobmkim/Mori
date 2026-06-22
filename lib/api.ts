@@ -1058,6 +1058,13 @@ export async function generateWeekPlan(opts: {
     });
   }
 
+  // Only plan recipes we can persist + hydrate. A slot's recipe_id must be a real
+  // recipes.id (supabase_id); a recipe without one can't round-trip through meal_plans
+  // and would be silently dropped on accept — so exclude it from the pool entirely,
+  // keeping the displayed plan identical to the persistable plan (and the optimizer's
+  // no-repeat key consistent with the swap/persist key).
+  pool = pool.filter((r) => !!r.supabase_id);
+
   const scoreFn = (recipe: Recipe): number =>
     scoreRecipe(recipe, profile, swipeMap, savedExternalIds, affinityMap, interactionMap, pantrySet, leftoversSet, ratingMap, savedAtMap, flavourDna, true);
 

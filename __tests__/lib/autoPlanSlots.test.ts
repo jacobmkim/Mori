@@ -1,4 +1,4 @@
-import { autoSlotsToStoreSlots } from '@/lib/autoPlan';
+import { autoSlotsToStoreSlots, nextSlotAlternate } from '@/lib/autoPlan';
 import type { AutoPlanSlot, Recipe, MealSlot } from '@/types';
 
 // Minimal recipe factory — only the fields autoSlotsToStoreSlots reads.
@@ -81,5 +81,34 @@ describe('autoSlotsToStoreSlots', () => {
     expect(round[0].auto_explanation).toBe('Taste match · Thai');
     expect(round[0].recipe_id).toBe('uuid-1');
     expect(round[0].servings_multiplier).toBe(1);
+  });
+});
+
+describe('nextSlotAlternate (one-tap swap)', () => {
+  const alt = (id: string): Recipe => ({ id, supabase_id: id, title: id, image_url: null } as Recipe);
+
+  it('returns the first alternate whose supabase_id is not already used this week', () => {
+    const alts = [alt('a'), alt('b'), alt('c')];
+    expect(nextSlotAlternate(alts, new Set(['a']))!.supabase_id).toBe('b');
+  });
+
+  it('skips multiple used recipes', () => {
+    const alts = [alt('a'), alt('b'), alt('c')];
+    expect(nextSlotAlternate(alts, new Set(['a', 'b']))!.supabase_id).toBe('c');
+  });
+
+  it('returns null when every alternate is already used', () => {
+    const alts = [alt('a'), alt('b')];
+    expect(nextSlotAlternate(alts, new Set(['a', 'b']))).toBeNull();
+  });
+
+  it('returns null for empty or undefined alternates', () => {
+    expect(nextSlotAlternate([], new Set())).toBeNull();
+    expect(nextSlotAlternate(undefined, new Set())).toBeNull();
+  });
+
+  it('ignores alternates lacking a supabase_id', () => {
+    const noId = { id: 'x', title: 'x', image_url: null } as Recipe;
+    expect(nextSlotAlternate([noId, alt('a')], new Set())!.supabase_id).toBe('a');
   });
 });

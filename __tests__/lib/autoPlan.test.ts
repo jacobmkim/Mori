@@ -162,3 +162,32 @@ describe('autoPlanWeek — determinism & robustness', () => {
     expect(res.totalCost).toBe(0);
   });
 });
+
+describe('autoPlanWeek — swap alternates', () => {
+  it('populates alternates per filled slot, capped at 8 and excluding the chosen recipe', () => {
+    const catalog = Array.from({ length: 20 }, (_, i) => mr({ id: `r${i}` }));
+    const res = run(catalog);
+    for (const s of filled(res)) {
+      expect(Array.isArray(s.alternates)).toBe(true);
+      expect(s.alternates!.length).toBeGreaterThan(0);
+      expect(s.alternates!.length).toBeLessThanOrEqual(8);
+      // the slot's own pick is never offered as its own alternate
+      expect(s.alternates!.some((a) => a.id === s.recipe!.id)).toBe(false);
+    }
+  });
+
+  it('alternates only contain recipes that fit the slot meal type', () => {
+    const dinners = Array.from({ length: 10 }, () => mr({ mealTypes: ['dinner'] }));
+    const lunches = Array.from({ length: 10 }, () => mr({ mealTypes: ['lunch'] }));
+    const res = run([...lunches, ...dinners]);
+    for (const s of filled(res)) {
+      expect(s.alternates!.every((a) => (a.meal_types ?? []).includes('dinner'))).toBe(true);
+    }
+  });
+
+  it('thin catalog yields few/zero alternates without crashing', () => {
+    const res = run(Array.from({ length: 8 }, () => mr())); // 7 slots, 1 spare
+    const last = filled(res)[filled(res).length - 1];
+    expect(last.alternates!.length).toBeLessThanOrEqual(1);
+  });
+});

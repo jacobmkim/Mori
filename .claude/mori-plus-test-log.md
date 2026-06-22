@@ -18,7 +18,8 @@ Build plan: [`.claude/plans/mori-plus-flagship-build-plan-2026-06-16.md`](plans/
 | I2 | profiles.timezone capture | ✅ | ✅ 9 | ✅ 3-agent | 942/942 | ✅ `f0a02de` | ✅ real zone (Chicago) |
 | I3 | lib/autoPlan.ts optimizer | ✅ | ✅ 12 | ✅ 3-agent | 954/954 | ✅ `9703622` | N/A (pure lib) |
 | I4 | generateWeekPlan (client) + meal_types | ✅ | deferred→I5 | ✅ 3-agent | 954/954 | ✅ `57a8393` | N/A (no UI) |
-| I5 | "Build my week" UI + paywall | ✅ | ✅ 12 | ✅ 3-agent | 966/966 | ⬜ pending | ⬜ pending |
+| I5 | "Build my week" UI + paywall | ✅ | ✅ 12 | ✅ 3-agent | 966/966 | ✅ `4cdf8cf` | ⬜ pending |
+| I5.1 | swap→next-best + learn + readability + modal fix | ✅ | ✅ 8 | ✅ 3-agent | 974/974 | ⬜ pending | ⬜ pending |
 | I6 | checkAiBudget wiring | ⬜ | | | | | |
 | I7 | Sunday Drop cron + push | ⬜ | | | | | |
 | I8 | SundayDropSection reveal UI | ⬜ | | | | | |
@@ -272,6 +273,67 @@ so the plan renders with no "Recipe removed" flash.
   can't auth/network it. Pure mapping + JSONB round-trip ARE unit-tested; the end-to-end is the checklist above.
 - Per-slot "why this" rendering in the Plan-tab slot rows (the data now persists in `auto_explanation`) —
   small follow-up; the sheet already shows explanations.
+
+---
+
+## I5.1 — Swap→next-best + learn-from-choices + readability + the modal regression fix
+**Commits:** `c685672` (regression fix) + this one · **Suite:** 974/974 · **Status:** code done + reviewed (all fixes applied); commit + device-test pending
+
+### Context (user feedback this session)
+"Let me click recipes when planned to see them" · "make the week easier to read" · "let me alter it —
+click to change out the recipe / specify more protein, fewer calories" · "the planning screen is broken,
+can't scroll or touch" · "account for dark + light mode" · "learn from the choices the user makes."
+User chose (AskUserQuestion): swap = **next-best 1-tap**, tuning = **whole-week toggles**, learning = **yes,
+update my taste**.
+
+### Shipped this increment
+1. 🔴 **Regression fix (`c685672`):** the Plan screen was frozen — I5 had mounted a 2nd `pageSheet` Modal
+   (AutoPlanSheet) on a screen that already had one (the picker); two mounted pageSheet modals freeze iOS
+   touches. Fixed: AutoPlanSheet → `fullScreen` + mount-only-when-open, restoring the pre-I5 at-rest modal
+   topology. (The codebase already documents this iOS modal class — the filter sheet uses an inline overlay.)
+2. **Readability + dark/light:** 72px images, Georgia-italic titles, cuisine·time, the "why this" line,
+   calorie/protein chips, day headers — all `useTheme()`-driven (audited: no hardcoded hex on theme surfaces).
+3. **Tap-to-view:** tapping a dinner opens RecipeDetailModal (now fullScreen-on-fullScreen → clean stacking).
+4. **Swap → next best (1 tap):** optimizer now keeps ranked `alternates` per slot (cap 8); a "Swap" button
+   cycles to the next-ranked unused dinner. Pure `nextSlotAlternate` helper. Swapped slots marked `'manual'`.
+5. **Learn from choices:** a manually swapped-in dinner logs a Discover-style right-swipe (recordSessionSwipe
+   + logSwipe) — fired ONLY on accept, only for distinct swapped-in recipes (≤7 rows/accept, no per-swap spam)
+   — so future Auto Plans AND the Discover deck adapt.
+
+### Automated tests (8 new) — 974/974
+`autoPlan.test.ts`: alternates populated/capped-8/exclude-pick/meal-type-fit/thin-catalog (3).
+`autoPlanSlots.test.ts`: `nextSlotAlternate` first-unused / skip-used / null-when-exhausted / empty+undefined /
+ignores-no-supabase_id (5).
+
+### Adversarial review — 3 agents (correctness / security / state-regression). Security: **SHIP-SAFE.**
+- 🟠 **HIGH (state) — FIXED.** `swappedInIds` survived a Shuffle → a fresh plan that coincidentally re-picked a
+  swapped recipe logged a phantom taste signal. Now reset on Shuffle.
+- 🟠 **M1 (correctness) — FIXED.** Optimizer no-repeat keyed on `supabase_id ?? external_id ?? id` but
+  swap/persist keyed strictly on `supabase_id` → a card you can't swap that vanishes on accept. Now the pool
+  is filtered to `supabase_id`-bearing recipes (displayed == persistable). Latent today (catalog always has it).
+- 🟡 **LOW-1 (security) — FIXED.** Swapped slots kept `provenance:'auto_plan'`, inflating the I9 cooked-rate
+  gate with user overrides. Swaps now persist as `'manual'`.
+- 🟡 **H1 (correctness) — FIXED (comment).** Sort preserves the old pick; softened the overstated comment.
+- 🟢 Verified clean by the auditors: RLS scopes the swipe insert (`auth.uid()=user_id`); recipe_id is
+  catalog-sourced + FK-guarded; write volume bounded (Set-dedup, accept-time); alternates never persist;
+  rotation is length-stable + immutable; nested Swap Pressable doesn't bubble; fullScreen-on-fullScreen
+  preview stacking works; dark/light clean.
+- 🟢 Accepted-as-is: recordSessionSwipe suppresses a swapped-in recipe from the *spontaneous* Discover deck
+  this session (it's now planned — desirable); swap doesn't re-check budget (moot — no budget passed yet).
+
+### Manual device checklist (STOP-and-test) — adds to the I5 list
+- [ ] **Dead-screen gone:** open Plan tab → scroll + tap normally (the reported freeze).
+- [ ] **Readability:** Build my week → cards are legible (serif titles, images, macro chips) in BOTH light + dark.
+- [ ] **Tap-to-view:** tap a dinner → full recipe opens → close → back on the sheet (not dismissed).
+- [ ] **Swap:** tap "Swap" → recipe changes to a different dinner, no dupes across the week; repeat until
+  "No other match"; tap card still previews (Swap button doesn't open preview).
+- [ ] **Learn:** swap a couple dinners → Accept → (optional) confirm a right-swipe row landed for the
+  swapped-in recipes; Shuffle-then-Accept does NOT log swaps you didn't make.
+
+### Deferred to I5.2 (next increment)
+- **Whole-week tuning toggles** (More protein / Fewer calories / Quicker / Cheaper) — re-bias the optimizer
+  + persist last-used to `taste_profile.planPreferences` so future plans default to them. Needs a small
+  `generateWeekPlan` context-cache refactor for instant re-tune; that's why it's its own increment.
 
 ---
 

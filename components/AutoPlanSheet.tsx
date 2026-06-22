@@ -27,6 +27,7 @@ export function AutoPlanSheet({
   onRegenerate,
   onAccept,
   onPreviewRecipe,
+  onSwapSlot,
 }: {
   visible: boolean;
   loading: boolean;
@@ -36,6 +37,7 @@ export function AutoPlanSheet({
   onRegenerate: () => void;
   onAccept: () => void;
   onPreviewRecipe?: (recipe: Recipe) => void;
+  onSwapSlot?: (index: number) => void;
 }) {
   const colors = useTheme();
 
@@ -183,8 +185,17 @@ export function AutoPlanSheet({
                                 </View>
                               )}
                             </View>
-                            {onPreviewRecipe && (
-                              <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+                            {/* Swap → next best (nested Pressable: fires without bubbling to
+                                the card's preview tap). */}
+                            {onSwapSlot && (
+                              <Pressable
+                                onPress={() => onSwapSlot(i)}
+                                hitSlop={8}
+                                style={{ alignItems: 'center', gap: 2, paddingHorizontal: 4, paddingVertical: 2 }}
+                              >
+                                <Ionicons name="swap-horizontal" size={22} color={colors.primary} />
+                                <Text style={{ fontSize: 10, color: colors.primary, fontWeight: '700' }}>Swap</Text>
+                              </Pressable>
                             )}
                           </>
                         ) : (

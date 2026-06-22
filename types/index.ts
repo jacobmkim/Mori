@@ -131,6 +131,9 @@ export interface AutoPlanSlot {
   recipe: Recipe | null;  // null = no catalog fit; the endpoint may fill with <=1 generation
   provenance: SlotProvenance;
   explanation: string;    // short per-slot "why this"
+  // The next-best ranked candidates for this slot (same meal type, excluding the pick),
+  // capped small. Powers one-tap "swap to next best" in the review sheet. Not persisted.
+  alternates?: Recipe[];
 }
 
 /** Inputs to the PURE week optimizer. The caller pre-filters the catalog for dietary rules. */

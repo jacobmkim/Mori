@@ -7,9 +7,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks/useTheme';
-import { formatTime } from '@/lib/utils';
-import { getRecipesBySupabaseIds, fetchDiscoverRecipes, getMealPlanForWeek, logInteraction, resolveSupabaseId, updateStreakAndCount, generateWeekPlan } from '@/lib/api';
-import { autoSlotsToStoreSlots } from '@/lib/autoPlan';
+import { formatTime, getTimeOfDay } from '@/lib/utils';
+import { getRecipesBySupabaseIds, fetchDiscoverRecipes, getMealPlanForWeek, logInteraction, resolveSupabaseId, updateStreakAndCount, generateWeekPlan, logSwipe, recordSessionSwipe } from '@/lib/api';
+import { autoSlotsToStoreSlots, nextSlotAlternate } from '@/lib/autoPlan';
 import { flags } from '@/lib/featureFlags';
 import { gateMoriPlus } from '@/lib/paywall';
 import { AutoPlanSheet } from '@/components/AutoPlanSheet';
@@ -103,6 +103,9 @@ export default function Plan() {
   const [autoPlanOpen, setAutoPlanOpen] = useState(false);
   const [autoPlanLoading, setAutoPlanLoading] = useState(false);
   const [autoPlanResult, setAutoPlanResult] = useState<AutoPlanResult | null>(null);
+  // supabase_ids the user manually swapped IN during review — logged as positive taste
+  // signals only when the plan is accepted (so cycling alternates doesn't spam swipes).
+  const [swappedInIds, setSwappedInIds] = useState<Set<string>>(new Set());
 
   // Count of "non-default" filters for the Filter button badge.
   // Default state is `{meal_prep}` only — that doesn't earn a badge.
@@ -429,8 +432,58 @@ export default function Plan() {
       if (!granted) return; // user dismissed the paywall
     }
     setAutoPlanResult(null);
+    setSwappedInIds(new Set());
     setAutoPlanOpen(true);
     runGenerate(true);
+  }
+
+  // One-tap "swap to next best" for a single review slot. Swaps the slot's recipe for the
+  // next-ranked alternate not already used elsewhere this week, rotates the swapped-out
+  // recipe to the back of the alternates (so you can cycle), and records the choice for
+  // learning (logged on accept, not here — see learnFromChoice).
+  function handleSwapSlot(index: number) {
+    if (!autoPlanResult) return;
+    const cur = autoPlanResult.slots;
+    const slot = cur[index];
+    if (!slot?.recipe) return;
+    const used = new Set<string>();
+    cur.forEach((s, i) => { if (i !== index && s.recipe?.supabase_id) used.add(s.recipe.supabase_id); });
+    const next = nextSlotAlternate(slot.alternates, used);
+    if (!next) {
+      Alert.alert('No other match', "Mori has no other dinner that fits this slot. Try Shuffle for a fresh week.");
+      return;
+    }
+    const oldRecipe = slot.recipe;
+    const nextAlternates = (slot.alternates ?? []).filter((a) => a.supabase_id !== next.supabase_id);
+    if (oldRecipe.supabase_id) nextAlternates.push(oldRecipe); // let the user cycle back
+    // Mark the swapped slot 'manual' — it's a user override, so the I9 dogfood
+    // cooked-rate metric (measured on 'auto_plan' slots) won't credit the optimizer
+    // for a pick the user replaced.
+    const newSlot = { ...slot, recipe: next, provenance: 'manual' as const, explanation: 'You swapped this in', alternates: nextAlternates };
+    const newSlots = cur.map((s, i) => (i === index ? newSlot : s));
+    setAutoPlanResult({ ...autoPlanResult, slots: newSlots });
+    if (next.supabase_id) {
+      setSwappedInIds((prev) => new Set(prev).add(next.supabase_id!));
+    }
+  }
+
+  // "Learn from these choices" — a manually swapped-in dinner is an explicit positive,
+  // logged exactly like a Discover right-swipe so it feeds BOTH future Auto Plans and the
+  // Discover deck (recordSessionSwipe = immediate session signal, logSwipe = persisted).
+  function learnFromChoice(recipe: Recipe) {
+    const sid = recipe.supabase_id;
+    if (!sid || !userId) return;
+    const cuisines = (recipe.cuisine ?? '').split(',').map((c) => c.trim()).filter(Boolean);
+    recordSessionSwipe(sid, 'right', cuisines);
+    logSwipe({
+      user_id: userId,
+      recipe_id: sid,
+      direction: 'right',
+      mode: 'meal_prep',
+      time_of_day: getTimeOfDay(),
+      day_of_week: new Date().getDay(),
+      session_number: null,
+    }).catch(() => {});
   }
 
   function handleAcceptAutoPlan() {
@@ -451,12 +504,19 @@ export default function Plan() {
         if (s.recipe?.supabase_id) hydrate[s.recipe.supabase_id] = s.recipe;
       });
       setSlotRecipes((prev) => ({ ...prev, ...hydrate }));
+      // Learn from the user's manual swaps (positive taste signal, persisted on accept).
+      if (swappedInIds.size > 0) {
+        autoPlanResult.slots.forEach((s) => {
+          if (s.recipe?.supabase_id && swappedInIds.has(s.recipe.supabase_id)) learnFromChoice(s.recipe);
+        });
+      }
       // Replace-all (locked decision): wipe the week, then write the auto slots.
       clearSlots();
       newSlots.forEach((s) => addSlot(s));
       savePlan(userId, weekStart);
       setAutoPlanOpen(false);
       setAutoPlanResult(null);
+      setSwappedInIds(new Set());
       setSelectedDay(weekOffset === 0 ? todayDayIndex() : 0);
     };
     if (slots.length > 0) {
@@ -1274,10 +1334,11 @@ export default function Plan() {
           loading={autoPlanLoading}
           result={autoPlanResult}
           dayNames={DAY_NAMES}
-          onClose={() => { setAutoPlanOpen(false); setAutoPlanResult(null); }}
-          onRegenerate={() => runGenerate(false)}
+          onClose={() => { setAutoPlanOpen(false); setAutoPlanResult(null); setSwappedInIds(new Set()); }}
+          onRegenerate={() => { setSwappedInIds(new Set()); runGenerate(false); }}
           onAccept={handleAcceptAutoPlan}
           onPreviewRecipe={(r) => { setPreviewSlot(null); setPreviewRecipe(r); }}
+          onSwapSlot={handleSwapSlot}
         />
       )}
 
