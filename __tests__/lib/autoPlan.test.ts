@@ -233,6 +233,30 @@ describe('autoPlanWeek — whole-week tuning bias', () => {
     expect(pick([pricey, cheap], { cheaper: true })).toBe('cheap');
   });
 
+  it('lowerCarb surfaces the lower-carb dinner', () => {
+    const lowC = tr({ id: 'lowc', macros: { carbohydrates: 15, calories: 500 } });
+    const highC = tr({ id: 'highc', macros: { carbohydrates: 80, calories: 500 } });
+    expect(pick([highC, lowC], { lowerCarb: true })).toBe('lowc');
+  });
+
+  it('moreFibre surfaces the higher-fibre dinner', () => {
+    const lowF = tr({ id: 'lowf', macros: { fibre: 2, calories: 500 } });
+    const highF = tr({ id: 'highf', macros: { fibre: 15, calories: 500 } });
+    expect(pick([lowF, highF], { moreFibre: true })).toBe('highf');
+  });
+
+  it('mealPrep surfaces the meal-prep-friendly dinner', () => {
+    const yes = tr({ id: 'prep', meal_prep_friendly: true });
+    const no = tr({ id: 'noprep', meal_prep_friendly: false });
+    expect(pick([no, yes], { mealPrep: true })).toBe('prep');
+  });
+
+  it('easier surfaces the beginner-friendly dinner over a confident-chef one', () => {
+    const easy = tr({ id: 'easy', skill_level: 'beginner' });
+    const hard = tr({ id: 'hard', skill_level: 'confident_chef' });
+    expect(pick([hard, easy], { easier: true })).toBe('easy');
+  });
+
   it('no tunings (undefined) === empty tunings — both neutral', () => {
     const a = tr({ id: 'a', macros: { protein: 50, calories: 500 } });
     const b = tr({ id: 'b', macros: { protein: 5, calories: 500 } });
@@ -250,8 +274,16 @@ describe('autoPlanWeek — whole-week tuning bias', () => {
     expect(res.slots[0].recipe!.id).toBe('tasty'); // +4 cap can't override +10 taste
   });
 
-  it('does not crash when recipes lack macros/cost/time under all toggles', () => {
-    const bare = tr({ id: 'bare', macros: null, cost_per_serving: null, prep_time_mins: null, cook_time_mins: null });
-    expect(() => pick([bare], { moreProtein: true, fewerCalories: true, quicker: true, cheaper: true })).not.toThrow();
+  it('does not crash when recipes lack macros/cost/time/skill under all toggles', () => {
+    const bare = tr({ id: 'bare', macros: null, cost_per_serving: null, prep_time_mins: null, cook_time_mins: null, meal_prep_friendly: null, skill_level: null });
+    const allOn = { moreProtein: true, fewerCalories: true, lowerCarb: true, moreFibre: true, quicker: true, cheaper: true, mealPrep: true, easier: true };
+    expect(() => pick([bare], allOn)).not.toThrow();
+  });
+
+  it('treats NaN / string macros as neutral (Number.isFinite contract, not poisoned sort)', () => {
+    const good = tr({ id: 'good', macros: { carbohydrates: 15, fibre: 12 } });
+    const junk = tr({ id: 'junk', macros: { carbohydrates: NaN, fibre: '9' as any } });
+    // junk gets 0 bias on both toggles (never NaN) → good's positive bias wins, sort stays well-defined
+    expect(pick([junk, good], { lowerCarb: true, moreFibre: true })).toBe('good');
   });
 });

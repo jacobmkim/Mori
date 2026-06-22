@@ -28,11 +28,18 @@ function tuningBias(r: Recipe, t?: PlanTunings): number {
   // term's `kcal > 0` guard. Missing/garbage data = neutral 0 for that toggle.
   if (t.moreProtein && Number.isFinite(m?.protein)) b += clamp(((m!.protein as number) - 25) / 8, 0, 4);
   if (t.fewerCalories && Number.isFinite(m?.calories)) b += clamp((650 - (m!.calories as number)) / 120, -2, 4);
+  if (t.lowerCarb && Number.isFinite(m?.carbohydrates)) b += clamp((45 - (m!.carbohydrates as number)) / 15, -2, 4);
+  if (t.moreFibre && Number.isFinite(m?.fibre)) b += clamp(((m!.fibre as number) - 6) / 3, 0, 4);
   if (t.quicker) {
     const tt = (r.prep_time_mins ?? 0) + (r.cook_time_mins ?? 0);
     if (tt > 0) b += clamp((35 - tt) / 12, -2, 4);
   }
   if (t.cheaper && Number.isFinite(r.cost_per_serving)) b += clamp((7 - (r.cost_per_serving as number)) / 2, -2, 4);
+  if (t.mealPrep && r.meal_prep_friendly === true) b += 2.5;
+  if (t.easier) {
+    if (r.skill_level === 'beginner') b += 2.5;
+    else if (r.skill_level === 'confident_chef') b -= 2.5;
+  }
   return b;
 }
 
@@ -162,7 +169,8 @@ export function autoPlanWeek(input: AutoPlanInput): AutoPlanResult {
       const lo = usesLeftover(r, remainingLeftovers);
       if (lo) s += 2;
 
-      // Whole-week tuning toggles (More protein / Fewer calories / Quicker / Cheaper).
+      // Whole-week tuning toggles (protein / calories / carbs / fibre / time / cost /
+      // meal-prep / easy) — bounded biases applied per candidate.
       s += tuningBias(r, tunings);
 
       // Seeded jitter for deterministic tie-breaks.

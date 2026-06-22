@@ -138,13 +138,17 @@ export interface AutoPlanSlot {
 }
 
 /** Whole-week tuning the user can toggle on the review sheet — each biases the optimizer
- *  toward recipes with that property. Persisted to taste_profile.planPreferences so future
- *  Auto Plans default to the user's last-used tuning. */
+ *  toward recipes with that property. Persisted to profiles.plan_preferences (its own column)
+ *  so future Auto Plans default to the user's last-used tuning. */
 export interface PlanTunings {
   moreProtein?: boolean;
   fewerCalories?: boolean;
+  lowerCarb?: boolean;
+  moreFibre?: boolean;
   quicker?: boolean;
   cheaper?: boolean;
+  mealPrep?: boolean;   // bias toward meal_prep_friendly recipes
+  easier?: boolean;     // bias toward beginner-friendly recipes
 }
 
 /** Inputs to the PURE week optimizer. The caller pre-filters the catalog for dietary rules. */

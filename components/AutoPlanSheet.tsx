@@ -10,8 +10,12 @@ import type { AutoPlanResult, Recipe, PlanTunings } from '@/types';
 const TUNING_OPTIONS: { key: keyof PlanTunings; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
   { key: 'moreProtein', label: 'More protein', icon: 'barbell-outline' },
   { key: 'fewerCalories', label: 'Fewer calories', icon: 'flame-outline' },
+  { key: 'lowerCarb', label: 'Low carb', icon: 'nutrition-outline' },
+  { key: 'moreFibre', label: 'More fibre', icon: 'leaf-outline' },
   { key: 'quicker', label: 'Quicker', icon: 'flash-outline' },
   { key: 'cheaper', label: 'Cheaper', icon: 'pricetag-outline' },
+  { key: 'mealPrep', label: 'Meal prep', icon: 'file-tray-stacked-outline' },
+  { key: 'easier', label: 'Easy', icon: 'happy-outline' },
 ];
 
 // The Mori+ "Build my week" review sheet. PRESENTATION-ONLY: it renders an

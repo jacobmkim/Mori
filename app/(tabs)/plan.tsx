@@ -447,8 +447,12 @@ export default function Plan() {
       ? {
           moreProtein: !!(raw as any).moreProtein,
           fewerCalories: !!(raw as any).fewerCalories,
+          lowerCarb: !!(raw as any).lowerCarb,
+          moreFibre: !!(raw as any).moreFibre,
           quicker: !!(raw as any).quicker,
           cheaper: !!(raw as any).cheaper,
+          mealPrep: !!(raw as any).mealPrep,
+          easier: !!(raw as any).easier,
         }
       : {};
     setTunings(initialTunings);
