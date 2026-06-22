@@ -17,7 +17,7 @@ Build plan: [`.claude/plans/mori-plus-flagship-build-plan-2026-06-16.md`](plans/
 | I1 | flavourDna → scoreRecipe | ✅ | ✅ 8 | ✅ 3-agent | 933/933 | ✅ `7c40b47` | ⏳ pending user |
 | I2 | profiles.timezone capture | ✅ | ✅ 9 | ✅ 3-agent | 942/942 | ✅ `f0a02de` | ⏳ Hermes-Intl gate |
 | I3 | lib/autoPlan.ts optimizer | ✅ | ✅ 12 | ✅ 3-agent | 954/954 | ✅ `9703622` | N/A (pure lib) |
-| I4 | api/auto-plan-week.ts | ⬜ | | | | | |
+| I4 | generateWeekPlan (client) + meal_types | ✅ | deferred→I5 | ✅ 3-agent | 954/954 | ✅ `57a8393` | N/A (no UI) |
 | I5 | "Build my week" UI + paywall | ⬜ | | | | | |
 | I6 | checkAiBudget wiring | ⬜ | | | | | |
 | I7 | Sunday Drop cron + push | ⬜ | | | | | |
@@ -151,3 +151,65 @@ variety · seeded determinism (twin-seed byte-identical) · null-macros no-crash
 - 🟠 **I5 MEDIUM:** map `AutoPlanSlot.recipe` (full `Recipe`) → `MealSlot.recipe_id` + default
   `servings_multiplier: 1`.
 - 🟢 **I4 LOW:** bind the 11-arg `scoreRecipe` into the single-arg `scoreFn` closure (by design).
+
+---
+
+## I4 — `generateWeekPlan` (client wiring) + `meal_types` across all fetchers
+**Commit:** `57a8393` · **Suite:** 954/954 · **Status:** code done + reviewed (ship-with-fixes; fixes applied)
+
+### Architecture decision
+Optimizer runs **client-side** (no server endpoint), per the "local weighted scorer — do NOT replace
+with an API call" commandment. `generateWeekPlan()` reuses the deck's scorer + signals; Auto Plan is
+catalog-only (no AI, no Mori cost) and premium-gated client-side (I5 paywall). The build plan's
+server-endpoint sketch is superseded.
+
+### What it does
+`generateWeekPlan({userId, profile, dietaryGoals, savedExternalIds, weeklyBudgetUsd?, mealTypes?, days?})`
+gathers swipes/affinity/interactions/pantry/leftovers/ratings/flavourDna (same as `fetchScoredDeck`),
+applies dislike + skill hard filters, keeps saved recipes in the pool, binds `scoreRecipe` into `scoreFn`,
+and runs `autoPlanWeek`. Returns `AutoPlanResult`.
+
+### `meal_types` made universal (the audit's I4 fix)
+All 5 recipe fetchers now SELECT + project `meal_types` (`fetchDiscoverRecipes`, `fetchAdventureRecipe`,
+`fetchRecommendedDeck`, `getSavedRecipesWithDetails`, `getRecipesBySupabaseIds`). The audit caught 4
+fetchers omitting it — would have silently dropped candidates in I5 hydration / plan-from-saved. Backfill
+verified live: 2,618/2,618 (2,367 dinners).
+
+### Adversarial review — 3 agents (correctness-integration / regression-data / architecture-completeness)
+- ✅ Verified: scoreFn binds 11 args correctly; dislike + skill filters mirror the deck line-for-line;
+  meal_types flows SELECT→projection→fetchDiscoverRecipes→autoPlanWeek; client-side architecture sound
+  (zero abuse/cost — local computation over already-fetched recipes); intentional divergences (saved
+  stay in pool; recently-cooked uses the soft penalty not the hard exclusion) match design.
+- ✅ Applied the must-fixes (meal_types on the 4 other fetchers).
+- One lens's "fetchDiscoverRecipes omits meal_types — CRITICAL" was a STALE snapshot — confirmed fixed.
+
+### Test coverage (deliberate)
+No `generateWeekPlan` unit test — orchestration over already-tested `autoPlanWeek` (12) + `scoreRecipe`
+(tested via Discover) + per-module fetchers. A focused **integration test lands at I5** with persistence
+(sandbox user → generateWeekPlan → assert N slots, sensible cost, non-empty explanation, provenance
+round-trips through `meal_plans.slots`).
+
+### Deferred (flagged, not forgotten)
+- **AI ≤1-gen fallback** — `autoPlanWeek` flags `generateNeeded`; ≈0 with 2,367 dinners. Build when needed.
+- **`weekly_budget` is a category** (not USD). No budget enforced unless `weeklyBudgetUsd` is passed. Add
+  `weeklyBudgetFromProfile(category)` when budget mode surfaces — do NOT silently invent a mapping.
+
+### What I5 needs (from the review)
+1. `provenance?: SlotProvenance` on `MealSlot` (additive, no migration — rides the JSONB `slots`).
+2. `autoSlotsToStoreSlots`: map `AutoPlanSlot.recipe.supabase_id` (real UUID, NOT `recipe.id` = external_id)
+   → `MealSlot.recipe_id`; default `servings_multiplier: 1`; carry provenance + explanation.
+3. `AutoPlanSheet.tsx` (reuse `RecipeCards.tsx`); render partial weeks (null slots → "needs a fresh recipe").
+4. The integration test above.
+
+---
+
+## Holistic scrutiny audit (2026-06-21)
+Full 4-lens adversarial audit (debug / cybersecurity / integration-regression / completeness) of all
+Track B work + prod deploys. **Verdict: solid / ship-safe.** Found + fixed one real bug — duplicate
+`MealType` type (`tsc`-breaking, jest-invisible), commit `3920abb`. Security **clean**: deployed webhook
+(timing-safe auth, idempotent, IDOR-safe, 401-not-404), timezone migration (non-sensitive, RLS-correct,
+premium trigger intact), and the optimizer/scorer (no ReDoS / prototype-pollution) all verified secure.
+One standing **launch-blocker** (NOT a session regression): `checkAiBudget` / `requirePremium` are wired
+to ZERO endpoints → free tier uncapped + no server-side premium enforcement. Must wire before charging
+(I6). Two pre-existing tsc errors remain in unrelated test files (`delete-account.test.ts`,
+`pushToken.test.ts`) — out of scope.
