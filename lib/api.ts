@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
-import type { Profile, Recipe, SwipeEvent, SavedRecipe, PantryItem, GroceryList, MealPlan, MealSlot, OnboardingState, Macros, AppMode, RecipeNote, Review, CreatorStats, AutoPlanResult, MealType } from '@/types';
+import type { Profile, Recipe, SwipeEvent, SavedRecipe, PantryItem, GroceryList, MealPlan, MealSlot, OnboardingState, Macros, AppMode, RecipeNote, Review, CreatorStats, AutoPlanResult, MealType, PlanTunings } from '@/types';
 import type { BadgeStats } from '@/lib/badges';
 import { inferDietaryTags } from './dietaryClassifier';
 import { getApiBaseUrl } from './apiBaseUrl';
@@ -1009,6 +1009,7 @@ export async function generateWeekPlan(opts: {
   weeklyBudgetUsd?: number | null;
   mealTypes?: MealType[];
   days?: number;
+  tunings?: PlanTunings;
 }): Promise<AutoPlanResult> {
   const { userId, profile, dietaryGoals, savedExternalIds } = opts;
 
@@ -1076,8 +1077,19 @@ export async function generateWeekPlan(opts: {
     days: opts.days ?? 7,
     weeklyBudgetUsd: opts.weeklyBudgetUsd ?? null,
     leftoversSet,
+    tunings: opts.tunings,
     random: Math.random,
   });
+}
+
+/**
+ * Persist the user's last-used Auto Plan tuning toggles so future plans default to them.
+ * Stored in its OWN column (profiles.plan_preferences) rather than taste_profile, so the
+ * server-side taste-profile writers (which wholesale-overwrite taste_profile) can't wipe it.
+ * Atomic single-column write — no read-modify-write, no clobber. Fire-and-forget.
+ */
+export async function updatePlanPreferences(userId: string, tunings: PlanTunings): Promise<void> {
+  await supabase.from('profiles').update({ plan_preferences: tunings }).eq('id', userId);
 }
 
 export async function fetchScoredDeck(

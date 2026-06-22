@@ -4,7 +4,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks/useTheme';
 import { getRecipeImageUrl } from '@/lib/recipeImage';
 import { formatTime } from '@/lib/utils';
-import type { AutoPlanResult, Recipe } from '@/types';
+import type { AutoPlanResult, Recipe, PlanTunings } from '@/types';
+
+// Whole-week tuning toggles shown above the plan. Each biases the optimizer.
+const TUNING_OPTIONS: { key: keyof PlanTunings; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { key: 'moreProtein', label: 'More protein', icon: 'barbell-outline' },
+  { key: 'fewerCalories', label: 'Fewer calories', icon: 'flame-outline' },
+  { key: 'quicker', label: 'Quicker', icon: 'flash-outline' },
+  { key: 'cheaper', label: 'Cheaper', icon: 'pricetag-outline' },
+];
 
 // The Mori+ "Build my week" review sheet. PRESENTATION-ONLY: it renders an
 // already-computed AutoPlanResult and reports the user's choice up via callbacks.
@@ -28,6 +36,8 @@ export function AutoPlanSheet({
   onAccept,
   onPreviewRecipe,
   onSwapSlot,
+  tunings,
+  onToggleTuning,
 }: {
   visible: boolean;
   loading: boolean;
@@ -38,6 +48,8 @@ export function AutoPlanSheet({
   onAccept: () => void;
   onPreviewRecipe?: (recipe: Recipe) => void;
   onSwapSlot?: (index: number) => void;
+  tunings?: PlanTunings;
+  onToggleTuning?: (key: keyof PlanTunings) => void;
 }) {
   const colors = useTheme();
 
@@ -74,7 +86,7 @@ export function AutoPlanSheet({
           <View style={{ width: 56 }} />
         </View>
 
-        {loading ? (
+        {loading && !result ? (
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', gap: 14 }}>
             <ActivityIndicator size="large" color={colors.primary} />
             <Text style={{ fontSize: 16, color: colors.text, fontWeight: '600' }}>Building your week…</Text>
@@ -104,6 +116,40 @@ export function AutoPlanSheet({
                 </Text>
               </View>
 
+              {/* Whole-week tuning toggles — tapping rebuilds the week biased toward the pick. */}
+              {onToggleTuning && (
+                <View style={{ marginBottom: 16 }}>
+                  <Text style={{
+                    fontSize: 12, fontWeight: '700', color: colors.textMuted,
+                    letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 8, marginLeft: 2,
+                  }}>
+                    Tune the week
+                  </Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                    {TUNING_OPTIONS.map((opt) => {
+                      const active = !!tunings?.[opt.key];
+                      return (
+                        <Pressable
+                          key={opt.key}
+                          onPress={() => onToggleTuning(opt.key)}
+                          style={{
+                            flexDirection: 'row', alignItems: 'center', gap: 6,
+                            height: 38, paddingHorizontal: 14, borderRadius: 999,
+                            backgroundColor: active ? colors.primary : colors.card,
+                            borderWidth: 1, borderColor: active ? colors.primary : colors.border,
+                          }}
+                        >
+                          <Ionicons name={opt.icon} size={15} color={active ? 'white' : colors.textMuted} />
+                          <Text style={{ fontSize: 13, fontWeight: active ? '700' : '500', color: active ? 'white' : colors.text }}>
+                            {opt.label}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
+              )}
+
               {/* Over-budget warning */}
               {result.overBudget && (
                 <View style={{
@@ -118,8 +164,17 @@ export function AutoPlanSheet({
                 </View>
               )}
 
-              {/* Per-day slot cards */}
-              <View style={{ gap: 12 }}>
+              {/* Inline re-tuning indicator — shown when rebuilding while a plan is on screen
+                  (toggle / Shuffle). Keeps the toggles tappable instead of a full-screen takeover. */}
+              {loading && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 8, marginBottom: 4 }}>
+                  <ActivityIndicator size="small" color={colors.primary} />
+                  <Text style={{ fontSize: 13, color: colors.textMuted, fontWeight: '600' }}>Updating your week…</Text>
+                </View>
+              )}
+
+              {/* Per-day slot cards — dimmed + non-interactive while a rebuild is in flight. */}
+              <View style={{ gap: 12, opacity: loading ? 0.4 : 1 }} pointerEvents={loading ? 'none' : 'auto'}>
                 {slots.map((slot, i) => {
                   const dayLabel = dayNames[slot.day] ?? `Day ${slot.day + 1}`;
                   const recipe = slot.recipe;
@@ -226,10 +281,12 @@ export function AutoPlanSheet({
             }}>
               <Pressable
                 onPress={onRegenerate}
+                disabled={loading}
                 style={{
                   flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
                   height: 52, paddingHorizontal: 20, borderRadius: 14,
                   borderWidth: 1, borderColor: colors.border, backgroundColor: colors.background,
+                  opacity: loading ? 0.5 : 1,
                 }}
               >
                 <Ionicons name="shuffle" size={18} color={colors.text} />
@@ -237,11 +294,11 @@ export function AutoPlanSheet({
               </Pressable>
               <Pressable
                 onPress={onAccept}
-                disabled={filledCount === 0}
+                disabled={filledCount === 0 || loading}
                 style={{
                   flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
                   height: 52, borderRadius: 14,
-                  backgroundColor: filledCount === 0 ? colors.border : colors.primary,
+                  backgroundColor: filledCount === 0 || loading ? colors.border : colors.primary,
                 }}
               >
                 <Ionicons name="checkmark-circle" size={18} color="white" />

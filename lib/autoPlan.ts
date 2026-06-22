@@ -12,7 +12,29 @@
 // problem and trivially deterministic. Dietary filtering is the CALLER's job; this optimizer
 // never re-adds an excluded recipe.
 
-import type { Recipe, AutoPlanInput, AutoPlanResult, AutoPlanSlot, MealType, MealSlot } from '@/types';
+import type { Recipe, AutoPlanInput, AutoPlanResult, AutoPlanSlot, MealType, MealSlot, PlanTunings } from '@/types';
+
+const clamp = (n: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, n));
+
+/** Bounded per-recipe score bias from the whole-week tuning toggles. Each active toggle
+ *  nudges toward recipes with that property (≈ ±4 max) so it shapes the plan without
+ *  dominating taste. Missing data (no macros/cost/time) = neutral 0 for that toggle. */
+function tuningBias(r: Recipe, t?: PlanTunings): number {
+  if (!t) return 0;
+  let b = 0;
+  const m = r.macros;
+  // Number.isFinite (not `!= null`) so a NaN/string from a malformed JSONB macro can't
+  // poison the candidate's score → NaN → an undefined sort order. Mirrors the macro-balance
+  // term's `kcal > 0` guard. Missing/garbage data = neutral 0 for that toggle.
+  if (t.moreProtein && Number.isFinite(m?.protein)) b += clamp(((m!.protein as number) - 25) / 8, 0, 4);
+  if (t.fewerCalories && Number.isFinite(m?.calories)) b += clamp((650 - (m!.calories as number)) / 120, -2, 4);
+  if (t.quicker) {
+    const tt = (r.prep_time_mins ?? 0) + (r.cook_time_mins ?? 0);
+    if (tt > 0) b += clamp((35 - tt) / 12, -2, 4);
+  }
+  if (t.cheaper && Number.isFinite(r.cost_per_serving)) b += clamp((7 - (r.cost_per_serving as number)) / 2, -2, 4);
+  return b;
+}
 
 // Coarse primary-protein keywords for the variety penalty. First match wins; order matters
 // (specific before generic). 'other' = no protein detected → no variety penalty applied.
@@ -68,7 +90,7 @@ function usesLeftover(r: Recipe, remaining: Set<string>): string | null {
 const round2 = (n: number): number => Math.round(n * 100) / 100;
 
 export function autoPlanWeek(input: AutoPlanInput): AutoPlanResult {
-  const { catalog, savedExternalIds, scoreFn, mealTypes, days, weeklyBudgetUsd, leftoversSet, random } = input;
+  const { catalog, savedExternalIds, scoreFn, mealTypes, days, weeklyBudgetUsd, leftoversSet, tunings, random } = input;
 
   // Slots to fill, day-major then meal type (dinners first within a day).
   const specs: { day: number; mealType: MealType }[] = [];
@@ -139,6 +161,9 @@ export function autoPlanWeek(input: AutoPlanInput): AutoPlanResult {
       // Leftover chaining — reward using up an active leftover (each used once; see remaining).
       const lo = usesLeftover(r, remainingLeftovers);
       if (lo) s += 2;
+
+      // Whole-week tuning toggles (More protein / Fewer calories / Quicker / Cheaper).
+      s += tuningBias(r, tunings);
 
       // Seeded jitter for deterministic tie-breaks.
       s += random() * 0.5;

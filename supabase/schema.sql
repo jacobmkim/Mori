@@ -41,6 +41,7 @@ CREATE TABLE profiles (
   email_verification_token uuid,
   email_verification_sent_at timestamptz,
   timezone text DEFAULT 'UTC', -- IANA zone for per-user local scheduling (Sunday Drop); see add-profiles-timezone-202606.sql
+  plan_preferences jsonb, -- last-used Auto Plan tuning toggles; own column so taste_profile writers can't wipe it (add_profiles_plan_preferences)
   created_at timestamp with time zone DEFAULT now()
 );
 

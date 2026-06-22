@@ -2,13 +2,13 @@ import {
   View, Text, FlatList, Pressable, TextInput,
   ActivityIndicator, Alert, Modal, ScrollView, SectionList,
 } from 'react-native';
-import { useState, useEffect, useMemo, type ReactNode } from 'react';
+import { useState, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks/useTheme';
 import { formatTime, getTimeOfDay } from '@/lib/utils';
-import { getRecipesBySupabaseIds, fetchDiscoverRecipes, getMealPlanForWeek, logInteraction, resolveSupabaseId, updateStreakAndCount, generateWeekPlan, logSwipe, recordSessionSwipe } from '@/lib/api';
+import { getRecipesBySupabaseIds, fetchDiscoverRecipes, getMealPlanForWeek, logInteraction, resolveSupabaseId, updateStreakAndCount, generateWeekPlan, logSwipe, recordSessionSwipe, updatePlanPreferences } from '@/lib/api';
 import { autoSlotsToStoreSlots, nextSlotAlternate } from '@/lib/autoPlan';
 import { flags } from '@/lib/featureFlags';
 import { gateMoriPlus } from '@/lib/paywall';
@@ -29,7 +29,7 @@ import { otherUncookedSlotsWithRecipe } from '@/lib/mealPlanCooked';
 import { CUISINES } from '@/constants/cuisines';
 import { ServingsAdjuster } from '@/components/ServingsAdjuster';
 import { HorizontalCard, SectionHeader } from '@/components/RecipeCards';
-import type { Recipe, MealType, MealSlot, SkillLevel, AutoPlanResult } from '@/types';
+import type { Recipe, MealType, MealSlot, SkillLevel, AutoPlanResult, PlanTunings } from '@/types';
 
 const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const MEAL_TYPES: MealType[] = ['breakfast', 'lunch', 'dinner'];
@@ -106,6 +106,10 @@ export default function Plan() {
   // supabase_ids the user manually swapped IN during review — logged as positive taste
   // signals only when the plan is accepted (so cycling alternates doesn't spam swipes).
   const [swappedInIds, setSwappedInIds] = useState<Set<string>>(new Set());
+  // Whole-week tuning toggles; defaulted from the user's saved plan_preferences.
+  const [tunings, setTunings] = useState<PlanTunings>({});
+  // Monotonic id so an older in-flight rebuild can't overwrite a newer one (rapid toggling).
+  const genReqId = useRef(0);
 
   // Count of "non-default" filters for the Filter button badge.
   // Default state is `{meal_prep}` only — that doesn't earn a badge.
@@ -408,20 +412,25 @@ export default function Plan() {
   // ── Auto Plan ("Build my week") ─────────────────────────────────────────────
   // Runs the catalog-only week optimizer (no AI cost). Free users hit the paywall
   // first (Cardinal-rule-safe — this is a NEW feature, never gating an existing one).
-  async function runGenerate(isInitial = false) {
+  // tuningsOverride lets a caller pass the latest tunings without waiting for the
+  // setTunings re-render (avoids a stale-closure read on toggle/initial build).
+  async function runGenerate(isInitial = false, tuningsOverride?: PlanTunings) {
     if (!userId) return;
+    const myId = ++genReqId.current;
     setAutoPlanLoading(true);
     try {
       const savedExternalIds = new Set(savedRecipes.map((r) => r.id));
-      const result = await generateWeekPlan({ userId, profile, dietaryGoals, savedExternalIds });
+      const result = await generateWeekPlan({ userId, profile, dietaryGoals, savedExternalIds, tunings: tuningsOverride ?? tunings });
+      if (myId !== genReqId.current) return; // a newer rebuild superseded this one — drop the stale result
       setAutoPlanResult(result);
     } catch {
-      // Initial build failed → close (nothing to show). A failed Shuffle keeps the
+      if (myId !== genReqId.current) return;
+      // Initial build failed → close (nothing to show). A failed Shuffle/tune keeps the
       // sheet + the prior plan intact so a transient blip can't throw away a good week.
       if (isInitial) setAutoPlanOpen(false);
       Alert.alert('Could not build your week', 'Something went wrong. Please try again.');
     } finally {
-      setAutoPlanLoading(false);
+      if (myId === genReqId.current) setAutoPlanLoading(false);
     }
   }
 
@@ -431,10 +440,32 @@ export default function Plan() {
       const granted = await gateMoriPlus();
       if (!granted) return; // user dismissed the paywall
     }
+    // Default the toggles to the user's last-used preferences (own column). Coerce
+    // defensively — only keep known boolean keys so a malformed value can't seed junk state.
+    const raw = profile?.plan_preferences;
+    const initialTunings: PlanTunings = raw && typeof raw === 'object' && !Array.isArray(raw)
+      ? {
+          moreProtein: !!(raw as any).moreProtein,
+          fewerCalories: !!(raw as any).fewerCalories,
+          quicker: !!(raw as any).quicker,
+          cheaper: !!(raw as any).cheaper,
+        }
+      : {};
+    setTunings(initialTunings);
     setAutoPlanResult(null);
     setSwappedInIds(new Set());
     setAutoPlanOpen(true);
-    runGenerate(true);
+    runGenerate(true, initialTunings);
+  }
+
+  // Toggle a whole-week tuning and rebuild the plan biased toward it. The chip flips
+  // immediately (responsive); the genReqId guard in runGenerate keeps the latest tap's
+  // result. Swaps are discarded on a rebuild (fresh plan), so clear the swap tracking too.
+  function handleToggleTuning(key: keyof PlanTunings) {
+    const next: PlanTunings = { ...tunings, [key]: !tunings[key] };
+    setTunings(next);
+    setSwappedInIds(new Set());
+    runGenerate(false, next);
   }
 
   // One-tap "swap to next best" for a single review slot. Swaps the slot's recipe for the
@@ -510,6 +541,8 @@ export default function Plan() {
           if (s.recipe?.supabase_id && swappedInIds.has(s.recipe.supabase_id)) learnFromChoice(s.recipe);
         });
       }
+      // Remember the tuning toggles so future Auto Plans default to them ("learn my taste").
+      updatePlanPreferences(userId, tunings).catch(() => {});
       // Replace-all (locked decision): wipe the week, then write the auto slots.
       clearSlots();
       newSlots.forEach((s) => addSlot(s));
@@ -1339,6 +1372,8 @@ export default function Plan() {
           onAccept={handleAcceptAutoPlan}
           onPreviewRecipe={(r) => { setPreviewSlot(null); setPreviewRecipe(r); }}
           onSwapSlot={handleSwapSlot}
+          tunings={tunings}
+          onToggleTuning={handleToggleTuning}
         />
       )}
 

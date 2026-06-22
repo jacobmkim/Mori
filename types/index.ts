@@ -44,6 +44,7 @@ export interface Profile {
   last_active_at: string | null;
   notify_winback: boolean;
   timezone?: string | null; // IANA zone for per-user local scheduling (Sunday Drop); DB default 'UTC'
+  plan_preferences?: PlanTunings | null; // last-used Auto Plan tuning toggles (own column, not taste_profile)
 }
 
 // ─── Macros ───────────────────────────────────────────────────────────────────
@@ -136,6 +137,16 @@ export interface AutoPlanSlot {
   alternates?: Recipe[];
 }
 
+/** Whole-week tuning the user can toggle on the review sheet — each biases the optimizer
+ *  toward recipes with that property. Persisted to taste_profile.planPreferences so future
+ *  Auto Plans default to the user's last-used tuning. */
+export interface PlanTunings {
+  moreProtein?: boolean;
+  fewerCalories?: boolean;
+  quicker?: boolean;
+  cheaper?: boolean;
+}
+
 /** Inputs to the PURE week optimizer. The caller pre-filters the catalog for dietary rules. */
 export interface AutoPlanInput {
   catalog: Recipe[];
@@ -145,6 +156,7 @@ export interface AutoPlanInput {
   days: number;                          // e.g. 7
   weeklyBudgetUsd?: number | null;       // soft cap (+5% tolerance); null/undefined = ignore
   leftoversSet?: Set<string>;            // active leftover ingredient names, lowercased
+  tunings?: PlanTunings;                  // whole-week bias toggles; undefined = no bias
   random: () => number;                  // injected RNG (Math.random in prod, seeded in tests)
 }
 

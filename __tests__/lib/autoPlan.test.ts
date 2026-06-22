@@ -191,3 +191,67 @@ describe('autoPlanWeek — swap alternates', () => {
     expect(last.alternates!.length).toBeLessThanOrEqual(1);
   });
 });
+
+describe('autoPlanWeek — whole-week tuning bias', () => {
+  // Local builder so we can set macros/time/cost precisely without touching `mr`.
+  function tr(over: Record<string, any> & { id: string }): Recipe {
+    return {
+      supabase_id: over.id, external_id: over.id, title: over.id,
+      cuisine: null, meal_types: ['dinner'], cost_per_serving: 5, macros: null,
+      prep_time_mins: 30, cook_time_mins: 0, ingredients: [], dietary_tags: [], ...over,
+    } as any;
+  }
+  const flat = () => 0.1; // constant jitter → bias is the only differentiator
+  function pick(catalog: Recipe[], tunings?: any) {
+    return autoPlanWeek({
+      catalog, savedExternalIds: new Set(), scoreFn: () => 0,
+      mealTypes: ['dinner'], days: 1, tunings, random: flat,
+    }).slots[0].recipe?.id;
+  }
+
+  it('moreProtein surfaces the higher-protein dinner', () => {
+    const lowP = tr({ id: 'low', macros: { protein: 10, calories: 500 } });
+    const highP = tr({ id: 'high', macros: { protein: 45, calories: 500 } });
+    expect(pick([lowP, highP], { moreProtein: true })).toBe('high');
+  });
+
+  it('fewerCalories surfaces the lower-calorie dinner', () => {
+    const lite = tr({ id: 'lite', macros: { protein: 20, calories: 400 } });
+    const heavy = tr({ id: 'heavy', macros: { protein: 20, calories: 900 } });
+    expect(pick([heavy, lite], { fewerCalories: true })).toBe('lite');
+  });
+
+  it('quicker surfaces the faster dinner', () => {
+    const fast = tr({ id: 'fast', prep_time_mins: 10, cook_time_mins: 5 });
+    const slow = tr({ id: 'slow', prep_time_mins: 40, cook_time_mins: 30 });
+    expect(pick([slow, fast], { quicker: true })).toBe('fast');
+  });
+
+  it('cheaper surfaces the cheaper dinner', () => {
+    const cheap = tr({ id: 'cheap', cost_per_serving: 3 });
+    const pricey = tr({ id: 'pricey', cost_per_serving: 12 });
+    expect(pick([pricey, cheap], { cheaper: true })).toBe('cheap');
+  });
+
+  it('no tunings (undefined) === empty tunings — both neutral', () => {
+    const a = tr({ id: 'a', macros: { protein: 50, calories: 500 } });
+    const b = tr({ id: 'b', macros: { protein: 5, calories: 500 } });
+    expect(pick([a, b], undefined)).toBe(pick([a, b], {}));
+  });
+
+  it('bias is bounded — a strong taste lead still beats a mega-protein recipe', () => {
+    const tasty = tr({ id: 'tasty', macros: { protein: 5, calories: 500 } });
+    const mega = tr({ id: 'mega', macros: { protein: 1000, calories: 500 } });
+    const res = autoPlanWeek({
+      catalog: [tasty, mega], savedExternalIds: new Set(),
+      scoreFn: (r) => (r.id === 'tasty' ? 10 : 0), // taste lead of +10
+      mealTypes: ['dinner'], days: 1, tunings: { moreProtein: true }, random: flat,
+    });
+    expect(res.slots[0].recipe!.id).toBe('tasty'); // +4 cap can't override +10 taste
+  });
+
+  it('does not crash when recipes lack macros/cost/time under all toggles', () => {
+    const bare = tr({ id: 'bare', macros: null, cost_per_serving: null, prep_time_mins: null, cook_time_mins: null });
+    expect(() => pick([bare], { moreProtein: true, fewerCalories: true, quicker: true, cheaper: true })).not.toThrow();
+  });
+});

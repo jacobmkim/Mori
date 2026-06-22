@@ -18,8 +18,9 @@ Build plan: [`.claude/plans/mori-plus-flagship-build-plan-2026-06-16.md`](plans/
 | I2 | profiles.timezone capture | ✅ | ✅ 9 | ✅ 3-agent | 942/942 | ✅ `f0a02de` | ✅ real zone (Chicago) |
 | I3 | lib/autoPlan.ts optimizer | ✅ | ✅ 12 | ✅ 3-agent | 954/954 | ✅ `9703622` | N/A (pure lib) |
 | I4 | generateWeekPlan (client) + meal_types | ✅ | deferred→I5 | ✅ 3-agent | 954/954 | ✅ `57a8393` | N/A (no UI) |
-| I5 | "Build my week" UI + paywall | ✅ | ✅ 12 | ✅ 3-agent | 966/966 | ✅ `4cdf8cf` | ⬜ pending |
-| I5.1 | swap→next-best + learn + readability + modal fix | ✅ | ✅ 8 | ✅ 3-agent | 974/974 | ⬜ pending | ⬜ pending |
+| I5 | "Build my week" UI + paywall | ✅ | ✅ 12 | ✅ 3-agent | 966/966 | ✅ `4cdf8cf` | ✅ user OK 6-22 |
+| I5.1 | swap→next-best + learn + readability + modal fix | ✅ | ✅ 8 | ✅ 3-agent | 974/974 | ✅ `c033d37` | ✅ user OK 6-22 |
+| I5.2 | whole-week tuning toggles + persist prefs | ✅ | ✅ 7 | ✅ 3-agent | 981/981 | ⬜ pending | ⬜ pending |
 | I6 | checkAiBudget wiring | ⬜ | | | | | |
 | I7 | Sunday Drop cron + push | ⬜ | | | | | |
 | I8 | SundayDropSection reveal UI | ⬜ | | | | | |
@@ -332,8 +333,68 @@ ignores-no-supabase_id (5).
 
 ### Deferred to I5.2 (next increment)
 - **Whole-week tuning toggles** (More protein / Fewer calories / Quicker / Cheaper) — re-bias the optimizer
-  + persist last-used to `taste_profile.planPreferences` so future plans default to them. Needs a small
-  `generateWeekPlan` context-cache refactor for instant re-tune; that's why it's its own increment.
+  + persist last-used so future plans default to them. ✅ DONE below.
+
+---
+
+## I5.2 — Whole-week tuning toggles + persisted preferences
+**Suite:** 981/981 · **Status:** code done + reviewed (all fixes applied); commit + device-test pending
+
+### What it does
+A "Tune the week" row of 4 toggle chips on the review sheet (More protein / Fewer calories / Quicker /
+Cheaper). Tapping one rebuilds the week biased toward it (bounded ≈±4 per toggle — shapes, never dominates
+taste). On accept the active toggles persist to `profiles.plan_preferences`, and the next Build defaults to
+them ("learn my taste"). Shuffle keeps the active toggles.
+
+### Files
+- `types/index.ts` — `PlanTunings`; `AutoPlanInput.tunings`; `Profile.plan_preferences`.
+- `lib/autoPlan.ts` — `tuningBias(recipe, tunings)` (NaN-safe via Number.isFinite) applied in the candidate loop.
+- `lib/api.ts` — `generateWeekPlan` threads `tunings`; `updatePlanPreferences` (atomic single-column write).
+- `components/AutoPlanSheet.tsx` — toggle row + inline re-tune state (no full-screen flicker).
+- `app/(tabs)/plan.tsx` — tunings state, default-from-profile, `handleToggleTuning`, req-id-guarded rebuild,
+  persist-on-accept.
+- Prod migration `add_profiles_plan_preferences` + schema.sql.
+
+### Automated tests (7 new) — 981/981
+`autoPlan.test.ts`: each toggle surfaces the right recipe (protein/cal/time/cost); undefined===empty (neutral);
+bias is bounded (a +10 taste lead beats a mega-protein recipe); no crash on missing macros/cost/time.
+
+### Adversarial review — 3 agents (correctness / security / UX-state). All findings fixed.
+- 🟠 **HIGH (security) — FIXED.** `planPreferences` was nested in `taste_profile`, which the server-side
+  taste-profile writers (`api/taste-profile.ts`, `taste-notifications` cron, `ProfileSheet`) WHOLESALE
+  overwrite → every taste-profile refresh silently wiped the user's tuning defaults (and a stale-read merge
+  could drop `flavourDna`, the scorer's input). Fix: moved to its OWN column `profiles.plan_preferences`
+  (atomic write, no read-modify-write, no shared cell with the taste-profile blob).
+- 🟠 **HIGH (correctness) — FIXED.** `tuningBias` guarded with `!= null`, which admits NaN/strings from raw
+  JSONB → `clamp(NaN)=NaN` → poisoned the candidate score + undefined sort order. Now `Number.isFinite`
+  (matches the macro-balance term's `>0` guard).
+- 🟠 **HIGH (UX) — FIXED.** Tapping a toggle triggered the full-screen "Building your week…" takeover — the
+  chip vanished under the finger ("feels broken"). Now the full-screen state is initial-build-only; a re-tune
+  keeps the toggles interactive, shows an inline "Updating your week…" spinner, and dims the day cards.
+- 🟡 **MEDIUM (UX) — FIXED.** With toggles now interactive during rebuild, the old `if(autoPlanLoading)return`
+  silently dropped taps + had no request sequencing. Replaced with a `genReqId` ref guard so the latest tap
+  always wins (stale rebuilds drop their result); footer Shuffle/Accept disabled during a rebuild.
+- 🟢 Verified clean: IDOR (RLS `auth.uid()=id` scopes the write; userId from session), no write-amplification
+  (persist once per accept, not per toggle), tunings never reach `meal_plans.slots`, determinism preserved
+  (bias is pure, pre-jitter), default-from-profile has no wrong-state flash, Shuffle keeps tunings, theming
+  clean in light + dark, toggles render even on a thin/empty plan.
+- 🟡 Accepted LOW: `plan_preferences` write is untyped JSONB (no Zod) — fail-safe (default-read coerces to
+  4 booleans; tuningBias reads literal keys + clamps); a failed re-tune briefly leaves a chip active ahead of
+  the unchanged plan (self-heals on next action).
+
+### Manual device checklist (STOP-and-test)
+- [ ] Build my week → tap **More protein** → toggles stay put, "Updating…" spinner, week re-ranks higher-protein
+  (no full-screen flash). Same for Fewer calories / Quicker / Cheaper.
+- [ ] Toggle a couple rapidly → no jank, final plan matches the lit chips (req-id guard).
+- [ ] Accept with toggles on → close → Build again → the same toggles are pre-lit (persisted defaults).
+- [ ] Shuffle keeps the lit toggles. Toggles legible in light + dark.
+
+### Deferred (flagged)
+- Tunings bias Auto Plan only; they do NOT yet re-rank the Discover deck (would need the core scorer to read
+  `plan_preferences` — its own change with broad blast radius). Swaps already feed Discover via right-swipes.
+- Optional: a Zod schema for `plan_preferences` + making the server taste-profile writers merge-preserving
+  (now moot for prefs since it's a separate column, but `flavourDna` clobber-on-stale-read still theoretically
+  exists for the taste-profile pipeline itself — pre-existing, out of this increment's scope).
 
 ---
 
