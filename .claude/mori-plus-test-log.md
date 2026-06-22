@@ -14,8 +14,8 @@ Build plan: [`.claude/plans/mori-plus-flagship-build-plan-2026-06-16.md`](plans/
 
 | # | Increment | Code | Jest | Agent review | Suite | Committed | Device-tested |
 |---|---|---|---|---|---|---|---|
-| I1 | flavourDna → scoreRecipe | ✅ | ✅ 8 | ✅ 3-agent | 933/933 | ✅ `7c40b47` | ⏳ pending user |
-| I2 | profiles.timezone capture | ✅ | ✅ 9 | ✅ 3-agent | 942/942 | ✅ `f0a02de` | ⏳ Hermes-Intl gate |
+| I1 | flavourDna → scoreRecipe | ✅ | ✅ 8 | ✅ 3-agent | 933/933 | ✅ `7c40b47` | ✅ deck OK on device |
+| I2 | profiles.timezone capture | ✅ | ✅ 9 | ✅ 3-agent | 942/942 | ✅ `f0a02de` | ✅ real zone (Chicago) |
 | I3 | lib/autoPlan.ts optimizer | ✅ | ✅ 12 | ✅ 3-agent | 954/954 | ✅ `9703622` | N/A (pure lib) |
 | I4 | generateWeekPlan (client) + meal_types | ✅ | deferred→I5 | ✅ 3-agent | 954/954 | ✅ `57a8393` | N/A (no UI) |
 | I5 | "Build my week" UI + paywall | ⬜ | | | | | |
