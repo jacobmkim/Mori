@@ -745,10 +745,17 @@ export function scoreRecipe(
   ratingMap?: Map<string, number>,
   savedAtMap?: Map<string, string>,
   flavourDna?: Record<string, { score: number; note: string }> | null,
+  // Auto Plan reuses this scorer. When planning a week we must NOT treat "merely
+  // shown in the Discover deck this session" as a reason to exclude a recipe —
+  // that's a deck-dedup concern, not a taste signal, and it would silently empty
+  // the plan for an engaged user who browsed before tapping "Build my week".
+  // An ACTIVE left-swipe this session is still a real "no", so that stays excluded.
+  forPlanning = false,
 ): number {
   // Bug 7 — session penalty: instantly exclude anything swiped this session
   const sid = recipe.supabase_id;
-  if (sid && (sessionLeftSwipes.has(sid) || sessionShownIds.has(sid))) return -999;
+  if (sid && sessionLeftSwipes.has(sid)) return -999;
+  if (sid && !forPlanning && sessionShownIds.has(sid)) return -999;
 
   let score = Math.random() * 3; // jitter — shuffles similarly-scored recipes each session
 
@@ -1052,7 +1059,7 @@ export async function generateWeekPlan(opts: {
   }
 
   const scoreFn = (recipe: Recipe): number =>
-    scoreRecipe(recipe, profile, swipeMap, savedExternalIds, affinityMap, interactionMap, pantrySet, leftoversSet, ratingMap, savedAtMap, flavourDna);
+    scoreRecipe(recipe, profile, swipeMap, savedExternalIds, affinityMap, interactionMap, pantrySet, leftoversSet, ratingMap, savedAtMap, flavourDna, true);
 
   return autoPlanWeek({
     catalog: pool,
@@ -2053,14 +2060,19 @@ export async function saveMealPlan(
       .from('meal_plans')
       .update({ slots })
       .eq('id', existingId)
+      .eq('user_id', userId) // defense-in-depth; RLS already scopes writes to auth.uid()
       .select()
       .single();
     if (error) throw error;
     return data;
   }
+  // Upsert on (user_id, week_start_date): a save for a week that already has a row —
+  // e.g. a rapid double-accept before the inserted id latches into the store — updates
+  // it instead of creating a duplicate that would later break getMealPlanForWeek's
+  // .maybeSingle(). Backed by the meal_plans_user_week_unique constraint.
   const { data, error } = await supabase
     .from('meal_plans')
-    .insert({ user_id: userId, week_start_date: weekStart, slots })
+    .upsert({ user_id: userId, week_start_date: weekStart, slots }, { onConflict: 'user_id,week_start_date' })
     .select()
     .single();
   if (error) throw error;

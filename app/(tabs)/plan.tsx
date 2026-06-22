@@ -8,7 +8,11 @@ import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks/useTheme';
 import { formatTime } from '@/lib/utils';
-import { getRecipesBySupabaseIds, fetchDiscoverRecipes, getMealPlanForWeek, logInteraction, resolveSupabaseId, updateStreakAndCount } from '@/lib/api';
+import { getRecipesBySupabaseIds, fetchDiscoverRecipes, getMealPlanForWeek, logInteraction, resolveSupabaseId, updateStreakAndCount, generateWeekPlan } from '@/lib/api';
+import { autoSlotsToStoreSlots } from '@/lib/autoPlan';
+import { flags } from '@/lib/featureFlags';
+import { gateMoriPlus } from '@/lib/paywall';
+import { AutoPlanSheet } from '@/components/AutoPlanSheet';
 import { getRecipeImageUrl } from '@/lib/recipeImage';
 import { getNewlyEarned, type Badge, type BadgeStats } from '@/lib/badges';
 import { BadgeAchievementModal } from '@/components/badges/BadgeAchievementModal';
@@ -25,7 +29,7 @@ import { otherUncookedSlotsWithRecipe } from '@/lib/mealPlanCooked';
 import { CUISINES } from '@/constants/cuisines';
 import { ServingsAdjuster } from '@/components/ServingsAdjuster';
 import { HorizontalCard, SectionHeader } from '@/components/RecipeCards';
-import type { Recipe, MealType, MealSlot, SkillLevel } from '@/types';
+import type { Recipe, MealType, MealSlot, SkillLevel, AutoPlanResult } from '@/types';
 
 const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const MEAL_TYPES: MealType[] = ['breakfast', 'lunch', 'dinner'];
@@ -72,6 +76,8 @@ function todayDayIndex(): number {
 export default function Plan() {
   const colors = useTheme();
   const userId = useUserStore((s) => s.profile?.id);
+  const profile = useUserStore((s) => s.profile);
+  const isPremium = useUserStore((s) => s.isPremium);
   const dietaryGoals = useUserStore((s) => s.profile?.dietary_goals) ?? [];
   const [weekOffset, setWeekOffset] = useState(0);
   const [slotRecipes, setSlotRecipes] = useState<Record<string, Recipe>>({});
@@ -93,6 +99,10 @@ export default function Plan() {
   const [badgeQueue, setBadgeQueue] = useState<Badge[]>([]);
   const [lastWeekSlots, setLastWeekSlots] = useState<MealSlot[]>([]);
   const [selectedDay, setSelectedDay] = useState<number>(() => todayDayIndex());
+  // Auto Plan ("Build my week") — Mori+ flagship.
+  const [autoPlanOpen, setAutoPlanOpen] = useState(false);
+  const [autoPlanLoading, setAutoPlanLoading] = useState(false);
+  const [autoPlanResult, setAutoPlanResult] = useState<AutoPlanResult | null>(null);
 
   // Count of "non-default" filters for the Filter button badge.
   // Default state is `{meal_prep}` only — that doesn't earn a badge.
@@ -352,8 +362,11 @@ export default function Plan() {
     if (!userId || lastWeekSlots.length === 0) return;
     const apply = () => {
       // Replace this week's slots with last week's. addSlot() upserts per (day, mealType).
+      // Copying is a fresh MANUAL action: drop last week's cooked state (these meals
+      // aren't cooked yet) and any Auto Plan provenance (so the I9 dogfood cooked-rate
+      // metric only counts genuinely auto-planned slots).
       clearSlots();
-      lastWeekSlots.forEach((s) => addSlot({ ...s }));
+      lastWeekSlots.forEach((s) => addSlot({ ...s, cooked_at: null, provenance: 'manual', auto_explanation: null }));
       savePlan(userId, weekStart);
     };
     if (slots.length === 0) {
@@ -387,6 +400,77 @@ export default function Plan() {
         },
       ]
     );
+  }
+
+  // ── Auto Plan ("Build my week") ─────────────────────────────────────────────
+  // Runs the catalog-only week optimizer (no AI cost). Free users hit the paywall
+  // first (Cardinal-rule-safe — this is a NEW feature, never gating an existing one).
+  async function runGenerate(isInitial = false) {
+    if (!userId) return;
+    setAutoPlanLoading(true);
+    try {
+      const savedExternalIds = new Set(savedRecipes.map((r) => r.id));
+      const result = await generateWeekPlan({ userId, profile, dietaryGoals, savedExternalIds });
+      setAutoPlanResult(result);
+    } catch {
+      // Initial build failed → close (nothing to show). A failed Shuffle keeps the
+      // sheet + the prior plan intact so a transient blip can't throw away a good week.
+      if (isInitial) setAutoPlanOpen(false);
+      Alert.alert('Could not build your week', 'Something went wrong. Please try again.');
+    } finally {
+      setAutoPlanLoading(false);
+    }
+  }
+
+  async function handleBuildMyWeek() {
+    if (!flags.moriPlusEnabled || !userId) return;
+    if (!isPremium) {
+      const granted = await gateMoriPlus();
+      if (!granted) return; // user dismissed the paywall
+    }
+    setAutoPlanResult(null);
+    setAutoPlanOpen(true);
+    runGenerate(true);
+  }
+
+  function handleAcceptAutoPlan() {
+    if (!userId || !autoPlanResult) return;
+    const newSlots = autoSlotsToStoreSlots(autoPlanResult.slots);
+    if (newSlots.length === 0) {
+      Alert.alert(
+        'Nothing to add',
+        "Mori couldn't find dinners that fit your filters. Try saving a few more recipes, then build again.",
+      );
+      return;
+    }
+    const apply = () => {
+      // Pre-hydrate slotRecipes from the result so the plan renders instantly
+      // (no "Recipe removed" flash before getRecipesBySupabaseIds resolves).
+      const hydrate: Record<string, Recipe> = {};
+      autoPlanResult.slots.forEach((s) => {
+        if (s.recipe?.supabase_id) hydrate[s.recipe.supabase_id] = s.recipe;
+      });
+      setSlotRecipes((prev) => ({ ...prev, ...hydrate }));
+      // Replace-all (locked decision): wipe the week, then write the auto slots.
+      clearSlots();
+      newSlots.forEach((s) => addSlot(s));
+      savePlan(userId, weekStart);
+      setAutoPlanOpen(false);
+      setAutoPlanResult(null);
+      setSelectedDay(weekOffset === 0 ? todayDayIndex() : 0);
+    };
+    if (slots.length > 0) {
+      Alert.alert(
+        'Replace this week?',
+        `This replaces your current ${slots.length} planned meal${slots.length !== 1 ? 's' : ''} with ${newSlots.length} auto-planned dinner${newSlots.length !== 1 ? 's' : ''}.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Replace', style: 'destructive', onPress: apply },
+        ],
+      );
+    } else {
+      apply();
+    }
   }
 
   function handleAddAllToGrocery() {
@@ -489,6 +573,31 @@ export default function Plan() {
       </View>
 
       <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}>
+        {/* Build my week — Mori+ Auto Plan. Always visible when the surface is live
+            (free users tap → paywall); hidden entirely while the kill switch is off.
+            Current week only — the optimizer is grounded in "now" (leftovers, taste),
+            so planning a future/past week would chain spoiled leftovers + lie in its
+            explanations. Other weeks keep manual planning + Copy last week. */}
+        {flags.moriPlusEnabled && weekOffset === 0 && (
+          <Pressable
+            onPress={handleBuildMyWeek}
+            style={{
+              flexDirection: 'row', alignItems: 'center', gap: 12,
+              backgroundColor: colors.primary, borderRadius: 14,
+              paddingHorizontal: 16, paddingVertical: 14, marginTop: 8, marginBottom: 4,
+            }}
+          >
+            <Ionicons name="sparkles" size={22} color="white" />
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 15, fontWeight: '700', color: 'white' }}>Build my week</Text>
+              <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.85)', marginTop: 1 }}>
+                Mori plans 7 dinners around your taste{isPremium ? '' : ' · Mori+'}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.9)" />
+          </Pressable>
+        )}
+
         {/* Week actions — Copy from last week / Clear week, contextual */}
         {(lastWeekSlots.length > 0 || slots.length > 0) && (
           <View style={{ flexDirection: 'row', gap: 16, marginTop: 4, marginBottom: 12 }}>
@@ -1155,6 +1264,17 @@ export default function Plan() {
             })
             .catch(() => {});
         }}
+      />
+
+      <AutoPlanSheet
+        visible={autoPlanOpen}
+        loading={autoPlanLoading}
+        result={autoPlanResult}
+        dayNames={DAY_NAMES}
+        onClose={() => { setAutoPlanOpen(false); setAutoPlanResult(null); }}
+        onRegenerate={() => runGenerate(false)}
+        onAccept={handleAcceptAutoPlan}
+        onPreviewRecipe={(r) => { setPreviewSlot(null); setPreviewRecipe(r); }}
       />
 
       <BadgeAchievementModal queue={badgeQueue} onQueueChange={setBadgeQueue} />

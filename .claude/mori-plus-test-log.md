@@ -18,7 +18,7 @@ Build plan: [`.claude/plans/mori-plus-flagship-build-plan-2026-06-16.md`](plans/
 | I2 | profiles.timezone capture | ✅ | ✅ 9 | ✅ 3-agent | 942/942 | ✅ `f0a02de` | ✅ real zone (Chicago) |
 | I3 | lib/autoPlan.ts optimizer | ✅ | ✅ 12 | ✅ 3-agent | 954/954 | ✅ `9703622` | N/A (pure lib) |
 | I4 | generateWeekPlan (client) + meal_types | ✅ | deferred→I5 | ✅ 3-agent | 954/954 | ✅ `57a8393` | N/A (no UI) |
-| I5 | "Build my week" UI + paywall | ⬜ | | | | | |
+| I5 | "Build my week" UI + paywall | ✅ | ✅ 12 | ✅ 3-agent | 966/966 | ⬜ pending | ⬜ pending |
 | I6 | checkAiBudget wiring | ⬜ | | | | | |
 | I7 | Sunday Drop cron + push | ⬜ | | | | | |
 | I8 | SundayDropSection reveal UI | ⬜ | | | | | |
@@ -200,6 +200,78 @@ round-trips through `meal_plans.slots`).
    → `MealSlot.recipe_id`; default `servings_multiplier: 1`; carry provenance + explanation.
 3. `AutoPlanSheet.tsx` (reuse `RecipeCards.tsx`); render partial weeks (null slots → "needs a fresh recipe").
 4. The integration test above.
+
+---
+
+## I5 — "Build my week" UI + paywall gate + persistence
+**Suite:** 966/966 · **Status:** code done + reviewed (ship-with-fixes; all applied); commit + device-test pending
+
+### What it does
+Surfaces the Auto Plan engine in the Plan tab. A "Build my week" button (visible only when the
+kill switch is on AND viewing the current week) gates free users through the paywall, then runs the
+client-side `generateWeekPlan` → `autoPlanWeek` and shows the result in a new `AutoPlanSheet`
+(per-day dinner cards + "why this" explanations + over-budget warning + Shuffle/Use-this-plan).
+Accepting maps the optimizer slots → `MealSlot[]` (`autoSlotsToStoreSlots`) and **replaces** the
+week (confirm alert if filled), persisting via the existing `savePlan`. Pre-hydrates `slotRecipes`
+so the plan renders with no "Recipe removed" flash.
+
+### Files
+- `types/index.ts` — `MealSlot.provenance?` + `MealSlot.auto_explanation?` (additive, ride the JSONB)
+- `lib/autoPlan.ts` — new pure `autoSlotsToStoreSlots()` (maps to real `supabase_id`, drops null /
+  unhydratable slots, defaults `servings_multiplier:1`, carries provenance + explanation)
+- `components/AutoPlanSheet.tsx` — new, presentation-only (no I/O; plan.tsx owns generate + persist)
+- `app/(tabs)/plan.tsx` — button + `runGenerate`/`handleBuildMyWeek`/`handleAcceptAutoPlan` + sheet mount
+- `lib/api.ts` — `scoreRecipe` `forPlanning` param (C1 fix); `saveMealPlan` → upsert + `user_id` guard
+- `supabase/schema.sql` + prod migration `add_meal_plans_user_week_unique`
+
+### Automated tests (12 new) — 966/966
+- `__tests__/lib/autoPlanSlots.test.ts` (8): supabase_id→recipe_id mapping (never external id);
+  day/meal_type/provenance/explanation carry-through; default servings; drops null-recipe slots;
+  drops missing-supabase_id; empty explanation→null; empty input; JSONB round-trip.
+- `__tests__/lib/scoreRecipe.test.ts` (4): `forPlanning` relaxes the session-shown exclusion but
+  keeps the active left-swipe exclusion (C1 regression guard).
+
+### Adversarial review — 3 agents (correctness-integration / security-abuse / state-regression)
+- 🔴 **C1 CRITICAL — FIXED.** `generateWeekPlan` reuses `scoreRecipe`, which hard-returns `-999` for any
+  recipe in `sessionShownIds` (every card shown in Discover this session). An engaged user who browsed
+  before tapping "Build my week" got an empty/degraded plan — invisible (session-only, passes cold-launch
+  test) and straight at the flagship promise + the I9 cooked-rate gate. Fix: `forPlanning` flag skips the
+  *merely-shown* exclusion (a deck-dedup concern, not taste) while keeping the *active left-swipe* one.
+- 🟠 **H1 HIGH — FIXED.** `meal_plans` had no `UNIQUE(user_id, week_start_date)`; the replace-all/Shuffle
+  loop could create duplicate week rows that later break `getMealPlanForWeek`'s `.maybeSingle()`. Verified
+  0 existing dupes → added the constraint (prod migration + schema.sql) → `saveMealPlan` now upserts.
+- 🟠 **MEDIUM (state) — FIXED.** Auto Plan is "now"-grounded (leftovers, taste); writing it to a future/past
+  week chained spoiled leftovers + lied in explanations. Locked "Build my week" to `weekOffset === 0` —
+  also neutralizes the week-change-under-sheet write + the "this week" alert-copy mismatch.
+- 🟡 **M1 / M2 / LOW-1 / LOW-2 — FIXED.** Shuffle failure no longer discards a good plan; the Accept
+  button's enabled-state uses the same `supabase_id` predicate as the persist mapping; `handleCopyLastWeek`
+  now strips `cooked_at` (pre-existing bug: copied weeks were marked cooked) + provenance/auto_explanation
+  (keeps the I9 metric clean).
+- 🟢 **Security audit — SHIP-SAFE, no CRITICAL/HIGH.** Gate boundary correct (Auto Plan is catalog-only,
+  zero AI/server cost → client gating is the right layer; I6 server-gates the AI endpoints). Kill switch
+  fully darkens (button hidden + handler no-op + gate no-op + entitlement-false). Cardinal rule intact
+  (all existing free flows ungated). Dev-premium `__DEV__`-DCE'd. No IDOR (RLS `auth.uid()=user_id`
+  backstops the `existingId` UPDATE; added `.eq('user_id')` defense-in-depth). No JSONB injection.
+- ✅ Verified clean by the auditors (not assumed): day-index Mon-first alignment, the `clearSlots →
+  addSlot → savePlan` ordering (no zustand race), saved-key consistency, modal layering.
+
+### Manual device checklist (STOP-and-test) — needs the kill switch ON (`EXPO_PUBLIC_MORI_PLUS_ENABLED=true`)
+- [ ] **Premium user, current week:** tap "Build my week" → sheet builds 7 dinners + explanations →
+  "Use this plan" → week fills, slots hydrate (no "Recipe removed" flash), macros update.
+- [ ] **Shuffle** produces a different plan; a Shuffle while a good plan is shown never loses it.
+- [ ] **Replace confirm:** with a filled week, accepting prompts "Replace this week?"; Cancel keeps the old plan.
+- [ ] **C1 real-world:** browse/swipe Discover first, THEN Build my week in the SAME session → still a full
+  7-dinner plan (not empty/thin). This is the core regression — exercise it deliberately.
+- [ ] **Free user (toggle dev-premium OFF):** tap "Build my week" → paywall appears; dismiss → no plan built;
+  manual planning / Copy last week / picker all still work.
+- [ ] **Other weeks:** navigate to next/prev week → "Build my week" button is hidden (manual flows remain).
+- [ ] **Persistence:** accept a plan, kill + relaunch → the week reloads with the same dinners + provenance.
+
+### Deferred (flagged)
+- A live sandbox-user integration test (generateWeekPlan over real Supabase) stays a DEVICE check — jest
+  can't auth/network it. Pure mapping + JSONB round-trip ARE unit-tested; the end-to-end is the checklist above.
+- Per-slot "why this" rendering in the Plan-tab slot rows (the data now persists in `auto_explanation`) —
+  small follow-up; the sheet already shows explanations.
 
 ---
 

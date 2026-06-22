@@ -12,7 +12,7 @@ jest.mock('@/lib/supabase', () => ({
   },
 }));
 
-import { scoreRecipe } from '@/lib/api';
+import { scoreRecipe, recordSessionSwipe, clearSessionState } from '@/lib/api';
 
 // Minimal stubs so other scorer branches don't interfere
 const NO_PROFILE = null;
@@ -403,5 +403,45 @@ describe('scoreRecipe — flavourDna (Cook DNA) bonuses', () => {
                 - score(r, p, dna({ explorer: 50, speed: 50, planner: 50 }));
     expect(delta).toBeGreaterThan(0);
     expect(delta).toBeLessThanOrEqual(4); // 1.5 + 1 + 1 = 3.5
+  });
+});
+
+// ─── forPlanning flag — Auto Plan must not inherit the deck's "merely shown" exclusion ──
+// Regression guard for the I5 audit C1 finding: scoreRecipe hard-returns -999 for any
+// recipe in the session sets. For the DECK that's correct (don't re-show a card this
+// session). For AUTO PLAN (forPlanning=true) a merely-shown recipe must stay eligible —
+// otherwise an engaged user who browsed Discover before tapping "Build my week" gets an
+// empty/degraded plan. An ACTIVE left-swipe is a real "no" and stays excluded either way.
+describe('scoreRecipe — forPlanning relaxes the session-shown exclusion', () => {
+  const SID = 'sb-r1';
+  function callPlan(forPlanning: boolean): number {
+    return scoreRecipe(
+      makeRecipe(['chicken']),
+      NO_PROFILE, EMPTY_MAP, EMPTY_SET, EMPTY_MAP, EMPTY_MAP, EMPTY_SET,
+      undefined, undefined, undefined, null, forPlanning,
+    );
+  }
+
+  beforeEach(() => clearSessionState());
+  afterEach(() => clearSessionState());
+
+  it('deck mode (default) excludes a recipe merely shown this session (-999)', () => {
+    recordSessionSwipe(SID, 'right'); // right swipe → shown, not a reject
+    expect(callPlan(false)).toBe(-999);
+  });
+
+  it('planning mode keeps a merely-shown recipe eligible (not -999)', () => {
+    recordSessionSwipe(SID, 'right');
+    expect(callPlan(true)).toBeGreaterThan(-999);
+  });
+
+  it('planning mode STILL excludes an active left-swipe this session (-999)', () => {
+    recordSessionSwipe(SID, 'left'); // active reject
+    expect(callPlan(true)).toBe(-999);
+  });
+
+  it('with no session state, planning and deck modes agree (no exclusion)', () => {
+    expect(callPlan(false)).toBeGreaterThan(-999);
+    expect(callPlan(true)).toBeGreaterThan(-999);
   });
 });

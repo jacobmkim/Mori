@@ -12,7 +12,7 @@
 // problem and trivially deterministic. Dietary filtering is the CALLER's job; this optimizer
 // never re-adds an excluded recipe.
 
-import type { Recipe, AutoPlanInput, AutoPlanResult, AutoPlanSlot, MealType } from '@/types';
+import type { Recipe, AutoPlanInput, AutoPlanResult, AutoPlanSlot, MealType, MealSlot } from '@/types';
 
 // Coarse primary-protein keywords for the variety penalty. First match wins; order matters
 // (specific before generic). 'other' = no protein detected → no variety penalty applied.
@@ -191,6 +191,33 @@ export function autoPlanWeek(input: AutoPlanInput): AutoPlanResult {
   });
 
   return { slots, generateNeeded, totalCost: round2(totalCost), overBudget, explanation };
+}
+
+/**
+ * Map optimizer output → persistable MealSlots (the bridge into mealPlanStore / meal_plans).
+ * PURE. Three deliberate rules:
+ *   1. Drop slots with no recipe (generateNeeded — nothing to persist).
+ *   2. Map to the recipe's REAL Supabase UUID (`recipe.supabase_id`), NEVER `recipe.id` — id is
+ *      the external/TheMealDB id for seeded recipes, and `meal_plans.slots.recipe_id` must match
+ *      `recipes.id` so getRecipesBySupabaseIds() can hydrate it. A recipe lacking supabase_id is
+ *      dropped rather than persisted with an unhydratable id (a dropped slot beats a "ghost" slot).
+ *   3. Default servings_multiplier to 1; carry provenance + the per-slot explanation through.
+ */
+export function autoSlotsToStoreSlots(slots: AutoPlanSlot[]): MealSlot[] {
+  const out: MealSlot[] = [];
+  for (const s of slots) {
+    const supabaseId = s.recipe?.supabase_id;
+    if (!supabaseId) continue;
+    out.push({
+      day: s.day,
+      meal_type: s.mealType,
+      recipe_id: supabaseId,
+      servings_multiplier: 1,
+      provenance: s.provenance,
+      auto_explanation: s.explanation || null,
+    });
+  }
+  return out;
 }
 
 function explainSlot(r: Recipe, isSaved: boolean, leftover: string | null): string {

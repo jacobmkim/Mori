@@ -2,6 +2,12 @@
 
 ## Current Priority — Mori+ build-out (6.0.1 submitted to App Review 2026-06-10)
 
+Commandments: These MUST NOT BE CHANGED or altered by Claude.
+1. Always have auditor agents scrutinizing all code changes. Must be checking for bugs, cybersecurity, and inline with the task at hand. 
+2. Always check to create test cases after a large task has been completed.
+3. If you are not 85% sure the task can be completed ask me questions until you do.
+4. Always consider how we beat our competitors.
+
 **"Mori 2.0" (technical app version `6.0.0`) is LIVE in the US + CA App Store** (confirmed 2026-06-10; free tier only; v1 had been live since 2026-05-05). **`6.0.1` (bug-fix release, cut from `872d5e8`) was submitted to App Review 2026-06-10** — it carries the 2026-06-09 bug-scan batch + cook-photos work; **ships under the listing name "Mori 2.1"** (marketing name continues the 2.0 convention — never the CFBundleShortVersionString). **The next submission after that is `6.1.0`: the Mori+ paid binary** (new native module `react-native-purchases` ⇒ new binary + runtimeVersion, can't OTA). Versioning history: the "2.0" is marketing/listing copy only, NOT the version number — the store train went 5.0.2 → 6.0.0 because CFBundleShortVersionString must always exceed the last released version. Build number auto-increments on EAS (`appVersionSource: remote` + `autoIncrement`). Mori+ work happens on the `mori-plus` branch (kill-switched via `EXPO_PUBLIC_MORI_PLUS_ENABLED`, default OFF); `main` carries only the no-op stub ([lib/revenueCat.ts](lib/revenueCat.ts)).
 
 Bug-fixes and v2.0.0 feature work both land on `main` and ship via normal `eas build` + `eas submit` cadence. Each submission triggers a fresh App Store Review — keep the `apple-review@getmori.app` demo account intact.

@@ -189,7 +189,10 @@ CREATE TABLE meal_plans (
   week_start_date date NOT NULL,
   is_public boolean DEFAULT false,
   slots jsonb DEFAULT '[]',
-  created_at timestamp with time zone DEFAULT now()
+  created_at timestamp with time zone DEFAULT now(),
+  -- One plan per (user, week) — enables idempotent saveMealPlan upserts and
+  -- prevents duplicate week rows. Added via add_meal_plans_user_week_unique (2026-06-21).
+  CONSTRAINT meal_plans_user_week_unique UNIQUE (user_id, week_start_date)
 );
 
 -- ─── Collections ──────────────────────────────────────────────────────────────

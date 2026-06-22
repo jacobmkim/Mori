@@ -274,6 +274,12 @@ export interface MealSlot {
   recipe_id: string;
   servings_multiplier: number;
   cooked_at?: string | null; // ISO timestamp when marked cooked; absent/null = not cooked
+  // How this slot got filled. Absent/undefined = legacy/manual (the default before Auto Plan).
+  // Load-bearing for the I9 dogfood gate (cooked-rate measured on auto_plan slots).
+  provenance?: SlotProvenance;
+  // Auto Plan's per-slot "why this" copy, e.g. "Uses your leftover spinach". Only set on
+  // auto_plan / sunday_drop slots; rides the JSONB slots column (no migration).
+  auto_explanation?: string | null;
 }
 
 export interface MealPlan {
