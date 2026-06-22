@@ -22,6 +22,7 @@ Build plan: [`.claude/plans/mori-plus-flagship-build-plan-2026-06-16.md`](plans/
 | I5.1 | swap→next-best + learn + readability + modal fix | ✅ | ✅ 8 | ✅ 3-agent | 974/974 | ✅ `c033d37` | ✅ user OK 6-22 |
 | I5.2 | whole-week tuning toggles + persist prefs | ✅ | ✅ 7 | ✅ 3-agent | 981/981 | ⬜ pending | ⬜ pending |
 | I5.3 | Meal-prep = batch mode + grocery scaling | ✅ | ✅ 8 | ✅ 3-agent | 994/994 | ⬜ pending | ⬜ pending |
+| I5.4 | "Repeat across week" + grocery re-add fix | ✅ | ✅ 9 | ✅ 2-agent | 1003/1003 | ⬜ pending | ⬜ pending |
 | I6 | checkAiBudget wiring | ⬜ | | | | | |
 | I7 | Sunday Drop cron + push | ⬜ | | | | | |
 | I8 | SundayDropSection reveal UI | ⬜ | | | | | |

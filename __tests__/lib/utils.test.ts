@@ -1,4 +1,28 @@
-import { formatTime, formatCost, capitalize, getWeekStart, getTimeOfDay } from '@/lib/utils';
+import { formatTime, formatCost, capitalize, getWeekStart, getTimeOfDay, scaleQuantityString } from '@/lib/utils';
+
+describe('scaleQuantityString', () => {
+  it('returns the quantity unchanged when factor is 1', () => {
+    expect(scaleQuantityString('2', 1)).toBe('2');
+  });
+  it('scales an integer quantity', () => {
+    expect(scaleQuantityString('2', 3)).toBe('6');
+  });
+  it('scales a decimal and trims trailing zeros', () => {
+    expect(scaleQuantityString('1.5', 2)).toBe('3');
+    expect(scaleQuantityString('0.5', 3)).toBe('1.5');
+  });
+  it('scales simple and mixed fractions', () => {
+    expect(scaleQuantityString('1/2', 3)).toBe('1.5'); // not parseFloat("1/2")===1 ×3
+    expect(scaleQuantityString('1/4', 2)).toBe('0.5');
+    expect(scaleQuantityString('1 1/2', 2)).toBe('3');
+  });
+  it('leaves non-numeric quantities untouched', () => {
+    expect(scaleQuantityString('to taste', 3)).toBe('to taste');
+    expect(scaleQuantityString('', 3)).toBe('');
+    expect(scaleQuantityString(null, 3)).toBe('');
+    expect(scaleQuantityString(undefined, 3)).toBe('');
+  });
+});
 
 // ─── formatTime ───────────────────────────────────────────────────────────────
 

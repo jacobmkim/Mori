@@ -16,3 +16,23 @@ export function otherUncookedSlotsWithRecipe(
       !(s.day === excluding.day && s.meal_type === excluding.meal_type),
   );
 }
+
+// Days (0..totalDays-1) whose same-meal-type slot is currently EMPTY, excluding the source day —
+// the non-destructive targets for "Repeat across the week". Never returns a day that already has
+// a meal of that type planned.
+export function openDaysForRepeat(
+  slots: MealSlot[],
+  sourceDay: number,
+  mealType: MealType,
+  totalDays: number,
+): number[] {
+  const taken = new Set(
+    slots.filter((s) => s.meal_type === mealType).map((s) => s.day),
+  );
+  const out: number[] = [];
+  for (let day = 0; day < totalDays; day++) {
+    if (day === sourceDay) continue;
+    if (!taken.has(day)) out.push(day);
+  }
+  return out;
+}

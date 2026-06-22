@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks/useTheme';
-import { formatTime, getTimeOfDay } from '@/lib/utils';
+import { formatTime, getTimeOfDay, scaleQuantityString } from '@/lib/utils';
 import { getRecipesBySupabaseIds, fetchDiscoverRecipes, getMealPlanForWeek, logInteraction, resolveSupabaseId, updateStreakAndCount, generateWeekPlan, logSwipe, recordSessionSwipe, updatePlanPreferences } from '@/lib/api';
 import { autoSlotsToStoreSlots, nextSlotAlternate } from '@/lib/autoPlan';
 import { flags } from '@/lib/featureFlags';
@@ -25,7 +25,7 @@ import { MacroRow } from '@/components/ui/MacroRow';
 import { RecipeDetailModal } from '@/components/RecipeDetailModal';
 import { aggregateWeeklyMacros } from '@/lib/macroUtils';
 import { filterPickerRecipes, type PickerChip, type PickerFilterOpts } from '@/lib/pickerFilters';
-import { otherUncookedSlotsWithRecipe } from '@/lib/mealPlanCooked';
+import { otherUncookedSlotsWithRecipe, openDaysForRepeat } from '@/lib/mealPlanCooked';
 import { CUISINES } from '@/constants/cuisines';
 import { ServingsAdjuster } from '@/components/ServingsAdjuster';
 import { HorizontalCard, SectionHeader } from '@/components/RecipeCards';
@@ -71,17 +71,6 @@ function dateForDayIndex(monday: Date, dayIndex: number): Date {
 function todayDayIndex(): number {
   const day = new Date().getDay(); // 0=Sun ... 6=Sat
   return day === 0 ? 6 : day - 1;
-}
-
-// Scale a recipe ingredient's quantity string by an integer factor (for repeated/batched recipes).
-// Leaves non-numeric quantities ("to taste") untouched; trims trailing zeros on the result.
-function scaleQuantityString(quantity: string | null | undefined, factor: number): string {
-  const q = (quantity ?? '').trim();
-  if (factor === 1 || q === '') return q;
-  const n = parseFloat(q);
-  if (!Number.isFinite(n)) return q;
-  const scaled = n * factor;
-  return Number.isInteger(scaled) ? String(scaled) : String(parseFloat(scaled.toFixed(2)));
 }
 
 export default function Plan() {
@@ -376,6 +365,41 @@ export default function Plan() {
     savePlan(userId, weekStart);
   }
 
+  // "Repeat across the week": fill every OTHER day's same-meal slot that is currently EMPTY
+  // with this recipe (non-destructive — never clobbers an existing meal). Carries the source
+  // slot's servings, marks the copies 'manual', persists once.
+  function handleRepeatAcrossWeek(sourceSlot: MealSlot, recipe: Recipe) {
+    if (!userId) return;
+    const mealType = sourceSlot.meal_type;
+    const targets = openDaysForRepeat(slots, sourceSlot.day, mealType, DAY_NAMES.length);
+    const mealLabel = MEAL_LABELS[mealType].toLowerCase();
+    if (targets.length === 0) {
+      Alert.alert('No open days', `Every other day already has a ${mealLabel} planned. Remove some first to repeat this one.`);
+      return;
+    }
+    Alert.alert(
+      'Repeat across the week?',
+      `Add ${recipe.title} to the ${targets.length} open ${mealLabel} slot${targets.length > 1 ? 's' : ''} this week?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: `Add to ${targets.length}`,
+          onPress: () => {
+            targets.forEach((day) => addSlot({
+              day,
+              meal_type: mealType,
+              recipe_id: sourceSlot.recipe_id,
+              servings_multiplier: sourceSlot.servings_multiplier ?? 1,
+              provenance: 'manual',
+            }));
+            setSlotRecipes((prev) => ({ ...prev, [sourceSlot.recipe_id]: recipe }));
+            savePlan(userId, weekStart);
+          },
+        },
+      ],
+    );
+  }
+
   function handleCopyLastWeek() {
     if (!userId || lastWeekSlots.length === 0) return;
     const apply = () => {
@@ -585,16 +609,16 @@ export default function Plan() {
     // Sum how many base-recipe batches each recipe needs across ALL its slots, so a recipe
     // planned on multiple days (batch / repeat / copy-last-week) buys the right multiple instead
     // of a single base portion. factor = Σ(slot servings) / base servings.
+    // Key on r.id — the identity the grocery store dedups by (addFromDetail / removeRecipeFromList).
     const factorById = new Map<string, number>();
     const recipeById = new Map<string, Recipe>();
     for (const s of slots) {
       const r = slotRecipes[s.recipe_id];
       if (!r) continue;
-      const id = r.supabase_id ?? r.id;
       const base = baseServings(r);
       const factor = servingsForSlot(s, r) / base; // ≈ this slot's servings_multiplier
-      factorById.set(id, (factorById.get(id) ?? 0) + factor);
-      if (!recipeById.has(id)) recipeById.set(id, r);
+      factorById.set(r.id, (factorById.get(r.id) ?? 0) + factor);
+      if (!recipeById.has(r.id)) recipeById.set(r.id, r);
     }
     if (recipeById.size === 0) return;
     for (const [id, r] of recipeById) {
@@ -603,6 +627,9 @@ export default function Plan() {
         name: i.name,
         measure: `${scaleQuantityString(i.quantity, factor)} ${i.unit ?? ''}`.trim(),
       }));
+      // Clear any stale entry first so the scaled quantities apply on a re-tap — addFromDetail
+      // no-ops if the recipe is already in the cart, which would otherwise drop the new amounts.
+      removeRecipeFromList(id);
       addFromDetail(r, ingredients);
     }
     Alert.alert('Added to grocery list', `${recipeById.size} recipe${recipeById.size !== 1 ? 's' : ''} added.`);
@@ -860,7 +887,7 @@ export default function Plan() {
                   padding: 12, marginBottom: 8, minHeight: 64,
                 }}
               >
-                <Text style={{ width: 86, fontSize: 12, color: colors.textMuted, fontWeight: '500' }}>
+                <Text style={{ width: 72, fontSize: 12, color: colors.textMuted, fontWeight: '500' }}>
                   {MEAL_LABELS[mealType]}
                 </Text>
                 {isDeleted ? (
@@ -904,14 +931,17 @@ export default function Plan() {
                         )}
                       </View>
                     </View>
-                    <Pressable onPress={() => handleToggleCooked(selectedDay, mealType)} hitSlop={8}>
+                    <Pressable onPress={() => handleRepeatAcrossWeek(slot!, recipe)} hitSlop={6}>
+                      <Ionicons name="copy-outline" size={20} color={colors.textMuted} />
+                    </Pressable>
+                    <Pressable onPress={() => handleToggleCooked(selectedDay, mealType)} hitSlop={6}>
                       <Ionicons
                         name={slot?.cooked_at ? 'checkmark-circle' : 'ellipse-outline'}
                         size={22}
                         color={slot?.cooked_at ? colors.primary : colors.border}
                       />
                     </Pressable>
-                    <Pressable onPress={() => handleRemove(selectedDay, mealType)} hitSlop={8}>
+                    <Pressable onPress={() => handleRemove(selectedDay, mealType)} hitSlop={6}>
                       <Ionicons name="close-circle-outline" size={20} color={colors.textMuted} />
                     </Pressable>
                   </View>
