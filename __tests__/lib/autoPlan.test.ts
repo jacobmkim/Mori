@@ -46,6 +46,7 @@ function run(catalog: Recipe[], over: Partial<AutoPlanInput> = {}) {
     days: over.days ?? 7,
     weeklyBudgetUsd: over.weeklyBudgetUsd,
     leftoversSet: over.leftoversSet,
+    tunings: over.tunings,
     random: over.random ?? mulberry32(42),
   });
 }
@@ -285,5 +286,62 @@ describe('autoPlanWeek — whole-week tuning bias', () => {
     const junk = tr({ id: 'junk', macros: { carbohydrates: NaN, fibre: '9' as any } });
     // junk gets 0 bias on both toggles (never NaN) → good's positive bias wins, sort stays well-defined
     expect(pick([junk, good], { lowerCarb: true, moreFibre: true })).toBe('good');
+  });
+});
+
+describe('autoPlanWeek — meal-prep (batch) mode', () => {
+  const batch = { mealPrep: true } as any;
+
+  it('plans a few distinct recipes repeated across the week (cook ~3, eat 7)', () => {
+    const res = run(Array.from({ length: 12 }, () => mr()), { tunings: batch });
+    expect(res.slots).toHaveLength(7);
+    expect(res.slots.every((s) => s.recipe !== null)).toBe(true);
+    const distinct = new Set(res.slots.map((s) => s.recipe!.id));
+    expect(distinct.size).toBeLessThanOrEqual(3); // ~one cook per 2-3 dinners
+    expect(distinct.size).toBeGreaterThanOrEqual(1);
+    expect(res.generateNeeded).toBe(0);
+    expect(res.slots.every((s) => s.provenance === 'auto_plan')).toBe(true);
+  });
+
+  it('uses normal per-day servings (repetition + grocery scaling provides coverage, not a 2× multiplier)', () => {
+    const res = run(Array.from({ length: 8 }, () => mr()), { tunings: batch });
+    expect(res.slots.every((s) => s.servingsMultiplier === undefined)).toBe(true);
+  });
+
+  it('marks the first day of each batch block as a cook day; the rest are leftovers', () => {
+    const res = run(Array.from({ length: 8 }, () => mr()), { tunings: batch });
+    const cookDays = res.slots.filter((s) => s.explanation.startsWith('Cook once'));
+    const fromBatch = res.slots.filter((s) => s.explanation === 'From your batch');
+    expect(cookDays.length).toBeGreaterThanOrEqual(2);
+    expect(cookDays.length).toBeLessThanOrEqual(3);
+    expect(cookDays.length + fromBatch.length).toBe(7); // every filled slot is one or the other
+  });
+
+  it('only batches recipes that fit the slot meal type', () => {
+    const dinners = Array.from({ length: 6 }, () => mr({ mealTypes: ['dinner'] }));
+    const lunches = Array.from({ length: 6 }, () => mr({ mealTypes: ['lunch'] }));
+    const res = run([...lunches, ...dinners], { tunings: batch });
+    expect(res.slots.every((s) => (s.recipe!.meal_types ?? []).includes('dinner'))).toBe(true);
+  });
+
+  it('varies the few recipes across cuisines when possible', () => {
+    const italians = Array.from({ length: 8 }, () => mr({ cuisine: 'Italian', score: 5 }));
+    const thais = Array.from({ length: 8 }, () => mr({ cuisine: 'Thai', score: 4 }));
+    const res = run([...italians, ...thais], { tunings: batch });
+    const cuisines = new Set(res.slots.map((s) => (s.recipe!.cuisine ?? '').toLowerCase()));
+    expect(cuisines.size).toBeGreaterThanOrEqual(2);
+  });
+
+  it('is deterministic for the same seed', () => {
+    const catalog = Array.from({ length: 12 }, (_, i) => mr({ id: `r${i}` }));
+    const a = run(catalog, { tunings: batch, random: mulberry32(9) });
+    const b = run(catalog, { tunings: batch, random: mulberry32(9) });
+    expect(a.slots.map((s) => s.recipe?.id)).toEqual(b.slots.map((s) => s.recipe?.id));
+  });
+
+  it('empty catalog → all slots need generation', () => {
+    const res = run([], { tunings: batch });
+    expect(res.slots.every((s) => s.recipe === null)).toBe(true);
+    expect(res.generateNeeded).toBe(7);
   });
 });

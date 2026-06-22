@@ -105,6 +105,11 @@ export function autoPlanWeek(input: AutoPlanInput): AutoPlanResult {
     for (const mt of mealTypes) specs.push({ day, mealType: mt });
   }
 
+  // Meal-prep mode: plan a FEW recipes cooked in big batches, repeated across the week
+  // (cook 3 things, eat all week, with leftover lunches) — the opposite of the default
+  // variety-first fill. Triggered by the "Meal prep" toggle.
+  if (tunings?.mealPrep) return batchPlanWeek(input, specs);
+
   const used = new Set<string>();
   const cuisineCount = new Map<string, number>();
   const proteinCount = new Map<string, number>();
@@ -235,6 +240,126 @@ export function autoPlanWeek(input: AutoPlanInput): AutoPlanResult {
 }
 
 /**
+ * Meal-prep ("batch") week: pick a FEW distinct recipes (varied among themselves) and repeat each
+ * across a consecutive block of days — so the user cooks ~3 times and eats all week. Each block is
+ * cooked in one session; the recipe's own serving size + the grocery scaling (per-slot count, see
+ * handleAddAllToGrocery) provide the leftover coverage, so we do NOT additionally multiply servings
+ * (that would over-buy). Reuses the same taste scorer + tuning bias for SELECTION; only the
+ * ASSIGNMENT differs from the default no-repeat variety fill.
+ */
+function batchPlanWeek(input: AutoPlanInput, specs: { day: number; mealType: MealType }[]): AutoPlanResult {
+  const { catalog, savedExternalIds, scoreFn, weeklyBudgetUsd, leftoversSet, tunings, random } = input;
+  const mealType = specs[0]?.mealType ?? 'dinner';
+  // Batch mode is single-meal-type (v1 = dinner). Only fill slots of that type; any other-type slots
+  // stay empty so a dinner recipe can never leak into a lunch/breakfast slot (the selection only
+  // vetted `mealType`). Normal mode re-checks meal-type per slot; batch must mirror that guarantee.
+  const targetSpecs = specs.filter((sp) => sp.mealType === mealType);
+  const otherSpecs = specs.filter((sp) => sp.mealType !== mealType);
+  const totalSlots = targetSpecs.length;
+  // ~one cook per 2–3 dinners → 3 recipes for a 7-day week. Bounded 2–4.
+  const distinctTarget = Math.max(2, Math.min(4, Math.round(totalSlots / 2.5)));
+
+  // Select distinct recipes greedily, with STRONG variety among the few we pick.
+  const selected: Recipe[] = [];
+  const usedIds = new Set<string>();
+  const cuisineCount = new Map<string, number>();
+  const proteinCount = new Map<string, number>();
+  const remainingLeftovers = leftoversSet ? new Set(leftoversSet) : new Set<string>();
+
+  for (let k = 0; k < distinctTarget; k++) {
+    let best: Recipe | null = null;
+    let bestScore = -Infinity;
+    let bestLeftover: string | null = null;
+    for (const r of catalog) {
+      if (usedIds.has(recipeId(r))) continue;
+      if (!recipeMealTypes(r).includes(mealType)) continue;
+      let s = scoreFn(r);
+      if (savedExternalIds.has(savedKey(r))) s += 2;
+      const cz = primaryCuisine(r);
+      if (cz && (cuisineCount.get(cz) ?? 0) >= 1) s -= 2 * (cuisineCount.get(cz) ?? 0); // varied across the few
+      const pr = primaryProtein(r);
+      if (pr !== 'other' && (proteinCount.get(pr) ?? 0) >= 1) s -= 3 * (proteinCount.get(pr) ?? 0);
+      const lo = usesLeftover(r, remainingLeftovers);
+      if (lo) s += 2;
+      s += tuningBias(r, tunings);
+      s += random() * 0.5;
+      if (s > bestScore) { bestScore = s; best = r; bestLeftover = lo; }
+    }
+    if (!best) break;
+    selected.push(best);
+    usedIds.add(recipeId(best));
+    const cz = primaryCuisine(best);
+    if (cz) cuisineCount.set(cz, (cuisineCount.get(cz) ?? 0) + 1);
+    const pr = primaryProtein(best);
+    if (pr !== 'other') proteinCount.set(pr, (proteinCount.get(pr) ?? 0) + 1);
+    if (bestLeftover) remainingLeftovers.delete(bestLeftover);
+  }
+
+  // Alternates for per-day swapping = top unselected candidates of the same meal type.
+  const altPool = catalog
+    .filter((r) => recipeMealTypes(r).includes(mealType) && !usedIds.has(recipeId(r)))
+    .map((r) => ({ r, s: scoreFn(r) + random() * 0.5 }))
+    .sort((a, b) => b.s - a.s)
+    .slice(0, MAX_ALTERNATES)
+    .map((x) => x.r);
+
+  const slots: AutoPlanSlot[] = [];
+  let totalCost = 0;
+  // Non-target meal-type slots (none in v1's dinner-only plan) are left empty for manual fill.
+  for (const sp of otherSpecs) {
+    slots.push({ day: sp.day, mealType: sp.mealType, recipe: null, provenance: 'auto_plan', explanation: '', alternates: [] });
+  }
+
+  if (selected.length === 0) {
+    for (const sp of targetSpecs) {
+      slots.push({ day: sp.day, mealType: sp.mealType, recipe: null, provenance: 'auto_plan', explanation: '', alternates: [] });
+    }
+    return {
+      slots,
+      generateNeeded: slots.length,
+      totalCost: 0,
+      overBudget: false,
+      explanation: "We couldn't find meal-prep recipes that fit. Try saving a few more, then build again.",
+    };
+  }
+
+  // Tile the selected recipes across the target slots in consecutive blocks (cook once, eat the block).
+  const n = selected.length;
+  const base = Math.floor(totalSlots / n);
+  const rem = totalSlots % n;
+  let slotIdx = 0;
+  for (let i = 0; i < n; i++) {
+    const blockSize = base + (i < rem ? 1 : 0);
+    const recipe = selected[i];
+    for (let d = 0; d < blockSize; d++) {
+      const spec = targetSpecs[slotIdx++];
+      totalCost += recipe.cost_per_serving ?? 0; // one portion per planned day; grocery scales by slot count
+      slots.push({
+        day: spec.day,
+        mealType: spec.mealType,
+        recipe,
+        provenance: 'auto_plan',
+        explanation: d === 0
+          ? `Cook once · covers ${blockSize} day${blockSize > 1 ? 's' : ''}`
+          : 'From your batch',
+        alternates: altPool.slice(),
+      });
+    }
+  }
+
+  const filledCount = slots.filter((s) => s.recipe !== null).length;
+  const generateNeeded = slots.filter((s) => s.recipe === null).length;
+  const hasBudget = typeof weeklyBudgetUsd === 'number' && weeklyBudgetUsd > 0;
+  const overBudget = hasBudget && totalCost > (weeklyBudgetUsd as number);
+  let explanation = n === 1
+    ? `Only one batch recipe fit your filters — save a few more for variety. We're repeating it across ${filledCount} dinner${filledCount !== 1 ? 's' : ''}.`
+    : `Meal-prep week — ${n} recipes, each cooked once in a big batch and repeated across ${filledCount} dinner${filledCount !== 1 ? 's' : ''}.`;
+  if (hasBudget) explanation += overBudget ? ` Slightly over your $${weeklyBudgetUsd} week.` : ` Fits your $${weeklyBudgetUsd} week.`;
+
+  return { slots, generateNeeded, totalCost: round2(totalCost), overBudget, explanation };
+}
+
+/**
  * One-tap "swap to next best": return the first alternate whose recipe isn't already used
  * elsewhere in the week, or null when the slot has no free alternate left. PURE.
  */
@@ -268,7 +393,7 @@ export function autoSlotsToStoreSlots(slots: AutoPlanSlot[]): MealSlot[] {
       day: s.day,
       meal_type: s.mealType,
       recipe_id: supabaseId,
-      servings_multiplier: 1,
+      servings_multiplier: s.servingsMultiplier && s.servingsMultiplier > 0 ? s.servingsMultiplier : 1,
       provenance: s.provenance,
       auto_explanation: s.explanation || null,
     });

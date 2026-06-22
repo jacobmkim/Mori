@@ -73,6 +73,17 @@ function todayDayIndex(): number {
   return day === 0 ? 6 : day - 1;
 }
 
+// Scale a recipe ingredient's quantity string by an integer factor (for repeated/batched recipes).
+// Leaves non-numeric quantities ("to taste") untouched; trims trailing zeros on the result.
+function scaleQuantityString(quantity: string | null | undefined, factor: number): string {
+  const q = (quantity ?? '').trim();
+  if (factor === 1 || q === '') return q;
+  const n = parseFloat(q);
+  if (!Number.isFinite(n)) return q;
+  const scaled = n * factor;
+  return Number.isInteger(scaled) ? String(scaled) : String(parseFloat(scaled.toFixed(2)));
+}
+
 export default function Plan() {
   const colors = useTheme();
   const userId = useUserStore((s) => s.profile?.id);
@@ -571,22 +582,30 @@ export default function Plan() {
   }
 
   function handleAddAllToGrocery() {
-    const seenIds = new Set<string>();
-    const recipes = slots
-      .map((s) => slotRecipes[s.recipe_id])
-      .filter((r): r is Recipe => {
-        if (!r) return false;
-        const id = r.supabase_id ?? r.id;
-        if (seenIds.has(id)) return false;
-        seenIds.add(id);
-        return true;
-      });
-    if (recipes.length === 0) return;
-    recipes.forEach((r) => {
-      const ingredients = (r.ingredients ?? []).map((i) => ({ name: i.name, measure: `${i.quantity ?? ''} ${i.unit ?? ''}`.trim() }));
+    // Sum how many base-recipe batches each recipe needs across ALL its slots, so a recipe
+    // planned on multiple days (batch / repeat / copy-last-week) buys the right multiple instead
+    // of a single base portion. factor = Σ(slot servings) / base servings.
+    const factorById = new Map<string, number>();
+    const recipeById = new Map<string, Recipe>();
+    for (const s of slots) {
+      const r = slotRecipes[s.recipe_id];
+      if (!r) continue;
+      const id = r.supabase_id ?? r.id;
+      const base = baseServings(r);
+      const factor = servingsForSlot(s, r) / base; // ≈ this slot's servings_multiplier
+      factorById.set(id, (factorById.get(id) ?? 0) + factor);
+      if (!recipeById.has(id)) recipeById.set(id, r);
+    }
+    if (recipeById.size === 0) return;
+    for (const [id, r] of recipeById) {
+      const factor = Math.max(1, Math.round(factorById.get(id) ?? 1));
+      const ingredients = (r.ingredients ?? []).map((i) => ({
+        name: i.name,
+        measure: `${scaleQuantityString(i.quantity, factor)} ${i.unit ?? ''}`.trim(),
+      }));
       addFromDetail(r, ingredients);
-    });
-    Alert.alert('Added to grocery list', `${recipes.length} meal${recipes.length !== 1 ? 's' : ''} added.`);
+    }
+    Alert.alert('Added to grocery list', `${recipeById.size} recipe${recipeById.size !== 1 ? 's' : ''} added.`);
   }
 
   // Build sectioned recipe picker data — applies all filters across saved

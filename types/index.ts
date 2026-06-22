@@ -135,6 +135,9 @@ export interface AutoPlanSlot {
   // The next-best ranked candidates for this slot (same meal type, excluding the pick),
   // capped small. Powers one-tap "swap to next best" in the review sheet. Not persisted.
   alternates?: Recipe[];
+  // Servings multiplier for this slot (batch-portion). Default 1; Meal-prep mode sets it
+  // higher so each cook makes extra (dinner + leftover lunch). Flows to MealSlot.servings_multiplier.
+  servingsMultiplier?: number;
 }
 
 /** Whole-week tuning the user can toggle on the review sheet — each biases the optimizer

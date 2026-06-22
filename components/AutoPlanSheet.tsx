@@ -151,6 +151,15 @@ export function AutoPlanSheet({
                       );
                     })}
                   </View>
+                  {/* "Meal prep" is a MODE, not a soft nudge — flag that it restructures the week. */}
+                  {tunings?.mealPrep && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10, marginLeft: 2 }}>
+                      <Ionicons name="information-circle-outline" size={14} color={colors.primary} />
+                      <Text style={{ flex: 1, fontSize: 12, color: colors.textMuted }}>
+                        Meal prep restructures your week — fewer recipes, cooked once, repeated across days.
+                      </Text>
+                    </View>
+                  )}
                 </View>
               )}
 

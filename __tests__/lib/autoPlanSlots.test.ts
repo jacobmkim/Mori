@@ -48,6 +48,11 @@ describe('autoSlotsToStoreSlots', () => {
     expect(out[0].servings_multiplier).toBe(1);
   });
 
+  it('carries a batch servingsMultiplier through to the store slot', () => {
+    const out = autoSlotsToStoreSlots([slot({ servingsMultiplier: 2 } as any)]);
+    expect(out[0].servings_multiplier).toBe(2);
+  });
+
   it('drops null-recipe slots (generateNeeded — nothing to persist)', () => {
     const out = autoSlotsToStoreSlots([
       slot({ day: 0, recipe: rec({ supabase_id: 'uuid-a' }) }),
