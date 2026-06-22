@@ -1266,16 +1266,20 @@ export default function Plan() {
         }}
       />
 
-      <AutoPlanSheet
-        visible={autoPlanOpen}
-        loading={autoPlanLoading}
-        result={autoPlanResult}
-        dayNames={DAY_NAMES}
-        onClose={() => { setAutoPlanOpen(false); setAutoPlanResult(null); }}
-        onRegenerate={() => runGenerate(false)}
-        onAccept={handleAcceptAutoPlan}
-        onPreviewRecipe={(r) => { setPreviewSlot(null); setPreviewRecipe(r); }}
-      />
+      {/* Mounted only while open so the at-rest screen has no extra Modal in the tree
+          (two simultaneously-mounted card/sheet Modals freeze iOS touches). */}
+      {autoPlanOpen && (
+        <AutoPlanSheet
+          visible={autoPlanOpen}
+          loading={autoPlanLoading}
+          result={autoPlanResult}
+          dayNames={DAY_NAMES}
+          onClose={() => { setAutoPlanOpen(false); setAutoPlanResult(null); }}
+          onRegenerate={() => runGenerate(false)}
+          onAccept={handleAcceptAutoPlan}
+          onPreviewRecipe={(r) => { setPreviewSlot(null); setPreviewRecipe(r); }}
+        />
+      )}
 
       <BadgeAchievementModal queue={badgeQueue} onQueueChange={setBadgeQueue} />
     </SafeAreaView>
