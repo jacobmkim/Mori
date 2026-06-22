@@ -1,9 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
-import type { Profile, Recipe, SwipeEvent, SavedRecipe, PantryItem, GroceryList, MealPlan, MealSlot, OnboardingState, Macros, AppMode, RecipeNote, Review, CreatorStats } from '@/types';
+import type { Profile, Recipe, SwipeEvent, SavedRecipe, PantryItem, GroceryList, MealPlan, MealSlot, OnboardingState, Macros, AppMode, RecipeNote, Review, CreatorStats, AutoPlanResult, MealType } from '@/types';
 import type { BadgeStats } from '@/lib/badges';
 import { inferDietaryTags } from './dietaryClassifier';
 import { getApiBaseUrl } from './apiBaseUrl';
+import { autoPlanWeek } from './autoPlan';
 
 // ─── Macro AsyncStorage cache ─────────────────────────────────────────────────
 // Persists macro data across sessions so Spoonacular is never called twice for
@@ -229,7 +230,7 @@ export async function fetchDiscoverRecipes(dietaryGoals: string[] = []): Promise
 
   const { data, error } = await supabase
     .from('recipes')
-    .select('id, title, description, cuisine, source_type, dietary_tags, badge, avg_rating, save_count, image_url, external_id, prep_time_mins, cook_time_mins, servings, cost_per_serving, macros, ingredients, steps, meal_prep_friendly, skill_level, is_public, moderation_status, submitted_by, submitter:profiles_public!recipes_submitted_by_fkey(name, avatar_url, username)')
+    .select('id, title, description, cuisine, source_type, dietary_tags, meal_types, badge, avg_rating, save_count, image_url, external_id, prep_time_mins, cook_time_mins, servings, cost_per_serving, macros, ingredients, steps, meal_prep_friendly, skill_level, is_public, moderation_status, submitted_by, submitter:profiles_public!recipes_submitted_by_fkey(name, avatar_url, username)')
     // Community submissions no longer go through an approval gate (audit cron
     // deleted 2026-05-11). Only the is_public flag still gates private drafts.
     .or('source_type.neq.community,and(source_type.eq.community,is_public.eq.true)')
@@ -273,6 +274,7 @@ export async function fetchDiscoverRecipes(dietaryGoals: string[] = []): Promise
         servings: r.servings,
         cost_per_serving: r.cost_per_serving,
         dietary_tags: r.dietary_tags ?? [],
+        meal_types: r.meal_types ?? null,
         macros: r.macros ?? null,
         badge: r.badge ?? 'none',
         avg_rating: r.avg_rating ?? 0,
@@ -424,7 +426,7 @@ async function fetchAdventureRecipe(
 ): Promise<Recipe | null> {
   const { data } = await supabase
     .from('recipes')
-    .select('id, title, description, cuisine, source_type, dietary_tags, badge, avg_rating, save_count, image_url, external_id, prep_time_mins, cook_time_mins, servings, cost_per_serving, macros, ingredients, steps')
+    .select('id, title, description, cuisine, source_type, dietary_tags, meal_types, badge, avg_rating, save_count, image_url, external_id, prep_time_mins, cook_time_mins, servings, cost_per_serving, macros, ingredients, steps')
     .ilike('cuisine', cuisine)
     .not('external_id', 'is', null)
     .is('deleted_at', null)
@@ -456,6 +458,7 @@ async function fetchAdventureRecipe(
     servings: r.servings,
     cost_per_serving: r.cost_per_serving,
     dietary_tags: r.dietary_tags ?? [],
+    meal_types: r.meal_types ?? null,
     macros: r.macros ?? null,
     badge: r.badge ?? 'none',
     avg_rating: r.avg_rating ?? 0,
@@ -978,6 +981,91 @@ function capSavedShare(
 
 // Fetches the discover deck and ranks it locally using a weighted scoring function.
 // No Vercel, no API calls — runs entirely on-device after one Supabase query + parallel signals.
+/**
+ * Mori+ Auto Plan — run the week optimizer for a user (the client-side flagship engine).
+ * Reuses the LOCAL scorer (scoreRecipe) + the SAME per-user signals as the Discover deck
+ * (swipes, cohort affinity, interactions, pantry, leftovers, ratings, flavourDna), so Auto
+ * Plan and Discover rank consistently. Catalog-only — no AI, no server round-trip (honors
+ * the "local weighted scorer, do NOT replace with an API call" commandment). The caller
+ * (Plan tab) gates on premium and persists the returned slots into meal_plans.
+ *
+ * Hard filters mirror the deck: ingredient dislikes + skill cap. Saved recipes STAY in the
+ * pool so favourites can be planned (the optimizer's +2 saved bonus surfaces them). No
+ * weekly budget is enforced unless `weeklyBudgetUsd` is passed explicitly — the stored
+ * `profiles.weekly_budget` is a coarse category, not a dollar amount.
+ */
+export async function generateWeekPlan(opts: {
+  userId: string | undefined;
+  profile: Profile | null;
+  dietaryGoals: string[];
+  savedExternalIds: Set<string>;
+  weeklyBudgetUsd?: number | null;
+  mealTypes?: MealType[];
+  days?: number;
+}): Promise<AutoPlanResult> {
+  const { userId, profile, dietaryGoals, savedExternalIds } = opts;
+
+  const [catalog, swipes, affinityMap, interactionMap, pantryItems, leftoversSet, ratingMap, savedAtMap] = await Promise.all([
+    fetchDiscoverRecipes(dietaryGoals),
+    userId ? getRecentSwipes(userId) : Promise.resolve([]),
+    userId
+      ? getUserCohortKey(userId).then((key) => (key ? getCohortAffinities(key) : new Map<string, number>()))
+      : Promise.resolve(new Map<string, number>()),
+    userId ? getInteractionCounts(userId) : Promise.resolve(new Map<string, { grocery_add: number; cooked: number; unsave: number; view: number; lastCookedAt: string | null }>()),
+    userId ? getPantryItems(userId) : Promise.resolve([]),
+    userId ? fetchLeftoverNames(userId) : Promise.resolve(new Set<string>()),
+    userId ? getUserRatings(userId) : Promise.resolve(new Map<string, number>()),
+    userId ? getSavedAtMap(userId) : Promise.resolve(new Map<string, string>()),
+  ]);
+
+  const pantrySet = new Set(pantryItems.filter((p) => p.ingredient_name).map((p) => p.ingredient_name.toLowerCase()));
+
+  const swipeMap = new Map<string, { direction: 'left' | 'right'; swiped_at: string }>();
+  for (const s of swipes) {
+    if (!swipeMap.has(s.recipe_id)) swipeMap.set(s.recipe_id, { direction: s.direction as 'left' | 'right', swiped_at: s.swiped_at });
+  }
+
+  const flavourDna = (profile?.taste_profile as any)?.flavourDna ?? null;
+
+  // Hard filter: ingredient dislikes (commandment — never soft-deprioritise, never relax).
+  const dislikes = (profile?.ingredient_dislikes ?? []).map((d) => d.toLowerCase());
+  let pool = dislikes.length === 0 ? catalog : catalog.filter((r) => {
+    const ings = (r.ingredients ?? []) as { name?: string }[];
+    return !ings.some((ing) => ing?.name && dislikes.some((d) => ing.name!.toLowerCase().includes(d)));
+  });
+
+  // Hard filter: skill cap (mirrors fetchScoredDeck) — don't plan recipes above the user's level.
+  const skillLevel = profile?.skill_level;
+  if (skillLevel) {
+    pool = pool.filter((r) => {
+      const recipeSkill = (r as any).skill_level as string | null | undefined;
+      if (recipeSkill === 'confident_chef' && skillLevel !== 'confident_chef') return false;
+      if (recipeSkill === 'home_cook' && skillLevel === 'beginner') return false;
+      if (!recipeSkill) {
+        const totalTime = (r.prep_time_mins ?? 0) + (r.cook_time_mins ?? 0);
+        const beginnerCap = profile?.cooking_frequency === 'just_starting' ? 45 : 60;
+        if (skillLevel === 'beginner' && totalTime > 0 && totalTime > beginnerCap) return false;
+        if (skillLevel === 'home_cook' && totalTime > 0 && totalTime > 120) return false;
+      }
+      return true;
+    });
+  }
+
+  const scoreFn = (recipe: Recipe): number =>
+    scoreRecipe(recipe, profile, swipeMap, savedExternalIds, affinityMap, interactionMap, pantrySet, leftoversSet, ratingMap, savedAtMap, flavourDna);
+
+  return autoPlanWeek({
+    catalog: pool,
+    savedExternalIds,
+    scoreFn,
+    mealTypes: opts.mealTypes ?? ['dinner'],
+    days: opts.days ?? 7,
+    weeklyBudgetUsd: opts.weeklyBudgetUsd ?? null,
+    leftoversSet,
+    random: Math.random,
+  });
+}
+
 export async function fetchScoredDeck(
   userId: string | undefined,
   dietaryGoals: string[],
@@ -1255,7 +1343,7 @@ export async function fetchRecommendedDeck(
     // Fetch full recipe objects in one query
     const { data } = await supabase
       .from('recipes')
-      .select('id, title, description, cuisine, source_type, dietary_tags, badge, avg_rating, save_count, image_url, external_id, prep_time_mins, cook_time_mins, servings, cost_per_serving, macros, ingredients, steps')
+      .select('id, title, description, cuisine, source_type, dietary_tags, meal_types, badge, avg_rating, save_count, image_url, external_id, prep_time_mins, cook_time_mins, servings, cost_per_serving, macros, ingredients, steps')
       .in('id', recipeIds);
 
     if (!data?.length) {
@@ -1285,6 +1373,7 @@ export async function fetchRecommendedDeck(
       servings: r.servings,
       cost_per_serving: r.cost_per_serving,
       dietary_tags: r.dietary_tags ?? [],
+      meal_types: r.meal_types ?? null,
       macros: r.macros ?? null,
       badge: r.badge ?? 'none',
       avg_rating: r.avg_rating ?? 0,
@@ -1828,7 +1917,7 @@ export async function getSavedRecipesWithDetails(userId: string): Promise<Recipe
       recipes (
         id, title, description, cuisine, source_type,
         ingredients, steps, prep_time_mins, cook_time_mins,
-        servings, cost_per_serving, dietary_tags, image_url,
+        servings, cost_per_serving, dietary_tags, meal_types, image_url,
         external_id, badge, avg_rating, save_count, macros, meal_prep_friendly
       )
     `)
@@ -1854,6 +1943,7 @@ export async function getSavedRecipesWithDetails(userId: string): Promise<Recipe
         servings: r.servings,
         cost_per_serving: r.cost_per_serving,
         dietary_tags: r.dietary_tags ?? [],
+        meal_types: r.meal_types ?? null,
         macros: r.macros ?? null,
         image_url: r.image_url,
         badge: r.badge,
@@ -1982,7 +2072,7 @@ export async function getRecipesBySupabaseIds(ids: string[]): Promise<Recipe[]> 
   if (ids.length === 0) return [];
   const { data, error } = await supabase
     .from('recipes')
-    .select('id, title, description, cuisine, source_type, dietary_tags, badge, avg_rating, save_count, image_url, external_id, prep_time_mins, cook_time_mins, servings, cost_per_serving, macros, ingredients, steps')
+    .select('id, title, description, cuisine, source_type, dietary_tags, meal_types, badge, avg_rating, save_count, image_url, external_id, prep_time_mins, cook_time_mins, servings, cost_per_serving, macros, ingredients, steps')
     .in('id', ids);
   if (error) throw error;
   return (data ?? []).map((r: any): Recipe => ({
@@ -1999,6 +2089,7 @@ export async function getRecipesBySupabaseIds(ids: string[]): Promise<Recipe[]> 
     servings: r.servings,
     cost_per_serving: r.cost_per_serving,
     dietary_tags: r.dietary_tags ?? [],
+    meal_types: r.meal_types ?? null,
     macros: r.macros ?? null,
     badge: r.badge ?? 'none',
     avg_rating: r.avg_rating ?? 0,
