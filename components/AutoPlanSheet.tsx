@@ -259,10 +259,15 @@ export function AutoPlanSheet({
                               <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 3 }} numberOfLines={1}>
                                 {[recipe.cuisine, formatTime(recipe.prep_time_mins, recipe.cook_time_mins)].filter(Boolean).join(' · ')}
                               </Text>
-                              {/* why this */}
+                              {/* why this — user-placed slots get a "person" icon so "You added this"
+                                  doesn't read as one of Mori's sparkle-marked auto picks. */}
                               {!!slot.explanation && (
                                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 6 }}>
-                                  <Ionicons name="sparkles-outline" size={12} color={colors.primary} />
+                                  <Ionicons
+                                    name={slot.provenance === 'manual' ? 'person-outline' : 'sparkles-outline'}
+                                    size={12}
+                                    color={colors.primary}
+                                  />
                                   <Text style={{ flex: 1, fontSize: 12, color: colors.primary, fontWeight: '500' }} numberOfLines={1}>
                                     {slot.explanation}
                                   </Text>

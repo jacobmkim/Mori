@@ -1,5 +1,5 @@
-import { autoPlanWeek } from '@/lib/autoPlan';
-import type { AutoPlanInput, Recipe } from '@/types';
+import { autoPlanWeek, mergeLockedSlots } from '@/lib/autoPlan';
+import type { AutoPlanInput, AutoPlanResult, Recipe } from '@/types';
 
 // Deterministic seeded RNG so jitter-driven tie-breaks are reproducible.
 function mulberry32(seed: number): () => number {
@@ -343,5 +343,42 @@ describe('autoPlanWeek — meal-prep (batch) mode', () => {
     const res = run([], { tunings: batch });
     expect(res.slots.every((s) => s.recipe === null)).toBe(true);
     expect(res.generateNeeded).toBe(7);
+  });
+});
+
+describe('mergeLockedSlots — keep user-placed meals on a rebuild', () => {
+  const rec = (id: string, cost: number): Recipe =>
+    ({ id, supabase_id: id, external_id: id, title: id, cost_per_serving: cost, meal_types: ['dinner'] } as any);
+  function mkResult(): AutoPlanResult {
+    return {
+      slots: [
+        { day: 0, mealType: 'dinner', recipe: rec('a', 5), provenance: 'auto_plan', explanation: 'Taste match', alternates: [rec('x', 5)] },
+        { day: 1, mealType: 'dinner', recipe: rec('b', 5), provenance: 'auto_plan', explanation: 'Taste match', alternates: [] },
+      ],
+      generateNeeded: 0, totalCost: 10, overBudget: false, explanation: 'auto',
+    };
+  }
+
+  it('overlays the locked recipe on its own day, labelled "You added this" / manual', () => {
+    const r = mergeLockedSlots(mkResult(), [{ day: 1, recipe: rec('mine', 8) }]);
+    expect(r.slots[1].recipe!.id).toBe('mine');
+    expect(r.slots[1].provenance).toBe('manual');
+    expect(r.slots[1].explanation).toBe('You added this');
+    expect(r.slots[0].recipe!.id).toBe('a'); // other days untouched
+  });
+
+  it('keeps the slot alternates so a locked slot is still swappable', () => {
+    const r = mergeLockedSlots(mkResult(), [{ day: 0, recipe: rec('mine', 5) }]);
+    expect(r.slots[0].alternates).toEqual([expect.objectContaining({ id: 'x' })]);
+  });
+
+  it('recomputes totalCost over the merged week', () => {
+    const r = mergeLockedSlots(mkResult(), [{ day: 1, recipe: rec('mine', 8) }]);
+    expect(r.totalCost).toBe(13); // a(5) + mine(8)
+  });
+
+  it('returns the result unchanged when there are no locks', () => {
+    const res = mkResult();
+    expect(mergeLockedSlots(res, [])).toBe(res);
   });
 });

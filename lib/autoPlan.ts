@@ -360,6 +360,37 @@ function batchPlanWeek(input: AutoPlanInput, specs: { day: number; mealType: Mea
 }
 
 /**
+ * Overlay user-locked slots (recipes the user placed themselves) onto an optimizer result so a
+ * rebuild KEEPS the user's own picks for those days, labelled 'You added this' (provenance 'manual').
+ * The caller must also exclude the locked recipes from the optimizer's pool so they don't get
+ * duplicated on other days. The locked slot keeps the auto slot's `alternates` so it's still
+ * swappable. Recomputes totalCost + generateNeeded over the merged week. PURE.
+ */
+export function mergeLockedSlots(
+  result: AutoPlanResult,
+  lockedSlots: { day: number; recipe: Recipe }[],
+  weeklyBudgetUsd?: number | null,
+): AutoPlanResult {
+  if (!lockedSlots.length) return result;
+  const lockedByDay = new Map<number, Recipe>();
+  for (const ls of lockedSlots) lockedByDay.set(ls.day, ls.recipe);
+  let totalCost = 0;
+  const slots = result.slots.map((s) => {
+    const locked = lockedByDay.get(s.day);
+    const out: AutoPlanSlot = locked
+      ? { ...s, recipe: locked, provenance: 'manual', explanation: 'You added this' }
+      : s;
+    totalCost += out.recipe?.cost_per_serving ?? 0;
+    return out;
+  });
+  const generateNeeded = slots.filter((s) => s.recipe === null).length;
+  // Recompute overBudget against the MERGED cost (a pricey locked recipe can change it).
+  const hasBudget = typeof weeklyBudgetUsd === 'number' && weeklyBudgetUsd > 0;
+  const overBudget = hasBudget ? totalCost > (weeklyBudgetUsd as number) : result.overBudget;
+  return { ...result, slots, totalCost: round2(totalCost), generateNeeded, overBudget };
+}
+
+/**
  * One-tap "swap to next best": return the first alternate whose recipe isn't already used
  * elsewhere in the week, or null when the slot has no free alternate left. PURE.
  */

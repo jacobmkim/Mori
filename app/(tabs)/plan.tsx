@@ -118,6 +118,9 @@ export default function Plan() {
   const pickerFallbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Monotonic id so an older in-flight rebuild can't overwrite a newer one (rapid toggling).
   const genReqId = useRef(0);
+  // User-placed meals captured at build time, kept across shuffles/tunes in this build session
+  // so a rebuild never wipes the recipes the user added themselves.
+  const lockedSlotsRef = useRef<{ day: number; recipe: Recipe }[]>([]);
 
   // Count of "non-default" filters for the Filter button badge.
   // Default state is `{meal_prep}` only — that doesn't earn a badge.
@@ -476,7 +479,7 @@ export default function Plan() {
     setAutoPlanLoading(true);
     try {
       const savedExternalIds = new Set(savedRecipes.map((r) => r.id));
-      const result = await generateWeekPlan({ userId, profile, dietaryGoals, savedExternalIds, tunings: tuningsOverride ?? tunings });
+      const result = await generateWeekPlan({ userId, profile, dietaryGoals, savedExternalIds, tunings: tuningsOverride ?? tunings, lockedSlots: lockedSlotsRef.current });
       if (myId !== genReqId.current) return; // a newer rebuild superseded this one — drop the stale result
       setAutoPlanResult(result);
       const applied = applyPlanToWeek(result); // build/shuffle/tune saves the week immediately
@@ -520,15 +523,33 @@ export default function Plan() {
           easier: !!(raw as any).easier,
         }
       : {};
+    // Capture the meals the user placed themselves (anything not auto-planned) so the rebuild
+    // keeps them on their day, labelled "You added this". Only dinners (v1 plans dinners).
+    const locked: { day: number; recipe: Recipe }[] = [];
+    for (const s of slots) {
+      if (s.meal_type !== 'dinner') continue;
+      if (s.provenance === 'auto_plan') continue; // Mori's pick — fair game to re-plan
+      const r = slotRecipes[s.recipe_id];
+      if (r?.supabase_id) locked.push({ day: s.day, recipe: r });
+    }
     const start = () => {
+      lockedSlotsRef.current = locked;
       setTunings(initialTunings);
       setAutoPlanResult(null);
       setSwappedInIds(new Set());
       setAutoPlanOpen(true);
       runGenerate(true, initialTunings);
     };
-    // Building auto-saves the week, so confirm before overwriting an existing plan.
-    if (slots.length > 0) {
+    // Building auto-saves the week, so confirm before re-planning. Re-planning KEEPS the meals
+    // the user added themselves; only the auto-planned ones are replaced.
+    if (locked.length > 0) {
+      const kept = `the ${locked.length} meal${locked.length !== 1 ? 's' : ''} you added yourself`;
+      Alert.alert(
+        'Rebuild the rest of your week?',
+        `We'll keep ${kept} and auto-plan the rest of the week.`,
+        [{ text: 'Cancel', style: 'cancel' }, { text: 'Rebuild', onPress: start }],
+      );
+    } else if (slots.length > 0) {
       Alert.alert(
         'Build a fresh week?',
         `This replaces your current ${slots.length} planned meal${slots.length !== 1 ? 's' : ''} with a new auto plan. You can shuffle or edit it after.`,
@@ -663,8 +684,10 @@ export default function Plan() {
         if (idx === 0) { setPreviewSlot({ day: slot.day, mealType: slot.mealType }); setPreviewRecipe(recipe); }
         else if (idx === 1) {
           pendingPickerSlotRef.current = slot;
-          handleDoneAutoPlan(); // closes the sheet; the picker opens in the dismiss handler
-          pickerFallbackTimer.current = setTimeout(handleAutoPlanDismiss, 500); // onDismiss-miss safety net
+          handleDoneAutoPlan(); // unmounts the sheet (return null); no native dismiss to wait on
+          // The sheet unmounts immediately, so onDismiss may not fire — a short timer reliably
+          // opens the picker (idempotent with onDismiss; the rAF inside adds one more frame of margin).
+          pickerFallbackTimer.current = setTimeout(handleAutoPlanDismiss, 150);
         }
       },
     );
@@ -1490,8 +1513,9 @@ export default function Plan() {
         }}
       />
 
-      {/* Always mounted — control via `visible` so closing animates the native dismiss. Conditionally
-          UNMOUNTING a presented fullScreen Modal skips iOS's dismiss and freezes the screen behind it. */}
+      {/* Rendered always, but AutoPlanSheet itself returns null when !visible (like RecipeDetailModal)
+          — so at rest NO fullScreen Modal is mounted here. An always-mounted visible=false Modal left
+          an invisible touch-blocking view that froze the screen; do NOT reintroduce one. */}
       <AutoPlanSheet
         visible={autoPlanOpen}
         loading={autoPlanLoading}

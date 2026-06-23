@@ -4,7 +4,7 @@ import type { Profile, Recipe, SwipeEvent, SavedRecipe, PantryItem, GroceryList,
 import type { BadgeStats } from '@/lib/badges';
 import { inferDietaryTags } from './dietaryClassifier';
 import { getApiBaseUrl } from './apiBaseUrl';
-import { autoPlanWeek } from './autoPlan';
+import { autoPlanWeek, mergeLockedSlots } from './autoPlan';
 
 // ─── Macro AsyncStorage cache ─────────────────────────────────────────────────
 // Persists macro data across sessions so Spoonacular is never called twice for
@@ -1010,6 +1010,7 @@ export async function generateWeekPlan(opts: {
   mealTypes?: MealType[];
   days?: number;
   tunings?: PlanTunings;
+  lockedSlots?: { day: number; recipe: Recipe }[]; // user-placed meals to keep on a rebuild
 }): Promise<AutoPlanResult> {
   const { userId, profile, dietaryGoals, savedExternalIds } = opts;
 
@@ -1066,10 +1067,15 @@ export async function generateWeekPlan(opts: {
   // no-repeat key consistent with the swap/persist key).
   pool = pool.filter((r) => !!r.supabase_id);
 
+  // Exclude user-locked recipes from the pool so the optimizer can't auto-pick them on a
+  // DIFFERENT day (they're overlaid back onto their own day by mergeLockedSlots below).
+  const lockedIds = new Set((opts.lockedSlots ?? []).map((ls) => ls.recipe.supabase_id).filter(Boolean));
+  if (lockedIds.size > 0) pool = pool.filter((r) => !lockedIds.has(r.supabase_id));
+
   const scoreFn = (recipe: Recipe): number =>
     scoreRecipe(recipe, profile, swipeMap, savedExternalIds, affinityMap, interactionMap, pantrySet, leftoversSet, ratingMap, savedAtMap, flavourDna, true);
 
-  return autoPlanWeek({
+  const result = autoPlanWeek({
     catalog: pool,
     savedExternalIds,
     scoreFn,
@@ -1080,6 +1086,8 @@ export async function generateWeekPlan(opts: {
     tunings: opts.tunings,
     random: Math.random,
   });
+  // Keep the user's manually-placed meals on their own days ("You added this").
+  return mergeLockedSlots(result, opts.lockedSlots ?? [], opts.weeklyBudgetUsd ?? null);
 }
 
 /**
