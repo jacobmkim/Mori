@@ -62,6 +62,12 @@ export function AutoPlanSheet({
 
   const slots = result?.slots ?? [];
 
+  // Render NOTHING when closed (mirrors RecipeDetailModal's `if (!recipe) return null`). An
+  // always-mounted `visible=false` fullScreen Modal leaves an invisible touch-blocking view in
+  // the tree that freezes the screen + any other modal (picker) behind it. Returning null keeps
+  // at-rest topology to a single mounted Modal (the picker), the known-good baseline.
+  if (!visible) return null;
+
   return (
     <Modal
       visible={visible}
