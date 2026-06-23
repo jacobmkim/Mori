@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks/useTheme';
 import { getRecipeImageUrl } from '@/lib/recipeImage';
 import { formatTime } from '@/lib/utils';
-import type { AutoPlanResult, Recipe, PlanTunings } from '@/types';
+import type { AutoPlanResult, Recipe, PlanTunings, MealType } from '@/types';
 
 // Whole-week tuning toggles shown above the plan. Each biases the optimizer.
 // Soft-bias nudges (compose freely). "Meal prep" is NOT here — it's a structural MODE that
@@ -37,9 +37,10 @@ export function AutoPlanSheet({
   result,
   dayNames,
   onClose,
+  onDismiss,
   onRegenerate,
   onDone,
-  onPreviewRecipe,
+  onCardTap,
   onSwapSlot,
   tunings,
   onToggleTuning,
@@ -49,9 +50,10 @@ export function AutoPlanSheet({
   result: AutoPlanResult | null;
   dayNames: string[];
   onClose: () => void;
+  onDismiss?: () => void;
   onRegenerate: () => void;
   onDone: () => void;
-  onPreviewRecipe?: (recipe: Recipe) => void;
+  onCardTap?: (recipe: Recipe, slot: { day: number; mealType: MealType }) => void;
   onSwapSlot?: (index: number) => void;
   tunings?: PlanTunings;
   onToggleTuning?: (key: keyof PlanTunings) => void;
@@ -66,6 +68,7 @@ export function AutoPlanSheet({
       animationType="slide"
       presentationStyle="fullScreen"
       onRequestClose={onClose}
+      onDismiss={onDismiss}
     >
       <View style={{ flex: 1, backgroundColor: colors.background }}>
         {/* Header */}
@@ -222,7 +225,7 @@ export function AutoPlanSheet({
 
                       <Pressable
                         disabled={!recipe}
-                        onPress={() => { if (recipe && onPreviewRecipe) onPreviewRecipe(recipe); }}
+                        onPress={() => { if (recipe && onCardTap) onCardTap(recipe, { day: slot.day, mealType: slot.mealType }); }}
                         style={{
                           flexDirection: 'row', alignItems: 'center', gap: 14,
                           backgroundColor: colors.card, borderRadius: 14,

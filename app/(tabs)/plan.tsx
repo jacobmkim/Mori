@@ -1,6 +1,6 @@
 import {
   View, Text, FlatList, Pressable, TextInput,
-  ActivityIndicator, Alert, Modal, ScrollView, SectionList,
+  ActivityIndicator, Alert, Modal, ScrollView, SectionList, ActionSheetIOS,
 } from 'react-native';
 import { useState, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -108,6 +108,14 @@ export default function Plan() {
   const [swappedInIds, setSwappedInIds] = useState<Set<string>>(new Set());
   // Whole-week tuning toggles; defaulted from the user's saved plan_preferences.
   const [tunings, setTunings] = useState<PlanTunings>({});
+  // A slot the user chose to hand-pick a recipe for FROM the build sheet — opened after the
+  // sheet finishes dismissing (Modal onDismiss) so two modals never overlap. A ref (not state)
+  // because it's read inside a native onDismiss callback that fires ~300ms later — a ref is
+  // always current, sidestepping any stale-closure timing.
+  const pendingPickerSlotRef = useRef<{ day: number; mealType: MealType } | null>(null);
+  // Fallback timer — RN Modal onDismiss is not 100% reliable on iOS (see PostCookReviewModal),
+  // so we also arm a timeout; whichever fires first opens the picker, the other no-ops.
+  const pickerFallbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Monotonic id so an older in-flight rebuild can't overwrite a newer one (rapid toggling).
   const genReqId = useRef(0);
 
@@ -215,6 +223,9 @@ export default function Plan() {
     loadPlan(userId, weekStart);
   }, [userId, weekStart]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Clear the picker fallback timer on unmount so it can't fire after the screen is gone.
+  useEffect(() => () => { if (pickerFallbackTimer.current) clearTimeout(pickerFallbackTimer.current); }, []);
+
   // When the user navigates between weeks, snap the selected day:
   // - Current week → today
   // - Other weeks → Monday
@@ -293,6 +304,16 @@ export default function Plan() {
   function handleAssign(recipe: Recipe) {
     if (!pickerOpen) return;
     addRecipeToSlot(recipe, pickerOpen.day, pickerOpen.mealType, pendingServings);
+    setPickerOpen(null);
+    resetPickerFilters();
+  }
+
+  // Quick-add (the "+" on a picker row, bypassing the preview) — add at the recipe's OWN base
+  // servings (1×). Must NOT reuse `pendingServings`, which is only synced when a preview opens
+  // and would otherwise apply a stale multiplier from a previous recipe.
+  function handleQuickAssign(recipe: Recipe) {
+    if (!pickerOpen) return;
+    addRecipeToSlot(recipe, pickerOpen.day, pickerOpen.mealType, baseServings(recipe));
     setPickerOpen(null);
     resetPickerFilters();
   }
@@ -617,6 +638,51 @@ export default function Plan() {
     setSelectedDay(weekOffset === 0 ? todayDayIndex() : 0);
   }
 
+  // ── Editing a planned meal (Plan tab + Build sheet) ─────────────────────────
+  // Tapping a planned meal offers View / Choose-a-different-recipe. "Choose" opens the
+  // existing recipe picker for that slot; picking replaces it (addSlot upserts per day+meal).
+  const SLOT_ACTIONS = ['View recipe', 'Choose a different recipe', 'Cancel'];
+
+  // Plan tab: the picker opens directly (no other modal in the way).
+  function handleSlotTap(day: number, mealType: MealType, recipe: Recipe) {
+    ActionSheetIOS.showActionSheetWithOptions(
+      { title: recipe.title, options: SLOT_ACTIONS, cancelButtonIndex: 2 },
+      (idx) => {
+        if (idx === 0) { setPreviewSlot({ day, mealType }); setPreviewRecipe(recipe); }
+        else if (idx === 1) { setPickerOpen({ day, mealType }); }
+      },
+    );
+  }
+
+  // Build sheet: "Choose" must close the fullScreen sheet FIRST, then open the picker once
+  // the sheet has dismissed (handleAutoPlanDismiss) — never two modals at once.
+  function handleSheetCardTap(recipe: Recipe, slot: { day: number; mealType: MealType }) {
+    ActionSheetIOS.showActionSheetWithOptions(
+      { title: recipe.title, options: SLOT_ACTIONS, cancelButtonIndex: 2 },
+      (idx) => {
+        if (idx === 0) { setPreviewSlot({ day: slot.day, mealType: slot.mealType }); setPreviewRecipe(recipe); }
+        else if (idx === 1) {
+          pendingPickerSlotRef.current = slot;
+          handleDoneAutoPlan(); // closes the sheet; the picker opens in the dismiss handler
+          pickerFallbackTimer.current = setTimeout(handleAutoPlanDismiss, 500); // onDismiss-miss safety net
+        }
+      },
+    );
+  }
+
+  // Fires after the build sheet finishes dismissing (or via the fallback timer) — open the
+  // deferred picker. Idempotent: self-clears the ref so a second call no-ops. Defers the
+  // present by one frame so the dismiss's view-controller teardown fully unwinds first
+  // (presenting mid-teardown is the modal-freeze class this app has hit before).
+  function handleAutoPlanDismiss() {
+    if (pickerFallbackTimer.current) { clearTimeout(pickerFallbackTimer.current); pickerFallbackTimer.current = null; }
+    const slot = pendingPickerSlotRef.current;
+    if (!slot) return;
+    pendingPickerSlotRef.current = null;
+    setSelectedDay(slot.day); // focus the day they're editing so the change is visible after picking
+    requestAnimationFrame(() => setPickerOpen(slot));
+  }
+
   function handleAddAllToGrocery() {
     // Sum how many base-recipe batches each recipe needs across ALL its slots, so a recipe
     // planned on multiple days (batch / repeat / copy-last-week) buys the right multiple instead
@@ -887,7 +953,7 @@ export default function Plan() {
               <Pressable
                 key={mealType}
                 onPress={() => {
-                  if (recipe) { setPreviewSlot({ day: selectedDay, mealType }); setPreviewRecipe(recipe); return; }
+                  if (recipe) { handleSlotTap(selectedDay, mealType, recipe); return; }
                   if (isDeleted) { handleRemove(selectedDay, mealType); return; }
                   setPickerOpen({ day: selectedDay, mealType });
                 }}
@@ -1205,9 +1271,9 @@ export default function Plan() {
                       ].filter(Boolean).join(' · ')}
                     </Text>
                   </View>
-                  {/* Quick-add — direct to slot, skipping the preview. Nested
-                      Pressable's onPress fires WITHOUT bubbling to the row Pressable. */}
-                  <Pressable onPress={() => handleAssign(item)} hitSlop={8} style={{ padding: 4 }}>
+                  {/* Quick-add — direct to slot at the recipe's base servings, skipping the
+                      preview. Nested Pressable's onPress fires WITHOUT bubbling to the row. */}
+                  <Pressable onPress={() => handleQuickAssign(item)} hitSlop={8} style={{ padding: 4 }}>
                     <Ionicons name="add-circle" size={28} color={colors.primary} />
                   </Pressable>
                 </Pressable>
@@ -1432,9 +1498,10 @@ export default function Plan() {
         result={autoPlanResult}
         dayNames={DAY_NAMES}
         onClose={handleDoneAutoPlan}
+        onDismiss={handleAutoPlanDismiss}
         onRegenerate={() => { setSwappedInIds(new Set()); runGenerate(false); }}
         onDone={handleDoneAutoPlan}
-        onPreviewRecipe={(r) => { setPreviewSlot(null); setPreviewRecipe(r); }}
+        onCardTap={handleSheetCardTap}
         onSwapSlot={handleSwapSlot}
         tunings={tunings}
         onToggleTuning={handleToggleTuning}
