@@ -161,6 +161,7 @@ export interface AutoPlanInput {
   scoreFn: (recipe: Recipe) => number;  // taste score (scoreRecipe bound to the user)
   mealTypes: MealType[];                 // v1 = ['dinner']
   days: number;                          // e.g. 7
+  startDay?: number;                     // first day index to plan (skip past days); default 0
   weeklyBudgetUsd?: number | null;       // soft cap (+5% tolerance); null/undefined = ignore
   leftoversSet?: Set<string>;            // active leftover ingredient names, lowercased
   tunings?: PlanTunings;                  // whole-week bias toggles; undefined = no bias

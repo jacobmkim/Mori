@@ -1011,6 +1011,7 @@ export async function generateWeekPlan(opts: {
   days?: number;
   tunings?: PlanTunings;
   lockedSlots?: { day: number; recipe: Recipe }[]; // user-placed meals to keep on a rebuild
+  startDay?: number; // first day index to plan (skip days already past in the current week)
 }): Promise<AutoPlanResult> {
   const { userId, profile, dietaryGoals, savedExternalIds } = opts;
 
@@ -1081,6 +1082,7 @@ export async function generateWeekPlan(opts: {
     scoreFn,
     mealTypes: opts.mealTypes ?? ['dinner'],
     days: opts.days ?? 7,
+    startDay: opts.startDay ?? 0,
     weeklyBudgetUsd: opts.weeklyBudgetUsd ?? null,
     leftoversSet,
     tunings: opts.tunings,

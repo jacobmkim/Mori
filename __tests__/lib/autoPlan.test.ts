@@ -47,6 +47,7 @@ function run(catalog: Recipe[], over: Partial<AutoPlanInput> = {}) {
     weeklyBudgetUsd: over.weeklyBudgetUsd,
     leftoversSet: over.leftoversSet,
     tunings: over.tunings,
+    startDay: over.startDay,
     random: over.random ?? mulberry32(42),
   });
 }
@@ -63,6 +64,14 @@ describe('autoPlanWeek — slot filling', () => {
     expect(new Set(ids).size).toBe(7); // no repeats
     expect(res.generateNeeded).toBe(0);
     expect(res.slots.every((s) => s.provenance === 'auto_plan')).toBe(true);
+  });
+
+  it('startDay skips earlier days — only plans from startDay onward (plan from today)', () => {
+    const catalog = Array.from({ length: 12 }, () => mr());
+    const res = run(catalog, { startDay: 2, days: 7 });
+    expect(res.slots).toHaveLength(5); // days 2,3,4,5,6
+    expect(res.slots.every((s) => s.day >= 2)).toBe(true);
+    expect(filled(res)).toHaveLength(5);
   });
 
   it('leaves slots empty (generateNeeded) when the catalog is too thin', () => {

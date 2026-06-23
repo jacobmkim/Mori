@@ -1,10 +1,10 @@
-import { View, Text, Pressable, ScrollView, ActivityIndicator, Modal } from 'react-native';
+import { View, Text, Pressable, ScrollView, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks/useTheme';
 import { getRecipeImageUrl } from '@/lib/recipeImage';
 import { formatTime } from '@/lib/utils';
-import type { AutoPlanResult, Recipe, PlanTunings, MealType } from '@/types';
+import type { AutoPlanResult, Recipe, PlanTunings } from '@/types';
 
 // Whole-week tuning toggles shown above the plan. Each biases the optimizer.
 // Soft-bias nudges (compose freely). "Meal prep" is NOT here — it's a structural MODE that
@@ -25,11 +25,10 @@ const TUNING_OPTIONS: { key: keyof PlanTunings; label: string; icon: keyof typeo
 // persistence (autoSlotsToStoreSlots → savePlan). Keeping all I/O out of here
 // makes the component trivially testable and reusable for Sunday Drop (I8).
 //
-// presentationStyle is fullScreen (NOT pageSheet): the Plan tab's recipe picker
-// is already a mounted pageSheet Modal, and two mounted pageSheet/formSheet modals
-// on one screen is a known iOS bug that freezes touches on the screen behind them.
-// fullScreen matches RecipeDetailModal (which coexists fine) and lets a tapped
-// recipe open RecipeDetailModal cleanly on top.
+// This is an INLINE OVERLAY (a View), NOT a Modal: the Plan tab already mounts the recipe
+// picker + RecipeDetailModal, and stacking another Modal here repeatedly froze iOS touches
+// and made the recipe preview present underneath. As a plain View overlay it never blocks
+// touches, and the preview/picker Modals present cleanly on top of it.
 
 export function AutoPlanSheet({
   visible,
@@ -37,10 +36,9 @@ export function AutoPlanSheet({
   result,
   dayNames,
   onClose,
-  onDismiss,
   onRegenerate,
-  onDone,
-  onCardTap,
+  onAccept,
+  onPreviewRecipe,
   onSwapSlot,
   tunings,
   onToggleTuning,
@@ -49,11 +47,10 @@ export function AutoPlanSheet({
   loading: boolean;
   result: AutoPlanResult | null;
   dayNames: string[];
-  onClose: () => void;
-  onDismiss?: () => void;
+  onClose: () => void;       // discard (X) — nothing is saved until Accept
   onRegenerate: () => void;
-  onDone: () => void;
-  onCardTap?: (recipe: Recipe, slot: { day: number; mealType: MealType }) => void;
+  onAccept: () => void;      // "Use this plan" — the only thing that saves the week
+  onPreviewRecipe?: (recipe: Recipe) => void;
   onSwapSlot?: (index: number) => void;
   tunings?: PlanTunings;
   onToggleTuning?: (key: keyof PlanTunings) => void;
@@ -62,20 +59,15 @@ export function AutoPlanSheet({
 
   const slots = result?.slots ?? [];
 
-  // Render NOTHING when closed (mirrors RecipeDetailModal's `if (!recipe) return null`). An
-  // always-mounted `visible=false` fullScreen Modal leaves an invisible touch-blocking view in
-  // the tree that freezes the screen + any other modal (picker) behind it. Returning null keeps
-  // at-rest topology to a single mounted Modal (the picker), the known-good baseline.
   if (!visible) return null;
 
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      presentationStyle="fullScreen"
-      onRequestClose={onClose}
-      onDismiss={onDismiss}
-    >
+    // Inline full-screen OVERLAY (a View, not a Modal). The Plan tab already has Modals (the recipe
+    // picker, RecipeDetailModal); stacking another Modal here repeatedly froze iOS touches AND made
+    // the recipe preview present underneath. As a plain absolute-fill View this never blocks touches,
+    // and the preview/picker Modals present cleanly ON TOP of it. Nothing here is saved until the
+    // user taps "Use this plan" — tapping away (e.g. another tab) simply discards.
+    <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 50 }}>
       <View style={{ flex: 1, backgroundColor: colors.background }}>
         {/* Header */}
         <View style={{
@@ -231,7 +223,7 @@ export function AutoPlanSheet({
 
                       <Pressable
                         disabled={!recipe}
-                        onPress={() => { if (recipe && onCardTap) onCardTap(recipe, { day: slot.day, mealType: slot.mealType }); }}
+                        onPress={() => { if (recipe && onPreviewRecipe) onPreviewRecipe(recipe); }}
                         style={{
                           flexDirection: 'row', alignItems: 'center', gap: 14,
                           backgroundColor: colors.card, borderRadius: 14,
@@ -338,7 +330,7 @@ export function AutoPlanSheet({
                 <Text style={{ fontSize: 15, fontWeight: '600', color: colors.text }}>Shuffle</Text>
               </Pressable>
               <Pressable
-                onPress={onDone}
+                onPress={onAccept}
                 disabled={loading}
                 style={{
                   flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
@@ -347,13 +339,13 @@ export function AutoPlanSheet({
                 }}
               >
                 <Ionicons name="checkmark-circle" size={18} color="white" />
-                <Text style={{ fontSize: 16, fontWeight: '700', color: 'white' }}>Done</Text>
+                <Text style={{ fontSize: 16, fontWeight: '700', color: 'white' }}>Use this plan</Text>
               </Pressable>
             </View>
           </>
         )}
       </View>
-    </Modal>
+    </View>
   );
 }
 

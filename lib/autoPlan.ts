@@ -98,10 +98,12 @@ const round2 = (n: number): number => Math.round(n * 100) / 100;
 
 export function autoPlanWeek(input: AutoPlanInput): AutoPlanResult {
   const { catalog, savedExternalIds, scoreFn, mealTypes, days, weeklyBudgetUsd, leftoversSet, tunings, random } = input;
+  const startDay = Math.max(0, input.startDay ?? 0);
 
-  // Slots to fill, day-major then meal type (dinners first within a day).
+  // Slots to fill, day-major then meal type (dinners first within a day). Starts at startDay so
+  // past days (e.g. Monday when it's Tuesday) are never planned.
   const specs: { day: number; mealType: MealType }[] = [];
-  for (let day = 0; day < days; day++) {
+  for (let day = startDay; day < days; day++) {
     for (const mt of mealTypes) specs.push({ day, mealType: mt });
   }
 

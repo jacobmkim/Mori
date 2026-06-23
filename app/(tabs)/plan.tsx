@@ -108,14 +108,6 @@ export default function Plan() {
   const [swappedInIds, setSwappedInIds] = useState<Set<string>>(new Set());
   // Whole-week tuning toggles; defaulted from the user's saved plan_preferences.
   const [tunings, setTunings] = useState<PlanTunings>({});
-  // A slot the user chose to hand-pick a recipe for FROM the build sheet — opened after the
-  // sheet finishes dismissing (Modal onDismiss) so two modals never overlap. A ref (not state)
-  // because it's read inside a native onDismiss callback that fires ~300ms later — a ref is
-  // always current, sidestepping any stale-closure timing.
-  const pendingPickerSlotRef = useRef<{ day: number; mealType: MealType } | null>(null);
-  // Fallback timer — RN Modal onDismiss is not 100% reliable on iOS (see PostCookReviewModal),
-  // so we also arm a timeout; whichever fires first opens the picker, the other no-ops.
-  const pickerFallbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Monotonic id so an older in-flight rebuild can't overwrite a newer one (rapid toggling).
   const genReqId = useRef(0);
   // User-placed meals captured at build time, kept across shuffles/tunes in this build session
@@ -226,8 +218,6 @@ export default function Plan() {
     loadPlan(userId, weekStart);
   }, [userId, weekStart]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Clear the picker fallback timer on unmount so it can't fire after the screen is gone.
-  useEffect(() => () => { if (pickerFallbackTimer.current) clearTimeout(pickerFallbackTimer.current); }, []);
 
   // When the user navigates between weeks, snap the selected day:
   // - Current week → today
@@ -479,18 +469,10 @@ export default function Plan() {
     setAutoPlanLoading(true);
     try {
       const savedExternalIds = new Set(savedRecipes.map((r) => r.id));
-      const result = await generateWeekPlan({ userId, profile, dietaryGoals, savedExternalIds, tunings: tuningsOverride ?? tunings, lockedSlots: lockedSlotsRef.current });
+      const result = await generateWeekPlan({ userId, profile, dietaryGoals, savedExternalIds, tunings: tuningsOverride ?? tunings, lockedSlots: lockedSlotsRef.current, startDay: planStartDay() });
       if (myId !== genReqId.current) return; // a newer rebuild superseded this one — drop the stale result
+      // Build/shuffle/tune only PROPOSE a plan — nothing is saved until the user taps "Use this plan".
       setAutoPlanResult(result);
-      const applied = applyPlanToWeek(result); // build/shuffle/tune saves the week immediately
-      if (!applied && isInitial) {
-        // A confirmed build that produced nothing fillable — leave the existing week intact,
-        // but say so (the confirm promised a replacement).
-        Alert.alert(
-          "Couldn't build a full week",
-          'We couldn\'t find dinners that fit your filters. Your current plan is unchanged — try fewer tuning toggles or save a few more recipes.',
-        );
-      }
     } catch {
       if (myId !== genReqId.current) return;
       // Initial build failed → close (nothing to show). A failed Shuffle/tune keeps the
@@ -523,44 +505,23 @@ export default function Plan() {
           easier: !!(raw as any).easier,
         }
       : {};
-    // Capture the meals the user placed themselves (anything not auto-planned) so the rebuild
-    // keeps them on their day, labelled "You added this". Only dinners (v1 plans dinners).
+    // Capture the meals the user placed themselves (anything not auto-planned) in the days we're
+    // about to plan (today onward), so the proposal keeps them, labelled "You added this".
+    const start = planStartDay();
     const locked: { day: number; recipe: Recipe }[] = [];
     for (const s of slots) {
-      if (s.meal_type !== 'dinner') continue;
+      if (s.meal_type !== 'dinner' || s.day < start) continue;
       if (s.provenance === 'auto_plan') continue; // Mori's pick — fair game to re-plan
       const r = slotRecipes[s.recipe_id];
       if (r?.supabase_id) locked.push({ day: s.day, recipe: r });
     }
-    const start = () => {
-      lockedSlotsRef.current = locked;
-      setTunings(initialTunings);
-      setAutoPlanResult(null);
-      setSwappedInIds(new Set());
-      setAutoPlanOpen(true);
-      runGenerate(true, initialTunings);
-    };
-    // Building auto-saves the week, so confirm before re-planning. Re-planning KEEPS the meals
-    // the user added themselves; only the auto-planned ones are replaced.
-    if (locked.length > 0) {
-      const kept = `the ${locked.length} meal${locked.length !== 1 ? 's' : ''} you added yourself`;
-      Alert.alert(
-        'Rebuild the rest of your week?',
-        `We'll keep ${kept} and auto-plan the rest of the week.`,
-        [{ text: 'Cancel', style: 'cancel' }, { text: 'Rebuild', onPress: start }],
-      );
-    } else if (slots.length > 0) {
-      Alert.alert(
-        'Build a fresh week?',
-        `This replaces your current ${slots.length} planned meal${slots.length !== 1 ? 's' : ''} with a new auto plan. You can shuffle or edit it after.`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Build', style: 'destructive', onPress: start },
-        ],
-      );
-    } else {
-      start();
-    }
+    // Building only PROPOSES a plan (no confirm needed — nothing is saved until "Use this plan").
+    lockedSlotsRef.current = locked;
+    setTunings(initialTunings);
+    setAutoPlanResult(null);
+    setSwappedInIds(new Set());
+    setAutoPlanOpen(true);
+    runGenerate(true, initialTunings);
   }
 
   // Toggle a whole-week tuning and rebuild the plan biased toward it. The chip flips
@@ -598,8 +559,7 @@ export default function Plan() {
     const newSlot = { ...slot, recipe: next, provenance: 'manual' as const, explanation: 'You swapped this in', alternates: nextAlternates };
     const newSlots = cur.map((s, i) => (i === index ? newSlot : s));
     const newResult = { ...autoPlanResult, slots: newSlots };
-    setAutoPlanResult(newResult);
-    applyPlanToWeek(newResult); // persist the swap immediately
+    setAutoPlanResult(newResult); // edit the proposal only — saved on "Use this plan"
     if (next.supabase_id) {
       setSwappedInIds((prev) => new Set(prev).add(next.supabase_id!));
     }
@@ -624,47 +584,66 @@ export default function Plan() {
     }).catch(() => {});
   }
 
-  // Persist a built/edited plan to the week IMMEDIATELY (the device copy = meal_plans, reloaded
-  // on the Plan tab). Called on every build / shuffle / swap / tune so the week is saved the
-  // moment it's built — it survives closing the sheet, and lives until the next build/shuffle or
-  // the week rolls over. Never clobbers the existing week with an empty result (thin catalog).
+  // Which day the auto plan should start from. Current week → today (don't plan days already past,
+  // e.g. Monday when it's Tuesday). Other weeks → Monday.
+  function planStartDay(): number {
+    return weekOffset === 0 ? todayDayIndex() : 0;
+  }
+
+  // Save the proposed plan to the week (called ONLY on "Use this plan"). Replaces just the dinner
+  // slots from planStartDay onward — past days and any breakfast/lunch slots are kept untouched.
+  // Returns false if nothing fillable.
   function applyPlanToWeek(result: AutoPlanResult): boolean {
     if (!userId) return false;
     const newSlots = autoSlotsToStoreSlots(result.slots);
     if (newSlots.length === 0) return false;
+    const start = planStartDay();
+    const kept = slots.filter((s) => s.meal_type !== 'dinner' || s.day < start);
     // Pre-hydrate so the Plan tab renders instantly (no "Recipe removed" flash).
     const hydrate: Record<string, Recipe> = {};
     result.slots.forEach((s) => { if (s.recipe?.supabase_id) hydrate[s.recipe.supabase_id] = s.recipe; });
     setSlotRecipes((prev) => ({ ...prev, ...hydrate }));
     clearSlots();
+    kept.forEach((s) => addSlot(s));
     newSlots.forEach((s) => addSlot(s));
     savePlan(userId, weekStart);
     return true;
   }
 
-  // Closing the sheet (Done or the X) — the plan is already saved; here we just commit the
-  // "learn my taste" signals (swapped-in recipes + tuning prefs) and tidy up.
-  function handleDoneAutoPlan() {
-    if (userId) {
-      if (swappedInIds.size > 0 && autoPlanResult) {
-        autoPlanResult.slots.forEach((s) => {
-          if (s.recipe?.supabase_id && swappedInIds.has(s.recipe.supabase_id)) learnFromChoice(s.recipe);
-        });
-      }
-      updatePlanPreferences(userId, tunings).catch(() => {});
+  // "Use this plan" — the ONLY action that saves. Commits the proposal to the week, logs the
+  // learn-from-swaps signals + tuning prefs, then closes.
+  function handleAcceptAutoPlan() {
+    if (!userId || !autoPlanResult) return;
+    if (!applyPlanToWeek(autoPlanResult)) {
+      Alert.alert("Couldn't save this plan", "Mori couldn't find dinners that fit your filters. Try fewer tuning toggles or save a few more recipes.");
+      return;
     }
+    if (swappedInIds.size > 0) {
+      autoPlanResult.slots.forEach((s) => {
+        if (s.recipe?.supabase_id && swappedInIds.has(s.recipe.supabase_id)) learnFromChoice(s.recipe);
+      });
+    }
+    updatePlanPreferences(userId, tunings).catch(() => {});
     setAutoPlanOpen(false);
     setAutoPlanResult(null);
     setSwappedInIds(new Set());
     setSelectedDay(weekOffset === 0 ? todayDayIndex() : 0);
   }
 
-  // ── Editing a planned meal (Plan tab + Build sheet) ─────────────────────────
-  // Tapping a planned meal offers View / Choose-a-different-recipe. "Choose" opens the
-  // existing recipe picker for that slot; picking replaces it (addSlot upserts per day+meal).
-  const SLOT_ACTIONS = ['View recipe', 'Choose a different recipe', 'Cancel'];
+  // Closing WITHOUT accepting (the X, or tabbing away) — discard the proposal. Nothing was saved,
+  // so the existing week is untouched.
+  function handleDiscardAutoPlan() {
+    setAutoPlanOpen(false);
+    setAutoPlanResult(null);
+    setSwappedInIds(new Set());
+    lockedSlotsRef.current = [];
+  }
 
-  // Plan tab: the picker opens directly (no other modal in the way).
+  // ── Editing a SAVED planned meal on the Plan tab ────────────────────────────
+  // Tapping a planned meal offers View / Choose-a-different-recipe. "Choose" opens the recipe
+  // picker for that slot; picking replaces it (addSlot upserts per day+meal). Plan tab only — no
+  // other modal is up, so the picker presents cleanly.
+  const SLOT_ACTIONS = ['View recipe', 'Choose a different recipe', 'Cancel'];
   function handleSlotTap(day: number, mealType: MealType, recipe: Recipe) {
     ActionSheetIOS.showActionSheetWithOptions(
       { title: recipe.title, options: SLOT_ACTIONS, cancelButtonIndex: 2 },
@@ -673,37 +652,6 @@ export default function Plan() {
         else if (idx === 1) { setPickerOpen({ day, mealType }); }
       },
     );
-  }
-
-  // Build sheet: "Choose" must close the fullScreen sheet FIRST, then open the picker once
-  // the sheet has dismissed (handleAutoPlanDismiss) — never two modals at once.
-  function handleSheetCardTap(recipe: Recipe, slot: { day: number; mealType: MealType }) {
-    ActionSheetIOS.showActionSheetWithOptions(
-      { title: recipe.title, options: SLOT_ACTIONS, cancelButtonIndex: 2 },
-      (idx) => {
-        if (idx === 0) { setPreviewSlot({ day: slot.day, mealType: slot.mealType }); setPreviewRecipe(recipe); }
-        else if (idx === 1) {
-          pendingPickerSlotRef.current = slot;
-          handleDoneAutoPlan(); // unmounts the sheet (return null); no native dismiss to wait on
-          // The sheet unmounts immediately, so onDismiss may not fire — a short timer reliably
-          // opens the picker (idempotent with onDismiss; the rAF inside adds one more frame of margin).
-          pickerFallbackTimer.current = setTimeout(handleAutoPlanDismiss, 150);
-        }
-      },
-    );
-  }
-
-  // Fires after the build sheet finishes dismissing (or via the fallback timer) — open the
-  // deferred picker. Idempotent: self-clears the ref so a second call no-ops. Defers the
-  // present by one frame so the dismiss's view-controller teardown fully unwinds first
-  // (presenting mid-teardown is the modal-freeze class this app has hit before).
-  function handleAutoPlanDismiss() {
-    if (pickerFallbackTimer.current) { clearTimeout(pickerFallbackTimer.current); pickerFallbackTimer.current = null; }
-    const slot = pendingPickerSlotRef.current;
-    if (!slot) return;
-    pendingPickerSlotRef.current = null;
-    setSelectedDay(slot.day); // focus the day they're editing so the change is visible after picking
-    requestAnimationFrame(() => setPickerOpen(slot));
   }
 
   function handleAddAllToGrocery() {
@@ -1514,18 +1462,17 @@ export default function Plan() {
       />
 
       {/* Rendered always, but AutoPlanSheet itself returns null when !visible (like RecipeDetailModal)
-          — so at rest NO fullScreen Modal is mounted here. An always-mounted visible=false Modal left
-          an invisible touch-blocking view that froze the screen; do NOT reintroduce one. */}
+          AutoPlanSheet is now an inline overlay (a View, not a Modal) — see its header. The recipe
+          preview / picker Modals present cleanly on top of it. Nothing saves until "Use this plan". */}
       <AutoPlanSheet
         visible={autoPlanOpen}
         loading={autoPlanLoading}
         result={autoPlanResult}
         dayNames={DAY_NAMES}
-        onClose={handleDoneAutoPlan}
-        onDismiss={handleAutoPlanDismiss}
+        onClose={handleDiscardAutoPlan}
         onRegenerate={() => { setSwappedInIds(new Set()); runGenerate(false); }}
-        onDone={handleDoneAutoPlan}
-        onCardTap={handleSheetCardTap}
+        onAccept={handleAcceptAutoPlan}
+        onPreviewRecipe={(r) => { setPreviewSlot(null); setPreviewRecipe(r); }}
         onSwapSlot={handleSwapSlot}
         tunings={tunings}
         onToggleTuning={handleToggleTuning}
