@@ -7,6 +7,8 @@ import { formatTime } from '@/lib/utils';
 import type { AutoPlanResult, Recipe, PlanTunings } from '@/types';
 
 // Whole-week tuning toggles shown above the plan. Each biases the optimizer.
+// Soft-bias nudges (compose freely). "Meal prep" is NOT here — it's a structural MODE that
+// restructures the week, surfaced as its own prominent toggle (see the sheet header).
 const TUNING_OPTIONS: { key: keyof PlanTunings; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
   { key: 'moreProtein', label: 'More protein', icon: 'barbell-outline' },
   { key: 'fewerCalories', label: 'Fewer calories', icon: 'flame-outline' },
@@ -14,7 +16,6 @@ const TUNING_OPTIONS: { key: keyof PlanTunings; label: string; icon: keyof typeo
   { key: 'moreFibre', label: 'More fibre', icon: 'leaf-outline' },
   { key: 'quicker', label: 'Quicker', icon: 'flash-outline' },
   { key: 'cheaper', label: 'Cheaper', icon: 'pricetag-outline' },
-  { key: 'mealPrep', label: 'Meal prep', icon: 'file-tray-stacked-outline' },
   { key: 'easier', label: 'Easy', icon: 'happy-outline' },
 ];
 
@@ -116,9 +117,39 @@ export function AutoPlanSheet({
                 </Text>
               </View>
 
-              {/* Whole-week tuning toggles — tapping rebuilds the week biased toward the pick. */}
               {onToggleTuning && (
                 <View style={{ marginBottom: 16 }}>
+                  {/* Meal prep MODE — prominent toggle (it restructures the week, unlike the soft
+                      nudges below). Tapping rebuilds as a batch week: ~3 recipes repeated across days. */}
+                  {(() => {
+                    const on = !!tunings?.mealPrep;
+                    return (
+                      <Pressable
+                        onPress={() => onToggleTuning('mealPrep')}
+                        style={{
+                          flexDirection: 'row', alignItems: 'center', gap: 12,
+                          backgroundColor: on ? colors.primaryLight : colors.card,
+                          borderWidth: 1, borderColor: on ? colors.primary : colors.border,
+                          borderRadius: 14, padding: 14, marginBottom: 16,
+                        }}
+                      >
+                        <Ionicons name="file-tray-stacked-outline" size={22} color={colors.primary} />
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ fontSize: 15, fontWeight: '700', color: colors.text }}>Meal prep mode</Text>
+                          <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>
+                            Cook ~3 recipes, repeated across the week
+                          </Text>
+                        </View>
+                        <Ionicons
+                          name={on ? 'checkmark-circle' : 'ellipse-outline'}
+                          size={26}
+                          color={on ? colors.primary : colors.border}
+                        />
+                      </Pressable>
+                    );
+                  })()}
+
+                  {/* Soft-bias nudges — compose freely; each just re-ranks the picks. */}
                   <Text style={{
                     fontSize: 12, fontWeight: '700', color: colors.textMuted,
                     letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 8, marginLeft: 2,
@@ -147,15 +178,6 @@ export function AutoPlanSheet({
                       );
                     })}
                   </View>
-                  {/* "Meal prep" is a MODE, not a soft nudge — flag that it restructures the week. */}
-                  {tunings?.mealPrep && (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10, marginLeft: 2 }}>
-                      <Ionicons name="information-circle-outline" size={14} color={colors.primary} />
-                      <Text style={{ flex: 1, fontSize: 12, color: colors.textMuted }}>
-                        Meal prep restructures your week — fewer recipes, cooked once, repeated across days.
-                      </Text>
-                    </View>
-                  )}
                 </View>
               )}
 
