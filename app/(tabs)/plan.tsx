@@ -8,7 +8,7 @@ import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks/useTheme';
 import { formatTime, getTimeOfDay, scaleQuantityString } from '@/lib/utils';
-import { getRecipesBySupabaseIds, fetchDiscoverRecipes, getMealPlanForWeek, logInteraction, resolveSupabaseId, updateStreakAndCount, generateWeekPlan, logSwipe, recordSessionSwipe, updatePlanPreferences } from '@/lib/api';
+import { getRecipesBySupabaseIds, fetchDiscoverRecipes, getRecentMealPlanWeeks, logInteraction, resolveSupabaseId, updateStreakAndCount, generateWeekPlan, logSwipe, recordSessionSwipe, updatePlanPreferences } from '@/lib/api';
 import { autoSlotsToStoreSlots, nextSlotAlternate } from '@/lib/autoPlan';
 import { flags } from '@/lib/featureFlags';
 import { gateMoriPlus } from '@/lib/paywall';
@@ -97,7 +97,8 @@ export default function Plan() {
   // Servings chosen in the picker add flow; defaults to the recipe's base.
   const [pendingServings, setPendingServings] = useState(2);
   const [badgeQueue, setBadgeQueue] = useState<Badge[]>([]);
-  const [lastWeekSlots, setLastWeekSlots] = useState<MealSlot[]>([]);
+  // Past weeks (with meals) the user can copy from — most recent first.
+  const [pastWeeks, setPastWeeks] = useState<{ week_start_date: string; slots: MealSlot[] }[]>([]);
   const [selectedDay, setSelectedDay] = useState<number>(() => todayDayIndex());
   // Auto Plan ("Build my week") — Mori+ flagship.
   const [autoPlanOpen, setAutoPlanOpen] = useState(false);
@@ -226,15 +227,12 @@ export default function Plan() {
     setSelectedDay(weekOffset === 0 ? todayDayIndex() : 0);
   }, [weekOffset]);
 
-  // Fetch previous week's slots so we know whether to show "Copy last week".
+  // Fetch the user's recent non-empty weeks (before this one) for "Copy a previous week".
   useEffect(() => {
-    if (!userId) { setLastWeekSlots([]); return; }
-    const prevMonday = new Date(monday);
-    prevMonday.setDate(prevMonday.getDate() - 7);
-    const prevWeekStart = toDateStr(prevMonday);
-    getMealPlanForWeek(userId, prevWeekStart)
-      .then((p) => setLastWeekSlots(p?.slots ?? []))
-      .catch(() => setLastWeekSlots([]));
+    if (!userId) { setPastWeeks([]); return; }
+    getRecentMealPlanWeeks(userId, weekStart, 8)
+      .then(setPastWeeks)
+      .catch(() => setPastWeeks([]));
   }, [userId, weekStart]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -414,28 +412,37 @@ export default function Plan() {
     );
   }
 
-  function handleCopyLastWeek() {
-    if (!userId || lastWeekSlots.length === 0) return;
+  // Copy a chosen past week's meals into this week. Copying is a fresh MANUAL action: drop the
+  // source's cooked state + Auto Plan provenance (so the I9 cooked-rate metric only counts
+  // genuinely auto-planned slots).
+  function copyWeekSlots(sourceSlots: MealSlot[]) {
+    if (!userId || sourceSlots.length === 0) return;
     const apply = () => {
-      // Replace this week's slots with last week's. addSlot() upserts per (day, mealType).
-      // Copying is a fresh MANUAL action: drop last week's cooked state (these meals
-      // aren't cooked yet) and any Auto Plan provenance (so the I9 dogfood cooked-rate
-      // metric only counts genuinely auto-planned slots).
       clearSlots();
-      lastWeekSlots.forEach((s) => addSlot({ ...s, cooked_at: null, provenance: 'manual', auto_explanation: null }));
+      sourceSlots.forEach((s) => addSlot({ ...s, cooked_at: null, provenance: 'manual', auto_explanation: null }));
       savePlan(userId, weekStart);
     };
-    if (slots.length === 0) {
-      apply();
-      return;
-    }
+    if (slots.length === 0) { apply(); return; }
     Alert.alert(
-      'Copy last week?',
-      `This will replace your current ${slots.length} planned meal${slots.length !== 1 ? 's' : ''} with last week's ${lastWeekSlots.length}.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Copy', style: 'default', onPress: apply },
-      ]
+      'Copy into this week?',
+      `Replace your current ${slots.length} planned meal${slots.length !== 1 ? 's' : ''} with the ${sourceSlots.length} from that week?`,
+      [{ text: 'Cancel', style: 'cancel' }, { text: 'Copy', onPress: apply }],
+    );
+  }
+
+  // "Copy a previous week" — pick which past week to copy from (most recent first).
+  function handleCopyPreviousWeek() {
+    if (pastWeeks.length === 0) return;
+    const labels = pastWeeks.map((w) => {
+      const range = formatWeekRange(new Date(`${w.week_start_date}T00:00:00`));
+      const n = w.slots.length;
+      return `${range}  ·  ${n} meal${n !== 1 ? 's' : ''}`;
+    });
+    ActionSheetIOS.showActionSheetWithOptions(
+      { title: 'Copy a previous week', options: [...labels, 'Cancel'], cancelButtonIndex: labels.length },
+      (idx) => {
+        if (idx != null && idx < pastWeeks.length) copyWeekSlots(pastWeeks[idx].slots);
+      },
     );
   }
 
@@ -790,13 +797,13 @@ export default function Plan() {
           </Pressable>
         )}
 
-        {/* Week actions — Copy from last week / Clear week, contextual */}
-        {(lastWeekSlots.length > 0 || slots.length > 0) && (
+        {/* Week actions — Copy a previous week / Clear week, contextual */}
+        {(pastWeeks.length > 0 || slots.length > 0) && (
           <View style={{ flexDirection: 'row', gap: 16, marginTop: 4, marginBottom: 12 }}>
-            {lastWeekSlots.length > 0 && (
-              <Pressable onPress={handleCopyLastWeek} hitSlop={6}>
+            {pastWeeks.length > 0 && (
+              <Pressable onPress={handleCopyPreviousWeek} hitSlop={6}>
                 <Text style={{ fontSize: 13, color: colors.primary, fontWeight: '500' }}>
-                  ↺ Copy last week
+                  ↺ Copy a previous week
                 </Text>
               </Pressable>
             )}

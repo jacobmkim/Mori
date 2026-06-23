@@ -2078,6 +2078,27 @@ export async function getMealPlanForWeek(userId: string, weekStart: string): Pro
   return data;
 }
 
+// Past weeks (before `beforeWeekStart`) that actually have meals — most recent first.
+// Powers "Copy a previous week". Over-fetches then filters empty weeks client-side.
+export async function getRecentMealPlanWeeks(
+  userId: string,
+  beforeWeekStart: string,
+  limit = 8,
+): Promise<{ week_start_date: string; slots: MealSlot[] }[]> {
+  const { data, error } = await supabase
+    .from('meal_plans')
+    .select('week_start_date, slots')
+    .eq('user_id', userId)
+    .lt('week_start_date', beforeWeekStart)
+    .order('week_start_date', { ascending: false })
+    .limit(limit * 3);
+  if (error) return [];
+  return (data ?? [])
+    .filter((r: any) => Array.isArray(r.slots) && r.slots.length > 0)
+    .slice(0, limit)
+    .map((r: any) => ({ week_start_date: r.week_start_date as string, slots: (r.slots ?? []) as MealSlot[] }));
+}
+
 export async function saveMealPlan(
   userId: string,
   weekStart: string,
