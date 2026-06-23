@@ -37,7 +37,7 @@ export function AutoPlanSheet({
   dayNames,
   onClose,
   onRegenerate,
-  onAccept,
+  onDone,
   onPreviewRecipe,
   onSwapSlot,
   tunings,
@@ -49,7 +49,7 @@ export function AutoPlanSheet({
   dayNames: string[];
   onClose: () => void;
   onRegenerate: () => void;
-  onAccept: () => void;
+  onDone: () => void;
   onPreviewRecipe?: (recipe: Recipe) => void;
   onSwapSlot?: (index: number) => void;
   tunings?: PlanTunings;
@@ -58,10 +58,6 @@ export function AutoPlanSheet({
   const colors = useTheme();
 
   const slots = result?.slots ?? [];
-  // Count only slots that will actually persist — autoSlotsToStoreSlots drops any
-  // recipe without a supabase_id, so gating Accept on the same predicate keeps the
-  // button from ever offering "Use this plan" on a plan that maps to zero slots.
-  const filledCount = slots.filter((s) => s.recipe?.supabase_id).length;
 
   return (
     <Modal
@@ -306,18 +302,16 @@ export function AutoPlanSheet({
                 <Text style={{ fontSize: 15, fontWeight: '600', color: colors.text }}>Shuffle</Text>
               </Pressable>
               <Pressable
-                onPress={onAccept}
-                disabled={filledCount === 0 || loading}
+                onPress={onDone}
+                disabled={loading}
                 style={{
                   flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
                   height: 52, borderRadius: 14,
-                  backgroundColor: filledCount === 0 || loading ? colors.border : colors.primary,
+                  backgroundColor: loading ? colors.border : colors.primary,
                 }}
               >
                 <Ionicons name="checkmark-circle" size={18} color="white" />
-                <Text style={{ fontSize: 16, fontWeight: '700', color: 'white' }}>
-                  Use this plan{filledCount > 0 ? ` (${filledCount})` : ''}
-                </Text>
+                <Text style={{ fontSize: 16, fontWeight: '700', color: 'white' }}>Done</Text>
               </Pressable>
             </View>
           </>

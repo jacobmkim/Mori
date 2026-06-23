@@ -6,6 +6,10 @@ const EMPTY_PLAN: MealPlan = {
   id: '', user_id: '', week_start_date: '', is_public: false, slots: [], created_at: '',
 };
 
+// Monotonic token so an out-of-order savePlan resolution (rapid swap/tune fires several
+// upserts at once) can't reinstate a stale plan over a newer one in the store.
+let saveSeq = 0;
+
 interface MealPlanStore {
   plan: MealPlan | null;
   isLoading: boolean;
@@ -83,11 +87,15 @@ export const useMealPlanStore = create<MealPlanStore>((set, get) => ({
 
   savePlan: async (userId: string, weekStart: string) => {
     const { plan } = get();
+    const mySeq = ++saveSeq;
     try {
       const saved = await saveMealPlanApi(userId, weekStart, plan?.slots ?? [], plan?.id);
-      set({ plan: saved, error: null });
+      // Only the latest save updates the store — a superseded (older) save resolving late
+      // must not overwrite the newer plan already in memory. The DB upsert is idempotent on
+      // (user_id, week_start_date), so dropping the stale set() is safe.
+      if (mySeq === saveSeq) set({ plan: saved, error: null });
     } catch {
-      set({ error: 'Failed to save meal plan' });
+      if (mySeq === saveSeq) set({ error: 'Failed to save meal plan' });
     }
   },
 }));

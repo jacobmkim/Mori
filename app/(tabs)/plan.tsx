@@ -458,6 +458,15 @@ export default function Plan() {
       const result = await generateWeekPlan({ userId, profile, dietaryGoals, savedExternalIds, tunings: tuningsOverride ?? tunings });
       if (myId !== genReqId.current) return; // a newer rebuild superseded this one — drop the stale result
       setAutoPlanResult(result);
+      const applied = applyPlanToWeek(result); // build/shuffle/tune saves the week immediately
+      if (!applied && isInitial) {
+        // A confirmed build that produced nothing fillable — leave the existing week intact,
+        // but say so (the confirm promised a replacement).
+        Alert.alert(
+          "Couldn't build a full week",
+          'We couldn\'t find dinners that fit your filters. Your current plan is unchanged — try fewer tuning toggles or save a few more recipes.',
+        );
+      }
     } catch {
       if (myId !== genReqId.current) return;
       // Initial build failed → close (nothing to show). A failed Shuffle/tune keeps the
@@ -490,11 +499,26 @@ export default function Plan() {
           easier: !!(raw as any).easier,
         }
       : {};
-    setTunings(initialTunings);
-    setAutoPlanResult(null);
-    setSwappedInIds(new Set());
-    setAutoPlanOpen(true);
-    runGenerate(true, initialTunings);
+    const start = () => {
+      setTunings(initialTunings);
+      setAutoPlanResult(null);
+      setSwappedInIds(new Set());
+      setAutoPlanOpen(true);
+      runGenerate(true, initialTunings);
+    };
+    // Building auto-saves the week, so confirm before overwriting an existing plan.
+    if (slots.length > 0) {
+      Alert.alert(
+        'Build a fresh week?',
+        `This replaces your current ${slots.length} planned meal${slots.length !== 1 ? 's' : ''} with a new auto plan. You can shuffle or edit it after.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Build', style: 'destructive', onPress: start },
+        ],
+      );
+    } else {
+      start();
+    }
   }
 
   // Toggle a whole-week tuning and rebuild the plan biased toward it. The chip flips
@@ -531,7 +555,9 @@ export default function Plan() {
     // for a pick the user replaced.
     const newSlot = { ...slot, recipe: next, provenance: 'manual' as const, explanation: 'You swapped this in', alternates: nextAlternates };
     const newSlots = cur.map((s, i) => (i === index ? newSlot : s));
-    setAutoPlanResult({ ...autoPlanResult, slots: newSlots });
+    const newResult = { ...autoPlanResult, slots: newSlots };
+    setAutoPlanResult(newResult);
+    applyPlanToWeek(newResult); // persist the swap immediately
     if (next.supabase_id) {
       setSwappedInIds((prev) => new Set(prev).add(next.supabase_id!));
     }
@@ -556,53 +582,39 @@ export default function Plan() {
     }).catch(() => {});
   }
 
-  function handleAcceptAutoPlan() {
-    if (!userId || !autoPlanResult) return;
-    const newSlots = autoSlotsToStoreSlots(autoPlanResult.slots);
-    if (newSlots.length === 0) {
-      Alert.alert(
-        'Nothing to add',
-        "Mori couldn't find dinners that fit your filters. Try saving a few more recipes, then build again.",
-      );
-      return;
-    }
-    const apply = () => {
-      // Pre-hydrate slotRecipes from the result so the plan renders instantly
-      // (no "Recipe removed" flash before getRecipesBySupabaseIds resolves).
-      const hydrate: Record<string, Recipe> = {};
-      autoPlanResult.slots.forEach((s) => {
-        if (s.recipe?.supabase_id) hydrate[s.recipe.supabase_id] = s.recipe;
-      });
-      setSlotRecipes((prev) => ({ ...prev, ...hydrate }));
-      // Learn from the user's manual swaps (positive taste signal, persisted on accept).
-      if (swappedInIds.size > 0) {
+  // Persist a built/edited plan to the week IMMEDIATELY (the device copy = meal_plans, reloaded
+  // on the Plan tab). Called on every build / shuffle / swap / tune so the week is saved the
+  // moment it's built — it survives closing the sheet, and lives until the next build/shuffle or
+  // the week rolls over. Never clobbers the existing week with an empty result (thin catalog).
+  function applyPlanToWeek(result: AutoPlanResult): boolean {
+    if (!userId) return false;
+    const newSlots = autoSlotsToStoreSlots(result.slots);
+    if (newSlots.length === 0) return false;
+    // Pre-hydrate so the Plan tab renders instantly (no "Recipe removed" flash).
+    const hydrate: Record<string, Recipe> = {};
+    result.slots.forEach((s) => { if (s.recipe?.supabase_id) hydrate[s.recipe.supabase_id] = s.recipe; });
+    setSlotRecipes((prev) => ({ ...prev, ...hydrate }));
+    clearSlots();
+    newSlots.forEach((s) => addSlot(s));
+    savePlan(userId, weekStart);
+    return true;
+  }
+
+  // Closing the sheet (Done or the X) — the plan is already saved; here we just commit the
+  // "learn my taste" signals (swapped-in recipes + tuning prefs) and tidy up.
+  function handleDoneAutoPlan() {
+    if (userId) {
+      if (swappedInIds.size > 0 && autoPlanResult) {
         autoPlanResult.slots.forEach((s) => {
           if (s.recipe?.supabase_id && swappedInIds.has(s.recipe.supabase_id)) learnFromChoice(s.recipe);
         });
       }
-      // Remember the tuning toggles so future Auto Plans default to them ("learn my taste").
       updatePlanPreferences(userId, tunings).catch(() => {});
-      // Replace-all (locked decision): wipe the week, then write the auto slots.
-      clearSlots();
-      newSlots.forEach((s) => addSlot(s));
-      savePlan(userId, weekStart);
-      setAutoPlanOpen(false);
-      setAutoPlanResult(null);
-      setSwappedInIds(new Set());
-      setSelectedDay(weekOffset === 0 ? todayDayIndex() : 0);
-    };
-    if (slots.length > 0) {
-      Alert.alert(
-        'Replace this week?',
-        `This replaces your current ${slots.length} planned meal${slots.length !== 1 ? 's' : ''} with ${newSlots.length} auto-planned dinner${newSlots.length !== 1 ? 's' : ''}.`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Replace', style: 'destructive', onPress: apply },
-        ],
-      );
-    } else {
-      apply();
     }
+    setAutoPlanOpen(false);
+    setAutoPlanResult(null);
+    setSwappedInIds(new Set());
+    setSelectedDay(weekOffset === 0 ? todayDayIndex() : 0);
   }
 
   function handleAddAllToGrocery() {
@@ -1412,23 +1424,21 @@ export default function Plan() {
         }}
       />
 
-      {/* Mounted only while open so the at-rest screen has no extra Modal in the tree
-          (two simultaneously-mounted card/sheet Modals freeze iOS touches). */}
-      {autoPlanOpen && (
-        <AutoPlanSheet
-          visible={autoPlanOpen}
-          loading={autoPlanLoading}
-          result={autoPlanResult}
-          dayNames={DAY_NAMES}
-          onClose={() => { setAutoPlanOpen(false); setAutoPlanResult(null); setSwappedInIds(new Set()); }}
-          onRegenerate={() => { setSwappedInIds(new Set()); runGenerate(false); }}
-          onAccept={handleAcceptAutoPlan}
-          onPreviewRecipe={(r) => { setPreviewSlot(null); setPreviewRecipe(r); }}
-          onSwapSlot={handleSwapSlot}
-          tunings={tunings}
-          onToggleTuning={handleToggleTuning}
-        />
-      )}
+      {/* Always mounted — control via `visible` so closing animates the native dismiss. Conditionally
+          UNMOUNTING a presented fullScreen Modal skips iOS's dismiss and freezes the screen behind it. */}
+      <AutoPlanSheet
+        visible={autoPlanOpen}
+        loading={autoPlanLoading}
+        result={autoPlanResult}
+        dayNames={DAY_NAMES}
+        onClose={handleDoneAutoPlan}
+        onRegenerate={() => { setSwappedInIds(new Set()); runGenerate(false); }}
+        onDone={handleDoneAutoPlan}
+        onPreviewRecipe={(r) => { setPreviewSlot(null); setPreviewRecipe(r); }}
+        onSwapSlot={handleSwapSlot}
+        tunings={tunings}
+        onToggleTuning={handleToggleTuning}
+      />
 
       <BadgeAchievementModal queue={badgeQueue} onQueueChange={setBadgeQueue} />
     </SafeAreaView>
