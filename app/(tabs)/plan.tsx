@@ -1,6 +1,6 @@
 import {
   View, Text, FlatList, Pressable, TextInput,
-  ActivityIndicator, Alert, ScrollView, SectionList, ActionSheetIOS,
+  ActivityIndicator, Alert, ScrollView, SectionList,
 } from 'react-native';
 import { useState, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -9,10 +9,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks/useTheme';
 import { formatTime, getTimeOfDay, scaleQuantityString } from '@/lib/utils';
 import { getRecipesBySupabaseIds, fetchDiscoverRecipes, getRecentMealPlanWeeks, logInteraction, resolveSupabaseId, updateStreakAndCount, generateWeekPlan, logSwipe, recordSessionSwipe, updatePlanPreferences } from '@/lib/api';
-import { autoSlotsToStoreSlots, nextSlotAlternate, applySlotChoice, repeatRecipeAcrossSlots, swappedInRecipesToLearn } from '@/lib/autoPlan';
+import { autoSlotsToStoreSlots, nextSlotAlternate, applySlotChoice, setRecipeOnDays, swappedInRecipesToLearn } from '@/lib/autoPlan';
 import { flags } from '@/lib/featureFlags';
 import { gateMoriPlus } from '@/lib/paywall';
 import { AutoPlanSheet } from '@/components/AutoPlanSheet';
+import { PlanActionSheet, RepeatDaysSheet, type RepeatDayOption } from '@/components/PlanActionSheets';
 import { getRecipeImageUrl } from '@/lib/recipeImage';
 import { getNewlyEarned, type Badge, type BadgeStats } from '@/lib/badges';
 import { BadgeAchievementModal } from '@/components/badges/BadgeAchievementModal';
@@ -25,7 +26,7 @@ import { MacroRow } from '@/components/ui/MacroRow';
 import { RecipeDetailModal } from '@/components/RecipeDetailModal';
 import { aggregateWeeklyMacros } from '@/lib/macroUtils';
 import { filterPickerRecipes, type PickerChip, type PickerFilterOpts } from '@/lib/pickerFilters';
-import { otherUncookedSlotsWithRecipe, openDaysForRepeat } from '@/lib/mealPlanCooked';
+import { otherUncookedSlotsWithRecipe } from '@/lib/mealPlanCooked';
 import { CUISINES } from '@/constants/cuisines';
 import { ServingsAdjuster } from '@/components/ServingsAdjuster';
 import { HorizontalCard, SectionHeader } from '@/components/RecipeCards';
@@ -111,6 +112,10 @@ export default function Plan() {
   const [swappedInIds, setSwappedInIds] = useState<Set<string>>(new Set());
   // Whole-week tuning toggles; defaulted from the user's saved plan_preferences.
   const [tunings, setTunings] = useState<PlanTunings>({});
+  // Custom themed popups (replace ActionSheetIOS): the slot menu, the repeat day-picker, copy-week.
+  const [slotMenu, setSlotMenu] = useState<{ mode: 'plan' | 'build'; day: number; mealType: MealType; recipe: Recipe; index?: number } | null>(null);
+  const [repeatSheet, setRepeatSheet] = useState<{ mode: 'plan' | 'build'; mealType: MealType; recipe: Recipe; dayOptions: RepeatDayOption[] } | null>(null);
+  const [copyMenuOpen, setCopyMenuOpen] = useState(false);
   // Monotonic id so an older in-flight rebuild can't overwrite a newer one (rapid toggling).
   const genReqId = useRef(0);
   // User-placed meals captured at build time, kept across shuffles/tunes in this build session
@@ -393,41 +398,6 @@ export default function Plan() {
     savePlan(userId, weekStart);
   }
 
-  // "Repeat across the week": fill every OTHER day's same-meal slot that is currently EMPTY
-  // with this recipe (non-destructive — never clobbers an existing meal). Carries the source
-  // slot's servings, marks the copies 'manual', persists once.
-  function handleRepeatAcrossWeek(sourceSlot: MealSlot, recipe: Recipe) {
-    if (!userId) return;
-    const mealType = sourceSlot.meal_type;
-    const targets = openDaysForRepeat(slots, sourceSlot.day, mealType, DAY_NAMES.length);
-    const mealLabel = MEAL_LABELS[mealType].toLowerCase();
-    if (targets.length === 0) {
-      Alert.alert('No open days', `Every other day already has a ${mealLabel} planned. Remove some first to repeat this one.`);
-      return;
-    }
-    Alert.alert(
-      'Repeat across the week?',
-      `Add ${recipe.title} to the ${targets.length} open ${mealLabel} slot${targets.length > 1 ? 's' : ''} this week?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: `Add to ${targets.length}`,
-          onPress: () => {
-            targets.forEach((day) => addSlot({
-              day,
-              meal_type: mealType,
-              recipe_id: sourceSlot.recipe_id,
-              servings_multiplier: sourceSlot.servings_multiplier ?? 1,
-              provenance: 'manual',
-            }));
-            setSlotRecipes((prev) => ({ ...prev, [sourceSlot.recipe_id]: recipe }));
-            savePlan(userId, weekStart);
-          },
-        },
-      ],
-    );
-  }
-
   // Copy a chosen past week's meals into this week. Copying is a fresh MANUAL action: drop the
   // source's cooked state + Auto Plan provenance (so the I9 cooked-rate metric only counts
   // genuinely auto-planned slots).
@@ -446,20 +416,10 @@ export default function Plan() {
     );
   }
 
-  // "Copy a previous week" — pick which past week to copy from (most recent first).
+  // "Copy a previous week" — pick which past week to copy from (most recent first), in the themed menu.
   function handleCopyPreviousWeek() {
     if (pastWeeks.length === 0) return;
-    const labels = pastWeeks.map((w) => {
-      const range = formatWeekRange(new Date(`${w.week_start_date}T00:00:00`));
-      const n = w.slots.length;
-      return `${range}  ·  ${n} meal${n !== 1 ? 's' : ''}`;
-    });
-    ActionSheetIOS.showActionSheetWithOptions(
-      { title: 'Copy a previous week', options: [...labels, 'Cancel'], cancelButtonIndex: labels.length },
-      (idx) => {
-        if (idx != null && idx < pastWeeks.length) copyWeekSlots(pastWeeks[idx].slots);
-      },
-    );
+    setCopyMenuOpen(true);
   }
 
   function handleClearWeek() {
@@ -600,54 +560,78 @@ export default function Plan() {
     setPickerOpen({ day, mealType, autoPlanIndex: index });
   }
 
-  // Tapping a dinner card in the Build sheet → view it, or pick a specific replacement (vs. the
-  // one-tap "Swap" which just cycles to the next best). Mirrors the Plan-tab slot menu so the two
-  // surfaces feel the same. An EMPTY slot (no catalog fit) skips the menu and goes straight to the
-  // picker — that's the one night you most need to choose a recipe. The picker is an inline overlay
-  // (a View), so it never stacks a second native Modal over the preview (the iOS stacked-Modal freeze).
+  // Tapping a dinner card in the Build sheet → our themed slot menu (View / Choose / Repeat). An
+  // EMPTY slot (no catalog fit) skips the menu and goes straight to the picker — that's the one night
+  // you most need to choose a recipe.
   function handleAutoPlanSlotPress(index: number) {
     const slot = autoPlanResult?.slots[index];
     if (!slot) return;
     if (!slot.recipe) { openProposalPicker(slot.day, slot.mealType, index); return; }
-    const recipe = slot.recipe;
-    ActionSheetIOS.showActionSheetWithOptions(
-      { title: recipe.title, options: ['View recipe', 'Choose a different recipe', 'Repeat across the week', 'Cancel'], cancelButtonIndex: 3 },
-      (idx) => {
-        if (idx === 0) { setPreviewSlot(null); setPreviewRecipe(recipe); }
-        else if (idx === 1) { openProposalPicker(slot.day, slot.mealType, index); }
-        else if (idx === 2) { handleRepeatProposalSlot(index); }
-      },
-    );
+    setSlotMenu({ mode: 'build', day: slot.day, mealType: slot.mealType, recipe: slot.recipe, index });
   }
 
-  // "Repeat across the week" in the Build sheet — plan this recipe on EVERY dinner this week
-  // (intentional duplication, bypassing the single-pick no-duplicate rule). Edits the proposal only;
-  // each night stays individually swappable, and nothing saves until "Use this plan".
-  function handleRepeatProposalSlot(index: number) {
-    if (!autoPlanResult) return;
-    const slot = autoPlanResult.slots[index];
-    if (!slot?.recipe) return;
-    const recipe = slot.recipe;
-    const count = autoPlanResult.slots.filter((s) => s.mealType === slot.mealType).length;
-    const mealLabel = MEAL_LABELS[slot.mealType].toLowerCase();
-    Alert.alert(
-      'Repeat across the week?',
-      `Plan ${recipe.title} for all ${count} ${mealLabel}s this week? You can still change any night.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: `Plan all ${count}`,
-          onPress: () => {
-            setAutoPlanResult((prev) => {
-              if (!prev) return prev;
-              const next = repeatRecipeAcrossSlots(prev.slots, index);
-              return next ? { ...prev, slots: next, generateNeeded: next.filter((s) => s.recipe === null).length } : prev;
-            });
-            if (recipe.supabase_id) setSwappedInIds((p) => new Set(p).add(recipe.supabase_id!));
-          },
-        },
-      ],
-    );
+  // Slot menu action chosen (shared by the Plan tab + the Build sheet).
+  function handleSlotMenuSelect(key: string) {
+    const m = slotMenu;
+    setSlotMenu(null);
+    if (!m) return;
+    if (key === 'view') {
+      // Plan-tab previews are tied to their slot (so "Cook it" marks the right slot); build previews aren't.
+      setPreviewSlot(m.mode === 'plan' ? { day: m.day, mealType: m.mealType } : null);
+      setPreviewRecipe(m.recipe);
+    } else if (key === 'choose') {
+      if (m.mode === 'build') openProposalPicker(m.day, m.mealType, m.index!);
+      else setPickerOpen({ day: m.day, mealType: m.mealType });
+    } else if (key === 'repeat') {
+      openRepeatSheet(m.mode, m.day, m.mealType, m.recipe);
+    }
+  }
+
+  // Build the day-picker options + open the "Repeat across the week" sheet. Default selection = the
+  // source day (locked) plus any currently-OPEN day of that meal (non-destructive); the user can also
+  // check filled days to overwrite them, or uncheck to plan it on fewer.
+  function openRepeatSheet(mode: 'plan' | 'build', sourceDay: number, mealType: MealType, recipe: Recipe) {
+    const rid = recipe.supabase_id ?? recipe.id;
+    const dayOptions: RepeatDayOption[] = [];
+    if (mode === 'build') {
+      const start = planStartDay();
+      for (let day = start; day < DAY_NAMES.length; day++) {
+        const cur = autoPlanResult?.slots.find((s) => s.day === day && s.mealType === mealType)?.recipe;
+        const isThis = !!cur && (cur.supabase_id ?? cur.id) === rid;
+        dayOptions.push({ day, label: DAY_NAMES[day], sub: cur ? (isThis ? 'This recipe' : cur.title) : 'Open', locked: day === sourceDay, defaultOn: day === sourceDay });
+      }
+    } else {
+      for (let day = 0; day < DAY_NAMES.length; day++) {
+        const s = getSlot(day, mealType);
+        const cur = s ? slotRecipes[s.recipe_id] : null;
+        const isThis = s?.recipe_id === rid;
+        dayOptions.push({ day, label: DAY_NAMES[day], sub: s ? (isThis ? 'This recipe' : (cur?.title ?? 'Planned')) : 'Open', locked: day === sourceDay, defaultOn: day === sourceDay || !s });
+      }
+    }
+    setRepeatSheet({ mode, mealType, recipe, dayOptions });
+  }
+
+  // Apply the chosen repeat days. Build mode edits the in-memory proposal (saved on "Use this plan");
+  // Plan mode writes the slots + persists. Same recipe on several days is intentional here.
+  function handleRepeatConfirm(days: number[]) {
+    const r = repeatSheet;
+    setRepeatSheet(null);
+    if (!r || days.length === 0) return;
+    if (r.mode === 'build') {
+      const daySet = new Set(days);
+      setAutoPlanResult((prev) => {
+        if (!prev) return prev;
+        const slots = setRecipeOnDays(prev.slots, r.mealType, r.recipe, daySet);
+        return { ...prev, slots, generateNeeded: slots.filter((s) => s.recipe === null).length };
+      });
+      if (r.recipe.supabase_id) setSwappedInIds((p) => new Set(p).add(r.recipe.supabase_id!));
+    } else {
+      if (!userId) return;
+      const rid = r.recipe.supabase_id ?? r.recipe.id;
+      days.forEach((day) => addSlot({ day, meal_type: r.mealType, recipe_id: rid, servings_multiplier: 1, provenance: 'manual' }));
+      setSlotRecipes((prev) => ({ ...prev, [rid]: r.recipe }));
+      savePlan(userId, weekStart);
+    }
   }
 
   // Place a user-chosen recipe into one PROPOSAL slot (the "Choose a different recipe" path while
@@ -757,18 +741,9 @@ export default function Plan() {
   }
 
   // ── Editing a SAVED planned meal on the Plan tab ────────────────────────────
-  // Tapping a planned meal offers View / Choose-a-different-recipe. "Choose" opens the recipe
-  // picker for that slot; picking replaces it (addSlot upserts per day+meal). Plan tab only — no
-  // other modal is up, so the picker presents cleanly.
-  const SLOT_ACTIONS = ['View recipe', 'Choose a different recipe', 'Cancel'];
+  // Tapping a planned meal opens the themed slot menu (View / Choose a different recipe / Repeat).
   function handleSlotTap(day: number, mealType: MealType, recipe: Recipe) {
-    ActionSheetIOS.showActionSheetWithOptions(
-      { title: recipe.title, options: SLOT_ACTIONS, cancelButtonIndex: 2 },
-      (idx) => {
-        if (idx === 0) { setPreviewSlot({ day, mealType }); setPreviewRecipe(recipe); }
-        else if (idx === 1) { setPickerOpen({ day, mealType }); }
-      },
-    );
+    setSlotMenu({ mode: 'plan', day, mealType, recipe });
   }
 
   function handleAddAllToGrocery() {
@@ -1097,8 +1072,8 @@ export default function Plan() {
                         )}
                       </View>
                     </View>
-                    <Pressable onPress={() => handleRepeatAcrossWeek(slot!, recipe)} hitSlop={6}>
-                      <Ionicons name="copy-outline" size={20} color={colors.textMuted} />
+                    <Pressable onPress={() => openRepeatSheet('plan', selectedDay, mealType, recipe)} hitSlop={6}>
+                      <Ionicons name="repeat-outline" size={20} color={colors.textMuted} />
                     </Pressable>
                     <Pressable onPress={() => handleToggleCooked(selectedDay, mealType)} hitSlop={6}>
                       <Ionicons
@@ -1595,6 +1570,44 @@ export default function Plan() {
         onSwapSlot={handleSwapSlot}
         tunings={tunings}
         onToggleTuning={handleToggleTuning}
+      />
+
+      {/* Themed slot menu (replaces the bare iOS action sheet) — Plan tab + Build sheet. */}
+      <PlanActionSheet
+        visible={!!slotMenu}
+        title={slotMenu?.recipe.title}
+        subtitle={slotMenu ? `${DAY_NAMES[slotMenu.day]} · ${MEAL_LABELS[slotMenu.mealType]}` : undefined}
+        actions={[
+          { key: 'view', label: 'View recipe', icon: 'book-outline' },
+          { key: 'choose', label: 'Choose a different recipe', icon: 'swap-horizontal-outline' },
+          { key: 'repeat', label: 'Repeat on other days', icon: 'repeat-outline' },
+        ]}
+        onSelect={handleSlotMenuSelect}
+        onClose={() => setSlotMenu(null)}
+      />
+
+      {/* Day picker for "Repeat across the week". */}
+      <RepeatDaysSheet
+        visible={!!repeatSheet}
+        recipeTitle={repeatSheet?.recipe.title ?? ''}
+        mealLabel={repeatSheet ? MEAL_LABELS[repeatSheet.mealType] : ''}
+        dayOptions={repeatSheet?.dayOptions ?? []}
+        onConfirm={handleRepeatConfirm}
+        onClose={() => setRepeatSheet(null)}
+      />
+
+      {/* "Copy a previous week" — themed list of past weeks. */}
+      <PlanActionSheet
+        visible={copyMenuOpen}
+        title="Copy a previous week"
+        subtitle="Replace this week's plan"
+        actions={pastWeeks.map((w, idx) => ({
+          key: String(idx),
+          label: `${formatWeekRange(new Date(`${w.week_start_date}T00:00:00`))} · ${w.slots.length} meal${w.slots.length !== 1 ? 's' : ''}`,
+          icon: 'calendar-outline' as const,
+        }))}
+        onSelect={(key) => { setCopyMenuOpen(false); const idx = Number(key); if (pastWeeks[idx]) copyWeekSlots(pastWeeks[idx].slots); }}
+        onClose={() => setCopyMenuOpen(false)}
       />
 
       <BadgeAchievementModal queue={badgeQueue} onQueueChange={setBadgeQueue} />

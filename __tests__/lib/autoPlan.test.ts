@@ -1,4 +1,4 @@
-import { autoPlanWeek, mergeLockedSlots, applySlotChoice, repeatRecipeAcrossSlots, swappedInRecipesToLearn, primaryProtein } from '@/lib/autoPlan';
+import { autoPlanWeek, mergeLockedSlots, applySlotChoice, setRecipeOnDays, swappedInRecipesToLearn, primaryProtein } from '@/lib/autoPlan';
 import type { AutoPlanInput, AutoPlanResult, AutoPlanSlot, Recipe } from '@/types';
 
 // Deterministic seeded RNG so jitter-driven tie-breaks are reproducible.
@@ -510,26 +510,30 @@ describe('applySlotChoice — pick a specific recipe for a Build-my-week proposa
   });
 });
 
-describe('repeatRecipeAcrossSlots — plan one recipe on every same-meal night', () => {
+describe('setRecipeOnDays — repeat a recipe onto the chosen days (day picker)', () => {
   const rec = (id: string): Recipe =>
     ({ id, supabase_id: id, external_id: id, title: id, meal_types: ['dinner'] } as any);
   const slot = (day: number, recipe: Recipe | null, mealType: any = 'dinner'): AutoPlanSlot =>
     ({ day, mealType, recipe, provenance: 'auto_plan', explanation: 'Taste match', alternates: [] });
 
-  it('overwrites every same-meal-type slot with the source recipe (intentional duplicate)', () => {
-    const out = repeatRecipeAcrossSlots([slot(0, rec('a')), slot(1, rec('b')), slot(2, rec('c'))], 0)!;
-    expect(out.map((s) => s.recipe!.id)).toEqual(['a', 'a', 'a']);
-    expect(out.every((s) => s.provenance === 'manual')).toBe(true);
-    expect(out.every((s) => s.explanation === 'Repeated across your week')).toBe(true);
+  it('places the recipe on ONLY the chosen days (others untouched), intentional duplicate', () => {
+    const slots = [slot(0, rec('a')), slot(1, rec('b')), slot(2, rec('c'))];
+    const out = setRecipeOnDays(slots, 'dinner', rec('a'), new Set([0, 2]));
+    expect(out.map((s) => s.recipe!.id)).toEqual(['a', 'b', 'a']); // day 1 left as 'b'
+    expect(out[0].provenance).toBe('manual');
+    expect(out[2].explanation).toBe('Repeated across your week');
   });
 
   it('only touches slots of the SAME meal type', () => {
-    const out = repeatRecipeAcrossSlots([slot(0, rec('a'), 'dinner'), slot(0, rec('x'), 'lunch'), slot(1, rec('b'), 'dinner')], 0)!;
+    const slots = [slot(0, rec('a'), 'dinner'), slot(0, rec('x'), 'lunch'), slot(1, rec('b'), 'dinner')];
+    const out = setRecipeOnDays(slots, 'dinner', rec('a'), new Set([0, 1]));
     expect(out.map((s) => s.recipe!.id)).toEqual(['a', 'x', 'a']); // lunch untouched
   });
 
-  it('returns null when the source slot has no recipe', () => {
-    expect(repeatRecipeAcrossSlots([slot(0, null)], 0)).toBeNull();
+  it('an empty day set is a no-op', () => {
+    const slots = [slot(0, rec('a')), slot(1, rec('b'))];
+    const out = setRecipeOnDays(slots, 'dinner', rec('z'), new Set());
+    expect(out.map((s) => s.recipe!.id)).toEqual(['a', 'b']);
   });
 });
 

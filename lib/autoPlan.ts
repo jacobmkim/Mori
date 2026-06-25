@@ -463,21 +463,19 @@ export function applySlotChoice(
 }
 
 /**
- * Repeat the recipe at `sourceIndex` onto EVERY same-meal-type proposal slot ("plan this every
- * night this week"). Intentional duplication — the no-duplicate rule that guards single picks is
- * deliberately bypassed here. Each slot keeps its own alternates so any night can still be swapped.
- * Returns new slots, or null if the source slot has no recipe. PURE.
+ * Place `recipe` on the chosen `days` (same meal type) of a proposal — the engine behind the
+ * "Repeat across the week" day picker. Intentional duplication: the no-duplicate rule that guards
+ * single picks is deliberately bypassed here. Slots NOT in `days` are untouched; each kept slot
+ * keeps its own alternates so any night can still be swapped. PURE.
  */
-export function repeatRecipeAcrossSlots(
+export function setRecipeOnDays(
   slots: AutoPlanSlot[],
-  sourceIndex: number,
-): AutoPlanSlot[] | null {
-  const src = slots[sourceIndex];
-  if (!src?.recipe) return null;
-  const recipe = src.recipe;
-  const mealType = src.mealType;
+  mealType: MealType,
+  recipe: Recipe,
+  days: Set<number>,
+): AutoPlanSlot[] {
   return slots.map((s) =>
-    s.mealType === mealType
+    s.mealType === mealType && days.has(s.day)
       ? { ...s, recipe, provenance: 'manual' as const, explanation: 'Repeated across your week' }
       : s,
   );
