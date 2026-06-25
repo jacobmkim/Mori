@@ -6,7 +6,7 @@
 // whether to spend <=1 AI generation for any slot this function leaves empty.
 //
 // Objective: maximise summed taste score across the week, subject to HARD constraints
-// (meal-type fit, no-repeat, soft +5% budget) plus SOFT shaping (cuisine + protein variety,
+// (meal-type fit, no-repeat, soft +5% budget) plus SOFT shaping (cuisine variety + protein cohesion,
 // macro balance, leftover chaining, saved-library preference). Greedy fill, slot by slot,
 // re-scoring the remaining catalog against the week built so far — near-optimal on a 7-slot
 // problem and trivially deterministic. Dietary filtering is the CALLER's job; this optimizer
@@ -43,8 +43,9 @@ function tuningBias(r: Recipe, t?: PlanTunings): number {
   return b;
 }
 
-// Coarse primary-protein keywords for the variety penalty. First match wins; order matters
-// (specific before generic). 'other' = no protein detected → no variety penalty applied.
+// Coarse primary-protein keywords for protein cohesion (reuse bonus) + the batch anti-monotony
+// guard. First match wins; order matters (specific before generic). 'other' = no protein detected
+// → neutral (a recipe with no clear protein neither earns the reuse bonus nor anchors the week).
 const PROTEIN_KEYWORDS: ReadonlyArray<readonly [string, readonly string[]]> = [
   ['chicken', ['chicken']],
   ['beef', ['beef', 'steak', 'sirloin', 'brisket']],
@@ -60,6 +61,14 @@ const PROTEIN_KEYWORDS: ReadonlyArray<readonly [string, readonly string[]]> = [
 // How many next-best candidates to keep per slot for one-tap swapping.
 const MAX_ALTERNATES = 8;
 
+// Protein COHESION (always on, every planning mode): a soft per-recipe bonus for reusing a protein
+// already chosen this week, so the user buys one protein in bulk and cooks it across several days
+// (cheaper, less food waste — a deliberate edge over variety-maxxing planners). Capped + tapered so
+// the week clusters around a couple of proteins instead of collapsing to seven identical dinners.
+// Soft by spec — a nudge, NOT a hard filter; a strong taste lead still wins.
+const PROTEIN_COHESION = 1.5;       // bonus once a protein has appeared at least once this week
+const PROTEIN_MONOTONY_TAPER = 2;   // penalty per extra dinner once one protein dominates (past ~4)
+
 const recipeId = (r: Recipe): string => r.supabase_id ?? r.external_id ?? r.id ?? '';
 const savedKey = (r: Recipe): string => r.external_id ?? r.supabase_id ?? r.id ?? '';
 const recipeMealTypes = (r: Recipe): string[] => (Array.isArray(r.meal_types) ? r.meal_types : []);
@@ -71,8 +80,13 @@ function recipeText(r: Recipe): string {
   return `${r.title ?? ''} ${ingText}`.toLowerCase();
 }
 
-function primaryProtein(r: Recipe): string {
-  const text = recipeText(r);
+// Phrases that trip the coarse substring match but are NOT the dish's protein — stripped before
+// detection so cohesion clusters the RIGHT protein. ('chicken stock' in a beef braise, 'fish sauce'
+// in a Thai chicken stir-fry, 'eggplant' (a veg) matching 'egg', 'green bean' matching 'bean'.)
+const PROTEIN_FALSE_POSITIVES = /\b(chicken|beef|vegetable) (stock|broth|bouillon)\b|\bfish sauce\b|\beggplant\b|\bgreen beans?\b/g;
+
+export function primaryProtein(r: Recipe): string {
+  const text = recipeText(r).replace(PROTEIN_FALSE_POSITIVES, ' ');
   for (const [label, kws] of PROTEIN_KEYWORDS) {
     if (kws.some((kw) => text.includes(kw))) return label;
   }
@@ -99,6 +113,7 @@ const round2 = (n: number): number => Math.round(n * 100) / 100;
 export function autoPlanWeek(input: AutoPlanInput): AutoPlanResult {
   const { catalog, savedExternalIds, scoreFn, mealTypes, days, weeklyBudgetUsd, leftoversSet, tunings, random } = input;
   const startDay = Math.max(0, input.startDay ?? 0);
+  const proteinMode = input.proteinMode ?? 'cohesion';
 
   // Slots to fill, day-major then meal type (dinners first within a day). Starts at startDay so
   // past days (e.g. Monday when it's Tuesday) are never planned.
@@ -157,11 +172,21 @@ export function autoPlanWeek(input: AutoPlanInput): AutoPlanResult {
         if (c >= 2) s -= 2 * (c - 1);
       }
 
-      // Protein variety — discourage a 3rd+ recipe of the same primary protein.
+      // Protein cohesion (default) — gently reward reusing a protein already chosen this week
+      // (bulk-buy, less waste), with a taper so it clusters around a couple of proteins rather than
+      // going all-one-protein (when an alternative protein exists in the pool; a single-protein
+      // catalog still fills the week). Cuisine variety (above) still spreads flavours, so "same
+      // protein, different cuisines" is the natural result. 'variety'-eating-style users instead get
+      // the original spread-them-out nudge so we honour their explicit preference.
       const pr = primaryProtein(r);
       if (pr !== 'other') {
-        const c = proteinCount.get(pr) ?? 0;
-        if (c >= 2) s -= 3 * (c - 1);
+        const c = proteinCount.get(pr) ?? 0;        // times this protein already placed this week
+        if (proteinMode === 'variety') {
+          if (c >= 2) s -= 3 * (c - 1);             // discourage a 3rd+ of the same protein
+        } else {
+          if (c >= 1) s += PROTEIN_COHESION;
+          if (c >= 4) s -= (c - 3) * PROTEIN_MONOTONY_TAPER;
+        }
       }
 
       // Macro balance — discourage a recipe much heavier than the week's running average,
@@ -251,6 +276,7 @@ export function autoPlanWeek(input: AutoPlanInput): AutoPlanResult {
  */
 function batchPlanWeek(input: AutoPlanInput, specs: { day: number; mealType: MealType }[]): AutoPlanResult {
   const { catalog, savedExternalIds, scoreFn, weeklyBudgetUsd, leftoversSet, tunings, random } = input;
+  const proteinMode = input.proteinMode ?? 'cohesion';
   const mealType = specs[0]?.mealType ?? 'dinner';
   // Batch mode is single-meal-type (v1 = dinner). Only fill slots of that type; any other-type slots
   // stay empty so a dinner recipe can never leak into a lunch/breakfast slot (the selection only
@@ -279,8 +305,12 @@ function batchPlanWeek(input: AutoPlanInput, specs: { day: number; mealType: Mea
       if (savedExternalIds.has(savedKey(r))) s += 2;
       const cz = primaryCuisine(r);
       if (cz && (cuisineCount.get(cz) ?? 0) >= 1) s -= 2 * (cuisineCount.get(cz) ?? 0); // varied across the few
+      // Protein cohesion in batch mode: let TWO of the few batch recipes share a protein (bulk-buy),
+      // but discourage a 3rd+ so eating the same protein all week doesn't get monotonous. A
+      // 'variety'-eating-style user keeps the stronger spread (penalty from the 2nd onward).
       const pr = primaryProtein(r);
-      if (pr !== 'other' && (proteinCount.get(pr) ?? 0) >= 1) s -= 3 * (proteinCount.get(pr) ?? 0);
+      const proteinFloor = proteinMode === 'variety' ? 1 : 2;
+      if (pr !== 'other' && (proteinCount.get(pr) ?? 0) >= proteinFloor) s -= 3 * (proteinCount.get(pr) ?? 0);
       const lo = usesLeftover(r, remainingLeftovers);
       if (lo) s += 2;
       s += tuningBias(r, tunings);
@@ -390,6 +420,38 @@ export function mergeLockedSlots(
   const hasBudget = typeof weeklyBudgetUsd === 'number' && weeklyBudgetUsd > 0;
   const overBudget = hasBudget ? totalCost > (weeklyBudgetUsd as number) : result.overBudget;
   return { ...result, slots, totalCost: round2(totalCost), generateNeeded, overBudget };
+}
+
+/**
+ * Apply a user's explicit recipe CHOICE to one proposal slot (the "Choose a different recipe" path
+ * in the Build-my-week sheet). Returns a NEW slots array with the chosen recipe placed at `index`,
+ * labelled 'You chose this' / provenance 'manual', or null when the choice is invalid:
+ *   - bad index, or
+ *   - the recipe is already planned on another day this week (no duplicates).
+ * The slot's previous pick is pushed onto its alternates (de-duped) so the user can still Swap back.
+ * PURE — the caller owns state + any user-facing "already in your week" message. The chosen recipe
+ * MUST carry supabase_id (the caller resolves it first) so the slot round-trips through persistence.
+ */
+export function applySlotChoice(
+  slots: AutoPlanSlot[],
+  index: number,
+  recipe: Recipe,
+): AutoPlanSlot[] | null {
+  const target = slots[index];
+  if (!target) return null;
+  const rid = recipe.supabase_id;
+  if (rid && slots.some((s, i) => i !== index && s.recipe?.supabase_id === rid)) return null; // dupe
+  const old = target.recipe;
+  const alternates = (target.alternates ?? []).filter((a) => a.supabase_id !== rid);
+  if (old?.supabase_id && old.supabase_id !== rid) alternates.push(old);
+  const newSlot: AutoPlanSlot = {
+    ...target,
+    recipe,
+    provenance: 'manual',
+    explanation: 'You chose this',
+    alternates,
+  };
+  return slots.map((s, i) => (i === index ? newSlot : s));
 }
 
 /**

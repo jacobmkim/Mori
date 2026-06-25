@@ -9,7 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks/useTheme';
 import { formatTime, getTimeOfDay, scaleQuantityString } from '@/lib/utils';
 import { getRecipesBySupabaseIds, fetchDiscoverRecipes, getRecentMealPlanWeeks, logInteraction, resolveSupabaseId, updateStreakAndCount, generateWeekPlan, logSwipe, recordSessionSwipe, updatePlanPreferences } from '@/lib/api';
-import { autoSlotsToStoreSlots, nextSlotAlternate } from '@/lib/autoPlan';
+import { autoSlotsToStoreSlots, nextSlotAlternate, applySlotChoice } from '@/lib/autoPlan';
 import { flags } from '@/lib/featureFlags';
 import { gateMoriPlus } from '@/lib/paywall';
 import { AutoPlanSheet } from '@/components/AutoPlanSheet';
@@ -29,7 +29,7 @@ import { otherUncookedSlotsWithRecipe, openDaysForRepeat } from '@/lib/mealPlanC
 import { CUISINES } from '@/constants/cuisines';
 import { ServingsAdjuster } from '@/components/ServingsAdjuster';
 import { HorizontalCard, SectionHeader } from '@/components/RecipeCards';
-import type { Recipe, MealType, MealSlot, SkillLevel, AutoPlanResult, PlanTunings } from '@/types';
+import type { Recipe, MealType, MealSlot, SkillLevel, AutoPlanResult, AutoPlanSlot, PlanTunings } from '@/types';
 
 const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const MEAL_TYPES: MealType[] = ['breakfast', 'lunch', 'dinner'];
@@ -81,7 +81,9 @@ export default function Plan() {
   const dietaryGoals = useUserStore((s) => s.profile?.dietary_goals) ?? [];
   const [weekOffset, setWeekOffset] = useState(0);
   const [slotRecipes, setSlotRecipes] = useState<Record<string, Recipe>>({});
-  const [pickerOpen, setPickerOpen] = useState<{ day: number; mealType: MealType } | null>(null);
+  // `autoPlanIndex` set ⇒ the picker is choosing a recipe for a Build-my-week PROPOSAL slot (edits
+  // autoPlanResult in memory, nothing saved) instead of a saved-week slot (addSlot + savePlan).
+  const [pickerOpen, setPickerOpen] = useState<{ day: number; mealType: MealType; autoPlanIndex?: number } | null>(null);
   const [pickerSearch, setPickerSearch] = useState('');
   const [pickerChips, setPickerChips] = useState<Set<PickerChip>>(new Set(['meal_prep']));
   const [pickerCuisines, setPickerCuisines] = useState<string[]>([]);
@@ -293,20 +295,25 @@ export default function Plan() {
   }
 
   function handleAssign(recipe: Recipe) {
-    if (!pickerOpen) return;
-    addRecipeToSlot(recipe, pickerOpen.day, pickerOpen.mealType, pendingServings);
+    const ctx = pickerOpen;
+    if (!ctx) return;
     setPickerOpen(null);
     resetPickerFilters();
+    // Build-my-week mode: place into the in-memory proposal (saved only on "Use this plan").
+    if (ctx.autoPlanIndex != null) { chooseRecipeForProposalSlot(ctx.autoPlanIndex, recipe); return; }
+    addRecipeToSlot(recipe, ctx.day, ctx.mealType, pendingServings);
   }
 
   // Quick-add (the "+" on a picker row, bypassing the preview) — add at the recipe's OWN base
   // servings (1×). Must NOT reuse `pendingServings`, which is only synced when a preview opens
   // and would otherwise apply a stale multiplier from a previous recipe.
   function handleQuickAssign(recipe: Recipe) {
-    if (!pickerOpen) return;
-    addRecipeToSlot(recipe, pickerOpen.day, pickerOpen.mealType, baseServings(recipe));
+    const ctx = pickerOpen;
+    if (!ctx) return;
     setPickerOpen(null);
     resetPickerFilters();
+    if (ctx.autoPlanIndex != null) { chooseRecipeForProposalSlot(ctx.autoPlanIndex, recipe); return; }
+    addRecipeToSlot(recipe, ctx.day, ctx.mealType, baseServings(recipe));
   }
 
   // Marks a slot cooked, then offers to mark other uncooked slots holding the
@@ -570,6 +577,68 @@ export default function Plan() {
     if (next.supabase_id) {
       setSwappedInIds((prev) => new Set(prev).add(next.supabase_id!));
     }
+  }
+
+  // Open the recipe picker for a Build-my-week PROPOSAL slot. Seed the filter to the plan's intent:
+  // a meal-prep batch week defaults to the Meal Prep chip, otherwise no forced chip (so every dinner
+  // shows — the shared picker's usual meal_prep default would otherwise hide valid dinner swaps).
+  function openProposalPicker(day: number, mealType: MealType, index: number) {
+    setPickerSearch('');
+    setPickerChips(tunings.mealPrep ? new Set<PickerChip>(['meal_prep']) : new Set<PickerChip>());
+    setPickerCuisines([]);
+    setPickerTimeBucket(null);
+    setPickerSkill(null);
+    setPickerOpen({ day, mealType, autoPlanIndex: index });
+  }
+
+  // Tapping a dinner card in the Build sheet → view it, or pick a specific replacement (vs. the
+  // one-tap "Swap" which just cycles to the next best). Mirrors the Plan-tab slot menu so the two
+  // surfaces feel the same. An EMPTY slot (no catalog fit) skips the menu and goes straight to the
+  // picker — that's the one night you most need to choose a recipe. The picker presents (as a Modal)
+  // cleanly over the inline Build overlay.
+  function handleAutoPlanSlotPress(index: number) {
+    const slot = autoPlanResult?.slots[index];
+    if (!slot) return;
+    if (!slot.recipe) { openProposalPicker(slot.day, slot.mealType, index); return; }
+    const recipe = slot.recipe;
+    ActionSheetIOS.showActionSheetWithOptions(
+      { title: recipe.title, options: SLOT_ACTIONS, cancelButtonIndex: 2 },
+      (idx) => {
+        if (idx === 0) { setPreviewSlot(null); setPreviewRecipe(recipe); }
+        else if (idx === 1) { openProposalPicker(slot.day, slot.mealType, index); }
+      },
+    );
+  }
+
+  // Place a user-chosen recipe into one PROPOSAL slot (the "Choose a different recipe" path while
+  // building). Edits autoPlanResult in memory only — saved on "Use this plan" — and records the pick
+  // as a positive taste signal (logged on accept, like a swap). Three correctness guards:
+  //   1. supabase_id — autoSlotsToStoreSlots drops a slot whose recipe lacks one, so resolve it for
+  //      the rare saved-recipe-from-a-stale-cache case before committing.
+  //   2. no-duplicate — pre-checked on BOTH paths (so the learn signal + "already in your week"
+  //      message fire correctly); applySlotChoice re-checks inside the functional update as a safety net.
+  //   3. generateNeeded is recomputed (a choice can fill a previously-empty slot).
+  function chooseRecipeForProposalSlot(index: number, recipe: Recipe) {
+    if (!autoPlanResult) return;
+    const isDup = (sid: string) => autoPlanResult!.slots.some((s, i) => i !== index && s.recipe?.supabase_id === sid);
+    const dupAlert = () => Alert.alert('Already in your week', `${recipe.title} is already planned another day this week. Pick a different one.`);
+    const apply = (chosen: Recipe) => {
+      setAutoPlanResult((prev) => {
+        if (!prev) return prev;
+        const next = applySlotChoice(prev.slots, index, chosen);
+        if (!next) return prev; // dupe/bad index (race safety net) → leave unchanged
+        return { ...prev, slots: next, generateNeeded: next.filter((s) => s.recipe === null).length };
+      });
+      if (chosen.supabase_id) setSwappedInIds((p) => new Set(p).add(chosen.supabase_id!));
+    };
+    if (recipe.supabase_id) {
+      if (isDup(recipe.supabase_id)) { dupAlert(); return; }
+      apply(recipe);
+      return;
+    }
+    resolveSupabaseId(recipe)
+      .then((sid) => { if (isDup(sid)) { dupAlert(); return; } apply({ ...recipe, supabase_id: sid }); })
+      .catch(() => Alert.alert("Can't add this one", "Mori couldn't link that recipe. Try another."));
   }
 
   // "Learn from these choices" — a manually swapped-in dinner is an explicit positive,
@@ -1431,7 +1500,7 @@ export default function Plan() {
         }}
         onRemoveFromCart={() => { if (previewRecipe) removeRecipeFromList(previewRecipe.id); }}
         slotContext={pickerOpen ? `${DAY_NAMES[pickerOpen.day]} · ${MEAL_LABELS[pickerOpen.mealType]}` : undefined}
-        slotExtra={pickerOpen ? <ServingsAdjuster value={pendingServings} onChange={setPendingServings} /> : undefined}
+        slotExtra={pickerOpen && pickerOpen.autoPlanIndex == null ? <ServingsAdjuster value={pendingServings} onChange={setPendingServings} /> : undefined}
         onAddToSlot={() => {
           if (!previewRecipe) return;
           handleAssign(previewRecipe);
@@ -1479,7 +1548,7 @@ export default function Plan() {
         onClose={handleDiscardAutoPlan}
         onRegenerate={() => { setSwappedInIds(new Set()); runGenerate(false); }}
         onAccept={handleAcceptAutoPlan}
-        onPreviewRecipe={(r) => { setPreviewSlot(null); setPreviewRecipe(r); }}
+        onSlotPress={handleAutoPlanSlotPress}
         onSwapSlot={handleSwapSlot}
         tunings={tunings}
         onToggleTuning={handleToggleTuning}

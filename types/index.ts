@@ -165,6 +165,10 @@ export interface AutoPlanInput {
   weeklyBudgetUsd?: number | null;       // soft cap (+5% tolerance); null/undefined = ignore
   leftoversSet?: Set<string>;            // active leftover ingredient names, lowercased
   tunings?: PlanTunings;                  // whole-week bias toggles; undefined = no bias
+  // How to treat repeated proteins across the week. 'cohesion' (default) clusters similar proteins
+  // (bulk-buy, less waste); 'variety' restores the spread-them-out nudge for users whose
+  // eating_style is 'variety'. undefined = 'cohesion'.
+  proteinMode?: 'cohesion' | 'variety';
   random: () => number;                  // injected RNG (Math.random in prod, seeded in tests)
 }
 

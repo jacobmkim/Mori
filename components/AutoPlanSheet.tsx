@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks/useTheme';
 import { getRecipeImageUrl } from '@/lib/recipeImage';
 import { formatTime } from '@/lib/utils';
-import type { AutoPlanResult, Recipe, PlanTunings } from '@/types';
+import type { AutoPlanResult, PlanTunings } from '@/types';
 
 // Whole-week tuning toggles shown above the plan. Each biases the optimizer.
 // Soft-bias nudges (compose freely). "Meal prep" is NOT here — it's a structural MODE that
@@ -38,7 +38,7 @@ export function AutoPlanSheet({
   onClose,
   onRegenerate,
   onAccept,
-  onPreviewRecipe,
+  onSlotPress,
   onSwapSlot,
   tunings,
   onToggleTuning,
@@ -50,7 +50,7 @@ export function AutoPlanSheet({
   onClose: () => void;       // discard (X) — nothing is saved until Accept
   onRegenerate: () => void;
   onAccept: () => void;      // "Use this plan" — the only thing that saves the week
-  onPreviewRecipe?: (recipe: Recipe) => void;
+  onSlotPress?: (index: number) => void;  // tap a dinner card → parent's View / Choose-a-recipe menu
   onSwapSlot?: (index: number) => void;
   tunings?: PlanTunings;
   onToggleTuning?: (key: keyof PlanTunings) => void;
@@ -205,6 +205,14 @@ export function AutoPlanSheet({
                 </View>
               )}
 
+              {/* How-to-edit hint — surfaces tap-to-view / tap-to-choose alongside the Swap button.
+                  Hidden during a rebuild (the card grid is non-interactive then). */}
+              {!loading && (
+                <Text style={{ fontSize: 12, color: colors.textMuted, marginBottom: 8, marginLeft: 2 }}>
+                  Tap a dinner to view or pick another · Swap for the next best
+                </Text>
+              )}
+
               {/* Per-day slot cards — dimmed + non-interactive while a rebuild is in flight. */}
               <View style={{ gap: 12, opacity: loading ? 0.4 : 1 }} pointerEvents={loading ? 'none' : 'auto'}>
                 {slots.map((slot, i) => {
@@ -222,8 +230,8 @@ export function AutoPlanSheet({
                       </Text>
 
                       <Pressable
-                        disabled={!recipe}
-                        onPress={() => { if (recipe && onPreviewRecipe) onPreviewRecipe(recipe); }}
+                        disabled={!onSlotPress}
+                        onPress={() => onSlotPress?.(i)}
                         style={{
                           flexDirection: 'row', alignItems: 'center', gap: 14,
                           backgroundColor: colors.card, borderRadius: 14,
@@ -294,12 +302,12 @@ export function AutoPlanSheet({
                           <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                             <View style={{
                               width: 72, height: 72, borderRadius: 10, borderWidth: 1, borderStyle: 'dashed',
-                              borderColor: colors.border, alignItems: 'center', justifyContent: 'center',
+                              borderColor: colors.primary, alignItems: 'center', justifyContent: 'center',
                             }}>
-                              <Ionicons name="add" size={26} color={colors.border} />
+                              <Ionicons name="add" size={26} color={colors.primary} />
                             </View>
-                            <Text style={{ flex: 1, fontSize: 14, color: colors.textMuted, fontStyle: 'italic' }}>
-                              Needs a fresh recipe — add one yourself after.
+                            <Text style={{ flex: 1, fontSize: 14, color: colors.primary, fontWeight: '500' }}>
+                              Tap to choose a recipe for this night.
                             </Text>
                           </View>
                         )}

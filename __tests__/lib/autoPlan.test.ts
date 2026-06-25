@@ -1,5 +1,5 @@
-import { autoPlanWeek, mergeLockedSlots } from '@/lib/autoPlan';
-import type { AutoPlanInput, AutoPlanResult, Recipe } from '@/types';
+import { autoPlanWeek, mergeLockedSlots, applySlotChoice, primaryProtein } from '@/lib/autoPlan';
+import type { AutoPlanInput, AutoPlanResult, AutoPlanSlot, Recipe } from '@/types';
 
 // Deterministic seeded RNG so jitter-driven tie-breaks are reproducible.
 function mulberry32(seed: number): () => number {
@@ -48,6 +48,7 @@ function run(catalog: Recipe[], over: Partial<AutoPlanInput> = {}) {
     leftoversSet: over.leftoversSet,
     tunings: over.tunings,
     startDay: over.startDay,
+    proteinMode: over.proteinMode,
     random: over.random ?? mulberry32(42),
   });
 }
@@ -141,12 +142,56 @@ describe('autoPlanWeek — soft shaping', () => {
     expect(italianCount).toBeLessThan(7);
   });
 
-  it('breaks protein monotony — does not fill all 7 with one protein', () => {
+  it('does not collapse to a single protein — anti-monotony taper keeps it under 7', () => {
     const chicken = Array.from({ length: 10 }, () => mr({ protein: 'chicken', score: 5 }));
     const beef = Array.from({ length: 10 }, () => mr({ protein: 'beef', score: 4 }));
     const res = run([...chicken, ...beef]);
     const chickenCount = filled(res).filter((s) => (s.recipe!.title ?? '').includes('chicken')).length;
-    expect(chickenCount).toBeLessThan(7);
+    expect(chickenCount).toBeLessThan(7); // taper pulls in a second protein before all 7 match
+  });
+
+  it('clusters proteins (cohesion) — reuses one protein in a consecutive block, given equal taste', () => {
+    // The product spec: "use similar proteins throughout the week" (buy one protein in bulk). With
+    // equal taste, the week should cluster into protein blocks (e.g. chicken×4 then beef×3), NOT
+    // alternate protein every night the way the old variety penalty did.
+    const chicken = Array.from({ length: 6 }, (_, i) => mr({ id: `c${i}`, protein: 'chicken', score: 0 }));
+    const beef = Array.from({ length: 6 }, (_, i) => mr({ id: `b${i}`, protein: 'beef', score: 0 }));
+    const res = run([...chicken, ...beef]);
+    const seq = filled(res).map((s) => ((s.recipe!.title ?? '').includes('chicken') ? 'c' : 'b'));
+    let runs = 1;
+    for (let i = 1; i < seq.length; i++) if (seq[i] !== seq[i - 1]) runs++;
+    expect(runs).toBeLessThanOrEqual(2);       // two blocks, not a CBCBCBC alternation (~7 runs)
+    const top = Math.max(seq.filter((p) => p === 'c').length, seq.filter((p) => p === 'b').length);
+    expect(top).toBeGreaterThanOrEqual(3);     // a real cluster
+    expect(top).toBeLessThan(7);               // but never fully monotone
+  });
+
+  it('protein cohesion is SOFT — a strong taste lead still beats the reuse bonus', () => {
+    // Chicken locks the week's protein, but a much-tastier beef must still appear: cohesion (+1.5)
+    // is a nudge, not a filter.
+    const chicken = Array.from({ length: 6 }, (_, i) => mr({ id: `c${i}`, protein: 'chicken', score: 5 }));
+    const tastyBeef = mr({ id: 'beef', protein: 'beef', score: 20 });
+    const res = run([...chicken, tastyBeef]);
+    expect(filled(res).some((s) => s.recipe!.id === 'beef')).toBe(true);
+  });
+
+  it("proteinMode 'variety' spreads proteins (honours a 'Variety is everything' user) instead of clustering", () => {
+    // Same catalog as the cohesion-cluster test, but variety mode restores the spread-them-out nudge:
+    // the week should INTERLEAVE proteins (many runs) rather than form 2 clean blocks.
+    const chicken = Array.from({ length: 6 }, (_, i) => mr({ id: `c${i}`, protein: 'chicken', score: 5 }));
+    const beef = Array.from({ length: 6 }, (_, i) => mr({ id: `b${i}`, protein: 'beef', score: 4 }));
+    const res = run([...chicken, ...beef], { proteinMode: 'variety' });
+    const seq = filled(res).map((s) => ((s.recipe!.title ?? '').includes('chicken') ? 'c' : 'b'));
+    let runs = 1;
+    for (let i = 1; i < seq.length; i++) if (seq[i] !== seq[i - 1]) runs++;
+    expect(runs).toBeGreaterThanOrEqual(3); // interleaved, not the cohesion mode's <=2 blocks
+  });
+
+  it('still fills all 7 when only ONE protein exists — the taper has no alternative to promote', () => {
+    // The "never 7 identical" guarantee is conditional on an alternative protein in the pool. With a
+    // single-protein catalog the week is filled rather than left short (a full week beats empty slots).
+    const chicken = Array.from({ length: 10 }, (_, i) => mr({ id: `c${i}`, protein: 'chicken', score: 5 }));
+    expect(filled(run(chicken))).toHaveLength(7);
   });
 });
 
@@ -341,6 +386,19 @@ describe('autoPlanWeek — meal-prep (batch) mode', () => {
     expect(cuisines.size).toBeGreaterThanOrEqual(2);
   });
 
+  it('lets TWO batch recipes share the tastier protein (relaxed >=2 cohesion threshold)', () => {
+    // Chicken is tastier; the relaxed threshold permits two chicken batch recipes (bulk-buy) before
+    // the 3rd-same-protein penalty pushes the last pick to a different protein. Under the old >=1
+    // threshold the 2nd chicken would have been penalised out in favour of beef/pork.
+    const chicken = Array.from({ length: 6 }, (_, i) => mr({ id: `c${i}`, protein: 'chicken', score: 5 }));
+    const beef = Array.from({ length: 6 }, (_, i) => mr({ id: `b${i}`, protein: 'beef', score: 3 }));
+    const pork = Array.from({ length: 6 }, (_, i) => mr({ id: `p${i}`, protein: 'pork', score: 3 }));
+    const res = run([...chicken, ...beef, ...pork], { tunings: batch });
+    const distinctIds = [...new Set(res.slots.filter((s) => s.recipe).map((s) => s.recipe!.id))];
+    const chickenPicks = distinctIds.filter((id) => id.startsWith('c')).length;
+    expect(chickenPicks).toBeGreaterThanOrEqual(2);
+  });
+
   it('is deterministic for the same seed', () => {
     const catalog = Array.from({ length: 12 }, (_, i) => mr({ id: `r${i}` }));
     const a = run(catalog, { tunings: batch, random: mulberry32(9) });
@@ -389,5 +447,77 @@ describe('mergeLockedSlots — keep user-placed meals on a rebuild', () => {
   it('returns the result unchanged when there are no locks', () => {
     const res = mkResult();
     expect(mergeLockedSlots(res, [])).toBe(res);
+  });
+});
+
+describe('applySlotChoice — pick a specific recipe for a Build-my-week proposal slot', () => {
+  const rec = (id: string): Recipe =>
+    ({ id, supabase_id: id, external_id: id, title: id, meal_types: ['dinner'] } as any);
+  const slot = (day: number, recipe: Recipe | null, alts: Recipe[] = []): AutoPlanSlot =>
+    ({ day, mealType: 'dinner', recipe, provenance: 'auto_plan', explanation: 'Taste match', alternates: alts });
+
+  it('replaces the slot recipe and labels it manual / "You chose this"', () => {
+    const slots = [slot(0, rec('a'), [rec('x')]), slot(1, rec('b'))];
+    const out = applySlotChoice(slots, 0, rec('chosen'));
+    expect(out).not.toBeNull();
+    expect(out![0].recipe!.id).toBe('chosen');
+    expect(out![0].provenance).toBe('manual');
+    expect(out![0].explanation).toBe('You chose this');
+    expect(out![1].recipe!.id).toBe('b'); // other slots untouched
+  });
+
+  it('keeps the displaced pick as a swappable alternate (alongside existing alternates)', () => {
+    const out = applySlotChoice([slot(0, rec('a'), [rec('x')])], 0, rec('chosen'));
+    const altIds = out![0].alternates!.map((r) => r.id);
+    expect(altIds).toContain('x'); // original alternates preserved
+    expect(altIds).toContain('a'); // the recipe we replaced is now swappable back
+  });
+
+  it('rejects (null) a recipe already planned on another day — no duplicates', () => {
+    const slots = [slot(0, rec('a')), slot(1, rec('b'))];
+    expect(applySlotChoice(slots, 0, rec('b'))).toBeNull();
+  });
+
+  it('allows re-choosing the SAME recipe already in that slot, without self-duplicating alternates', () => {
+    const out = applySlotChoice([slot(0, rec('a'), [rec('x')])], 0, rec('a'));
+    expect(out).not.toBeNull();
+    expect(out![0].recipe!.id).toBe('a');
+    expect(out![0].alternates!.map((r) => r.id)).not.toContain('a'); // not pushed onto itself
+  });
+
+  it('returns null for an out-of-range index', () => {
+    expect(applySlotChoice([slot(0, rec('a'))], 5, rec('z'))).toBeNull();
+  });
+});
+
+describe('primaryProtein — protein label that drives cohesion (false-positive guards)', () => {
+  const pr = (title: string, ingredients: string[] = []): string =>
+    primaryProtein({ title, ingredients: ingredients.map((name) => ({ name })) } as any);
+
+  it('detects the real protein from title or ingredients', () => {
+    expect(pr('Grilled chicken bowl')).toBe('chicken');
+    expect(pr('Weeknight stew', ['beef chuck', 'carrots'])).toBe('beef');
+    expect(pr('Pan-seared dinner', ['salmon fillet'])).toBe('seafood');
+  });
+
+  it('does NOT label a beef dish as chicken just because it uses chicken stock/broth', () => {
+    expect(pr('Braised short ribs', ['beef short ribs', 'chicken stock'])).toBe('beef');
+    expect(pr('Beef stew', ['beef', 'chicken broth'])).toBe('beef');
+  });
+
+  it('does NOT label a chicken stir-fry as seafood because of fish sauce', () => {
+    expect(pr('Thai basil chicken', ['chicken thigh', 'fish sauce'])).toBe('chicken');
+  });
+
+  it("does NOT label eggplant parmesan as the 'egg' protein", () => {
+    expect(pr('Eggplant parmesan', ['eggplant', 'tomato', 'mozzarella'])).toBe('other');
+  });
+
+  it("does NOT label a steak-and-green-beans plate as the 'beans' protein", () => {
+    expect(pr('Steak dinner', ['sirloin steak', 'green beans'])).toBe('beef');
+  });
+
+  it('returns "other" when no protein is present', () => {
+    expect(pr('Garden salad', ['lettuce', 'tomato', 'cucumber'])).toBe('other');
   });
 });

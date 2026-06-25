@@ -1086,6 +1086,9 @@ export async function generateWeekPlan(opts: {
     weeklyBudgetUsd: opts.weeklyBudgetUsd ?? null,
     leftoversSet,
     tunings: opts.tunings,
+    // Respect an explicit "Variety is everything" eating style — those users get proteins spread out
+    // rather than the default similar-proteins clustering (bulk-buy). Everyone else clusters.
+    proteinMode: profile?.eating_style === 'variety' ? 'variety' : 'cohesion',
     random: Math.random,
   });
   // Keep the user's manually-placed meals on their own days ("You added this").
