@@ -9,7 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks/useTheme';
 import { formatTime, getTimeOfDay, scaleQuantityString } from '@/lib/utils';
 import { getRecipesBySupabaseIds, fetchDiscoverRecipes, getRecentMealPlanWeeks, logInteraction, resolveSupabaseId, updateStreakAndCount, generateWeekPlan, logSwipe, recordSessionSwipe, updatePlanPreferences } from '@/lib/api';
-import { autoSlotsToStoreSlots, nextSlotAlternate, applySlotChoice, repeatRecipeAcrossSlots } from '@/lib/autoPlan';
+import { autoSlotsToStoreSlots, nextSlotAlternate, applySlotChoice, repeatRecipeAcrossSlots, swappedInRecipesToLearn } from '@/lib/autoPlan';
 import { flags } from '@/lib/featureFlags';
 import { gateMoriPlus } from '@/lib/paywall';
 import { AutoPlanSheet } from '@/components/AutoPlanSheet';
@@ -604,7 +604,7 @@ export default function Plan() {
   // one-tap "Swap" which just cycles to the next best). Mirrors the Plan-tab slot menu so the two
   // surfaces feel the same. An EMPTY slot (no catalog fit) skips the menu and goes straight to the
   // picker — that's the one night you most need to choose a recipe. The picker is an inline overlay
-  // (a View), so opening it from this ActionSheet callback never hits the present-during-dismiss freeze.
+  // (a View), so it never stacks a second native Modal over the preview (the iOS stacked-Modal freeze).
   function handleAutoPlanSlotPress(index: number) {
     const slot = autoPlanResult?.slots[index];
     if (!slot) return;
@@ -735,9 +735,10 @@ export default function Plan() {
       return;
     }
     if (swappedInIds.size > 0) {
-      autoPlanResult.slots.forEach((s) => {
-        if (s.recipe?.supabase_id && swappedInIds.has(s.recipe.supabase_id)) learnFromChoice(s.recipe);
-      });
+      // One learn signal per chosen recipe (NOT per slot) — "Repeat across the week" puts the same
+      // recipe on every night, so a per-slot loop would log N right-swipes and a single accept could
+      // cross the cross-user Trending threshold (≥3 right-swipes / 7d).
+      swappedInRecipesToLearn(autoPlanResult.slots, swappedInIds).forEach((r) => learnFromChoice(r));
     }
     updatePlanPreferences(userId, tunings).catch(() => {});
     setAutoPlanOpen(false);
@@ -1182,11 +1183,12 @@ export default function Plan() {
         )}
       </ScrollView>
 
-      {/* Recipe picker — INLINE overlay (a View, NOT a Modal). It is frequently opened from an
-          ActionSheetIOS callback ("Choose a different recipe"); presenting a real Modal while the
-          action sheet is still dismissing leaves it non-interactive and freezes the app on close.
-          As a plain absolute-fill View there is no native modal presentation, so no race. The recipe
-          preview (RecipeDetailModal) still presents cleanly as the single Modal on top of it. */}
+      {/* Recipe picker — INLINE overlay (a View, NOT a Modal). As a pageSheet Modal it could be on
+          screen together with the RecipeDetailModal (fullScreen) preview — the documented iOS
+          stacked-native-Modal bug (.claude/bugfixes.md): the second Modal renders invisible and
+          corrupts dismissal, freezing touches and locking the app on close. Rebuilding the picker as
+          a plain absolute-fill View removes that second Modal, so the preview is the ONLY Modal and
+          presents cleanly on top — the same inline-overlay fix used for AutoPlanSheet / the filter sheet. */}
       {pickerOpen && (
         <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 60 }}>
         <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>

@@ -1,4 +1,4 @@
-import { autoPlanWeek, mergeLockedSlots, applySlotChoice, repeatRecipeAcrossSlots, primaryProtein } from '@/lib/autoPlan';
+import { autoPlanWeek, mergeLockedSlots, applySlotChoice, repeatRecipeAcrossSlots, swappedInRecipesToLearn, primaryProtein } from '@/lib/autoPlan';
 import type { AutoPlanInput, AutoPlanResult, AutoPlanSlot, Recipe } from '@/types';
 
 // Deterministic seeded RNG so jitter-driven tie-breaks are reproducible.
@@ -386,16 +386,26 @@ describe('autoPlanWeek — meal-prep (batch) mode', () => {
     expect(cuisines.size).toBeGreaterThanOrEqual(2);
   });
 
-  it('clusters protein across the few batch recipes (cohesion) — buy one protein in bulk', () => {
-    // Chicken is tastier; meal-prep cohesion reuses it across batch recipes (the bulk-cook point),
-    // while the cuisine spread keeps them tasting different.
-    const chicken = Array.from({ length: 6 }, (_, i) => mr({ id: `c${i}`, protein: 'chicken', score: 5 }));
-    const beef = Array.from({ length: 6 }, (_, i) => mr({ id: `b${i}`, protein: 'beef', score: 3 }));
-    const pork = Array.from({ length: 6 }, (_, i) => mr({ id: `p${i}`, protein: 'pork', score: 3 }));
+  it('clusters protein across the few batch recipes (cohesion is the ONLY force, given equal taste)', () => {
+    // EQUAL scores → the cohesion bonus is the only thing that can cluster proteins. With a penalty
+    // (or zero) this spreads to ~1-of-each (top protein = 1); the bonus reuses one protein (bulk-cook).
+    const chicken = Array.from({ length: 6 }, (_, i) => mr({ id: `c${i}`, protein: 'chicken', score: 0 }));
+    const beef = Array.from({ length: 6 }, (_, i) => mr({ id: `b${i}`, protein: 'beef', score: 0 }));
+    const pork = Array.from({ length: 6 }, (_, i) => mr({ id: `p${i}`, protein: 'pork', score: 0 }));
     const res = run([...chicken, ...beef, ...pork], { tunings: batch });
     const distinctIds = [...new Set(res.slots.filter((s) => s.recipe).map((s) => s.recipe!.id))];
-    const chickenPicks = distinctIds.filter((id) => id.startsWith('c')).length;
-    expect(chickenPicks).toBeGreaterThanOrEqual(2);
+    const byProtein: Record<string, number> = { c: 0, b: 0, p: 0 };
+    for (const id of distinctIds) byProtein[id[0]]++;
+    expect(Math.max(byProtein.c, byProtein.b, byProtein.p)).toBeGreaterThanOrEqual(2); // reused, not 1-of-each
+  });
+
+  it('batch Shuffle is safe on a thin catalog (pool smaller than BATCH_SHUFFLE_POOL)', () => {
+    const res = run(Array.from({ length: 3 }, (_, i) => mr({ id: `t${i}` })), { tunings: batch });
+    expect(res.slots).toHaveLength(7);
+    expect(res.slots.every((s) => s.recipe !== null)).toBe(true);
+    const distinct = new Set(res.slots.map((s) => s.recipe!.id));
+    expect(distinct.size).toBeLessThanOrEqual(3); // ≤3 distinct, tiled across the 7 slots
+    expect(distinct.size).toBeGreaterThanOrEqual(1);
   });
 
   it('Shuffle actually varies the batch — a distinctly-scored catalog yields different batches across seeds', () => {
@@ -520,6 +530,29 @@ describe('repeatRecipeAcrossSlots — plan one recipe on every same-meal night',
 
   it('returns null when the source slot has no recipe', () => {
     expect(repeatRecipeAcrossSlots([slot(0, null)], 0)).toBeNull();
+  });
+});
+
+describe('swappedInRecipesToLearn — one learn signal per chosen recipe, not per slot', () => {
+  const rec = (id: string): Recipe =>
+    ({ id, supabase_id: id, external_id: id, title: id, meal_types: ['dinner'] } as any);
+  const slot = (day: number, recipe: Recipe | null): AutoPlanSlot =>
+    ({ day, mealType: 'dinner', recipe, provenance: 'manual', explanation: '', alternates: [] });
+
+  it('returns a REPEATED recipe only once (the Trending-pollution guard)', () => {
+    const a = rec('a');
+    const slots = [slot(0, a), slot(1, a), slot(2, a), slot(3, rec('b'))]; // 'a' repeated across 3 nights
+    const out = swappedInRecipesToLearn(slots, new Set(['a']));
+    expect(out.map((r) => r.id)).toEqual(['a']); // once, not 3×
+  });
+
+  it('only includes recipes whose id is in swappedInIds', () => {
+    const out = swappedInRecipesToLearn([slot(0, rec('a')), slot(1, rec('b'))], new Set(['b']));
+    expect(out.map((r) => r.id)).toEqual(['b']);
+  });
+
+  it('skips empty slots and returns [] when nothing was swapped in', () => {
+    expect(swappedInRecipesToLearn([slot(0, null), slot(1, rec('a'))], new Set())).toEqual([]);
   });
 });
 

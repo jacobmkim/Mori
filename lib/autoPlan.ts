@@ -484,6 +484,22 @@ export function repeatRecipeAcrossSlots(
 }
 
 /**
+ * The UNIQUE recipes to log a positive taste signal for on accept — one per swapped-in / chosen
+ * recipe, even when "Repeat across the week" placed it on several days. Iterating the slots directly
+ * would log N duplicate right-swipes for a repeated recipe, skewing the persisted swipe history and
+ * the cross-user Trending deck (which thresholds on right-swipe count). PURE.
+ */
+export function swappedInRecipesToLearn(slots: AutoPlanSlot[], swappedInIds: Set<string>): Recipe[] {
+  const seen = new Set<string>();
+  const out: Recipe[] = [];
+  for (const s of slots) {
+    const sid = s.recipe?.supabase_id;
+    if (sid && swappedInIds.has(sid) && !seen.has(sid)) { seen.add(sid); out.push(s.recipe!); }
+  }
+  return out;
+}
+
+/**
  * One-tap "swap to next best": return the first alternate whose recipe isn't already used
  * elsewhere in the week, or null when the slot has no free alternate left. PURE.
  */
