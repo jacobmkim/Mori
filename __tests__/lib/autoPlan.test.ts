@@ -1,4 +1,4 @@
-import { autoPlanWeek, mergeLockedSlots, applySlotChoice, primaryProtein } from '@/lib/autoPlan';
+import { autoPlanWeek, mergeLockedSlots, applySlotChoice, repeatRecipeAcrossSlots, primaryProtein } from '@/lib/autoPlan';
 import type { AutoPlanInput, AutoPlanResult, AutoPlanSlot, Recipe } from '@/types';
 
 // Deterministic seeded RNG so jitter-driven tie-breaks are reproducible.
@@ -386,10 +386,9 @@ describe('autoPlanWeek — meal-prep (batch) mode', () => {
     expect(cuisines.size).toBeGreaterThanOrEqual(2);
   });
 
-  it('lets TWO batch recipes share the tastier protein (relaxed >=2 cohesion threshold)', () => {
-    // Chicken is tastier; the relaxed threshold permits two chicken batch recipes (bulk-buy) before
-    // the 3rd-same-protein penalty pushes the last pick to a different protein. Under the old >=1
-    // threshold the 2nd chicken would have been penalised out in favour of beef/pork.
+  it('clusters protein across the few batch recipes (cohesion) — buy one protein in bulk', () => {
+    // Chicken is tastier; meal-prep cohesion reuses it across batch recipes (the bulk-cook point),
+    // while the cuisine spread keeps them tasting different.
     const chicken = Array.from({ length: 6 }, (_, i) => mr({ id: `c${i}`, protein: 'chicken', score: 5 }));
     const beef = Array.from({ length: 6 }, (_, i) => mr({ id: `b${i}`, protein: 'beef', score: 3 }));
     const pork = Array.from({ length: 6 }, (_, i) => mr({ id: `p${i}`, protein: 'pork', score: 3 }));
@@ -397,6 +396,17 @@ describe('autoPlanWeek — meal-prep (batch) mode', () => {
     const distinctIds = [...new Set(res.slots.filter((s) => s.recipe).map((s) => s.recipe!.id))];
     const chickenPicks = distinctIds.filter((id) => id.startsWith('c')).length;
     expect(chickenPicks).toBeGreaterThanOrEqual(2);
+  });
+
+  it('Shuffle actually varies the batch — a distinctly-scored catalog yields different batches across seeds', () => {
+    // Distinct scores (gaps > the old ±0.5 jitter) so a strict-argmax batch would be identical every
+    // shuffle. Top-N sampling makes reshuffles differ.
+    const catalog = Array.from({ length: 12 }, (_, i) => mr({ id: `r${i}`, score: 12 - i }));
+    const sets = [1, 7, 13, 21, 30, 42].map((seed) => {
+      const res = run(catalog, { tunings: batch, random: mulberry32(seed) });
+      return res.slots.filter((s) => s.recipe).map((s) => s.recipe!.id).sort().join(',');
+    });
+    expect(new Set(sets).size).toBeGreaterThan(1);
   });
 
   it('is deterministic for the same seed', () => {
@@ -487,6 +497,29 @@ describe('applySlotChoice — pick a specific recipe for a Build-my-week proposa
 
   it('returns null for an out-of-range index', () => {
     expect(applySlotChoice([slot(0, rec('a'))], 5, rec('z'))).toBeNull();
+  });
+});
+
+describe('repeatRecipeAcrossSlots — plan one recipe on every same-meal night', () => {
+  const rec = (id: string): Recipe =>
+    ({ id, supabase_id: id, external_id: id, title: id, meal_types: ['dinner'] } as any);
+  const slot = (day: number, recipe: Recipe | null, mealType: any = 'dinner'): AutoPlanSlot =>
+    ({ day, mealType, recipe, provenance: 'auto_plan', explanation: 'Taste match', alternates: [] });
+
+  it('overwrites every same-meal-type slot with the source recipe (intentional duplicate)', () => {
+    const out = repeatRecipeAcrossSlots([slot(0, rec('a')), slot(1, rec('b')), slot(2, rec('c'))], 0)!;
+    expect(out.map((s) => s.recipe!.id)).toEqual(['a', 'a', 'a']);
+    expect(out.every((s) => s.provenance === 'manual')).toBe(true);
+    expect(out.every((s) => s.explanation === 'Repeated across your week')).toBe(true);
+  });
+
+  it('only touches slots of the SAME meal type', () => {
+    const out = repeatRecipeAcrossSlots([slot(0, rec('a'), 'dinner'), slot(0, rec('x'), 'lunch'), slot(1, rec('b'), 'dinner')], 0)!;
+    expect(out.map((s) => s.recipe!.id)).toEqual(['a', 'x', 'a']); // lunch untouched
+  });
+
+  it('returns null when the source slot has no recipe', () => {
+    expect(repeatRecipeAcrossSlots([slot(0, null)], 0)).toBeNull();
   });
 });
 

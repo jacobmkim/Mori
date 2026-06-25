@@ -1,6 +1,6 @@
 import {
   View, Text, FlatList, Pressable, TextInput,
-  ActivityIndicator, Alert, Modal, ScrollView, SectionList, ActionSheetIOS,
+  ActivityIndicator, Alert, ScrollView, SectionList, ActionSheetIOS,
 } from 'react-native';
 import { useState, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -9,7 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks/useTheme';
 import { formatTime, getTimeOfDay, scaleQuantityString } from '@/lib/utils';
 import { getRecipesBySupabaseIds, fetchDiscoverRecipes, getRecentMealPlanWeeks, logInteraction, resolveSupabaseId, updateStreakAndCount, generateWeekPlan, logSwipe, recordSessionSwipe, updatePlanPreferences } from '@/lib/api';
-import { autoSlotsToStoreSlots, nextSlotAlternate, applySlotChoice } from '@/lib/autoPlan';
+import { autoSlotsToStoreSlots, nextSlotAlternate, applySlotChoice, repeatRecipeAcrossSlots } from '@/lib/autoPlan';
 import { flags } from '@/lib/featureFlags';
 import { gateMoriPlus } from '@/lib/paywall';
 import { AutoPlanSheet } from '@/components/AutoPlanSheet';
@@ -292,6 +292,15 @@ export default function Plan() {
     addSlot({ day, meal_type: mealType, recipe_id: recipeId, servings_multiplier: multiplier });
     setSlotRecipes((prev) => ({ ...prev, [recipeId]: recipe }));
     savePlan(userId, weekStart);
+  }
+
+  // Picker row/card tap. In Build-my-week mode, assign DIRECTLY to the proposal — fewer taps and it
+  // never opens the RecipeDetailModal preview over the picker. Normal (saved-week) mode keeps the
+  // preview so the user can review + set servings before adding.
+  function handlePickerRowTap(item: Recipe) {
+    if (pickerOpen?.autoPlanIndex != null) { handleQuickAssign(item); return; }
+    setPreviewSlot(null);
+    setPreviewRecipe(item);
   }
 
   function handleAssign(recipe: Recipe) {
@@ -594,19 +603,50 @@ export default function Plan() {
   // Tapping a dinner card in the Build sheet → view it, or pick a specific replacement (vs. the
   // one-tap "Swap" which just cycles to the next best). Mirrors the Plan-tab slot menu so the two
   // surfaces feel the same. An EMPTY slot (no catalog fit) skips the menu and goes straight to the
-  // picker — that's the one night you most need to choose a recipe. The picker presents (as a Modal)
-  // cleanly over the inline Build overlay.
+  // picker — that's the one night you most need to choose a recipe. The picker is an inline overlay
+  // (a View), so opening it from this ActionSheet callback never hits the present-during-dismiss freeze.
   function handleAutoPlanSlotPress(index: number) {
     const slot = autoPlanResult?.slots[index];
     if (!slot) return;
     if (!slot.recipe) { openProposalPicker(slot.day, slot.mealType, index); return; }
     const recipe = slot.recipe;
     ActionSheetIOS.showActionSheetWithOptions(
-      { title: recipe.title, options: SLOT_ACTIONS, cancelButtonIndex: 2 },
+      { title: recipe.title, options: ['View recipe', 'Choose a different recipe', 'Repeat across the week', 'Cancel'], cancelButtonIndex: 3 },
       (idx) => {
         if (idx === 0) { setPreviewSlot(null); setPreviewRecipe(recipe); }
         else if (idx === 1) { openProposalPicker(slot.day, slot.mealType, index); }
+        else if (idx === 2) { handleRepeatProposalSlot(index); }
       },
+    );
+  }
+
+  // "Repeat across the week" in the Build sheet — plan this recipe on EVERY dinner this week
+  // (intentional duplication, bypassing the single-pick no-duplicate rule). Edits the proposal only;
+  // each night stays individually swappable, and nothing saves until "Use this plan".
+  function handleRepeatProposalSlot(index: number) {
+    if (!autoPlanResult) return;
+    const slot = autoPlanResult.slots[index];
+    if (!slot?.recipe) return;
+    const recipe = slot.recipe;
+    const count = autoPlanResult.slots.filter((s) => s.mealType === slot.mealType).length;
+    const mealLabel = MEAL_LABELS[slot.mealType].toLowerCase();
+    Alert.alert(
+      'Repeat across the week?',
+      `Plan ${recipe.title} for all ${count} ${mealLabel}s this week? You can still change any night.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: `Plan all ${count}`,
+          onPress: () => {
+            setAutoPlanResult((prev) => {
+              if (!prev) return prev;
+              const next = repeatRecipeAcrossSlots(prev.slots, index);
+              return next ? { ...prev, slots: next, generateNeeded: next.filter((s) => s.recipe === null).length } : prev;
+            });
+            if (recipe.supabase_id) setSwappedInIds((p) => new Set(p).add(recipe.supabase_id!));
+          },
+        },
+      ],
     );
   }
 
@@ -1142,14 +1182,14 @@ export default function Plan() {
         )}
       </ScrollView>
 
-      {/* Recipe picker modal — sectioned with search */}
-      <Modal
-        visible={!!pickerOpen}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => { setPickerOpen(null); resetPickerFilters(); }}
-      >
-        <View style={{ flex: 1, backgroundColor: colors.background }}>
+      {/* Recipe picker — INLINE overlay (a View, NOT a Modal). It is frequently opened from an
+          ActionSheetIOS callback ("Choose a different recipe"); presenting a real Modal while the
+          action sheet is still dismissing leaves it non-interactive and freezes the app on close.
+          As a plain absolute-fill View there is no native modal presentation, so no race. The recipe
+          preview (RecipeDetailModal) still presents cleanly as the single Modal on top of it. */}
+      {pickerOpen && (
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 60 }}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
           {/* Modal header */}
           <View style={{
             flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -1246,7 +1286,7 @@ export default function Plan() {
                     data={sec.recipes}
                     keyExtractor={(r) => r.supabase_id ?? r.id}
                     renderItem={({ item }) => (
-                      <HorizontalCard recipe={item} onPress={() => { setPreviewSlot(null); setPreviewRecipe(item); }} />
+                      <HorizontalCard recipe={item} onPress={() => handlePickerRowTap(item)} />
                     )}
                     initialNumToRender={3}
                     windowSize={2}
@@ -1289,7 +1329,7 @@ export default function Plan() {
               )}
               renderItem={({ item }) => (
                 <Pressable
-                  onPress={() => { setPreviewSlot(null); setPreviewRecipe(item); }}
+                  onPress={() => handlePickerRowTap(item)}
                   style={{
                     flexDirection: 'row', alignItems: 'center', gap: 12,
                     backgroundColor: colors.card, borderRadius: 12,
@@ -1478,8 +1518,9 @@ export default function Plan() {
               </View>
             </>
           )}
+        </SafeAreaView>
         </View>
-      </Modal>
+      )}
 
       {/* Recipe preview — opened from picker row tap. "Add to {slot}" CTA replaces the default footer. */}
       <RecipeDetailModal

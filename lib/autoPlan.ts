@@ -69,6 +69,11 @@ const MAX_ALTERNATES = 8;
 const PROTEIN_COHESION = 1.5;       // bonus once a protein has appeared at least once this week
 const PROTEIN_MONOTONY_TAPER = 2;   // penalty per extra dinner once one protein dominates (past ~4)
 
+// Meal-prep picks only ~3 recipes, so taking the strict best each time made every Shuffle identical
+// for a real (distinctly-scored) catalog. Sampling each pick from the top-N keeps quality high while
+// making Shuffle actually produce a different batch.
+const BATCH_SHUFFLE_POOL = 5;
+
 const recipeId = (r: Recipe): string => r.supabase_id ?? r.external_id ?? r.id ?? '';
 const savedKey = (r: Recipe): string => r.external_id ?? r.supabase_id ?? r.id ?? '';
 const recipeMealTypes = (r: Recipe): string[] => (Array.isArray(r.meal_types) ? r.meal_types : []);
@@ -276,7 +281,6 @@ export function autoPlanWeek(input: AutoPlanInput): AutoPlanResult {
  */
 function batchPlanWeek(input: AutoPlanInput, specs: { day: number; mealType: MealType }[]): AutoPlanResult {
   const { catalog, savedExternalIds, scoreFn, weeklyBudgetUsd, leftoversSet, tunings, random } = input;
-  const proteinMode = input.proteinMode ?? 'cohesion';
   const mealType = specs[0]?.mealType ?? 'dinner';
   // Batch mode is single-meal-type (v1 = dinner). Only fill slots of that type; any other-type slots
   // stay empty so a dinner recipe can never leak into a lunch/breakfast slot (the selection only
@@ -287,7 +291,8 @@ function batchPlanWeek(input: AutoPlanInput, specs: { day: number; mealType: Mea
   // ~one cook per 2–3 dinners → 3 recipes for a 7-day week. Bounded 2–4.
   const distinctTarget = Math.max(2, Math.min(4, Math.round(totalSlots / 2.5)));
 
-  // Select distinct recipes greedily, with STRONG variety among the few we pick.
+  // Select a few recipes, clustering protein (cohesion) + varying cuisine among them, but SAMPLED
+  // from the top candidates so Shuffle changes the batch.
   const selected: Recipe[] = [];
   const usedIds = new Set<string>();
   const cuisineCount = new Map<string, number>();
@@ -295,9 +300,7 @@ function batchPlanWeek(input: AutoPlanInput, specs: { day: number; mealType: Mea
   const remainingLeftovers = leftoversSet ? new Set(leftoversSet) : new Set<string>();
 
   for (let k = 0; k < distinctTarget; k++) {
-    let best: Recipe | null = null;
-    let bestScore = -Infinity;
-    let bestLeftover: string | null = null;
+    const scored: { r: Recipe; s: number; lo: string | null }[] = [];
     for (const r of catalog) {
       if (usedIds.has(recipeId(r))) continue;
       if (!recipeMealTypes(r).includes(mealType)) continue;
@@ -305,19 +308,24 @@ function batchPlanWeek(input: AutoPlanInput, specs: { day: number; mealType: Mea
       if (savedExternalIds.has(savedKey(r))) s += 2;
       const cz = primaryCuisine(r);
       if (cz && (cuisineCount.get(cz) ?? 0) >= 1) s -= 2 * (cuisineCount.get(cz) ?? 0); // varied across the few
-      // Protein cohesion in batch mode: let TWO of the few batch recipes share a protein (bulk-buy),
-      // but discourage a 3rd+ so eating the same protein all week doesn't get monotonous. A
-      // 'variety'-eating-style user keeps the stronger spread (penalty from the 2nd onward).
+      // Meal-prep protein cohesion: actively REUSE one protein across the few batch recipes — the
+      // whole point of batch cooking is buying one protein in bulk. Soft (a strong taste lead can
+      // still bring in a 2nd protein) and the cuisine spread above keeps them tasting different
+      // ("chicken, 3 ways"). Meal prep always clusters, regardless of eating_style — toggling batch
+      // IS the bulk-cook choice.
       const pr = primaryProtein(r);
-      const proteinFloor = proteinMode === 'variety' ? 1 : 2;
-      if (pr !== 'other' && (proteinCount.get(pr) ?? 0) >= proteinFloor) s -= 3 * (proteinCount.get(pr) ?? 0);
+      if (pr !== 'other' && (proteinCount.get(pr) ?? 0) >= 1) s += PROTEIN_COHESION;
       const lo = usesLeftover(r, remainingLeftovers);
       if (lo) s += 2;
       s += tuningBias(r, tunings);
-      s += random() * 0.5;
-      if (s > bestScore) { bestScore = s; best = r; bestLeftover = lo; }
+      scored.push({ r, s, lo });
     }
-    if (!best) break;
+    if (scored.length === 0) break;
+    // Sample from the top-N (not the strict argmax) so each Shuffle yields a different batch.
+    scored.sort((a, b) => b.s - a.s);
+    const pick = scored[Math.floor(random() * Math.min(BATCH_SHUFFLE_POOL, scored.length))];
+    const best = pick.r;
+    const bestLeftover = pick.lo;
     selected.push(best);
     usedIds.add(recipeId(best));
     const cz = primaryCuisine(best);
@@ -452,6 +460,27 @@ export function applySlotChoice(
     alternates,
   };
   return slots.map((s, i) => (i === index ? newSlot : s));
+}
+
+/**
+ * Repeat the recipe at `sourceIndex` onto EVERY same-meal-type proposal slot ("plan this every
+ * night this week"). Intentional duplication — the no-duplicate rule that guards single picks is
+ * deliberately bypassed here. Each slot keeps its own alternates so any night can still be swapped.
+ * Returns new slots, or null if the source slot has no recipe. PURE.
+ */
+export function repeatRecipeAcrossSlots(
+  slots: AutoPlanSlot[],
+  sourceIndex: number,
+): AutoPlanSlot[] | null {
+  const src = slots[sourceIndex];
+  if (!src?.recipe) return null;
+  const recipe = src.recipe;
+  const mealType = src.mealType;
+  return slots.map((s) =>
+    s.mealType === mealType
+      ? { ...s, recipe, provenance: 'manual' as const, explanation: 'Repeated across your week' }
+      : s,
+  );
 }
 
 /**
