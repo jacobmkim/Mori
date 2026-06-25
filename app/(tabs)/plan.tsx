@@ -592,20 +592,30 @@ export default function Plan() {
   // check filled days to overwrite them, or uncheck to plan it on fewer.
   function openRepeatSheet(mode: 'plan' | 'build', sourceDay: number, mealType: MealType, recipe: Recipe) {
     const rid = recipe.supabase_id ?? recipe.id;
+    // Skip days already in the past this week (mirror the planner's plan-from-today rule) so a repeat
+    // can't backfill yesterday. Other weeks (offset != 0) show all 7 days.
+    const start = mode === 'build' || weekOffset === 0 ? planStartDay() : 0;
     const dayOptions: RepeatDayOption[] = [];
-    if (mode === 'build') {
-      const start = planStartDay();
-      for (let day = start; day < DAY_NAMES.length; day++) {
+    for (let day = start; day < DAY_NAMES.length; day++) {
+      if (mode === 'build') {
         const cur = autoPlanResult?.slots.find((s) => s.day === day && s.mealType === mealType)?.recipe;
         const isThis = !!cur && (cur.supabase_id ?? cur.id) === rid;
-        dayOptions.push({ day, label: DAY_NAMES[day], sub: cur ? (isThis ? 'This recipe' : cur.title) : 'Open', locked: day === sourceDay, defaultOn: day === sourceDay });
-      }
-    } else {
-      for (let day = 0; day < DAY_NAMES.length; day++) {
+        dayOptions.push({
+          day, label: DAY_NAMES[day],
+          sub: cur ? (isThis ? 'This recipe' : cur.title) : 'Open',
+          overwrites: !!cur && !isThis,
+          locked: day === sourceDay, defaultOn: day === sourceDay || !cur, // source + still-empty nights
+        });
+      } else {
         const s = getSlot(day, mealType);
         const cur = s ? slotRecipes[s.recipe_id] : null;
         const isThis = s?.recipe_id === rid;
-        dayOptions.push({ day, label: DAY_NAMES[day], sub: s ? (isThis ? 'This recipe' : (cur?.title ?? 'Planned')) : 'Open', locked: day === sourceDay, defaultOn: day === sourceDay || !s });
+        dayOptions.push({
+          day, label: DAY_NAMES[day],
+          sub: s ? (isThis ? 'This recipe' : (cur?.title ?? 'Planned')) : 'Open',
+          overwrites: !!s && !isThis,
+          locked: day === sourceDay, defaultOn: day === sourceDay || !s, // source + open days (non-destructive)
+        });
       }
     }
     setRepeatSheet({ mode, mealType, recipe, dayOptions });
@@ -628,7 +638,13 @@ export default function Plan() {
     } else {
       if (!userId) return;
       const rid = r.recipe.supabase_id ?? r.recipe.id;
-      days.forEach((day) => addSlot({ day, meal_type: r.mealType, recipe_id: rid, servings_multiplier: 1, provenance: 'manual' }));
+      days.forEach((day) => {
+        // A day that already holds THIS recipe (incl. the source) is left as-is, so its servings +
+        // cooked state survive. Days with a different recipe are overwritten (the user opted in).
+        const existing = getSlot(day, r.mealType);
+        if (existing && existing.recipe_id === rid) return;
+        addSlot({ day, meal_type: r.mealType, recipe_id: rid, servings_multiplier: 1, provenance: 'manual' });
+      });
       setSlotRecipes((prev) => ({ ...prev, [rid]: r.recipe }));
       savePlan(userId, weekStart);
     }

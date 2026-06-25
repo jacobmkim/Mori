@@ -51,7 +51,8 @@ export function PlanActionSheet({
             )}
           </View>
         ) : null}
-        <View style={{ gap: 8 }}>
+        {/* Scrollable so a long list (e.g. "Copy a previous week" with many weeks) keeps Cancel reachable. */}
+        <ScrollView style={{ maxHeight: 400 }} contentContainerStyle={{ gap: 8 }} showsVerticalScrollIndicator={false}>
           {actions.map((a) => (
             <Pressable
               key={a.key}
@@ -67,7 +68,7 @@ export function PlanActionSheet({
               <Text style={{ fontSize: 16, fontWeight: '600', color: a.destructive ? DESTRUCTIVE : colors.text }}>{a.label}</Text>
             </Pressable>
           ))}
-        </View>
+        </ScrollView>
         <Pressable
           onPress={onClose}
           style={{ marginTop: 12, alignItems: 'center', paddingVertical: 15, borderRadius: 14, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}
@@ -79,7 +80,7 @@ export function PlanActionSheet({
   );
 }
 
-export type RepeatDayOption = { day: number; label: string; sub?: string; locked?: boolean; defaultOn?: boolean };
+export type RepeatDayOption = { day: number; label: string; sub?: string; locked?: boolean; defaultOn?: boolean; overwrites?: boolean };
 
 /** Day picker for "Repeat across the week" — choose exactly which days to plan a recipe on. */
 export function RepeatDaysSheet({
@@ -96,9 +97,11 @@ export function RepeatDaysSheet({
   const [selected, setSelected] = useState<Set<number>>(new Set());
 
   // Reset selection to the suggested default each time the sheet opens (source day + any "Open" days).
+  // dayOptions is rebuilt fresh per open (and stable while a given sheet is shown), so keying on it
+  // also reseeds correctly if the sheet is ever reused for a different recipe without fully closing.
   useEffect(() => {
     if (visible) setSelected(new Set(dayOptions.filter((d) => d.defaultOn || d.locked).map((d) => d.day)));
-  }, [visible]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [visible, dayOptions]);
 
   if (!visible) return null;
 
@@ -146,7 +149,14 @@ export function RepeatDaysSheet({
                 <Ionicons name={on ? 'checkmark-circle' : 'ellipse-outline'} size={24} color={on ? colors.primary : colors.border} />
                 <View style={{ flex: 1 }}>
                   <Text style={{ fontSize: 16, fontWeight: '600', color: colors.text }}>{d.label}</Text>
-                  {!!d.sub && <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 1 }} numberOfLines={1}>{d.sub}</Text>}
+                  {!!d.sub && (
+                    <Text
+                      style={{ fontSize: 12, marginTop: 1, color: (on && d.overwrites) ? '#C2410C' : colors.textMuted }}
+                      numberOfLines={1}
+                    >
+                      {(on && d.overwrites) ? `Replaces ${d.sub}` : d.sub}
+                    </Text>
+                  )}
                 </View>
                 {d.locked && <Text style={{ fontSize: 11, color: colors.textMuted }}>This day</Text>}
               </Pressable>
@@ -155,7 +165,7 @@ export function RepeatDaysSheet({
         </ScrollView>
         <Pressable
           disabled={count === 0}
-          onPress={() => onConfirm([...selected])}
+          onPress={() => onConfirm([...selected].sort((a, b) => a - b))}
           style={{
             marginTop: 12, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8,
             paddingVertical: 16, borderRadius: 14, backgroundColor: count === 0 ? colors.border : colors.primary,
