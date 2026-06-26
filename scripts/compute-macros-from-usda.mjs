@@ -70,6 +70,19 @@ function applyDecision(recipe, computed) {
   return { apply: false, reason: 'regression-risk' };
 }
 
+// An UNMATCHED ingredient is either negligible (salt/herbs/spices/garnish — fine to drop) or
+// CALORIE-SIGNIFICANT (a specialty protein/dairy/starch the table doesn't know — e.g. "salt cod",
+// "bonito flakes"). The latter must NEVER be silently dropped: it goes on the needs-review report so
+// a human adds it. Conservative: anything with a calorie-dense word, or not clearly a seasoning, is
+// treated as review-worthy.
+const NEGLIGIBLE_RE = /\b(salt|pepper|peppercorns?|water|ice|baking (soda|powder)|cream of tartar|food colou?ring|vanilla|zest|garnish|to taste|to serve|thyme|basil|rosemary|parsley|cilantro|coriander|oregano|sage|mint|chives|dill|bay leaf|bay leaves|tarragon|marjoram|chervil|cumin|paprika|turmeric|cinnamon|nutmeg|cardamom|cloves?|allspice|cayenne|chil(l?i|li)(es|s)?|chiles?|red pepper flakes|curry powder|curry leaf|curry leaves|garam masala|saffron|sumac|za'?atar|herbs?|spices?|seasoning|lemongrass|kaffir|makrut|ginger|stock cube|bouillon|parchment|cooking spray|skewers?|toothpicks?|twine)\b/i;
+const CALORIE_DENSE_RE = /\b(oil|butter|ghee|cream|cheese|milk|coconut|yogurt|sauce|paste|sugar|honey|syrup|molasses|flour|bread|baguette|rice|pasta|noodle|bean|lentil|chickpea|nut|seed|cod|fish|salmon|tuna|prawn|shrimp|scallop|mussel|squid|meat|chicken|beef|pork|lamb|veal|bacon|ham|sausage|chorizo|egg|tofu|tempeh|potato|chocolate|oats?|grain|quinoa)\b/i;
+function isNegligibleMiss(name) {
+  const n = String(name || '').toLowerCase();
+  if (CALORIE_DENSE_RE.test(n)) return false;   // has a calorie-bearing word → must review
+  return NEGLIGIBLE_RE.test(n);                  // clearly a seasoning/garnish → safe to ignore
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // USDA REFERENCE TABLE (per 100g basis)
 // Sourced from USDA FoodData Central (https://fdc.nal.usda.gov)
@@ -1580,8 +1593,9 @@ async function main() {
       if (VERBOSE) for (const d of computed.detail) console.log(`     ${d.status.padEnd(10)} ${d.name}${d.usdaKey && d.usdaKey !== d.name ? ` → ${d.usdaKey}` : ''}${d.grams != null ? ` (${d.grams}g, ${d.cals}cal)` : ''}${d.fryNote || ''}`);
       for (const m of computed.misses) {
         const key = m.name.toLowerCase();
-        const e = allMisses.get(key) || { name: m.name, count: 0, reason: m.reason };
+        const e = allMisses.get(key) || { name: m.name, count: 0, reason: m.reason, recipes: [] };
         e.count++;
+        if (e.recipes.length < 10) e.recipes.push(r.title);
         allMisses.set(key, e);
       }
     } catch (err) {
@@ -1628,6 +1642,19 @@ async function main() {
   writeFileSync(MISSES_PATH, missLines.join('\n'));
   console.log(`  Misses CSV: ${MISSES_PATH} (top 5):`);
   for (const m of sortedMisses.slice(0, 5)) console.log(`    ${m.count}x [${m.reason}] ${m.name}`);
+
+  // ── Needs-review report ── specialty ingredients the calculator can't resolve and that are
+  // CALORIE-SIGNIFICANT (excludes salt/herbs/spices noise). These would otherwise be silently
+  // dropped → wrong macros, so they're surfaced here for a human to add to the USDA table.
+  const needsReview = sortedMisses.filter((m) => !isNegligibleMiss(m.name));
+  const affectedRecipes = new Set(needsReview.flatMap((m) => m.recipes || []));
+  const REVIEW_PATH = resolve(REPORT_DIR, `macros-needs-review-${ts}.csv`);
+  const reviewLines = ['ingredient_name,reason,recipe_count,sample_recipes'];
+  for (const m of needsReview) reviewLines.push(`${csvEscape(m.name)},${m.reason},${m.count},${csvEscape((m.recipes || []).join(' | '))}`);
+  writeFileSync(REVIEW_PATH, reviewLines.join('\n'));
+  console.log(`\n  ⚠ NEEDS REVIEW: ${needsReview.length} unknown calorie-significant ingredient(s) across ~${affectedRecipes.size} recipe(s)`);
+  console.log(`     (negligible seasonings excluded). Review CSV: ${REVIEW_PATH}`);
+  for (const m of needsReview.slice(0, 15)) console.log(`     ${String(m.count).padStart(3)}x [${m.reason}] ${m.name}`);
 
   // ── Apply gate ── decide which changed recipes are safe to write (no regressions)
   const decisions = results.map((r) => ({ r, d: applyDecision(r.recipe, r.computed) }));
