@@ -6594,5 +6594,16 @@
     "fdcId": 167721,
     "dataType": "SR Legacy",
     "description": "Frozen novelties, juice type, juice with cream"
+  },
+  "mirim": null,
+  "packet of instant beef bone soup or beef bone broth coins": {
+    "cal": 257,
+    "protein": 25.9,
+    "fat": 16.46,
+    "carb": 0,
+    "fibre": 0,
+    "fdcId": 2705844,
+    "dataType": "Survey (FNDDS)",
+    "description": "Beef, neck bones"
   }
 }
