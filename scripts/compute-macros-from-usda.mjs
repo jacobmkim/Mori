@@ -52,6 +52,23 @@ const VERBOSE = args.includes('--verbose');
 const LIMIT = (() => { const i = args.indexOf('--limit'); return i >= 0 ? parseInt(args[i + 1], 10) : Infinity; })();
 const ONLY_ID = (() => { const i = args.indexOf('--id'); return i >= 0 ? args[i + 1] : null; })();
 const ONLY_TITLE = (() => { const i = args.indexOf('--title'); return i >= 0 ? args[i + 1].toLowerCase() : null; })();
+const NO_GATE = args.includes('--no-gate');
+
+// Decide whether a recomputed recipe is SAFE to write over the stored value. The bug we fix DROPPED
+// ingredients (undercount), so real fixes show up as increases or flat. A material DROP on an
+// incompletely-covered recipe means we're now dropping a calorie-significant ingredient the stored
+// value already had (a regression — e.g. "1 can coconut milk" with no can-weight) → skip it.
+function applyDecision(recipe, computed) {
+  const old = recipe.macros?.calories;
+  const neu = computed.macros.calories;
+  if (typeof old !== 'number') return { apply: true, reason: 'no-prior' };
+  if (neu === old) return { apply: false, reason: 'unchanged' };
+  if ((computed.warns || []).length > 0) return { apply: false, reason: `warn(${computed.warns.join('|')})` };
+  if (NO_GATE) return { apply: true, reason: 'no-gate' };
+  if (computed.coverage >= 0.999) return { apply: true, reason: 'full-coverage' };
+  if (neu >= old * 0.85) return { apply: true, reason: 'increase/flat' };
+  return { apply: false, reason: 'regression-risk' };
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // USDA REFERENCE TABLE (per 100g basis)
@@ -1002,6 +1019,73 @@ const USDA = {
   'oat milk':                 { cal: 47,  protein: 1,    fat: 1.5, carb: 7,   fibre: 0.8, density: 1.04 },
   'protein powder':           { cal: 380, protein: 80,   fat: 5,   carb: 7,   fibre: 0,   density: 0.5 },
   'whey protein':             { cal: 380, protein: 80,   fat: 5,   carb: 7,   fibre: 0,   density: 0.5 },
+
+  // ── COUNT-BASED GAP FIXES (2026-06-26) ──────────────────────────────────────
+  // These matched a gap-fill entry by name but had NO countWeight, so a count
+  // quantity ("8 sardines", "1 baguette") converted to null grams and the whole
+  // ingredient was dropped — making mains read as near-zero-calorie/protein.
+  // Per-100g values are USDA raw; countWeight = grams per 1 piece/slice/loaf.
+  // PROTEINS (count-based)
+  'bacon':                    { cal: 417, protein: 13,   fat: 39,  carb: 1.4, fibre: 0,   countWeight: 12,  note: '1 raw US slice' },
+  'bacon strips':             { cal: 417, protein: 13,   fat: 39,  carb: 1.4, fibre: 0,   countWeight: 12 },
+  'streaky bacon':            { cal: 417, protein: 13,   fat: 39,  carb: 1.4, fibre: 0,   countWeight: 12 },
+  'sausage':                  { cal: 301, protein: 12,   fat: 27,  carb: 1.3, fibre: 0,   countWeight: 75,  note: '1 pork link' },
+  'sausages':                 { cal: 301, protein: 12,   fat: 27,  carb: 1.3, fibre: 0,   countWeight: 75 },
+  'pork sausage':             { cal: 301, protein: 12,   fat: 27,  carb: 1.3, fibre: 0,   countWeight: 90 },
+  'cocktail sausages':        { cal: 301, protein: 12,   fat: 27,  carb: 1.3, fibre: 0,   countWeight: 15 },
+  'sardines':                 { cal: 165, protein: 25,   fat: 8.6, carb: 0,   fibre: 0,   countWeight: 45,  note: 'whole, edible portion' },
+  'sardine':                  { cal: 165, protein: 25,   fat: 8.6, carb: 0,   fibre: 0,   countWeight: 45 },
+  'lamb loin chops':          { cal: 232, protein: 18,   fat: 17,  carb: 0,   fibre: 0,   countWeight: 75,  note: 'edible meat per chop' },
+  'lamb loin chop':           { cal: 232, protein: 18,   fat: 17,  carb: 0,   fibre: 0,   countWeight: 75 },
+  'lamb chop':                { cal: 232, protein: 18,   fat: 17,  carb: 0,   fibre: 0,   countWeight: 75 },
+  'lamb chops':               { cal: 232, protein: 18,   fat: 17,  carb: 0,   fibre: 0,   countWeight: 75 },
+  'lamb kidney':              { cal: 97,  protein: 17,   fat: 2.9, carb: 0.8, fibre: 0,   countWeight: 60 },
+  'king prawns':              { cal: 85,  protein: 20,   fat: 0.5, carb: 0.2, fibre: 0,   countWeight: 18 },
+  'king prawn':               { cal: 85,  protein: 20,   fat: 0.5, carb: 0.2, fibre: 0,   countWeight: 18 },
+  'tiger prawns':             { cal: 85,  protein: 20,   fat: 0.5, carb: 0.2, fibre: 0,   countWeight: 20 },
+  'tiger prawn':              { cal: 85,  protein: 20,   fat: 0.5, carb: 0.2, fibre: 0,   countWeight: 20 },
+  'white fish':               { cal: 82,  protein: 18,   fat: 0.7, carb: 0,   fibre: 0,   countWeight: 150, note: 'cod/haddock fillet' },
+  'mackerel':                 { cal: 205, protein: 19,   fat: 13.9, carb: 0,  fibre: 0,   countWeight: 100, note: 'fillet' },
+  'mussels':                  { cal: 86,  protein: 12,   fat: 2.2, carb: 3.7, fibre: 0,   countWeight: 7,   note: 'meat per mussel' },
+  'large sea scallops':       { cal: 69,  protein: 12,   fat: 0.5, carb: 3.2, fibre: 0,   countWeight: 30 },
+  'sea scallops':             { cal: 69,  protein: 12,   fat: 0.5, carb: 3.2, fibre: 0,   countWeight: 30 },
+  'scallops':                 { cal: 69,  protein: 12,   fat: 0.5, carb: 3.2, fibre: 0,   countWeight: 30 },
+  'prosciutto':               { cal: 250, protein: 26,   fat: 16,  carb: 0.3, fibre: 0,   countWeight: 15,  note: '1 slice' },
+  'parma ham':                { cal: 250, protein: 26,   fat: 16,  carb: 0.3, fibre: 0,   countWeight: 15 },
+  'serrano ham':              { cal: 250, protein: 26,   fat: 16,  carb: 0.3, fibre: 0,   countWeight: 15 },
+  'pork belly':               { cal: 518, protein: 9.3,  fat: 53,  carb: 0,   fibre: 0,   countWeight: 150 },
+  'duck confit thighs or legs': { cal: 310, protein: 19, fat: 26,  carb: 0,   fibre: 0,   countWeight: 130 },
+  'duck confit':              { cal: 310, protein: 19,   fat: 26,  carb: 0,   fibre: 0,   countWeight: 130 },
+  'canned tuna in olive oil': { cal: 198, protein: 25,   fat: 10,  carb: 0,   fibre: 0,   countWeight: 120, note: 'drained can' },
+  'canned salmon':            { cal: 167, protein: 22,   fat: 8,   carb: 0,   fibre: 0,   countWeight: 200, note: 'can' },
+  'rotisserie chicken':       { cal: 190, protein: 25,   fat: 9,   carb: 0,   fibre: 0,   countWeight: 500, note: 'meat yield' },
+  'beef tomatoes':            { cal: 18,  protein: 0.9,  fat: 0.2, carb: 3.9, fibre: 1.2, countWeight: 180 },
+  'beef tomato':              { cal: 18,  protein: 0.9,  fat: 0.2, carb: 3.9, fibre: 1.2, countWeight: 180 },
+  // BREADS / STARCHES (count-based; "X or Y bread" resolves to its left/head noun)
+  'baguette':                 { cal: 270, protein: 9,    fat: 1.3, carb: 57,  fibre: 2.5, countWeight: 250, sliceWeight: 30, note: 'whole baguette / 30g per slice' },
+  'french baguette':          { cal: 270, protein: 9,    fat: 1.3, carb: 57,  fibre: 2.5, countWeight: 250, sliceWeight: 30 },
+  'french bread':             { cal: 270, protein: 9,    fat: 1.3, carb: 57,  fibre: 2.5, countWeight: 250, sliceWeight: 30 },
+  'cuban bread':              { cal: 270, protein: 9,    fat: 1.3, carb: 57,  fibre: 2.5, countWeight: 250, sliceWeight: 30 },
+  'bread':                    { cal: 265, protein: 9,    fat: 3.2, carb: 49,  fibre: 2.7, countWeight: 35,  note: '1 slice' },
+  'crusty bread':             { cal: 265, protein: 9,    fat: 3.2, carb: 49,  fibre: 2.7, countWeight: 50 },
+  'sandwich bread':           { cal: 265, protein: 9,    fat: 3.2, carb: 49,  fibre: 2.7, countWeight: 35 },
+  'rye bread':                { cal: 259, protein: 8.5,  fat: 3.3, carb: 48,  fibre: 5.8, countWeight: 35 },
+  'wholegrain bread':         { cal: 252, protein: 12,   fat: 3.5, carb: 43,  fibre: 6,   countWeight: 35 },
+  'pita':                     { cal: 275, protein: 9,    fat: 1.2, carb: 56,  fibre: 2.2, countWeight: 60 },
+  'pita bread':               { cal: 275, protein: 9,    fat: 1.2, carb: 56,  fibre: 2.2, countWeight: 60 },
+  'naan':                     { cal: 290, protein: 9,    fat: 5.7, carb: 50,  fibre: 2.2, countWeight: 90 },
+  'naan bread':               { cal: 290, protein: 9,    fat: 5.7, carb: 50,  fibre: 2.2, countWeight: 90 },
+  'flatbread':                { cal: 290, protein: 8,    fat: 6,   carb: 49,  fibre: 2.5, countWeight: 80 },
+  'lavash flatbread':         { cal: 290, protein: 8,    fat: 6,   carb: 49,  fibre: 2.5, countWeight: 80 },
+  'ciabatta':                 { cal: 270, protein: 9,    fat: 3,   carb: 52,  fibre: 2.4, countWeight: 85,  sliceWeight: 40, note: 'roll / 40g per slice' },
+  'bun':                      { cal: 280, protein: 10,   fat: 4,   carb: 49,  fibre: 2,   countWeight: 50 },
+  'brioche loaf':             { cal: 330, protein: 8,    fat: 13,  carb: 45,  fibre: 2,   countWeight: 400, sliceWeight: 40 },
+  'tortilla':                 { cal: 310, protein: 8,    fat: 8,   carb: 51,  fibre: 3,   countWeight: 70,  note: 'large flour' },
+  'italian sub roll':         { cal: 280, protein: 10,   fat: 4,   carb: 50,  fibre: 2.5, countWeight: 85 },
+  'crescent roll dough':      { cal: 300, protein: 6,    fat: 14,  carb: 38,  fibre: 1,   countWeight: 28 },
+  'rice paper sheets':        { cal: 330, protein: 0.5,  fat: 0,   carb: 81,  fibre: 1.6, countWeight: 10 },
+  'rice paper wrappers':      { cal: 330, protein: 0.5,  fat: 0,   carb: 81,  fibre: 1.6, countWeight: 10 },
+  'instant ramen noodles':    { cal: 440, protein: 9,    fat: 17,  carb: 63,  fibre: 2,   countWeight: 85,  note: 'packet' },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1134,6 +1218,11 @@ function toGrams(quantity, unit, ingredientName, usdaEntry) {
   }
   // Count units
   if (COUNT_UNITS.has(u)) {
+    // A loaf-weight item measured in slices (e.g. "12 slices baguette") uses its per-slice weight,
+    // not the whole-loaf countWeight — otherwise slices × loaf-weight massively over-counts.
+    if ((u === 'slice' || u === 'slices') && usdaEntry?.sliceWeight != null) {
+      return qty * usdaEntry.sliceWeight;
+    }
     let cw = usdaEntry?.countWeight;
     if (cw == null) return null;
     // Apply size multiplier if unit is small/medium/large
@@ -1540,19 +1629,39 @@ async function main() {
   console.log(`  Misses CSV: ${MISSES_PATH} (top 5):`);
   for (const m of sortedMisses.slice(0, 5)) console.log(`    ${m.count}x [${m.reason}] ${m.name}`);
 
+  // ── Apply gate ── decide which changed recipes are safe to write (no regressions)
+  const decisions = results.map((r) => ({ r, d: applyDecision(r.recipe, r.computed) }));
+  const toApply = decisions.filter((x) => x.d.apply);
+  const skipReasons = {};
+  for (const s of decisions.filter((x) => !x.d.apply)) {
+    const k = s.d.reason.replace(/\(.*/, '');
+    skipReasons[k] = (skipReasons[k] || 0) + 1;
+  }
+  console.log(`\n── Apply gate ${NO_GATE ? '(DISABLED via --no-gate)' : ''} ──`);
+  console.log(`  Would write: ${toApply.length}`);
+  for (const [k, v] of Object.entries(skipReasons)) console.log(`  Skipped (${k}): ${v}`);
+  const APPLY_CSV = resolve(REPORT_DIR, `macros-to-apply-${ts}.csv`);
+  const al = ['id,title,coverage_pct,old_cal,new_cal,old_protein,new_protein,reason'];
+  for (const { r, d } of decisions.filter((x) => x.d.apply)) {
+    const o = r.recipe.macros || {}; const n = r.computed.macros;
+    al.push([r.recipe.id, csvEscape(r.recipe.title), (r.computed.coverage * 100).toFixed(0), o.calories ?? '', n.calories, o.protein ?? '', n.protein, d.reason].join(','));
+  }
+  writeFileSync(APPLY_CSV, al.join('\n'));
+  console.log(`  To-apply CSV: ${APPLY_CSV}`);
+
   // Apply
   if (!APPLY) {
-    console.log(`\n[DRY-RUN] No DB writes. Re-run with --apply.`);
+    console.log(`\n[DRY-RUN] No DB writes. Re-run with --apply (gate would write ${toApply.length}; --no-gate writes all changed).`);
     return;
   }
-  console.log(`\nApplying ${results.length} macro updates to Supabase...`);
+  console.log(`\nApplying ${toApply.length} gated macro updates to Supabase...`);
   let ok = 0, fail = 0;
-  for (let i = 0; i < results.length; i++) {
-    const r = results[i];
+  for (let i = 0; i < toApply.length; i++) {
+    const r = toApply[i].r;
     const { error } = await sb.from('recipes').update({ macros: r.computed.macros }).eq('id', r.recipe.id);
     if (error) { console.error(`  ${r.recipe.id}: ${error.message}`); fail++; }
     else ok++;
-    if ((i + 1) % 50 === 0) process.stdout.write(`  Wrote ${ok}/${results.length}\r`);
+    if ((i + 1) % 50 === 0) process.stdout.write(`  Wrote ${ok}/${toApply.length}\r`);
   }
   console.log(`\n  Updated: ${ok}\n  Failed:  ${fail}`);
 }
