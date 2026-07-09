@@ -257,9 +257,16 @@ CREATE POLICY "Users can insert own profile" ON profiles
 CREATE POLICY "Users can update own profile" ON profiles
   FOR UPDATE USING (auth.uid() = id);
 
--- Recipes: public read, authenticated insert for own submissions
-CREATE POLICY "Anyone can view recipes" ON recipes
-  FOR SELECT USING (true);
+-- Recipes: public rows readable by anyone; PRIVATE rows (is_public = false:
+-- community drafts + saved pantry-generated recipes) readable only by their
+-- owner. COALESCE treats NULL as public (legacy-safe). Applied to prod
+-- 2026-07-05 (harden-recipes-select-202607.sql), behaviorally verified:
+-- anon sees the full public catalog, anon cannot read private rows, owners can.
+CREATE POLICY "Public recipes, or own private ones" ON recipes
+  FOR SELECT USING (
+    COALESCE(is_public, true) = true
+    OR auth.uid() = submitted_by
+  );
 CREATE POLICY "Users can insert own recipes" ON recipes
   FOR INSERT WITH CHECK (auth.uid() = submitted_by);
 CREATE POLICY "Users can update own recipes" ON recipes
