@@ -702,12 +702,16 @@ export async function getCachedSubs(name: string): Promise<Swap[] | null> {
   return null;
 }
 
-/** Fetch from /api/substitutions, cache result. Returns rateLimited flag. */
+/**
+ * Fetch from /api/substitutions, cache result. Distinguishes every non-answer state —
+ * the UI must never render the definitive "No common substitutions found" when the
+ * truth is a rate limit, the monthly budget cap, or a transport/server failure.
+ */
 export async function fetchAndCacheSubs(
   name: string,
   accessToken: string,
   baseUrl: string,
-): Promise<{ swaps: Swap[]; rateLimited: boolean }> {
+): Promise<{ swaps: Swap[]; rateLimited: boolean; budgetExhausted: boolean; failed: boolean }> {
   try {
     const r = await fetch(`${baseUrl}/api/substitutions`, {
       method: 'POST',
@@ -718,20 +722,24 @@ export async function fetchAndCacheSubs(
       body: JSON.stringify({ ingredient: name, limit: 3 }),
     });
 
-    if (r.status === 429) return { swaps: [], rateLimited: true };
-    if (!r.ok) return { swaps: [], rateLimited: false };
+    if (r.status === 429) return { swaps: [], rateLimited: true, budgetExhausted: false, failed: false };
+    // 402 = the free monthly AI budget is spent. Distinct from a genuine empty answer.
+    if (r.status === 402) return { swaps: [], rateLimited: false, budgetExhausted: true, failed: false };
+    if (!r.ok) return { swaps: [], rateLimited: false, budgetExhausted: false, failed: true };
 
     const data = await r.json();
     const swaps: Swap[] = Array.isArray(data.swaps)
       ? data.swaps.map((s: any) => ({ substitute: s.substitute, reason: s.reason }))
       : [];
 
-    // Save to cache so future calls are free
-    if (swaps.length > 0) {
+    // Cache EVERY delivered answer — including a genuine empty one. Each 200 burned a
+    // budget credit server-side; re-tapping the same ingredient must not bill again.
+    // Best-effort: a cache-write failure must never discard the answer we were billed for.
+    try {
       await AsyncStorage.setItem(CACHE_PREFIX + normalise(name), JSON.stringify(swaps));
-    }
-    return { swaps, rateLimited: false };
+    } catch {}
+    return { swaps, rateLimited: false, budgetExhausted: false, failed: false };
   } catch {
-    return { swaps: [], rateLimited: false };
+    return { swaps: [], rateLimited: false, budgetExhausted: false, failed: true };
   }
 }

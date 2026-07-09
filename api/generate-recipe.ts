@@ -5,7 +5,9 @@ import { timingSafeEqual } from 'crypto';
 import { rateLimitUser, rateLimitIP, getClientIP } from './_rateLimit';
 import { validate, GenerateRecipeRequestSchema, ValidationError, formatValidationError } from '../lib/validation';
 import { requireAuth } from './_apiAuth';
-import { captureException } from './_sentry';
+import { isPremiumUserId } from './_requirePremium';
+import { checkAiBudget, incrementAiUsage } from './_aiUsage';
+import { captureException, flushSentry } from './_sentry';
 
 // POST /api/generate-recipe
 // Generates a complete original recipe using Claude Haiku (~$0.004 per recipe).
@@ -152,6 +154,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // ── Authentication ─────────────────────────────────────────────────────
     // Requires either a valid JWT (user) or x-seed-secret header (seed scripts).
     let userId: string | null = null;
+    let premium: boolean | null = null;
     const seedSecret = process.env.SEED_SECRET;
     const xSeedSecret = req.headers['x-seed-secret'] as string | undefined;
 
@@ -188,6 +191,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           error: 'Rate limit exceeded',
           retryAfter: rateLimitResult.retryAfter,
         });
+      }
+
+      // ── AI budget (free tier: monthly cap; premium unlimited) ───────────
+      // Checked BEFORE the Claude call so a capped user costs nothing. The seed
+      // path (no userId) is exempt — bulk seeding is bounded by the IP limit above.
+      // premium === null (lookup failed) skips the gate for this request — never
+      // 402 a possible payer on a transient read; rate limits still bound it.
+      premium = await isPremiumUserId(userId);
+      if (premium !== null) {
+        const budget = await checkAiBudget(userId, 'generate-recipe', premium);
+        if (!budget.allowed) {
+          return res.status(402).json({
+            error: 'Monthly free AI limit reached',
+            code: 'ai_budget_exhausted',
+            limit: budget.limit,
+          });
+        }
       }
     }
 
@@ -278,6 +298,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         image_url: null,
       });
       if (insertError) throw new Error(`Supabase insert failed: ${insertError.message}`);
+    }
+
+    // ── Count the successful gen (never on failure — failed calls don't burn budget).
+    // Premium usage goes into a SEPARATE ':premium' bucket (fair-use accounting under
+    // "unlimited") so a mid-month trial canceller / downgrader never finds their free
+    // bucket pre-filled by premium usage and locked out. premium === null (unknown) is
+    // not counted at all. Awaited (Vercel kills the event loop on response); a failed
+    // count is Sentry-flushed but never blocks the recipe we already paid for.
+    if (userId && premium !== null) {
+      try {
+        await incrementAiUsage(userId, premium ? 'generate-recipe:premium' : 'generate-recipe');
+      } catch (e) {
+        captureException(e);
+        await flushSentry();
+      }
     }
 
     return res.status(200).json({ recipe });

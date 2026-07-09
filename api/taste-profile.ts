@@ -4,7 +4,9 @@ import { createClient } from '@supabase/supabase-js';
 import { rateLimitUser } from './_rateLimit';
 import { validate, TasteProfileRequestSchema, ValidationError, formatValidationError } from '../lib/validation';
 import { requireAuth } from './_apiAuth';
-import { captureException } from './_sentry';
+import { isPremiumUserId } from './_requirePremium';
+import { checkAiBudget, incrementAiUsage } from './_aiUsage';
+import { captureException, flushSentry } from './_sentry';
 
 // POST /api/taste-profile
 // Reads a user's swipe + interaction history and generates a 2-3 sentence
@@ -47,6 +49,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         error: 'Rate limit exceeded',
         retryAfter: rateLimitResult.retryAfter,
       });
+    }
+
+    // ── AI budget (free: 1 refresh/month — the manual button's credit; the monthly cron
+    // regenerates stale profiles server-side without touching it, and the client auto-
+    // refresh is premium-only so it can't spend this in the background). Checked before
+    // any data fetch or Claude spend; the not_enough_data early-return below never
+    // increments. premium === null (lookup failed) skips the gate — never 402 a possible
+    // payer on a transient read; rate limits still bound it.
+    const premium = await isPremiumUserId(userId);
+    if (premium !== null) {
+      const budget = await checkAiBudget(userId, 'taste-profile', premium);
+      if (!budget.allowed) {
+        return res.status(402).json({
+          error: 'Monthly free AI limit reached',
+          code: 'ai_budget_exhausted',
+          limit: budget.limit,
+        });
+      }
     }
 
     const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -173,10 +193,32 @@ Note style: "5 cuisines, no loyalty" / "cooks 1 in 4 saves" / "30 min or nothing
       tasteProfile = cleaned;
     }
 
-    // Save to profile
-    await sb.from('profiles').update({
+    // Save to profile. supabase-js does NOT throw — the error rides in the result.
+    const { error: saveErr } = await sb.from('profiles').update({
       taste_profile: { text: tasteProfile, flavourDna, generated_at: new Date().toISOString() },
     }).eq('id', userId);
+
+    if (saveErr) {
+      // The gen never persisted — do NOT bill it. A free user's single monthly credit
+      // must survive a failed save so a retry can actually land the profile. Still
+      // return the text so this session isn't degraded.
+      captureException(new Error(`taste-profile save failed: ${saveErr.code ?? 'unknown'}`));
+      await flushSentry();
+      return res.status(200).json({ tasteProfile, flavourDna });
+    }
+
+    // Count the successful gen (never on failure — and only once SAVED). Premium usage
+    // goes into a separate ':premium' bucket (fair-use accounting) so a mid-month
+    // downgrader's free bucket stays clean; unknown premium isn't counted. A failed
+    // count never blocks the profile we already generated + saved.
+    if (premium !== null) {
+      try {
+        await incrementAiUsage(userId, premium ? 'taste-profile:premium' : 'taste-profile');
+      } catch (e) {
+        captureException(e);
+        await flushSentry();
+      }
+    }
 
     return res.status(200).json({ tasteProfile, flavourDna });
   } catch (err: unknown) {

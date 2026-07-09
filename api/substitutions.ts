@@ -3,7 +3,9 @@ import Anthropic from '@anthropic-ai/sdk';
 import { rateLimitUser } from './_rateLimit';
 import { validate, SubstitutionsRequestSchema, ValidationError, formatValidationError } from '../lib/validation';
 import { requireAuth } from './_apiAuth';
-import { captureException } from './_sentry';
+import { isPremiumUserId } from './_requirePremium';
+import { checkAiBudget, incrementAiUsage } from './_aiUsage';
+import { captureException, flushSentry } from './_sentry';
 
 // POST /api/substitutions
 // Given a recipe title and ingredient, returns practical ingredient swaps.
@@ -35,6 +37,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
+    // ── AI budget (free: 5/month; premium unlimited). Checked before the Claude
+    // call. The client degrades gracefully on 402 — the static substitutions table
+    // (lib/substitutions.ts, ~125 entries) and cached AI results stay available free.
+    // premium === null (lookup failed) skips the gate — never 402 a possible payer
+    // on a transient read; rate limits still bound it.
+    const premium = await isPremiumUserId(userId);
+    if (premium !== null) {
+      const budget = await checkAiBudget(userId, 'substitutions', premium);
+      if (!budget.allowed) {
+        return res.status(402).json({
+          error: 'Monthly free AI limit reached',
+          code: 'ai_budget_exhausted',
+          limit: budget.limit,
+        });
+      }
+    }
+
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) return res.status(500).json({ error: 'Service misconfigured' });
 
@@ -64,6 +83,20 @@ Rules:
     // Extract JSON array even if model adds surrounding text
     const match = raw.match(/\[[\s\S]*\]/);
     const swaps = match ? JSON.parse(match[0]) : [];
+
+    // Count the successful gen (an empty swaps array is still a delivered answer —
+    // the client caches it, so re-taps don't re-bill). Premium usage goes into a
+    // separate ':premium' bucket so a mid-month downgrader's free bucket stays clean;
+    // unknown premium isn't counted. A failed count never blocks the response.
+    if (premium !== null) {
+      try {
+        await incrementAiUsage(userId, premium ? 'substitutions:premium' : 'substitutions');
+      } catch (e) {
+        captureException(e);
+        await flushSentry();
+      }
+    }
+
     return res.status(200).json({ swaps: swaps.slice(0, limit) });
   } catch (err: unknown) {
     // Handle validation errors

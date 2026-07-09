@@ -8,7 +8,7 @@
 const mockRpc = jest.fn();
 const mockEq = jest.fn();
 const mockUpdate = jest.fn(() => ({ eq: mockEq }));
-const mockFrom = jest.fn(() => ({ update: mockUpdate }));
+const mockFrom = jest.fn((..._args: unknown[]) => ({ update: mockUpdate }));
 
 jest.mock('@/lib/supabase', () => ({
   supabase: {

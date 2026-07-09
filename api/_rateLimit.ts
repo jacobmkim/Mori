@@ -18,43 +18,33 @@ type RateLimitResult = {
 };
 
 interface RateLimitStore {
-  get(key: string): Promise<number | null>;
-  // Returns true only if the write was durably persisted. A false return lets
-  // the limiter fail CLOSED instead of silently letting the counter never
-  // increment (which would pass requests unthrottled — a fail-open hole).
-  set(key: string, value: number, ttlSeconds: number): Promise<boolean>;
-  incr(key: string): Promise<number>;
+  // Atomically increment the window counter, setting the TTL when the key is
+  // created. Returns the post-increment count, or -1 when the store failed —
+  // the limiter fails CLOSED on -1 (an uncounted request must not pass).
+  // Atomicity matters: the previous get()-then-set() implementation let N
+  // concurrent requests all read the same stale count and ALL pass the limit
+  // (2026-07-04 audit — the AI-budget race is bounded by THIS limiter, so the
+  // limiter itself racing defeated both layers).
+  incrWithTtl(key: string, ttlSeconds: number): Promise<number>;
 }
 
-// ─── In-Memory Store (Development Fallback) ───────────────────────────────
+// ─── In-Memory Store (Development / per-instance Fallback) ───────────────────
 
 class InMemoryStore implements RateLimitStore {
   private store = new Map<string, { count: number; resetAt: number }>();
 
-  async get(key: string): Promise<number | null> {
+  // Synchronous read-modify-write with no awaits — atomic within the JS event
+  // loop, so concurrent handlers on THIS instance serialize correctly. Note:
+  // per-instance only; cross-instance limiting needs the KV store.
+  async incrWithTtl(key: string, ttlSeconds: number): Promise<number> {
+    const nowMs = Date.now();
     const entry = this.store.get(key);
-    if (!entry) return null;
-    if (Date.now() > entry.resetAt) {
-      this.store.delete(key);
-      return null;
+    if (!entry || nowMs > entry.resetAt) {
+      this.store.set(key, { count: 1, resetAt: nowMs + ttlSeconds * 1000 });
+      return 1;
     }
+    entry.count += 1;
     return entry.count;
-  }
-
-  async set(key: string, value: number, ttlSeconds: number): Promise<boolean> {
-    this.store.set(key, {
-      count: value,
-      resetAt: Date.now() + ttlSeconds * 1000,
-    });
-    return true;
-  }
-
-  async incr(key: string): Promise<number> {
-    const current = this.store.get(key);
-    const newCount = (current?.count ?? 0) + 1;
-    const resetAt = current?.resetAt ?? Date.now() + 3600000; // 1 hour default
-    this.store.set(key, { count: newCount, resetAt });
-    return newCount;
   }
 }
 
@@ -74,39 +64,26 @@ class KVStore implements RateLimitStore {
     }
   }
 
-  async get(key: string): Promise<number | null> {
-    if (!this.client) return null;
-    try {
-      const value = await this.client.get(key);
-      return value ? Number(value) : null;
-    } catch {
-      return null;
-    }
-  }
-
-  async set(key: string, value: number, ttlSeconds: number): Promise<boolean> {
-    if (!this.client) return false;
-    try {
-      await this.client.setex(key, ttlSeconds, value);
-      return true;
-    } catch {
-      // Write failed — report it so the caller fails closed rather than
-      // letting the counter silently never increment.
-      return false;
-    }
-  }
-
-  async incr(key: string): Promise<number> {
+  async incrWithTtl(key: string, ttlSeconds: number): Promise<number> {
     if (!this.client) return -1;
     try {
-      return await this.client.incr(key);
+      // Redis INCR is atomic; the TTL is attached when the key is first created.
+      const count: number = await this.client.incr(key);
+      if (count === 1) {
+        await this.client.expire(key, ttlSeconds);
+      }
+      return count;
     } catch {
-      return -1;
+      return -1; // caller fails closed
     }
   }
 
   isConnected(): boolean {
-    return !!this.client;
+    // Require BOTH the package and the store's env vars. With the package
+    // installed but no KV store provisioned, every call would throw → -1 →
+    // fail-closed 429s on EVERY endpoint. Fall back to in-memory instead
+    // until the store actually exists.
+    return !!this.client && !!process.env.KV_REST_API_URL && !!process.env.KV_REST_API_TOKEN;
   }
 }
 
@@ -129,46 +106,44 @@ function getStore(): RateLimitStore {
   return store;
 }
 
+async function rateLimitByKey(
+  key: string,
+  limit: number,
+  windowSeconds: number,
+): Promise<RateLimitResult> {
+  try {
+    const s = getStore();
+    const count = await s.incrWithTtl(key, windowSeconds);
+    if (count < 0) {
+      // Store failure — fail closed to prevent abuse during outages.
+      return { success: false, remaining: 0, resetAt: Date.now() + windowSeconds * 1000 };
+    }
+    if (count > limit) {
+      return {
+        success: false,
+        remaining: 0,
+        resetAt: Date.now() + windowSeconds * 1000,
+        retryAfter: windowSeconds,
+      };
+    }
+    return {
+      success: true,
+      remaining: limit - count,
+      resetAt: Date.now() + windowSeconds * 1000,
+    };
+  } catch {
+    // Rate store failure — fail closed to prevent abuse during outages
+    return { success: false, remaining: 0, resetAt: Date.now() + windowSeconds * 1000 };
+  }
+}
+
 export async function rateLimitUser(
   userId: string,
   endpoint: string,
   limit: number,
   windowSeconds: number = 3600
 ): Promise<RateLimitResult> {
-  try {
-    const key = `rl:${endpoint}:${userId}`;
-    const s = getStore();
-
-    const current = await s.get(key);
-    if (current === null) {
-      // First request in window
-      const ok = await s.set(key, 1, windowSeconds);
-      if (!ok) return { success: false, remaining: 0, resetAt: Date.now() + windowSeconds * 1000 };
-      return { success: true, remaining: limit - 1, resetAt: Date.now() + windowSeconds * 1000 };
-    }
-
-    const count = (current ?? 0) + 1;
-    if (count > limit) {
-      const resetAt = Math.ceil((Date.now() + windowSeconds * 1000) / 1000);
-      return {
-        success: false,
-        remaining: 0,
-        resetAt,
-        retryAfter: windowSeconds,
-      };
-    }
-
-    const ok = await s.set(key, count, windowSeconds);
-    if (!ok) return { success: false, remaining: 0, resetAt: Date.now() + windowSeconds * 1000 };
-    return {
-      success: true,
-      remaining: limit - count,
-      resetAt: Math.ceil((Date.now() + windowSeconds * 1000) / 1000),
-    };
-  } catch {
-    // Rate store failure — fail closed to prevent abuse during outages
-    return { success: false, remaining: 0, resetAt: Date.now() + windowSeconds * 1000 };
-  }
+  return rateLimitByKey(`rl:${endpoint}:${userId}`, limit, windowSeconds);
 }
 
 export async function rateLimitIP(
@@ -177,39 +152,7 @@ export async function rateLimitIP(
   limit: number,
   windowSeconds: number = 3600
 ): Promise<RateLimitResult> {
-  try {
-    const key = `rl:${endpoint}:ip:${ip}`;
-    const s = getStore();
-
-    const current = await s.get(key);
-    if (current === null) {
-      const ok = await s.set(key, 1, windowSeconds);
-      if (!ok) return { success: false, remaining: 0, resetAt: Date.now() + windowSeconds * 1000 };
-      return { success: true, remaining: limit - 1, resetAt: Date.now() + windowSeconds * 1000 };
-    }
-
-    const count = (current ?? 0) + 1;
-    if (count > limit) {
-      const resetAt = Math.ceil((Date.now() + windowSeconds * 1000) / 1000);
-      return {
-        success: false,
-        remaining: 0,
-        resetAt,
-        retryAfter: windowSeconds,
-      };
-    }
-
-    const ok = await s.set(key, count, windowSeconds);
-    if (!ok) return { success: false, remaining: 0, resetAt: Date.now() + windowSeconds * 1000 };
-    return {
-      success: true,
-      remaining: limit - count,
-      resetAt: Math.ceil((Date.now() + windowSeconds * 1000) / 1000),
-    };
-  } catch {
-    // Rate store failure — fail closed to prevent abuse during outages
-    return { success: false, remaining: 0, resetAt: Date.now() + windowSeconds * 1000 };
-  }
+  return rateLimitByKey(`rl:${endpoint}:ip:${ip}`, limit, windowSeconds);
 }
 
 // Helper to extract IP from request (works behind Vercel proxy)
