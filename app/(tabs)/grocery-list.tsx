@@ -22,6 +22,7 @@ import { getRecipeImageUrl } from '@/lib/recipeImage';
 import { getApiBaseUrl } from '@/lib/apiBaseUrl';
 import { partitionForInstacart } from '@/lib/staples';
 import { parseGroceryMeasurement, convertMeasurementToUs, formatGroceryQuantity } from '@/lib/instacartUtils';
+import { convertCitrusJuiceToFruit } from '@/lib/citrusConversion';
 import { fetchMealDetail } from '@/lib/mealdb';
 import { supabase } from '@/lib/supabase';
 import { MacroRow } from '@/components/ui/MacroRow';
@@ -380,7 +381,7 @@ export default function GroceryList() {
       // strip leading quantity + optional unit (e.g. "2 cups", "1/2 lb", "500g", "3")
       .replace(/^\d[\d\s/]*\s*(tsp|tbsp|teaspoon|tablespoon|cup|cups|oz|lb|lbs|g|kg|ml|l|clove|cloves|bunch|bunches|head|heads|piece|pieces|can|cans|stalk|stalks|sprig|sprigs|slice|slices)?\s*/i, '')
       // strip prep words after a comma ("onion, diced" → "onion")
-      .replace(/,\s*(diced|minced|chopped|sliced|grated|julienned|peeled|deveined|trimmed|cubed|shredded|melted|softened|beaten|divided|optional|to taste|for garnish|for serving|as needed).*/i, '')
+      .replace(/,\s*(diced|minced|chopped|sliced|grated|julienned|peeled|deveined|trimmed|cubed|shredded|melted|softened|beaten|divided|juiced|zested|optional|to taste|for garnish|for serving|as needed).*/i, '')
       // strip prep words not after a comma ("diced onion" → "onion")
       .replace(/\b(diced|minced|chopped|sliced|grated|julienned|peeled|deveined|trimmed|cubed|shredded|melted|softened|beaten|divided)\b/gi, '')
       // strip non-product descriptors (size, prep adverbs, preference flags)
@@ -409,6 +410,16 @@ export default function GroceryList() {
         const displayText = i.quantity
           ? `${i.ingredient_name} ${i.quantity}${i.unit ? ' ' + i.unit : ''}`.trim()
           : i.ingredient_name;
+        // Recipe-sized citrus juice buys fresh fruit, not bottled ("lime juice 2 tbsp" → 1 lime).
+        // The grocery list still shows the juice line; only the cart item changes.
+        const citrus = convertCitrusJuiceToFruit(name, measurement);
+        if (citrus) {
+          return {
+            name: citrus.name,
+            displayText: `${citrus.measurement ? `${citrus.measurement.quantity} ` : ''}${citrus.name} (${displayText})`,
+            ...(citrus.measurement ? { measurement: citrus.measurement } : {}),
+          };
+        }
         return { name, displayText, ...(measurement ? { measurement } : {}) };
       });
 

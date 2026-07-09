@@ -181,12 +181,16 @@ export const useGroceryStore = create<GroceryStore>()(
       );
       if (!inSelected && !inItems) return state;
 
+      // Prune only items that BELONGED to a recipe and now belong to none. Custom
+      // items (typed by the user or added as a pantry-match shopping gap) start with
+      // recipe_ids: [] — filtering on emptiness alone silently wiped every one of
+      // them whenever ANY recipe was removed or cooked (2026-07-04 audit, critical).
       const newItems = (state.list?.items ?? [])
         .map((item) => ({
           ...item,
           recipe_ids: item.recipe_ids.filter((id) => id !== recipeId),
         }))
-        .filter((item) => item.recipe_ids.length > 0);
+        .filter((item, i) => item.recipe_ids.length > 0 || (state.list?.items ?? [])[i].recipe_ids.length === 0);
 
       return {
         selectedRecipes: state.selectedRecipes.filter((r) => r.id !== recipeId),

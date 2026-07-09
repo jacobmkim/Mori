@@ -111,3 +111,46 @@ describe('groceryStore.addRecipeIngredients', () => {
     expect(eggs?.recipe_ids).toHaveLength(2);
   });
 });
+
+// ─── removeRecipeFromList ─────────────────────────────────────────────────────
+
+describe('groceryStore.removeRecipeFromList', () => {
+  it('removes the recipe and its exclusive items', () => {
+    const recipe = makeRecipe('r1');
+    useGroceryStore.getState().addFromDetail(recipe, [{ name: 'flour', measure: '1 cup' }]);
+    useGroceryStore.getState().removeRecipeFromList('r1');
+
+    expect(useGroceryStore.getState().list?.items ?? []).toHaveLength(0);
+    expect(useGroceryStore.getState().selectedRecipes).toHaveLength(0);
+  });
+
+  it('keeps items shared with another recipe', () => {
+    useGroceryStore.getState().addFromDetail(makeRecipe('r1'), [{ name: 'flour', measure: '1 cup' }]);
+    useGroceryStore.getState().addFromDetail(makeRecipe('r2'), [{ name: 'flour', measure: '2 cups' }]);
+    useGroceryStore.getState().removeRecipeFromList('r1');
+
+    const items = useGroceryStore.getState().list?.items ?? [];
+    expect(items).toHaveLength(1);
+    expect(items[0].recipe_ids).toEqual(['r2']);
+  });
+
+  it('NEVER deletes custom items (recipe_ids: []) — typed items + pantry-gap adds survive recipe removal', () => {
+    // 2026-07-04 audit, critical: filtering on recipe_ids.length alone wiped every
+    // custom item whenever ANY recipe was removed or marked cooked.
+    useGroceryStore.getState().addCustomItem('beef chuck');
+    useGroceryStore.getState().addCustomItem('potatoes', '2 lb');
+    useGroceryStore.getState().addFromDetail(makeRecipe('r1'), [{ name: 'flour', measure: '1 cup' }]);
+
+    useGroceryStore.getState().removeRecipeFromList('r1');
+
+    const names = (useGroceryStore.getState().list?.items ?? []).map((i) => i.ingredient_name);
+    expect(names).toEqual(['beef chuck', 'potatoes']); // customs kept, recipe item pruned
+  });
+
+  it('no-ops when the recipe is not on the list (unconditional onMarkCooked callers)', () => {
+    useGroceryStore.getState().addCustomItem('beef chuck');
+    const before = useGroceryStore.getState().list;
+    useGroceryStore.getState().removeRecipeFromList('nope');
+    expect(useGroceryStore.getState().list).toBe(before); // same reference — no spurious re-render
+  });
+});
