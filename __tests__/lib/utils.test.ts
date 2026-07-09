@@ -1,4 +1,4 @@
-import { formatTime, formatCost, capitalize, getWeekStart, getTimeOfDay, scaleQuantityString } from '@/lib/utils';
+import { formatTime, formatCost, capitalize, getWeekStart, getTimeOfDay, scaleQuantityString, weekOffsetForDate } from '@/lib/utils';
 
 describe('scaleQuantityString', () => {
   it('returns the quantity unchanged when factor is 1', () => {
@@ -123,6 +123,42 @@ describe('getWeekStart', () => {
     const lateWednesday = new Date(2026, 3, 9, 23, 30); // April 9, 11:30 PM local
     const result = getWeekStart(lateWednesday);
     expect(result).toBe('2026-04-06'); // Monday April 6
+  });
+});
+
+// ─── weekOffsetForDate (Sunday Drop deep link → Plan tab weekOffset) ───────────
+
+describe('weekOffsetForDate', () => {
+  it('Sunday tap → next week (+1): drop populates the upcoming week', () => {
+    // 2026-06-21 is a Sunday; this-week Monday = 2026-06-15; drop = next Monday 2026-06-22.
+    expect(weekOffsetForDate('2026-06-22', new Date(2026, 5, 21, 9, 30))).toBe(1);
+  });
+
+  it('mid-week tap on the populated week → 0', () => {
+    // Wed 2026-06-24; this-week Monday = 2026-06-22.
+    expect(weekOffsetForDate('2026-06-22', new Date(2026, 5, 24, 12, 0))).toBe(0);
+  });
+
+  it('absorbs a DST-boundary week to a clean integer (round, never .5)', () => {
+    // Wed 2026-03-04 (before US spring-forward 2026-03-08) → target Mon 2026-03-09; the
+    // intervening week crosses the DST switch. round() must still yield exactly 1.
+    expect(weekOffsetForDate('2026-03-09', new Date(2026, 2, 4, 12, 0))).toBe(1);
+  });
+
+  it('handles a year boundary', () => {
+    // Sun 2026-12-27 → this-week Monday 2026-12-21 → target next Monday 2026-12-28 = +1.
+    expect(weekOffsetForDate('2026-12-28', new Date(2026, 11, 27, 10, 0))).toBe(1);
+  });
+
+  it('returns a negative offset for a stale (past-week) tap', () => {
+    // Wed 2026-06-24 (this-week Monday 2026-06-22) → target 2026-06-01 (3 weeks earlier).
+    expect(weekOffsetForDate('2026-06-01', new Date(2026, 5, 24, 12, 0))).toBe(-3);
+  });
+
+  it('returns null on a malformed date', () => {
+    expect(weekOffsetForDate('next')).toBeNull();
+    expect(weekOffsetForDate('2026-6-9')).toBeNull();
+    expect(weekOffsetForDate('')).toBeNull();
   });
 });
 

@@ -105,17 +105,23 @@ export default function Explore() {
   async function loadData() {
     setLoading(true);
     try {
+      // Same visibility condition as fetchDiscoverRecipes: community rows only when
+      // public. The recipes SELECT RLS is USING(true), so WITHOUT this filter another
+      // user's PRIVATE rows (community drafts + saved pantry-generated recipes, which
+      // are brand-new and sort first by created_at) would leak into everyone's Explore.
+      const PUBLIC_ONLY = 'source_type.neq.community,and(source_type.eq.community,is_public.eq.true)';
       const [trendingIds, justAddedRes, quickRes, proteinRes, cookedRes] = await Promise.all([
         fetchTrendingRecipeIds(),
-        supabase.from('recipes').select(LIST_COLS).is('deleted_at', null).order('created_at', { ascending: false }).limit(10),
+        supabase.from('recipes').select(LIST_COLS).or(PUBLIC_ONLY).is('deleted_at', null).order('created_at', { ascending: false }).limit(10),
         supabase.from('recipes').select(LIST_COLS)
           .lte('prep_time_mins', 20)
           .lte('cook_time_mins', 20)
+          .or(PUBLIC_ONLY)
           .is('deleted_at', null)
           .order('save_count', { ascending: false })
           .limit(6),
         dietaryGoals.includes('high_protein')
-          ? supabase.from('recipes').select(LIST_COLS).is('deleted_at', null).order('created_at', { ascending: false }).limit(10)
+          ? supabase.from('recipes').select(LIST_COLS).or(PUBLIC_ONLY).is('deleted_at', null).order('created_at', { ascending: false }).limit(10)
           : Promise.resolve({ data: [], error: null }),
         userId
           ? supabase.from('recipe_interactions')
@@ -131,7 +137,9 @@ export default function Explore() {
       if (trendingIds.size > 0) {
         const ids = [...trendingIds].slice(0, 10);
         const { data: trendRows } = await supabase
-          .from('recipes').select(LIST_COLS).in('id', ids).is('deleted_at', null);
+          .from('recipes').select(LIST_COLS).in('id', ids)
+          .or('source_type.neq.community,and(source_type.eq.community,is_public.eq.true)')
+          .is('deleted_at', null);
         setTrendingRecipes((trendRows ?? []).map(toRecipe));
       }
 
@@ -180,6 +188,7 @@ export default function Explore() {
           .from('recipes')
           .select(LIST_COLS)
           .ilike('title', `%${searchQuery}%`)
+          .or('source_type.neq.community,and(source_type.eq.community,is_public.eq.true)')
           .is('deleted_at', null)
           .limit(40);
         setSearchResults((data ?? []).map(toRecipe));

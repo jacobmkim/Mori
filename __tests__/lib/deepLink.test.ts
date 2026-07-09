@@ -12,7 +12,7 @@
  * __DEV__) `exp://<host>/--/reset-password`.
  */
 
-import { isResetPasswordUrl, isVerifyEmailUrl, extractVerifyToken, isRecipeUrl, extractRecipeId } from '@/lib/deepLink';
+import { isResetPasswordUrl, isVerifyEmailUrl, extractVerifyToken, isRecipeUrl, extractRecipeId, isPlanUrl, extractPlanWeek } from '@/lib/deepLink';
 
 describe('isResetPasswordUrl — accepts legitimate Mori reset-password links', () => {
   it('accepts mori://reset-password with access/refresh token fragment', () => {
@@ -228,6 +228,48 @@ describe('isRecipeUrl', () => {
     expect(isRecipeUrl(null as any)).toBe(false);
     expect(isRecipeUrl('')).toBe(false);
     expect(isRecipeUrl('not a url')).toBe(false);
+  });
+});
+
+describe('isPlanUrl', () => {
+  it('accepts mori://plan and trailing slash', () => {
+    expect(isPlanUrl('mori://plan')).toBe(true);
+    expect(isPlanUrl('mori://plan/')).toBe(true);
+  });
+  it('accepts path-based mori:///plan', () => {
+    expect(isPlanUrl('mori:///plan')).toBe(true);
+  });
+  it('accepts a ?week=YYYY-MM-DD query (host match ignores the query)', () => {
+    expect(isPlanUrl('mori://plan?week=2026-06-29')).toBe(true);
+  });
+  it('rejects a wrong mori host', () => {
+    expect(isPlanUrl('mori://reset-password')).toBe(false);
+    expect(isPlanUrl('mori://r/550e8400-e29b-41d4-a716-446655440000')).toBe(false);
+  });
+  it('rejects https / phishing-shaped input', () => {
+    expect(isPlanUrl('https://evil.com/plan')).toBe(false);
+    expect(isPlanUrl('https://getmori.app?x=mori://plan')).toBe(false);
+  });
+  it('rejects non-string / empty / unparseable input', () => {
+    expect(isPlanUrl(null as any)).toBe(false);
+    expect(isPlanUrl('')).toBe(false);
+    expect(isPlanUrl('not a url')).toBe(false);
+  });
+});
+
+describe('extractPlanWeek', () => {
+  it('pulls a valid YYYY-MM-DD week param', () => {
+    expect(extractPlanWeek('mori://plan?week=2026-06-29')).toBe('2026-06-29');
+    expect(extractPlanWeek('mori:///plan?week=2026-06-29')).toBe('2026-06-29');
+  });
+  it('returns null when the param is absent or malformed', () => {
+    expect(extractPlanWeek('mori://plan')).toBeNull();
+    expect(extractPlanWeek('mori://plan?week=next')).toBeNull();
+    expect(extractPlanWeek('mori://plan?week=2026-6-9')).toBeNull();
+  });
+  it('returns null on non-string / unparseable input', () => {
+    expect(extractPlanWeek(null as any)).toBeNull();
+    expect(extractPlanWeek('not a url')).toBeNull();
   });
 });
 

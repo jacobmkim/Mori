@@ -30,6 +30,7 @@ import {
 } from '@/lib/api';
 import { clearRecipeCache } from '@/lib/mealdb';
 import { getApiBaseUrl } from '@/lib/apiBaseUrl';
+import { shouldAutoRefreshTasteProfile, autoRefreshAttempted } from '@/lib/tasteProfileRefresh';
 import { computeBadges, getShowcaseBadges } from '@/lib/badges';
 import type { Badge, BadgeStats } from '@/lib/badges';
 import { flags } from '@/lib/featureFlags';
@@ -144,21 +145,26 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
     }
   }
 
-  async function runTasteProfileGeneration(userId: string) {
+  // `auto` marks background refreshes (sheet-open staleness/DNA backfill). Auto failures
+  // are SILENT — the user didn't ask, and the displayed profile is still fine. Manual
+  // failures surface via Alert, NEVER by overwriting the taste-profile text — that text
+  // is the shareable "mori says" card, and clobbering it with error copy both looks
+  // broken and gets captured by Share.
+  async function runTasteProfileGeneration(userId: string, auto = false) {
     setTasteLoading(true);
 
     let session: any = null;
     try {
       const { data: refreshData } = await supabase.auth.refreshSession();
       session = refreshData.session ?? (await supabase.auth.getSession()).data.session;
-    } catch (err: any) {
-      setTasteProfile(`Auth error — ${err?.message ?? 'could not refresh session'}.`);
+    } catch {
+      if (!auto) Alert.alert('Couldn’t refresh', 'Could not refresh your session — try signing out and back in.');
       setTasteLoading(false);
       return;
     }
 
     if (!session?.access_token) {
-      setTasteProfile('Could not authenticate — try signing out and back in.');
+      if (!auto) Alert.alert('Couldn’t refresh', 'Could not authenticate — try signing out and back in.');
       setTasteLoading(false);
       return;
     }
@@ -177,7 +183,7 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
       try {
         json = JSON.parse(raw);
       } catch {
-        setTasteProfile(`API returned non-JSON (${res.status}): ${raw.slice(0, 120)}`);
+        if (!auto) Alert.alert('Couldn’t refresh', 'Something went wrong — try again later.');
         return;
       }
       if (res.ok && json.tasteProfile) {
@@ -188,14 +194,17 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
           setProfile({ ...profile, taste_profile: updatedTp });
         }
       } else if (json.reason === 'not_enough_data') {
+        // Placeholder guidance, not an error — only reachable when no real profile exists.
         setTasteProfile('Swipe on a few more recipes — we need at least 5 swipes to build your profile.');
+      } else if (res.status === 402) {
+        if (!auto) Alert.alert('Free refresh used', 'You’ve used this month’s free refresh — it’s back on the 1st. Mori+ refreshes anytime.');
       } else if (res.status === 429) {
-        setTasteProfile('Rate limit reached — try again tomorrow.');
+        if (!auto) Alert.alert('Couldn’t refresh', 'Rate limit reached — try again tomorrow.');
       } else {
-        setTasteProfile(`Could not generate profile (${res.status}) — try again later.`);
+        if (!auto) Alert.alert('Couldn’t refresh', 'Could not generate your profile — try again later.');
       }
-    } catch (err: any) {
-      setTasteProfile(`Fetch error — ${err?.message ?? 'unknown'}.`);
+    } catch {
+      if (!auto) Alert.alert('Couldn’t refresh', 'Network error — try again in a moment.');
     } finally {
       setTasteLoading(false);
     }
@@ -219,16 +228,31 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
 
         const freshTp = data?.taste_profile as any;
         if (!freshTp?.text || !freshTp?.generated_at) {
-          runTasteProfileGeneration(profile.id);
+          // First-ever profile — generate (first-value delivery).
+          runTasteProfileGeneration(profile.id, true);
         } else {
           if (freshTp.text !== tasteProfile) {
             setTasteProfile(freshTp.text);
             setFlavourDna(freshTp.flavourDna ?? null);
             setProfile({ ...profile, taste_profile: freshTp });
           }
-          const stale = new Date(freshTp.generated_at) < new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
-          const missingDna = !freshTp.flavourDna;
-          if (stale || missingDna) runTasteProfileGeneration(profile.id);
+          // Background refresh of an EXISTING profile is premium-only (free tier: the
+          // monthly cron keeps it fresh server-side; an auto-fire here would spend the
+          // manual button's single monthly credit) and once per session (a DNA parse
+          // failure must not re-fire on every sheet open). Premium = the SERVER-view
+          // flag from the fresh profiles row (the server bills by it), never the RC
+          // client flag — webhook lag would otherwise burn the free credit.
+          if (
+            shouldAutoRefreshTasteProfile({
+              generatedAt: freshTp.generated_at,
+              hasFlavourDna: !!freshTp.flavourDna,
+              isPremium: (fresh ?? profile)?.is_premium === true,
+            }) &&
+            !autoRefreshAttempted.has(profile.id)
+          ) {
+            autoRefreshAttempted.add(profile.id);
+            runTasteProfileGeneration(profile.id, true);
+          }
         }
       })();
       getAdventureCardsEnabled().then(setAdventureCards).catch(() => {});
@@ -680,6 +704,27 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
                         if (!profile) return;
                         try {
                           const updated = await patchProfile(profile.id, { notify_winback: v });
+                          setProfile(updated);
+                        } catch {
+                          Alert.alert('Could not update', 'Please try again.');
+                        }
+                      }}
+                      trackColor={{ false: colors.border, true: colors.primary }}
+                      thumbColor="white"
+                    />
+                  }
+                />
+                <SheetRow
+                  icon="calendar-outline"
+                  label="Sunday Drop"
+                  chevron={false}
+                  trailing={
+                    <Switch
+                      value={profile?.notify_sunday_drop ?? true}
+                      onValueChange={async (v) => {
+                        if (!profile) return;
+                        try {
+                          const updated = await patchProfile(profile.id, { notify_sunday_drop: v });
                           setProfile(updated);
                         } catch {
                           Alert.alert('Could not update', 'Please try again.');

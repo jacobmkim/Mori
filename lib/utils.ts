@@ -49,6 +49,23 @@ export function getWeekStart(date = new Date()): string {
   return `${year}-${month}-${dd}`;
 }
 
+// Converts a target week-start ('YYYY-MM-DD' Monday — e.g. from a Sunday Drop deep link) into
+// the weekOffset the Plan tab uses (0 = this week, +1 = next, …), relative to `now`. round()
+// absorbs DST hour-skew over the 7-day span (the gap is always within ±0.01 of an integer, so it
+// can never land on .5). Uses the same Monday-anchoring as getWeekStart / the Plan tab's getMonday.
+// Returns null on a malformed date. Pure (now is injectable) so it's unit-testable.
+export function weekOffsetForDate(target: string, now = new Date()): number | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(target);
+  if (!m) return null;
+  const targetMonday = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  targetMonday.setHours(0, 0, 0, 0);
+  const day = now.getDay();
+  const thisMonday = new Date(now);
+  thisMonday.setDate(now.getDate() - day + (day === 0 ? -6 : 1));
+  thisMonday.setHours(0, 0, 0, 0);
+  return Math.round((targetMonday.getTime() - thisMonday.getTime()) / (7 * 86_400_000));
+}
+
 // Returns the time-of-day bucket for swipe event logging
 export function getTimeOfDay(): 'morning' | 'afternoon' | 'evening' | 'night' {
   const h = new Date().getHours();

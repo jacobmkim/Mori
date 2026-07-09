@@ -12,6 +12,7 @@ import { supabase } from '@/lib/supabase';
 import { patchProfile, clearDiscoverCache, getPantryItems, addPantryItem, deletePantryItem, getAdventureCardsEnabled, setAdventureCardsEnabled, getUnitSystem, setUnitSystem, getFlaggedRecipes, clearFlaggedRecipes, fetchBadgeStats, getProfile, clearPushToken, type FlaggedRecipe } from '@/lib/api';
 import { clearRecipeCache } from '@/lib/mealdb';
 import { getApiBaseUrl } from '@/lib/apiBaseUrl';
+import { shouldAutoRefreshTasteProfile, autoRefreshAttempted } from '@/lib/tasteProfileRefresh';
 import { useTheme } from '@/hooks/useTheme';
 import { useDiscoverStore, type AppearanceMode } from '@/stores/discoverStore';
 import { computeBadges } from '@/lib/badges';
@@ -620,7 +621,10 @@ export default function Profile() {
     }).catch(() => {});
   }, [profile?.id])); // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function runTasteProfileGeneration(userId: string) {
+  // `auto` marks the load-triggered staleness refresh (vs the user tapping refresh).
+  // An auto refresh that hits the free monthly AI budget (402) stays SILENT — the user
+  // didn't ask for it and the existing (slightly stale) profile is still fine to show.
+  async function runTasteProfileGeneration(userId: string, auto = false) {
     setTasteLoading(true);
     setTasteError(null);
     try {
@@ -642,28 +646,49 @@ export default function Profile() {
         if (profile) {
           setProfile({
             ...profile,
-            taste_profile: { text: json.tasteProfile, generated_at: new Date().toISOString() },
+            // Keep flavourDna in the local store write — dropping it desyncs from the DB,
+            // silently mutes the scorer's DNA signal until the next full profile fetch,
+            // and makes the premium auto-refresh policy think DNA is missing.
+            taste_profile: { text: json.tasteProfile, flavourDna: json.flavourDna, generated_at: new Date().toISOString() },
           });
         }
       } else if (res.ok && json.reason === 'not_enough_data') {
         setTasteError('Swipe more recipes first — need at least 5 to build your profile.');
+      } else if (res.status === 402) {
+        if (!auto) setTasteError('You’ve used this month’s free refresh — it’s back on the 1st. Mori+ refreshes anytime.');
       } else {
-        setTasteError('Generation failed. Try again.');
+        // Auto refreshes fail silently on ANY error — the user didn't ask for them and
+        // the existing profile is still fine to show.
+        if (!auto) setTasteError('Generation failed. Try again.');
       }
     } catch {
-      setTasteError('Generation failed. Try again.');
+      if (!auto) setTasteError('Generation failed. Try again.');
     } finally {
       setTasteLoading(false);
     }
   }
 
-  // Auto-generate on load: if no profile yet, or last generated > 14 days ago
+  // Auto-generate on load: first-ever profile always (first-value delivery); an EXISTING
+  // profile only auto-refreshes for premium. Free tier: the monthly cron regenerates stale
+  // profiles server-side at no budget cost — an auto-fire here would silently spend the
+  // manual Refresh button's single monthly credit (cardinal-rule bug, 2026-07-03 audit).
   useEffect(() => {
     if (!profile?.id) return;
-    const generatedAt = savedTasteProfile?.generated_at ? new Date(savedTasteProfile.generated_at) : null;
-    const stale = !generatedAt || generatedAt < new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
-    if (!tasteProfile || stale) {
-      runTasteProfileGeneration(profile.id);
+    if (!tasteProfile) {
+      runTasteProfileGeneration(profile.id, true);
+    } else if (
+      shouldAutoRefreshTasteProfile({
+        generatedAt: savedTasteProfile?.generated_at ?? null,
+        hasFlavourDna: !!(savedTasteProfile as any)?.flavourDna,
+        // SERVER-view flag (profiles.is_premium), NOT userStore.isPremium (RC) — the
+        // server bills by its own flag, so during webhook lag an RC-premium client
+        // would otherwise burn the free bucket's single credit in the background.
+        isPremium: profile.is_premium === true,
+      }) &&
+      !autoRefreshAttempted.has(profile.id)
+    ) {
+      autoRefreshAttempted.add(profile.id); // once per session, shared with ProfileSheet
+      runTasteProfileGeneration(profile.id, true);
     }
     getAdventureCardsEnabled().then(setAdventureCards).catch(() => {});
     getUnitSystem().then(setUnitSystemState).catch(() => {});

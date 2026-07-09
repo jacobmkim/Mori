@@ -66,6 +66,20 @@ export const SubstitutionsRequestSchema = z.object({
   limit: z.number().int().min(1).max(10).optional().default(5),
 });
 
+// "Cook with what I have" premium generation (M8 stage 3). ingredients = what the
+// user has on hand (min 2 — one ingredient isn't a dish); count hard-capped at 3
+// per call (Mori+ cost-discipline commandment). Ingredient strings are short by
+// nature — the tight 80-char cap bounds the prompt-injection surface (these are
+// interpolated into the Claude prompt).
+const PantryTermSchema = z.string().max(80).transform((s) => s.trim());
+export const GenerateFromPantryRequestSchema = z.object({
+  ingredients: z.array(PantryTermSchema).min(2).max(60),
+  dietaryGoals: z.array(z.string().max(50)).max(10).optional().default([]),
+  avoidIngredients: z.array(PantryTermSchema).max(30).optional().default([]),
+  maxMins: z.number().int().min(10).max(240).optional(),
+  count: z.number().int().min(1).max(3).optional().default(3),
+});
+
 export const GenerateRecipeRequestSchema = z.object({
   cuisine: z.string().min(1).max(50).toLowerCase(),
   dietaryGoals: z.array(z.string().max(50)).max(10).optional().default([]),

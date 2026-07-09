@@ -4,12 +4,14 @@ import {
 } from 'react-native';
 import { useState, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useLocalSearchParams, router } from 'expo-router';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks/useTheme';
-import { formatTime, getTimeOfDay, scaleQuantityString } from '@/lib/utils';
-import { getRecipesBySupabaseIds, fetchDiscoverRecipes, getRecentMealPlanWeeks, logInteraction, resolveSupabaseId, updateStreakAndCount, generateWeekPlan, logSwipe, recordSessionSwipe, updatePlanPreferences } from '@/lib/api';
+import { formatTime, getTimeOfDay, scaleQuantityString, weekOffsetForDate } from '@/lib/utils';
+import { getRecipesBySupabaseIds, fetchDiscoverRecipes, getRecentMealPlanWeeks, logInteraction, resolveSupabaseId, updateStreakAndCount, generateWeekPlan, logSwipe, recordSessionSwipe, updatePlanPreferences, markSundayDropOpened, getPendingSundayDrop, hydrateSundayDropProposal, acceptSundayDrop, dismissSundayDrop, type PendingSundayDrop } from '@/lib/api';
 import { autoSlotsToStoreSlots, nextSlotAlternate, applySlotChoice, setRecipeOnDays, swappedInRecipesToLearn } from '@/lib/autoPlan';
+import { addDaysUtc, HISTORY_WEEKS } from '@/lib/planHistory';
 import { flags } from '@/lib/featureFlags';
 import { gateMoriPlus } from '@/lib/paywall';
 import { AutoPlanSheet } from '@/components/AutoPlanSheet';
@@ -60,6 +62,9 @@ function toDateStr(d: Date): string {
   return `${year}-${month}-${day}`;
 }
 
+// weekOffsetForDate (target 'YYYY-MM-DD' Monday → weekOffset) lives in lib/utils.ts so the
+// Sunday-Drop / DST math is unit-tested independently of this component.
+
 const DAY_ABBREVS = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
 
 function dateForDayIndex(monday: Date, dayIndex: number): Date {
@@ -80,6 +85,7 @@ export default function Plan() {
   const profile = useUserStore((s) => s.profile);
   const isPremium = useUserStore((s) => s.isPremium);
   const dietaryGoals = useUserStore((s) => s.profile?.dietary_goals) ?? [];
+  const { week: weekParam } = useLocalSearchParams<{ week?: string }>();
   const [weekOffset, setWeekOffset] = useState(0);
   const [slotRecipes, setSlotRecipes] = useState<Record<string, Recipe>>({});
   // `autoPlanIndex` set ⇒ the picker is choosing a recipe for a Build-my-week PROPOSAL slot (edits
@@ -107,6 +113,13 @@ export default function Plan() {
   const [autoPlanOpen, setAutoPlanOpen] = useState(false);
   const [autoPlanLoading, setAutoPlanLoading] = useState(false);
   const [autoPlanResult, setAutoPlanResult] = useState<AutoPlanResult | null>(null);
+  // Sunday Drop proposal pending review for the displayed week (cron-generated; not yet applied).
+  const [pendingDrop, setPendingDrop] = useState<PendingSundayDrop | null>(null);
+  // True when NEXT week has a pending drop while the user views the current week (missed push).
+  const [nextWeekDropReady, setNextWeekDropReady] = useState(false);
+  // When the open AutoPlanSheet is reviewing a Sunday Drop, this holds the drop's week_start so
+  // accepting also marks it accepted_at. Null = a normal Build-my-week session.
+  const [reviewingDropWeek, setReviewingDropWeek] = useState<string | null>(null);
   // supabase_ids the user manually swapped IN during review — logged as positive taste
   // signals only when the plan is accepted (so cycling alternates doesn't spam swipes).
   const [swappedInIds, setSwappedInIds] = useState<Set<string>>(new Set());
@@ -188,6 +201,20 @@ export default function Plan() {
     (n, mt) => n + (slots.some((s) => s.day === selectedDay && s.meal_type === mt) ? 1 : 0),
     0
   );
+  // Recipes planned in the last HISTORY_WEEKS before the displayed week — derived from the
+  // already-fetched pastWeeks (zero extra network). Used to freshen the suggestions row,
+  // which is a static avg_rating ranking and would otherwise surface the same recipes forever.
+  const recentlyPlannedIds = useMemo(() => {
+    const cutoff = addDaysUtc(weekStart, -7 * HISTORY_WEEKS);
+    const ids = new Set<string>();
+    for (const w of pastWeeks) {
+      if (w.week_start_date >= cutoff && w.week_start_date < weekStart) {
+        for (const s of w.slots) ids.add(s.recipe_id);
+      }
+    }
+    return ids;
+  }, [pastWeeks, weekStart]);
+
   const suggestions = useMemo(() => {
     if (!catalogRecipes) return [];
     const usedIds = new Set(
@@ -195,12 +222,16 @@ export default function Plan() {
         .filter((s) => s.day === selectedDay)
         .map((s) => s.recipe_id)
     );
-    return catalogRecipes
+    const ranked = catalogRecipes
       .filter((r) => r.meal_prep_friendly === true)
       .filter((r) => !usedIds.has(r.supabase_id ?? r.id))
-      .sort((a, b) => (b.avg_rating ?? 0) - (a.avg_rating ?? 0))
-      .slice(0, 8);
-  }, [catalogRecipes, slots, selectedDay]);
+      .sort((a, b) => (b.avg_rating ?? 0) - (a.avg_rating ?? 0));
+    // Stable fresh-first partition (an ordering nudge, not a filter): recipes the user
+    // planned in recent weeks drop behind fresh ones but stay reachable.
+    const fresh = ranked.filter((r) => !recentlyPlannedIds.has(r.supabase_id ?? r.id));
+    const recent = ranked.filter((r) => recentlyPlannedIds.has(r.supabase_id ?? r.id));
+    return [...fresh, ...recent].slice(0, 8);
+  }, [catalogRecipes, slots, selectedDay, recentlyPlannedIds]);
 
   // Explore-style browse carousels for the picker, derived client-side from
   // already-loaded data (no extra network). Shown when not searching/filtering.
@@ -225,6 +256,49 @@ export default function Plan() {
     if (!userId) return;
     loadPlan(userId, weekStart);
   }, [userId, weekStart]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Sunday Drop deep link (mori://plan?week=YYYY-MM-DD) → jump to the populated week, then
+  // consume the param so re-opening the tab later doesn't keep re-jumping.
+  useEffect(() => {
+    if (typeof weekParam !== 'string' || !weekParam) return;
+    const off = weekOffsetForDate(weekParam);
+    if (off != null) setWeekOffset(off);
+    router.setParams({ week: '' });
+  }, [weekParam]);
+
+  // Sunday Drop. The cron stores a PROPOSAL (it never auto-applies); we surface a review card for
+  // the displayed week and only write the week when the user accepts. `hasSundayDrop` tracks an
+  // ALREADY-accepted drop (its slots are in the saved plan) for a lighter confirmation banner.
+  const hasSundayDrop = useMemo(() => slots.some((s) => s.provenance === 'sunday_drop'), [slots]);
+  useEffect(() => {
+    let cancelled = false;
+    // Never offer a proposal for a week that's already over — accepting would rewrite history
+    // (an un-actioned old drop row otherwise resurfaces when the user browses back).
+    if (!userId || weekOffset < 0) { setPendingDrop(null); return; }
+    getPendingSundayDrop(userId, weekStart)
+      .then((drop) => {
+        if (cancelled) return;
+        setPendingDrop(drop);
+        if (drop) markSundayDropOpened(userId, weekStart); // user saw the drop (open-rate metric)
+      })
+      .catch(() => { if (!cancelled) setPendingDrop(null); });
+    return () => { cancelled = true; };
+  }, [userId, weekStart, weekOffset]);
+
+  // A pending drop for NEXT week while the user is viewing the current one — the Sunday push
+  // was ignored/missed, so surface a pointer (the drop populates next week and would otherwise
+  // be invisible until they happen to swipe forward).
+  useEffect(() => {
+    let cancelled = false;
+    if (!userId || weekOffset !== 0) { setNextWeekDropReady(false); return; }
+    const [y, m, d] = weekStart.split('-').map(Number);
+    if (!y || !m || !d) { setNextWeekDropReady(false); return; }
+    const nextMonday = new Date(Date.UTC(y, m - 1, d) + 7 * 86_400_000).toISOString().slice(0, 10);
+    getPendingSundayDrop(userId, nextMonday)
+      .then((drop) => { if (!cancelled) setNextWeekDropReady(!!drop); })
+      .catch(() => { if (!cancelled) setNextWeekDropReady(false); });
+    return () => { cancelled = true; };
+  }, [userId, weekStart, weekOffset]);
 
 
   // When the user navigates between weeks, snap the selected day:
@@ -452,7 +526,9 @@ export default function Plan() {
     setAutoPlanLoading(true);
     try {
       const savedExternalIds = new Set(savedRecipes.map((r) => r.id));
-      const result = await generateWeekPlan({ userId, profile, dietaryGoals, savedExternalIds, tunings: tuningsOverride ?? tunings, lockedSlots: lockedSlotsRef.current, startDay: planStartDay() });
+      // weekStart enables cross-week variety: recipes from the last few weeks' plans/drops
+      // are penalized (2 proven anchors excepted) so rebuilt weeks don't repeat last week.
+      const result = await generateWeekPlan({ userId, profile, dietaryGoals, savedExternalIds, tunings: tuningsOverride ?? tunings, lockedSlots: lockedSlotsRef.current, startDay: planStartDay(), weekStart });
       if (myId !== genReqId.current) return; // a newer rebuild superseded this one — drop the stale result
       // Build/shuffle/tune only PROPOSE a plan — nothing is saved until the user taps "Use this plan".
       setAutoPlanResult(result);
@@ -488,21 +564,12 @@ export default function Plan() {
           easier: !!(raw as any).easier,
         }
       : {};
-    // Capture the meals the user placed themselves (anything not auto-planned) in the days we're
-    // about to plan (today onward), so the proposal keeps them, labelled "You added this".
-    const start = planStartDay();
-    const locked: { day: number; recipe: Recipe }[] = [];
-    for (const s of slots) {
-      if (s.meal_type !== 'dinner' || s.day < start) continue;
-      if (s.provenance === 'auto_plan') continue; // Mori's pick — fair game to re-plan
-      const r = slotRecipes[s.recipe_id];
-      if (r?.supabase_id) locked.push({ day: s.day, recipe: r });
-    }
     // Building only PROPOSES a plan (no confirm needed — nothing is saved until "Use this plan").
-    lockedSlotsRef.current = locked;
+    lockedSlotsRef.current = currentLockedDinners(planStartDay());
     setTunings(initialTunings);
     setAutoPlanResult(null);
     setSwappedInIds(new Set());
+    setReviewingDropWeek(null); // a fresh manual Build must never carry a stale Sunday-Drop week
     setAutoPlanOpen(true);
     runGenerate(true, initialTunings);
   }
@@ -706,14 +773,31 @@ export default function Plan() {
     return weekOffset === 0 ? todayDayIndex() : 0;
   }
 
+  // The dinners the user placed themselves (anything not auto-planned) from `start` onward.
+  // Locked into any proposal — Build or Sunday Drop review — so Mori never clobbers a user pick.
+  function currentLockedDinners(start: number): { day: number; recipe: Recipe }[] {
+    const locked: { day: number; recipe: Recipe }[] = [];
+    for (const s of slots) {
+      if (s.meal_type !== 'dinner' || s.day < start) continue;
+      if (s.provenance === 'auto_plan') continue; // Mori's pick — fair game to re-plan
+      const r = slotRecipes[s.recipe_id];
+      if (r?.supabase_id) locked.push({ day: s.day, recipe: r });
+    }
+    return locked;
+  }
+
   // Save the proposed plan to the week (called ONLY on "Use this plan"). Replaces just the dinner
   // slots from planStartDay onward — past days and any breakfast/lunch slots are kept untouched.
   // Returns false if nothing fillable.
   function applyPlanToWeek(result: AutoPlanResult): boolean {
     if (!userId) return false;
-    const newSlots = autoSlotsToStoreSlots(result.slots);
-    if (newSlots.length === 0) return false;
     const start = planStartDay();
+    // Never write a night that already passed. A manual Build generates from `start` so this is
+    // a no-op there, but a Sunday Drop proposal was generated on Sunday for the FULL week — when
+    // reviewed mid-week its stale early-week picks must not overwrite dinners the user already
+    // ate (same "no past-day backfill" bug class as the repeat day-picker fix, 0f1e4c9).
+    const newSlots = autoSlotsToStoreSlots(result.slots).filter((s) => s.day >= start);
+    if (newSlots.length === 0) return false;
     const kept = slots.filter((s) => s.meal_type !== 'dinner' || s.day < start);
     // Pre-hydrate so the Plan tab renders instantly (no "Recipe removed" flash).
     const hydrate: Record<string, Recipe> = {};
@@ -721,9 +805,88 @@ export default function Plan() {
     setSlotRecipes((prev) => ({ ...prev, ...hydrate }));
     clearSlots();
     kept.forEach((s) => addSlot(s));
-    newSlots.forEach((s) => addSlot(s));
+    // The same recipe staying on the same night keeps its cooked check + servings — a locked
+    // user pick round-trips through the proposal without resetting to defaults.
+    newSlots.forEach((s) => {
+      const prev = slots.find((p) => p.day === s.day && p.meal_type === s.meal_type && p.recipe_id === s.recipe_id);
+      addSlot(prev ? { ...s, cooked_at: prev.cooked_at ?? s.cooked_at, servings_multiplier: prev.servings_multiplier ?? s.servings_multiplier } : s);
+    });
     savePlan(userId, weekStart);
     return true;
+  }
+
+  // Open the Build-my-week review sheet preloaded with the pending Sunday Drop proposal. Nothing
+  // is written until the user taps "Use this plan" (then handleAcceptAutoPlan marks it accepted).
+  async function handleReviewDrop() {
+    if (!userId || !pendingDrop) return;
+    setSwappedInIds(new Set());
+    setReviewingDropWeek(pendingDrop.weekStart);
+    setAutoPlanOpen(true);
+    setAutoPlanLoading(true);
+    try {
+      // Hydrate against CURRENT prefs — a pick that violates a dietary/dislike change made
+      // since Sunday is nulled (renders as an empty night) rather than shown or written.
+      const result = await hydrateSundayDropProposal(pendingDrop.proposedPlan, {
+        dietaryGoals,
+        ingredientDislikes: profile?.ingredient_dislikes ?? [],
+      });
+      const start = planStartDay();
+      // The proposal was generated Sunday for the full week; reviewing mid-week must neither
+      // show nor (on accept) rewrite nights that already passed.
+      let proposalSlots = result.slots.filter((s) => s.day >= start);
+      // Re-overlay dinners the user placed AFTER the cron snapshotted the week, and lock them
+      // for Shuffle/tuning — the user's own picks always win over the drop's (the cron only saw
+      // Sunday-morning state; without this, a Shuffle regenerates with an empty lock set and a
+      // later accept overwrites the user's additions).
+      const locked = currentLockedDinners(start);
+      lockedSlotsRef.current = locked;
+      if (locked.length > 0) {
+        const byDay = new Map(locked.map((l) => [l.day, l]));
+        proposalSlots = proposalSlots.map((s) => {
+          const l = s.mealType === 'dinner' ? byDay.get(s.day) : undefined;
+          if (!l) return s;
+          const cur = getSlot(l.day, 'dinner');
+          return { ...s, recipe: l.recipe, provenance: 'manual' as const, explanation: 'You added this', servingsMultiplier: cur?.servings_multiplier ?? 1 };
+        });
+        for (const l of locked) {
+          if (!proposalSlots.some((s) => s.day === l.day && s.mealType === 'dinner')) {
+            const cur = getSlot(l.day, 'dinner');
+            proposalSlots.push({ day: l.day, mealType: 'dinner', recipe: l.recipe, provenance: 'manual', explanation: 'You added this', servingsMultiplier: cur?.servings_multiplier ?? 1, alternates: [] });
+          }
+        }
+        proposalSlots.sort((a, b) => a.day - b.day);
+      }
+      setAutoPlanResult({ ...result, slots: proposalSlots });
+    } catch {
+      Alert.alert("Couldn't open your drop", 'Please try again.');
+      setAutoPlanOpen(false);
+      setReviewingDropWeek(null);
+    } finally {
+      setAutoPlanLoading(false);
+    }
+  }
+
+  // "Not this week" — decline the proposal so the card stops showing. Nothing was written.
+  // Confirmed first: the dismissal is permanent (no path back to the proposal), so one stray
+  // tap must not silently throw the week away.
+  function handleDismissDrop() {
+    if (!userId || !pendingDrop) return;
+    const ws = pendingDrop.weekStart;
+    Alert.alert(
+      'Skip this week’s drop?',
+      'Mori’s planned week will be discarded — this can’t be undone. You can still build a week yourself anytime.',
+      [
+        { text: 'Keep it', style: 'cancel' },
+        {
+          text: 'Skip this week',
+          style: 'destructive',
+          onPress: () => {
+            setPendingDrop(null);
+            dismissSundayDrop(userId, ws).catch(() => {});
+          },
+        },
+      ],
+    );
   }
 
   // "Use this plan" — the ONLY action that saves. Commits the proposal to the week, logs the
@@ -741,18 +904,28 @@ export default function Plan() {
       swappedInRecipesToLearn(autoPlanResult.slots, swappedInIds).forEach((r) => learnFromChoice(r));
     }
     updatePlanPreferences(userId, tunings).catch(() => {});
+    // If this was a Sunday Drop review, mark it accepted so the card stops showing.
+    if (reviewingDropWeek) {
+      acceptSundayDrop(userId, reviewingDropWeek).catch(() => {});
+      setPendingDrop(null);
+      setReviewingDropWeek(null);
+    }
     setAutoPlanOpen(false);
     setAutoPlanResult(null);
     setSwappedInIds(new Set());
+    // Clear the lock set so an accepted session's locks can't leak into a later drop review's
+    // Shuffle (discard already clears; accept must too).
+    lockedSlotsRef.current = [];
     setSelectedDay(weekOffset === 0 ? todayDayIndex() : 0);
   }
 
   // Closing WITHOUT accepting (the X, or tabbing away) — discard the proposal. Nothing was saved,
-  // so the existing week is untouched.
+  // so the existing week is untouched. A Sunday Drop stays pending (the review card re-shows).
   function handleDiscardAutoPlan() {
     setAutoPlanOpen(false);
     setAutoPlanResult(null);
     setSwappedInIds(new Set());
+    setReviewingDropWeek(null);
     lockedSlotsRef.current = [];
   }
 
@@ -1008,6 +1181,100 @@ export default function Plan() {
             );
           })}
         </View>
+
+        {/* Sunday Drop — review card (proposal pending). Mori planned the week; nothing is added
+            until the user reviews + accepts. Takes priority over the accepted-confirmation banner. */}
+        {pendingDrop ? (
+          <View
+            style={{
+              backgroundColor: colors.card,
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: colors.primary,
+              padding: 14,
+              marginBottom: 12,
+            }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+              <Text style={{ fontSize: 20 }}>🌲</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: colors.text }}>
+                  Mori planned your week
+                </Text>
+                <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>
+                  {pendingDrop.proposedPlan.explanation || 'Dinners picked for your taste — review, tweak, and accept.'}
+                </Text>
+              </View>
+            </View>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <Pressable
+                onPress={handleReviewDrop}
+                style={{ flex: 1, backgroundColor: colors.primary, borderRadius: 10, paddingVertical: 11, alignItems: 'center' }}
+              >
+                <Text style={{ color: 'white', fontWeight: '700', fontSize: 14 }}>Review &amp; accept</Text>
+              </Pressable>
+              <Pressable
+                onPress={handleDismissDrop}
+                style={{ paddingHorizontal: 14, paddingVertical: 11, borderRadius: 10, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }}
+              >
+                <Text style={{ color: colors.textMuted, fontWeight: '600', fontSize: 14 }}>Not this week</Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : nextWeekDropReady ? (
+          // The drop populates NEXT week; a user who missed the push would never see the review
+          // card on the default (current-week) view — point them at it.
+          <Pressable
+            onPress={() => setWeekOffset(1)}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 10,
+              backgroundColor: colors.card,
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: colors.primary,
+              padding: 12,
+              marginBottom: 12,
+            }}
+          >
+            <Text style={{ fontSize: 20 }}>🌲</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: colors.text }}>
+                Next week is planned
+              </Text>
+              <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>
+                Your Sunday Drop is ready — tap to review it.
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+          </Pressable>
+        ) : hasSundayDrop ? (
+          // Accepted Sunday Drop — lighter confirmation that this week came from a drop.
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 10,
+              backgroundColor: colors.card,
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: colors.primary,
+              padding: 12,
+              marginBottom: 12,
+            }}
+          >
+            <Text style={{ fontSize: 20 }}>🌲</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: colors.text }}>
+                Your Sunday Drop is set
+              </Text>
+              <Text style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>
+                Tap a meal to see why it was picked — swap anything you like.
+              </Text>
+            </View>
+          </View>
+        ) : null}
 
         {/* Selected day detail */}
         <View>

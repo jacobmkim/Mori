@@ -14,7 +14,9 @@ jest.mock('@/api/_apiAuth', () => ({
   requireAuth: (...a: any[]) => mockRequireAuth(...a),
   AuthError: class AuthError extends Error {
     statusCode: number;
-    constructor(msg: string, code: number) { super(msg); this.name = 'AuthError'; this.statusCode = code; }
+    // Same arg order as the real api/_apiAuth AuthError(statusCode, message) — tsc checks
+    // constructions in this file against the real signature.
+    constructor(code: number, msg: string) { super(msg); this.name = 'AuthError'; this.statusCode = code; }
   },
 }));
 jest.mock('@/api/_rateLimit', () => ({ rateLimitUser: (...a: any[]) => mockRateLimitUser(...a) }));
@@ -104,7 +106,7 @@ describe('delete-account — guards', () => {
   });
 
   it('returns the AuthError status when auth fails', async () => {
-    mockRequireAuth.mockRejectedValueOnce(new AuthError('Unauthorized', 401));
+    mockRequireAuth.mockRejectedValueOnce(new AuthError(401, 'Unauthorized'));
     const res = makeRes();
     await handler(makeReq() as any, res);
     expect(res.status).toHaveBeenCalledWith(401);

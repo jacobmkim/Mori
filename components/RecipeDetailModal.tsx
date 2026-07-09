@@ -236,7 +236,7 @@ export function RecipeDetailModal({
   const [ingredRefExpanded, setIngredRefExpanded] = useState(false);
 
   // Per-ingredient swap state
-  type SwapState = Swap[] | 'loading' | 'no_subs' | 'unavailable';
+  type SwapState = Swap[] | 'loading' | 'no_subs' | 'unavailable' | 'budget';
   const [swapData, setSwapData] = useState<Record<number, SwapState>>({});
   const [expandedSwapIdx, setExpandedSwapIdx] = useState<number | null>(null);
   // Applied swaps: index → substitute name (session-only override)
@@ -506,22 +506,28 @@ export function RecipeDetailModal({
       return;
     }
 
-    // 2. AsyncStorage cache — from a previous API call
+    // 2. AsyncStorage cache — from a previous API call (a cached [] is a real
+    // "no substitutions" answer we already paid a budget credit for)
     const cached = await getCachedSubs(ingName);
     if (cached) {
-      setSwapData((prev) => ({ ...prev, [idx]: cached }));
+      setSwapData((prev) => ({ ...prev, [idx]: cached.length > 0 ? cached : 'no_subs' }));
       return;
     }
 
-    // 3. API fallback — Claude Haiku, rate-limited, result saved to cache
+    // 3. API fallback — Claude Haiku, rate-limited + budget-gated, result saved to cache
     setSwapData((prev) => ({ ...prev, [idx]: 'loading' }));
 
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.access_token) { setSwapData((prev) => ({ ...prev, [idx]: 'no_subs' })); return; }
+    // No session = can't ask, NOT "none exist" — 'unavailable', never the false 'no_subs'.
+    if (!session?.access_token) { setSwapData((prev) => ({ ...prev, [idx]: 'unavailable' })); return; }
 
-    const { swaps, rateLimited } = await fetchAndCacheSubs(ingName, session.access_token, getApiBaseUrl());
-    if (rateLimited) {
+    const { swaps, rateLimited, budgetExhausted, failed } = await fetchAndCacheSubs(ingName, session.access_token, getApiBaseUrl());
+    if (rateLimited || failed) {
+      // Rate limit / offline / server error — "couldn't check" is honest; "none found" isn't.
       setSwapData((prev) => ({ ...prev, [idx]: 'unavailable' }));
+    } else if (budgetExhausted) {
+      // Never claim "no substitutions found" when the truth is the monthly cap.
+      setSwapData((prev) => ({ ...prev, [idx]: 'budget' }));
     } else {
       setSwapData((prev) => ({ ...prev, [idx]: swaps.length > 0 ? swaps : 'no_subs' }));
     }
@@ -781,8 +787,11 @@ export function RecipeDetailModal({
                   const swapState = swapData[i];
                   const isSwapExpanded = expandedSwapIdx === i;
                   const appliedSub = appliedSwaps[i];
-                  // Only show swap icon when a static substitution exists for this ingredient
-                  const hasSwap = getStaticSubs(ing.name, unitSystem) !== null;
+                  // The swap icon shows for EVERY ingredient — handleSwapTap falls through
+                  // static table → cache → AI (rate-limited + budget-gated). Gating the icon
+                  // on the static table made the AI tiers unreachable: the tap short-circuited
+                  // on the exact same lookup that showed the icon (2026-07-04 audit).
+                  const hasSwap = true;
                   return (
                     <View key={i} style={{
                       borderBottomWidth: isLast ? 0 : 0.5, borderBottomColor: colors.border,
@@ -835,12 +844,17 @@ export function RecipeDetailModal({
                           )}
                           {swapState === 'unavailable' && (
                             <Text style={{ fontSize: 12, color: colors.textMuted, fontStyle: 'italic' }}>
-                              AI substitutions unavailable today — try again tomorrow.
+                              Couldn’t check substitutions right now — try again later.
                             </Text>
                           )}
                           {swapState === 'no_subs' && (
                             <Text style={{ fontSize: 12, color: colors.textMuted, fontStyle: 'italic' }}>
                               No common substitutions found.
+                            </Text>
+                          )}
+                          {swapState === 'budget' && (
+                            <Text style={{ fontSize: 12, color: colors.textMuted, fontStyle: 'italic' }}>
+                              Free AI swaps used for this month — back on the 1st. Mori+ is unlimited.
                             </Text>
                           )}
                           {Array.isArray(swapState) && swapState.map((s, j) => {

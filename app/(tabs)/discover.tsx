@@ -26,6 +26,7 @@ import { rightSwipeHaptic, leftSwipeHaptic } from '@/lib/haptics';
 import type { Badge, BadgeStats } from '@/lib/badges';
 import { BadgeAchievementModal } from '@/components/badges/BadgeAchievementModal';
 import { RecipeDetailModal } from '@/components/RecipeDetailModal';
+import { CookWhatIHaveSheet } from '@/components/CookWhatIHaveSheet';
 import { LeftoversReminderModal } from '@/components/LeftoversReminderCard';
 import { HeadlineMacroPill, MacroRow } from '@/components/ui/MacroRow';
 import { scaleMacros } from '@/lib/macroUtils';
@@ -366,6 +367,7 @@ export default function Discover() {
   const [exitCard, setExitCard] = useState<ExitCard | null>(null);
   const [lastSwipe, setLastSwipe] = useState<{ recipe: Recipe; direction: 'left' | 'right' } | null>(null);
   const [showDetail, setShowDetail] = useState(false);
+  const [cookSheetVisible, setCookSheetVisible] = useState(false);
   const [cartToast, setCartToast] = useState(false);
   const [deckServingsSheetVisible, setDeckServingsSheetVisible] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
@@ -875,6 +877,20 @@ export default function Discover() {
           <AvatarButton />
         </View>
       </View>
+
+      {/* "Cook with what I have" — pantry-first discovery (M8). Compact pill so the
+          deck keeps nearly all of its height (cards are flex-sized, not fixed). */}
+      <Pressable
+        onPress={() => setCookSheetVisible(true)}
+        style={{
+          flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'center',
+          paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, marginBottom: 6,
+          backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border,
+        }}
+      >
+        <Ionicons name="basket-outline" size={14} color={colors.primary} />
+        <Text style={{ fontSize: 13, fontWeight: '600', color: colors.text }}>Cook with what I have</Text>
+      </Pressable>
 
       {/* Card Stack */}
       <View style={{ flex: 1, alignItems: 'center', paddingHorizontal: 16 }}>
@@ -1441,6 +1457,11 @@ export default function Discover() {
         </View>
       )}
 
+      {/* Mount-per-open (the sheet's contract): zero background subscriptions/re-ranking
+          while closed, and each open starts with fresh session state. */}
+      {cookSheetVisible && (
+        <CookWhatIHaveSheet visible onClose={() => setCookSheetVisible(false)} />
+      )}
       <LeftoversReminderModal />
       <BadgeAchievementModal queue={badgeQueue} onQueueChange={setBadgeQueue} />
     </SafeAreaView>

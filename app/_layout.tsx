@@ -12,7 +12,7 @@ import * as Notifications from 'expo-notifications';
 import { useUserStore } from '@/stores/userStore';
 import { registerForPushNotifications } from '@/lib/notifications';
 import { updatePushToken, touchLastActive, updateProfileTimezone } from '@/lib/api';
-import { isResetPasswordUrl, isVerifyEmailUrl, isRecipeUrl, extractRecipeId } from '@/lib/deepLink';
+import { isResetPasswordUrl, isVerifyEmailUrl, isRecipeUrl, extractRecipeId, isPlanUrl, extractPlanWeek } from '@/lib/deepLink';
 import { syncRevenueCatIdentity } from '@/lib/revenueCat';
 import { applyDevPremiumOverride } from '@/lib/devPremium';
 import { ResumeCookHandler } from '@/components/ResumeCookHandler';
@@ -66,8 +66,8 @@ function RootLayout() {
   const registeredFor = useRef<string | null>(null);
   const rcInitedFor = useRef<string | null>(null);
   const lastTouchRef = useRef(0);
-  // A cold-start recipe link held until the session restore finishes.
-  const pendingRecipeUrlRef = useRef<string | null>(null);
+  // A cold-start recipe/plan link held until the session restore finishes.
+  const pendingUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!profile?.id || registeredFor.current === profile.id) return;
@@ -101,7 +101,16 @@ function RootLayout() {
   useEffect(() => {
     function route(resp: Notifications.NotificationResponse | null) {
       const url = resp?.notification?.request?.content?.data?.url;
-      if (typeof url === 'string' && url) handleDeepLink({ url });
+      if (typeof url !== 'string' || !url) return;
+      // Cold-start push tap (e.g. Sunday Drop → mori://plan): the session may not be restored
+      // yet, and navigating now races index's auth redirect — the user would land on the
+      // default tab instead. Defer authed destinations until auth resolves (flushed below),
+      // exactly like cold-start recipe links.
+      if ((isRecipeUrl(url) || isPlanUrl(url)) && !useUserStore.getState().authResolved) {
+        pendingUrlRef.current = url;
+        return;
+      }
+      handleDeepLink({ url });
     }
     Notifications.getLastNotificationResponseAsync().then(route).catch(() => {});
     const sub = Notifications.addNotificationResponseReceivedListener(route);
@@ -169,11 +178,12 @@ function RootLayout() {
       .then((url) => {
         if (!url) return;
         // A recipe link opens a modal whose Save/Review/Cart actions need the
-        // restored session. On cold start the user store hasn't rehydrated yet,
-        // so hold the recipe link until auth resolves (flushed below). Pre-auth
-        // links (reset-password, verify-email) must route immediately.
-        if (isRecipeUrl(url) && !useUserStore.getState().authResolved) {
-          pendingRecipeUrlRef.current = url;
+        // restored session; a plan link needs the authed tab navigator mounted.
+        // On cold start the user store hasn't rehydrated yet, so hold these until
+        // auth resolves (flushed below). Pre-auth links (reset-password,
+        // verify-email) must route immediately.
+        if ((isRecipeUrl(url) || isPlanUrl(url)) && !useUserStore.getState().authResolved) {
+          pendingUrlRef.current = url;
           return;
         }
         handleDeepLink({ url });
@@ -182,11 +192,11 @@ function RootLayout() {
     return () => subscription.remove();
   }, []);
 
-  // Flush a deferred cold-start recipe link once the session restore completes.
+  // Flush a deferred cold-start recipe/plan link once the session restore completes.
   useEffect(() => {
-    if (authResolved && pendingRecipeUrlRef.current) {
-      const url = pendingRecipeUrlRef.current;
-      pendingRecipeUrlRef.current = null;
+    if (authResolved && pendingUrlRef.current) {
+      const url = pendingUrlRef.current;
+      pendingUrlRef.current = null;
       handleDeepLink({ url });
     }
   }, [authResolved]);
@@ -209,6 +219,15 @@ function RootLayout() {
     if (isRecipeUrl(event.url)) {
       const id = extractRecipeId(event.url);
       if (id) router.push(`/recipe/${id}` as any);
+      return;
+    }
+    if (isPlanUrl(event.url)) {
+      // Sunday Drop "Your week is ready" push → open the Plan tab, on the dropped week if the
+      // link carries one (?week=YYYY-MM-DD), else the current week.
+      const week = extractPlanWeek(event.url);
+      // navigate (not push): unwinds to the existing Plan tab + updates params deterministically
+      // even when it's already the focused route, and never stacks a duplicate tab screen.
+      router.navigate((week ? { pathname: '/(tabs)/plan', params: { week } } : '/(tabs)/plan') as any);
       return;
     }
   }

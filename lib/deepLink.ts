@@ -119,6 +119,48 @@ export function isRecipeUrl(input: unknown): boolean {
   return false;
 }
 
+// Plan-tab deep link `mori://plan` (from the Sunday Drop push notification's data.url).
+// May carry an optional `?week=YYYY-MM-DD` (the populated week's Monday) so the tap opens
+// the Plan tab on the dropped week — the query string doesn't affect the host/path match.
+// Strict scheme + host/path matching, mirroring isResetPasswordUrl.
+export function isPlanUrl(input: unknown): boolean {
+  if (typeof input !== 'string' || input.length === 0) return false;
+  let url: URL;
+  try {
+    url = new URL(input);
+  } catch {
+    return false;
+  }
+
+  if (url.protocol === 'mori:') {
+    if (url.hostname === 'plan') return true;
+    if (url.hostname === '' && (url.pathname === '/plan' || url.pathname === '/plan/')) return true;
+    return false;
+  }
+
+  const isDev = typeof __DEV__ !== 'undefined' && __DEV__;
+  if (isDev && url.protocol === 'exp:') {
+    return url.pathname === '/--/plan' || url.pathname === '/--/plan/';
+  }
+
+  return false;
+}
+
+// Extract the `?week=YYYY-MM-DD` param from a Sunday Drop plan deep link, validating the
+// shape (the Plan tab converts it to a week offset). Returns null when absent/malformed —
+// the caller then opens the Plan tab on the current week.
+export function extractPlanWeek(input: unknown): string | null {
+  if (typeof input !== 'string' || input.length === 0) return null;
+  let url: URL;
+  try {
+    url = new URL(input);
+  } catch {
+    return null;
+  }
+  const week = url.searchParams.get('week');
+  return week && /^\d{4}-\d{2}-\d{2}$/.test(week) ? week : null;
+}
+
 // Extract the recipe uuid from any of the supported recipe-link shapes.
 // Returns null if the URL is malformed or the uuid doesn't match the 36-char
 // hex+dash shape.
