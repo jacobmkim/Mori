@@ -74,6 +74,13 @@ const PROTEIN_MONOTONY_TAPER = 2;   // penalty per extra dinner once one protein
 // making Shuffle actually produce a different batch.
 const BATCH_SHUFFLE_POOL = 5;
 
+// The normal weekly fill had the SAME identical-output failure (strict argmax per slot, jitter far
+// smaller than the stable score gaps) — every Sunday Drop / Build-my-week converged on the same
+// recipes. planWeekFromInputs passes this as shufflePool so each slot samples from the top-3
+// (7 sequential picks vs batch's 3, so a tighter pool keeps quality high). Callers that need the
+// legacy strict argmax (shaping tests) pass shufflePool: 1.
+export const WEEKLY_SHUFFLE_POOL = 3;
+
 const recipeId = (r: Recipe): string => r.supabase_id ?? r.external_id ?? r.id ?? '';
 const savedKey = (r: Recipe): string => r.external_id ?? r.supabase_id ?? r.id ?? '';
 const recipeMealTypes = (r: Recipe): string[] => (Array.isArray(r.meal_types) ? r.meal_types : []);
@@ -141,6 +148,17 @@ export function autoPlanWeek(input: AutoPlanInput): AutoPlanResult {
   const hasBudget = typeof weeklyBudgetUsd === 'number' && weeklyBudgetUsd > 0;
   const budgetCap = hasBudget ? (weeklyBudgetUsd as number) * 1.05 : Infinity;
 
+  // Cross-week repeat cap ("mostly fresh, 1–2 anchors"). This is a whole-plan slot-fill
+  // constraint of the same class as the within-week `used` set / locked-slot exclusion —
+  // NOT a per-recipe taste signal (those stay graded penalties in scoreRecipe, per the
+  // no-binary-scoring commandment). Once the budget is spent, later slots prefer fresh
+  // candidates, falling back to the full list rather than leaving a slot empty.
+  const historyIds = input.recentlyPlannedIds;
+  const maxHistoryRepeats = input.maxHistoryRepeats ?? Infinity;
+  let historyUsed = 0;
+
+  const shufflePool = Math.max(1, Math.floor(input.shufflePool ?? 1));
+
   const slots: AutoPlanSlot[] = [];
   let totalCost = 0;
   let totalKcal = 0;
@@ -149,12 +167,17 @@ export function autoPlanWeek(input: AutoPlanInput): AutoPlanResult {
   let leftoverUsed = 0;
 
   for (const spec of specs) {
-    const candidates = catalog.filter((r) => {
+    let candidates = catalog.filter((r) => {
       if (used.has(recipeId(r))) return false;                         // no-repeat
       if (!recipeMealTypes(r).includes(spec.mealType)) return false;   // meal-type fit
       if (totalCost + (r.cost_per_serving ?? 0) > budgetCap) return false; // hard +5% cap
       return true;
     });
+
+    if (historyIds && historyUsed >= maxHistoryRepeats) {
+      const fresh = candidates.filter((r) => !historyIds.has(recipeId(r)));
+      if (fresh.length > 0) candidates = fresh; // thin-pool fallback: never empty a slot for freshness
+    }
 
     if (candidates.length === 0) {
       slots.push({ day: spec.day, mealType: spec.mealType, recipe: null, provenance: 'auto_plan', explanation: '' });
@@ -216,14 +239,22 @@ export function autoPlanWeek(input: AutoPlanInput): AutoPlanResult {
       scored.push({ recipe: r, score: s, leftover: lo });
     }
 
-    // Stable descending sort: scored[0] is the top pick and the tail becomes the swap
-    // alternates. The per-candidate jitter (random()*0.5) is the real tie-breaker; for the
-    // degenerate zero-jitter case the stable sort preserves first-occurrence-of-max order.
+    // Stable descending sort, then SAMPLE the pick from the top-shufflePool candidates
+    // (the batch-mode fix, applied to the weekly fill) so equal-quality weeks differ run to
+    // run. shufflePool 1 skips the rng draw entirely — byte-identical to the old argmax.
+    // The unpicked head + tail become the swap alternates.
     scored.sort((a, b) => b.score - a.score);
-    const top = scored[0] ?? null;
+    const poolN = Math.min(shufflePool, scored.length);
+    // clamp guards a pathological injected rng returning exactly 1.0 (Math.random never does)
+    // from indexing past the pool and nulling the slot.
+    const pickIdx = poolN <= 1 ? 0 : Math.min(Math.floor(random() * poolN), poolN - 1);
+    const top = scored[pickIdx] ?? null;
     const best: Recipe | null = top?.recipe ?? null;
     const bestLeftover: string | null = top?.leftover ?? null;
-    const alternates = scored.slice(1, 1 + MAX_ALTERNATES).map((x) => x.recipe);
+    const alternates = scored
+      .filter((_, i) => i !== pickIdx)
+      .slice(0, MAX_ALTERNATES)
+      .map((x) => x.recipe);
 
     if (!best) {
       slots.push({ day: spec.day, mealType: spec.mealType, recipe: null, provenance: 'auto_plan', explanation: '', alternates: [] });
@@ -232,6 +263,7 @@ export function autoPlanWeek(input: AutoPlanInput): AutoPlanResult {
 
     // Commit the pick + update running state.
     used.add(recipeId(best));
+    if (historyIds?.has(recipeId(best))) historyUsed++;
     const cz = primaryCuisine(best);
     if (cz) cuisineCount.set(cz, (cuisineCount.get(cz) ?? 0) + 1);
     const pr = primaryProtein(best);

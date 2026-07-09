@@ -39,6 +39,11 @@ function makeChain(data: any[] = []) {
     node[m] = jest.fn(() => node);
   });
 
+  // .range(from, to) terminates a paginated read (fetchAllCatalogRows) — returns a slice so
+  // the short-page check stops after one page for these small test sets (no duplicate pages).
+  node.range = jest.fn((from: number, to: number) =>
+    Promise.resolve({ data: data.slice(from, to + 1), error: null }));
+
   // Make the node itself awaitable (for queries that don't call .limit())
   node.then    = (r: any, j?: any) => Promise.resolve(result).then(r, j);
   node.catch   = (fn: any)         => Promise.resolve(result).catch(fn);

@@ -1,4 +1,4 @@
-import { isValidTimeZone, localSundayFor } from '@/lib/timezone';
+import { isValidTimeZone, localSundayFor, localDayOfWeekFor, localHourFor } from '@/lib/timezone';
 
 // Anchor: 2026-06-17 is a Wednesday (confirmed from a real webhook Date header during
 // I-loop testing), so 2026-06-21 is Sunday, 06-24 Wed, 06-20 Sat. 2026-03-08 is the
@@ -55,5 +55,36 @@ describe('localSundayFor', () => {
 
   it('falls back to UTC for an invalid zone (never throws)', () => {
     expect(localSundayFor('Not/AZone', new Date('2026-06-24T12:00:00Z'))).toBe('2026-06-21');
+  });
+});
+
+describe('localDayOfWeekFor', () => {
+  it('returns 0 for Sunday in the local zone', () => {
+    // 2026-06-21T16:00Z = Sun 09:00 PDT
+    expect(localDayOfWeekFor('America/Los_Angeles', new Date('2026-06-21T16:00:00Z'))).toBe(0);
+  });
+  it('uses local date east of UTC (UTC Saturday, local Sunday at UTC+14)', () => {
+    // 2026-06-20T19:00Z = Sun 09:00 in Kiritimati (UTC+14), UTC still Saturday
+    expect(localDayOfWeekFor('Pacific/Kiritimati', new Date('2026-06-20T19:00:00Z'))).toBe(0);
+  });
+  it('returns 1 for Monday', () => {
+    expect(localDayOfWeekFor('America/Los_Angeles', new Date('2026-06-22T16:00:00Z'))).toBe(1);
+  });
+});
+
+describe('localHourFor', () => {
+  it('reads the integer local hour (PDT)', () => {
+    expect(localHourFor('America/Los_Angeles', new Date('2026-06-21T16:00:00Z'))).toBe(9);  // 09:00 PDT
+    expect(localHourFor('America/Los_Angeles', new Date('2026-06-21T15:00:00Z'))).toBe(8);
+    expect(localHourFor('America/Los_Angeles', new Date('2026-06-21T18:00:00Z'))).toBe(11);
+  });
+  it('is correct for fractional-offset zones (Asia/Kolkata +5:30)', () => {
+    expect(localHourFor('Asia/Kolkata', new Date('2026-06-21T03:30:00Z'))).toBe(9); // 09:00 IST
+  });
+  it('reports 0 (not 24) at local midnight', () => {
+    expect(localHourFor('Asia/Tokyo', new Date('2026-06-20T15:00:00Z'))).toBe(0); // 00:00 JST
+  });
+  it('falls back to UTC for an invalid zone', () => {
+    expect(localHourFor('Not/AZone', new Date('2026-06-21T09:00:00Z'))).toBe(9);
   });
 });

@@ -57,3 +57,26 @@ export function localSundayFor(tz: string, now: Date): string {
   const dd = String(sunday.getUTCDate()).padStart(2, '0');
   return `${yy}-${mm}-${dd}`;
 }
+
+/** Local day-of-week for `tz` at instant `now`: 0 = Sunday … 6 = Saturday. UTC fallback. */
+export function localDayOfWeekFor(tz: string, now: Date): number {
+  return localParts(tz, now).dow;
+}
+
+/**
+ * Local hour-of-day (0–23) for `tz` at instant `now`. Used to fire Sunday Drop at the user's
+ * local morning regardless of the cron's UTC schedule. Pure; UTC fallback for an invalid zone.
+ * Correct for fractional-offset zones (Asia/Kolkata +5:30, etc.) — Intl reports the integer
+ * local hour. Uses hourCycle 'h23' so midnight is 0 (not 24).
+ */
+export function localHourFor(tz: string, now: Date): number {
+  const zone = isValidTimeZone(tz) ? tz : 'UTC';
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: zone,
+    hour: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(now);
+  const raw = parts.find((p) => p.type === 'hour')?.value ?? '0';
+  const h = Number(raw);
+  return Number.isFinite(h) ? ((h % 24) + 24) % 24 : 0;
+}

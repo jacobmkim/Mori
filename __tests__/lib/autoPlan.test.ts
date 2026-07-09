@@ -50,6 +50,9 @@ function run(catalog: Recipe[], over: Partial<AutoPlanInput> = {}) {
     startDay: over.startDay,
     proteinMode: over.proteinMode,
     random: over.random ?? mulberry32(42),
+    recentlyPlannedIds: over.recentlyPlannedIds,
+    maxHistoryRepeats: over.maxHistoryRepeats,
+    shufflePool: over.shufflePool,
   });
 }
 
@@ -589,5 +592,94 @@ describe('primaryProtein — protein label that drives cohesion (false-positive 
 
   it('returns "other" when no protein is present', () => {
     expect(pr('Garden salad', ['lettuce', 'tomato', 'cucumber'])).toBe('other');
+  });
+});
+
+// ─── Cross-week variety: top-K sampling + the history-repeat cap ──────────────────
+describe('autoPlanWeek — shufflePool sampling', () => {
+  it('defaults to strict argmax (shufflePool 1) — byte-identical to the legacy behavior', () => {
+    const catalog = Array.from({ length: 12 }, (_, i) => mr({ id: `r${i}`, score: 12 - i }));
+    const withDefault = run(catalog, { random: mulberry32(42) });
+    const withExplicit1 = run(catalog, { shufflePool: 1, random: mulberry32(42) });
+    expect(filled(withDefault).map((s) => s.recipe!.id)).toEqual(filled(withExplicit1).map((s) => s.recipe!.id));
+    // Strict argmax on well-separated scores: the top-7 win in order.
+    expect(filled(withDefault).map((s) => s.recipe!.id)).toEqual(['r0', 'r1', 'r2', 'r3', 'r4', 'r5', 'r6']);
+  });
+
+  it('is deterministic under sampling — same seed yields the identical plan', () => {
+    const catalog = Array.from({ length: 15 }, (_, i) => mr({ id: `r${i}`, score: 15 - i }));
+    const a = run(catalog, { shufflePool: 3, random: mulberry32(7) });
+    const b = run(catalog, { shufflePool: 3, random: mulberry32(7) });
+    expect(filled(a).map((s) => s.recipe!.id)).toEqual(filled(b).map((s) => s.recipe!.id));
+  });
+
+  it('different seeds yield different plans (the whole point of sampling)', () => {
+    const catalog = Array.from({ length: 20 }, (_, i) => mr({ id: `r${i}`, score: 20 - i }));
+    const plans = new Set(
+      [1, 2, 3, 4, 5].map((seed) =>
+        filled(run(catalog, { shufflePool: 3, random: mulberry32(seed) })).map((s) => s.recipe!.id).join(','),
+      ),
+    );
+    expect(plans.size).toBeGreaterThan(1);
+  });
+
+  it('every sampled pick still comes from the top-3 by merit', () => {
+    // Scores drop off a cliff after the first 10 — the tail must never be picked.
+    const good = Array.from({ length: 10 }, (_, i) => mr({ id: `good${i}`, score: 100 - i }));
+    const bad = Array.from({ length: 10 }, (_, i) => mr({ id: `bad${i}`, score: -100 }));
+    for (const seed of [1, 2, 3]) {
+      const res = run([...good, ...bad], { shufflePool: 3, random: mulberry32(seed) });
+      expect(filled(res).every((s) => s.recipe!.id.startsWith('good'))).toBe(true);
+    }
+  });
+
+  it('the sampled pick is never one of its own alternates', () => {
+    const catalog = Array.from({ length: 12 }, (_, i) => mr({ id: `r${i}`, score: 12 - i }));
+    const res = run(catalog, { shufflePool: 3, random: mulberry32(9) });
+    for (const s of filled(res)) {
+      const altIds = (s.alternates ?? []).map((a) => a.id);
+      expect(altIds).not.toContain(s.recipe!.id);
+    }
+  });
+
+  it('a degenerate rng that returns exactly 1.0 never indexes past the pool (no nulled slots)', () => {
+    const catalog = Array.from({ length: 12 }, (_, i) => mr({ id: `r${i}`, score: 12 - i }));
+    const res = run(catalog, { shufflePool: 3, random: () => 1 }); // Math.random can't, but clamp must hold
+    expect(filled(res)).toHaveLength(7);
+    expect(res.slots.every((s) => s.recipe !== null)).toBe(true);
+  });
+});
+
+describe('autoPlanWeek — history-repeat cap (maxHistoryRepeats)', () => {
+  it('places at most maxHistoryRepeats history recipes when fresh candidates exist', () => {
+    // History recipes score far higher — without the cap they would sweep the week.
+    const history = Array.from({ length: 7 }, (_, i) => mr({ id: `h${i}`, score: 50 }));
+    const fresh = Array.from({ length: 10 }, (_, i) => mr({ id: `f${i}`, score: 1 }));
+    const res = run([...history, ...fresh], {
+      recentlyPlannedIds: new Set(history.map((r) => r.id)),
+      maxHistoryRepeats: 2,
+      random: mulberry32(42),
+    });
+    const historyPicks = filled(res).filter((s) => s.recipe!.id.startsWith('h'));
+    expect(filled(res)).toHaveLength(7);
+    expect(historyPicks).toHaveLength(2); // they outscore, so they take exactly the budget
+  });
+
+  it('falls back to history recipes rather than leaving slots empty (thin pool)', () => {
+    // Only history recipes exist — the cap must self-disable, never starve the week.
+    const history = Array.from({ length: 10 }, (_, i) => mr({ id: `h${i}`, score: 10 }));
+    const res = run(history, {
+      recentlyPlannedIds: new Set(history.map((r) => r.id)),
+      maxHistoryRepeats: 2,
+      random: mulberry32(42),
+    });
+    expect(filled(res)).toHaveLength(7);
+  });
+
+  it('no cap when recentlyPlannedIds is absent (legacy callers unchanged)', () => {
+    const history = Array.from({ length: 7 }, (_, i) => mr({ id: `h${i}`, score: 50 }));
+    const fresh = Array.from({ length: 10 }, (_, i) => mr({ id: `f${i}`, score: 1 }));
+    const res = run([...history, ...fresh], { random: mulberry32(42) });
+    expect(filled(res).filter((s) => s.recipe!.id.startsWith('h'))).toHaveLength(7);
   });
 });

@@ -43,8 +43,14 @@ export interface Profile {
   email_verified_at: string | null;
   last_active_at: string | null;
   notify_winback: boolean;
+  notify_sunday_drop?: boolean; // opt-in for the weekly Sunday Drop push; DB default TRUE
   timezone?: string | null; // IANA zone for per-user local scheduling (Sunday Drop); DB default 'UTC'
   plan_preferences?: PlanTunings | null; // last-used Auto Plan tuning toggles (own column, not taste_profile)
+  // SERVER-view entitlement — written ONLY by the RC webhook. UI gating uses the RC client
+  // flag (userStore.isPremium); anything that mirrors a server BILLING decision (e.g. the
+  // taste-profile auto-refresh policy) must read THIS, or webhook lag lets a "premium"
+  // client silently spend the free tier's budget.
+  is_premium?: boolean;
 }
 
 // ─── Macros ───────────────────────────────────────────────────────────────────
@@ -170,6 +176,16 @@ export interface AutoPlanInput {
   // eating_style is 'variety'. undefined = 'cohesion'.
   proteinMode?: 'cohesion' | 'variety';
   random: () => number;                  // injected RNG (Math.random in prod, seeded in tests)
+  // Cross-week variety (the "same plan every Sunday" fix). recentlyPlannedIds = recipes the
+  // user was shown in the last few weeks' plans/drops; at most maxHistoryRepeats of them may
+  // be placed per build (the "1–2 anchors" budget) as long as fresh candidates exist —
+  // the cap self-disables rather than leave a slot empty. Undefined = no cap (legacy).
+  recentlyPlannedIds?: Set<string>;
+  maxHistoryRepeats?: number;
+  // Per-slot pick = sampled from the top-N ranked candidates (mirrors batch mode's
+  // BATCH_SHUFFLE_POOL) so equally-good weeks vary run to run. 1/undefined = strict argmax
+  // (byte-identical to the pre-sampling behavior — no extra rng draw).
+  shufflePool?: number;
 }
 
 export interface AutoPlanResult {
@@ -178,6 +194,28 @@ export interface AutoPlanResult {
   totalCost: number;        // sum of cost_per_serving for filled slots
   overBudget: boolean;      // totalCost exceeded the base (pre-tolerance) budget
   explanation: string;      // one-paragraph "why these"
+}
+
+// A Sunday Drop PROPOSAL — the lean serialized week stored on sunday_drops.proposed_plan.
+// Recipe ids only (the client hydrates to full Recipe objects on review), so the row stays small
+// and the proposal never goes stale. The client reconstructs an AutoPlanResult from this for the
+// Build-my-week review sheet.
+export interface ProposedSlot {
+  day: number;
+  mealType: MealType;
+  recipeId: string;
+  servingsMultiplier: number;
+  explanation: string | null;
+  provenance: SlotProvenance;
+  alternateIds: string[];   // next-best candidates (powers per-slot swap on review)
+}
+
+export interface ProposedPlan {
+  slots: ProposedSlot[];
+  explanation: string;
+  totalCost: number;
+  overBudget: boolean;
+  generateNeeded: number;
 }
 
 // ─── Reviews ─────────────────────────────────────────────────────────────────

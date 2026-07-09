@@ -53,12 +53,18 @@ function makeRow(overrides: Partial<{
   };
 }
 
+// fetchDiscoverRecipes now pages the catalog via fetchAllCatalogRows:
+// select → or → is → order('id') → range(from, to). Test row sets are small (< one page),
+// so the first range returns everything and the short page terminates the loop.
 function setupDB(rows: ReturnType<typeof makeRow>[]) {
   mockFrom.mockReturnValue({
     select: jest.fn().mockReturnValue({
       or: jest.fn().mockReturnValue({
         is: jest.fn().mockReturnValue({
-          limit: jest.fn().mockResolvedValue({ data: rows, error: null }),
+          order: jest.fn().mockReturnValue({
+            range: jest.fn((from: number, to: number) =>
+              Promise.resolve({ data: rows.slice(from, to + 1), error: null })),
+          }),
         }),
       }),
     }),

@@ -70,6 +70,9 @@ function makeRow(overrides: {
 
 let orCapture: string | undefined;
 
+// fetchDiscoverRecipes now pages via fetchAllCatalogRows: select → or → is → order → range.
+// The .or() string must stay byte-identical (this is the regression guard), so it's still
+// captured here from the same position in the chain.
 function setupDB(rows: ReturnType<typeof makeRow>[]) {
   orCapture = undefined;
   mockFrom.mockReturnValue({
@@ -78,7 +81,10 @@ function setupDB(rows: ReturnType<typeof makeRow>[]) {
         orCapture = str;
         return {
           is: jest.fn().mockReturnValue({
-            limit: jest.fn().mockResolvedValue({ data: rows, error: null }),
+            order: jest.fn().mockReturnValue({
+              range: jest.fn((from: number, to: number) =>
+                Promise.resolve({ data: rows.slice(from, to + 1), error: null })),
+            }),
           }),
         };
       }),

@@ -1,10 +1,40 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
-import type { Profile, Recipe, SwipeEvent, SavedRecipe, PantryItem, GroceryList, MealPlan, MealSlot, OnboardingState, Macros, AppMode, RecipeNote, Review, CreatorStats, AutoPlanResult, MealType, PlanTunings } from '@/types';
+import type { Profile, Recipe, SwipeEvent, SavedRecipe, PantryItem, GroceryList, MealPlan, MealSlot, OnboardingState, Macros, AppMode, RecipeNote, Review, CreatorStats, AutoPlanResult, MealType, PlanTunings, ProposedPlan } from '@/types';
 import type { BadgeStats } from '@/lib/badges';
 import { inferDietaryTags } from './dietaryClassifier';
 import { getApiBaseUrl } from './apiBaseUrl';
-import { autoPlanWeek, mergeLockedSlots } from './autoPlan';
+import {
+  scoreRecipe,
+  planWeekFromInputs,
+  sessionLeftSwipes,
+  sessionShownIds,
+  sessionCuisineSwipes,
+  COMMON_STAPLES,
+} from './weekPlanCore';
+// Re-export the scorer so existing consumers (Discover, scoreRecipe tests) keep importing
+// it from '@/lib/api'. The implementation now lives in the RN-free lib/weekPlanCore.ts so
+// the Sunday Drop Vercel cron can share the exact same ranking.
+export { scoreRecipe };
+// Catalog construction (dietary hard-filter + row→Recipe map) lives in the RN-free
+// lib/deckFilter.ts so the Sunday Drop cron builds the SAME catalog as the client deck.
+import {
+  buildIngredientText,
+  DECK_ALL_MEAT,
+  DECK_LAND_MEAT,
+  filterAndMapDeckRecipes,
+  fetchAllCatalogRows,
+} from './deckFilter';
+// Re-validates stored Sunday Drop proposals against the user's CURRENT prefs at hydration.
+import { violatesCurrentPrefs } from './sundayDrop';
+// Cross-week plan memory — the "same recipes every week" fix. Shared with the cron.
+import {
+  buildRecentPlanHistory,
+  addDaysUtc,
+  HISTORY_WEEKS,
+  type RecentPlanHistory,
+} from './planHistory';
+import { getWeekStart } from './utils';
 
 // ─── Macro AsyncStorage cache ─────────────────────────────────────────────────
 // Persists macro data across sessions so Spoonacular is never called twice for
@@ -130,43 +160,9 @@ export async function getRecipeById(id: string): Promise<Recipe | null> {
 
 // ─── Discover Deck ────────────────────────────────────────────────────────────
 
-// Builds a single lowercase string from all ingredient names for keyword scanning.
-// Handles both string[] and {name:string}[] shapes that may exist in DB rows.
-function buildIngredientText(ingredients: any[]): string {
-  return ingredients
-    .map((i) => (typeof i === 'string' ? i : (i?.name ?? '')))
-    .join(' ')
-    .toLowerCase();
-}
-
-const DECK_EXCLUDE = [
-  'cake', 'pudding', 'tart', 'pie', 'biscuit', 'cookie', 'brownie', 'muffin',
-  'pancake', 'waffle', 'ice cream', 'sorbet', 'custard', 'fudge', 'candy',
-  'cheesecake', 'éclair', 'eclair', 'donut', 'doughnut', 'cobbler', 'crumble',
-  'meringue', 'macaron', 'profiterole', 'tiramisu', 'panna cotta', 'creme brulee',
-  'bread pudding', 'sticky toffee', 'sourdough', 'baguette', 'focaccia',
-  'brioche', 'challah', 'pretzel', 'croissant', 'scone', 'loaf', 'flatbread',
-  // desserts that slip through title-only filtering
-  'mousse', 'churro', 'baklava', 'halva', 'parfait', 'gelato', 'sundae',
-  'trifle', 'syllabub', 'compote', 'praline', 'nougat', 'brittle', 'torte',
-  'gateau', 'madeleine', 'financier', 'clafoutis', 'beignet', 'churros',
-  'honeycomb', 'roly poly', 'spotted dick', 'treacle', 'jam tart',
-];
-
-const DECK_LAND_MEAT = [
-  'chicken', 'beef', 'pork', 'lamb', 'bacon', 'ham', 'turkey', 'duck',
-  'veal', 'mutton', 'meatball', 'sausage', 'ribs', 'brisket', 'chorizo', 'mince',
-  'steak', 'kebab', 'shawarma', 'keema', 'katsu', 'salami', 'pepperoni',
-  'venison', 'goat', 'rabbit', 'offal', 'liver', 'kidney', 'tripe',
-];
-
-const DECK_SEAFOOD = [
-  'salmon', 'tuna', 'fish', 'prawn', 'shrimp', 'crab', 'lobster', 'mussel',
-  'anchovy', 'cod', 'haddock', 'sardine', 'mackerel', 'halibut', 'tilapia',
-  'bass', 'trout', 'catfish', 'clam', 'oyster', 'squid', 'calamari', 'seafood',
-];
-
-const DECK_ALL_MEAT = [...DECK_LAND_MEAT, ...DECK_SEAFOOD];
+// buildIngredientText + DECK_EXCLUDE / DECK_LAND_MEAT / DECK_SEAFOOD / DECK_ALL_MEAT +
+// filterAndMapDeckRecipes now live in lib/deckFilter.ts (RN-free, shared with the Sunday
+// Drop cron). Imported at the top of this file.
 
 // Hard-excluded from Meal Prep mode
 const MEAL_PREP_SHELLFISH = [
@@ -228,69 +224,13 @@ export async function fetchDiscoverRecipes(dietaryGoals: string[] = []): Promise
     return deckCache.data;
   }
 
-  const { data, error } = await supabase
-    .from('recipes')
-    .select('id, title, description, cuisine, source_type, dietary_tags, meal_types, badge, avg_rating, save_count, image_url, external_id, prep_time_mins, cook_time_mins, servings, cost_per_serving, macros, ingredients, steps, meal_prep_friendly, skill_level, is_public, moderation_status, submitted_by, submitter:profiles_public!recipes_submitted_by_fkey(name, avatar_url, username)')
-    // Community submissions no longer go through an approval gate (audit cron
-    // deleted 2026-05-11). Only the is_public flag still gates private drafts.
-    .or('source_type.neq.community,and(source_type.eq.community,is_public.eq.true)')
-    .is('deleted_at', null)
-    .limit(2000);
+  // Full paginated catalog (lib/deckFilter.ts, shared with the Sunday Drop cron). The old
+  // single `.limit(2000)` with no ORDER BY silently excluded ~600 of the 2,600+ recipes from
+  // every deck and every plan — always the same ones (stable Postgres scan order).
+  const data = await fetchAllCatalogRows(supabase);
 
-  if (error) throw error;
-
-  const rows = (data ?? []) as any[];
-  const filtered = rows
-    .filter((r) => {
-      const t = r.title.toLowerCase();
-      if (DECK_EXCLUDE.some((w) => t.includes(w))) return false;
-      if ((r.dietary_tags ?? []).includes('dessert')) return false;
-      if (dietaryGoals.includes('vegan') || dietaryGoals.includes('vegetarian')) {
-        if (DECK_ALL_MEAT.some((w) => t.includes(w))) return false;
-        const ingText = buildIngredientText(r.ingredients ?? []);
-        if (DECK_ALL_MEAT.some((w) => ingText.includes(w))) return false;
-        return true;
-      }
-      if (dietaryGoals.includes('pescatarian')) {
-        if (DECK_LAND_MEAT.some((w) => t.includes(w))) return false;
-        const ingText = buildIngredientText(r.ingredients ?? []);
-        if (DECK_LAND_MEAT.some((w) => ingText.includes(w))) return false;
-        return true;
-      }
-      return true;
-    })
-    .map(
-      (r): Recipe => ({
-        id: r.external_id ?? r.id,  // TheMealDB id for seeded recipes, UUID for generated
-        supabase_id: r.id,          // real UUID — used for swipe history matching in scorer
-        title: r.title,
-        description: r.description,
-        cuisine: r.cuisine,
-        source_type: r.source_type ?? 'curated',
-        ingredients: r.ingredients ?? [],
-        steps: r.steps ?? [],
-        prep_time_mins: r.prep_time_mins,
-        cook_time_mins: r.cook_time_mins,
-        servings: r.servings,
-        cost_per_serving: r.cost_per_serving,
-        dietary_tags: r.dietary_tags ?? [],
-        meal_types: r.meal_types ?? null,
-        macros: r.macros ?? null,
-        badge: r.badge ?? 'none',
-        avg_rating: r.avg_rating ?? 0,
-        save_count: r.save_count ?? 0,
-        image_url: r.image_url,
-        external_id: r.external_id,
-        meal_prep_friendly: r.meal_prep_friendly ?? null,
-        skill_level: r.skill_level ?? null,
-        is_public: r.is_public ?? true,
-        moderation_status: r.moderation_status ?? null,
-        submitted_by: r.submitted_by ?? null,
-        submitter_name: r.submitter?.name ?? null,
-        submitter_avatar: r.submitter?.avatar_url ?? null,
-        submitter_username: r.submitter?.username ?? null,
-      } as Recipe)
-    );
+  // Dietary hard-filter + row→Recipe map: lib/deckFilter.ts (shared with the Sunday Drop cron).
+  const filtered = filterAndMapDeckRecipes(data, dietaryGoals);
 
   deckCache = { data: filtered, goalsKey, at: Date.now() };
   return filtered;
@@ -517,8 +457,9 @@ export async function setUnitSystem(system: 'us' | 'metric'): Promise<void> {
 // In-memory: resets on app close. Cross-session left-swipes persisted to AsyncStorage
 // with a 14-day TTL so recently-rejected recipes don't resurface immediately.
 
-const sessionLeftSwipes = new Set<string>(); // supabase_ids left-swiped this session
-const sessionShownIds = new Set<string>();   // supabase_ids already seen this session
+// sessionLeftSwipes / sessionShownIds / sessionCuisineSwipes are declared in
+// lib/weekPlanCore.ts (so scoreRecipe can read them server-safe) and imported above.
+// The swipe-loggers below mutate those exact instances (live bindings by reference).
 
 const RECENT_LEFT_SWIPES_KEY = 'mise_recent_left_swipes_v1';
 const LEFT_SWIPE_TTL_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
@@ -556,9 +497,8 @@ export function recordAdventureCardLeftSwipe(): void {
   adventureCardCooldown = 10;
 }
 
-// Tracks per-cuisine swipe counts within the current session so the scorer can
-// boost/penalize recipes sharing a cuisine the user is clearly into or avoiding.
-const sessionCuisineSwipes = new Map<string, { right: number; left: number }>();
+// sessionCuisineSwipes (per-cuisine swipe counts this session) is declared in
+// lib/weekPlanCore.ts and imported above; the loggers below mutate that instance.
 
 export function recordSessionSwipe(supabaseId: string, direction: 'left' | 'right', cuisines?: string[]): void {
   sessionShownIds.add(supabaseId);
@@ -726,228 +666,9 @@ export async function getCookedRecipeIds(userId: string): Promise<Set<string>> {
   return new Set((data ?? []).map((r: any) => r.recipe_id));
 }
 
-// Bug 5 — common staples are worth 0.2 instead of 1.0 in pantry match calculations
-// so matching "salt" doesn't inflate the score the same as matching "chicken thighs".
-const COMMON_STAPLES = new Set([
-  'salt', 'pepper', 'olive oil', 'oil', 'water', 'butter',
-  'garlic', 'onion', 'flour', 'sugar', 'eggs',
-]);
-
-export function scoreRecipe(
-  recipe: Recipe,
-  profile: Profile | null,
-  swipeMap: Map<string, { direction: 'left' | 'right'; swiped_at: string }>,
-  savedExternalIds: Set<string>,
-  affinityMap: Map<string, number>,
-  interactionMap: Map<string, { grocery_add: number; cooked: number; unsave: number; view: number; lastCookedAt: string | null }>,
-  pantrySet: Set<string>,
-  leftoversSet?: Set<string>,
-  ratingMap?: Map<string, number>,
-  savedAtMap?: Map<string, string>,
-  flavourDna?: Record<string, { score: number; note: string }> | null,
-  // Auto Plan reuses this scorer. When planning a week we must NOT treat "merely
-  // shown in the Discover deck this session" as a reason to exclude a recipe —
-  // that's a deck-dedup concern, not a taste signal, and it would silently empty
-  // the plan for an engaged user who browsed before tapping "Build my week".
-  // An ACTIVE left-swipe this session is still a real "no", so that stays excluded.
-  forPlanning = false,
-): number {
-  // Bug 7 — session penalty: instantly exclude anything swiped this session
-  const sid = recipe.supabase_id;
-  if (sid && sessionLeftSwipes.has(sid)) return -999;
-  if (sid && !forPlanning && sessionShownIds.has(sid)) return -999;
-
-  let score = Math.random() * 3; // jitter — shuffles similarly-scored recipes each session
-
-  // Currently-saved check — used by both the favourites_rotation bonus and to
-  // suppress double-counting the right-swipe boost on already-saved recipes.
-  const savedKey = recipe.external_id ?? recipe.supabase_id ?? '';
-  const isCurrentlySaved = !!savedKey && savedExternalIds.has(savedKey);
-
-  // favourites_rotation: +3 for saved recipes so old favourites compete without
-  // dominating. Combined with the saved-share cap in fetchScoredDeck, this
-  // gives rotation users 1-in-4 saved slots instead of a flooded deck.
-  if (profile?.eating_style === 'favourites_rotation' && isCurrentlySaved) {
-    score += 3;
-
-    // Save-recency cooldown — mirrors the cooked-recency penalty so users
-    // don't see a recipe they just saved on the very next deck reload.
-    if (sid && savedAtMap) {
-      const savedAtIso = savedAtMap.get(sid);
-      if (savedAtIso) {
-        const daysSinceSaved = (Date.now() - new Date(savedAtIso).getTime()) / 86_400_000;
-        if (daysSinceSaved < 3) score -= 15;
-        else if (daysSinceSaved < 14) score -= 6;
-      }
-    }
-  }
-
-  // Cohort affinity base (0.0–1.0, scaled up) — cold-start signal for new users
-  const affinity = affinityMap.get(recipe.supabase_id ?? '');
-  if (affinity != null) score += affinity * 4;
-
-  // Cuisine match — handles fusion cuisines stored as "cajun,italian"
-  const recipeCuisines = (recipe.cuisine ?? '').split(',').map(c => c.trim()).filter(Boolean);
-  if (recipeCuisines.some(c => profile?.cuisine_preferences?.includes(c))) score += 3;
-
-  // Session cuisine affinity — boost/penalize based on cuisines swiped this session
-  // Capped at 3 swipes per cuisine to avoid runaway feedback loops
-  for (const cuisine of recipeCuisines) {
-    const swipes = sessionCuisineSwipes.get(cuisine);
-    if (swipes) {
-      score += Math.min(swipes.right, 3) * 1.5;
-      score -= Math.min(swipes.left, 3) * 2;
-    }
-  }
-
-  // Dietary goal alignment — Bug 6: trust macro data over tags when available
-  const goals = profile?.dietary_goals ?? [];
-  let dietaryBonus = 0;
-  for (const goal of goals) {
-    const m = recipe.macros as any;
-    if (m) {
-      if (goal === 'high_protein' && m.protein >= 25) dietaryBonus += 10;
-      else if (goal === 'keto' && (m.netCarbs ?? m.carbohydrates - (m.fibre ?? 0)) <= 10) dietaryBonus += 10;
-      else if (goal === 'low_fat' && m.fat <= 10) dietaryBonus += 10;
-      else if (goal === 'low_carb' && m.carbohydrates <= 30) dietaryBonus += 10;
-      else if ((recipe.dietary_tags ?? []).includes(goal)) dietaryBonus += 5;
-    } else {
-      if ((recipe.dietary_tags ?? []).includes(goal)) dietaryBonus += 5;
-    }
-  }
-  score += Math.min(dietaryBonus, 20);
-
-  // Cook DNA (flavourDna) — the learned behavioural palette from the taste profile
-  // (api/taste-profile.ts: explorer/committed/speed/planner/devoted, each 0–100).
-  // Soft nudges only (≤ ~3.5 total), well under the +20 dietary cap, so they break ties
-  // and personalise ranking without overriding declared preferences or swipe history.
-  // Guarded: legacy profiles without a taste_profile are a clean no-op, and a missing
-  // dimension defaults to 50 (neutral → no effect).
-  if (flavourDna) {
-    const dna = (k: string): number => flavourDna[k]?.score ?? 50;
-    const cuisineInPrefs = recipeCuisines.some((c) => profile?.cuisine_preferences?.includes(c));
-    const dnaMins = (recipe.prep_time_mins ?? 0) + (recipe.cook_time_mins ?? 0);
-
-    // explorer (cuisine breadth) — reward a cuisine they don't already prefer (novelty)
-    if (dna('explorer') > 65 && recipeCuisines.length > 0 && !cuisineInPrefs) score += 1.5;
-    // devoted (cuisine loyalty, true inverse of explorer) — a devoted cook is averse to
-    // unfamiliar cuisines, so penalise a NON-preferred cuisine. Preferred-cuisine loyalty is
-    // already rewarded by the +3 cuisine match above; rewarding it again here would double-count.
-    if (dna('devoted') > 65 && recipeCuisines.length > 0 && !cuisineInPrefs) score -= 1.5;
-    // speed (fast-cooking preference) — reward genuinely quick recipes, nudge away from slow ones
-    if (dna('speed') > 65 && dnaMins > 0) {
-      if (dnaMins <= 25) score += 1;
-      else if (dnaMins > 50) score -= 1.5;
-    }
-    // planner (meal-prep / grocery signals) — reward meal-prep-friendly recipes
-    if (dna('planner') > 65 && recipe.meal_prep_friendly === true) score += 1;
-    // committed (follow-through) has no clean per-recipe signal that doesn't double-count
-    // the rating/cooked logic, so it is intentionally left out of per-recipe scoring here
-    // (it informs deck composition in a later increment).
-  }
-
-  // Eating style
-  if (profile?.eating_style === 'quick_simple') {
-    const totalMins = (recipe.prep_time_mins ?? 0) + (recipe.cook_time_mins ?? 0);
-    if (totalMins > 0 && totalMins <= 30) score += 2;
-    if (totalMins > 45) score -= 2;
-  }
-
-  // Swipe history with temporal decay — older signals fade over ~30 days
-  if (sid) {
-    const ix = interactionMap.get(sid);
-    const swipe = swipeMap.get(sid);
-    if (swipe) {
-      const daysSince = (Date.now() - new Date(swipe.swiped_at).getTime()) / 86_400_000;
-      const decay = Math.exp(-daysSince / 30);
-      if (swipe.direction === 'right') {
-        // Skip when currently saved — the save bonus already represents this signal,
-        // and stacking both was the dominant cause of saved recipes flooding the deck.
-        if ((!ix || !ix.unsave) && !isCurrentlySaved) score += 5 * decay;
-      }
-      if (swipe.direction === 'left') score -= 15 * decay;
-    }
-
-    // Interaction signals — capped at 2 to prevent feedback loop dominating deck
-    if (ix) {
-      score += Math.min(ix.grocery_add, 2) * 3;
-      // Cooked signal: penalise recently-cooked recipes so they don't resurface
-      // immediately, then restore the favourite bonus once enough time has passed.
-      // The positive side scales by eating style — favourites_rotation ×1,
-      // variety ×0 (exploring users: fresh recipes win ties over the back-
-      // catalog), everyone else ×0.5. Recency penalties stay style-blind:
-      // nobody wants last night's dinner back on the deck.
-      if (ix.cooked > 0) {
-        const daysSinceCooked = ix.lastCookedAt
-          ? (Date.now() - new Date(ix.lastCookedAt).getTime()) / 86_400_000
-          : 365;
-        const repeatAffinity =
-          profile?.eating_style === 'favourites_rotation' ? 1
-          : profile?.eating_style === 'variety' ? 0
-          : 0.5;
-        if (daysSinceCooked < 3)  score -= 20; // just cooked — keep off the deck
-        else if (daysSinceCooked < 7)  score -= 10;
-        else if (daysSinceCooked < 14) score -= 4;
-        else if (daysSinceCooked < 30) score += 2 * repeatAffinity;
-        else score += Math.min(ix.cooked, 2) * 4 * repeatAffinity; // familiar favourite
-      }
-      if (ix.unsave > 0) score -= 3;
-      if (ix.view > 2 && !ix.grocery_add && !ix.cooked) score -= 2;
-    }
-
-    // Personal rating signal — user's own star rating on this recipe.
-    // Range: 1★ → -4, 3★ → 0 (neutral), 5★ → +4.
-    // Stronger than the community signal since it's a direct personal preference.
-    if (ratingMap && sid) {
-      const userRating = ratingMap.get(sid);
-      if (userRating != null) score += (userRating - 3) * 2;
-    }
-  }
-
-  // Saved recipes are hard-excluded in fetchScoredDeck before scoring reaches here.
-
-  // Leftover ingredient match — +2 per match, cap +10.
-  // Promotes recipes that use what the user already has before it spoils.
-  if (leftoversSet?.size) {
-    let matches = 0;
-    for (const ing of (recipe.ingredients ?? []) as { name: string }[]) {
-      if (!ing?.name) continue;
-      const n = ing.name.toLowerCase().trim();
-      for (const left of leftoversSet) {
-        if (n === left || n.includes(left) || left.includes(n)) { matches++; break; }
-      }
-    }
-    score += Math.min(matches * 2, 10);
-  }
-
-  // Bug 5 — pantry match with specificity weighting (common staples count less)
-  if (pantrySet.size > 0) {
-    const recipeIngs = (recipe.ingredients ?? []) as { name: string }[];
-    if (recipeIngs.length > 0) {
-      let weightedMatches = 0;
-      let totalWeight = 0;
-      for (const ing of recipeIngs) {
-        if (!ing?.name) continue;
-        const name = ing.name.toLowerCase();
-        const weight = COMMON_STAPLES.has(name) ? 0.2 : 1.0;
-        totalWeight += weight;
-        const pantryMatch = [...pantrySet].some(p => name.includes(p) || p.includes(name));
-        if (pantryMatch) weightedMatches += weight;
-      }
-      const pantryRatio = totalWeight > 0 ? weightedMatches / totalWeight : 0;
-      score += pantryRatio * 20;
-    }
-  }
-
-  // Recipe rating quality — only counts when there's enough signal (>=3 reviews)
-  // to avoid noise from a single 5★ outlier. Centred on 3★ (neutral); 1★ → -3,
-  // 5★ → +3. Modest cap so it competes with cuisine/dietary signals, not dominates.
-  if (recipe.rating_count != null && recipe.rating_count >= 3 && recipe.avg_rating != null) {
-    score += (recipe.avg_rating - 3) * 1.5;
-  }
-
-  return score;
-}
+// COMMON_STAPLES + scoreRecipe now live in lib/weekPlanCore.ts (RN-free, so the Sunday
+// Drop Vercel cron can share the exact same scorer). Both are imported + re-exported at
+// the top of this file, so every existing '@/lib/api' consumer is unchanged.
 
 // Saved-share cap for favourites_rotation. Splits the scored deck into saved
 // vs. unsaved (preserving relative score order within each), then interleaves
@@ -1012,10 +733,11 @@ export async function generateWeekPlan(opts: {
   tunings?: PlanTunings;
   lockedSlots?: { day: number; recipe: Recipe }[]; // user-placed meals to keep on a rebuild
   startDay?: number; // first day index to plan (skip days already past in the current week)
+  weekStart?: string; // Monday 'YYYY-MM-DD' of the week being built — enables cross-week variety
 }): Promise<AutoPlanResult> {
   const { userId, profile, dietaryGoals, savedExternalIds } = opts;
 
-  const [catalog, swipes, affinityMap, interactionMap, pantryItems, leftoversSet, ratingMap, savedAtMap] = await Promise.all([
+  const [catalog, swipes, affinityMap, interactionMap, pantryItems, leftoversSet, ratingMap, savedAtMap, recentHistory] = await Promise.all([
     fetchDiscoverRecipes(dietaryGoals),
     userId ? getRecentSwipes(userId) : Promise.resolve([]),
     userId
@@ -1026,6 +748,9 @@ export async function generateWeekPlan(opts: {
     userId ? fetchLeftoverNames(userId) : Promise.resolve(new Set<string>()),
     userId ? getUserRatings(userId) : Promise.resolve(new Map<string, number>()),
     userId ? getSavedAtMap(userId) : Promise.resolve(new Map<string, string>()),
+    userId && opts.weekStart
+      ? getRecentPlanHistory(userId, opts.weekStart)
+      : Promise.resolve(new Map() as RecentPlanHistory),
   ]);
 
   const pantrySet = new Set(pantryItems.filter((p) => p.ingredient_name).map((p) => p.ingredient_name.toLowerCase()));
@@ -1035,64 +760,28 @@ export async function generateWeekPlan(opts: {
     if (!swipeMap.has(s.recipe_id)) swipeMap.set(s.recipe_id, { direction: s.direction as 'left' | 'right', swiped_at: s.swiped_at });
   }
 
-  const flavourDna = (profile?.taste_profile as any)?.flavourDna ?? null;
-
-  // Hard filter: ingredient dislikes (commandment — never soft-deprioritise, never relax).
-  const dislikes = (profile?.ingredient_dislikes ?? []).map((d) => d.toLowerCase());
-  let pool = dislikes.length === 0 ? catalog : catalog.filter((r) => {
-    const ings = (r.ingredients ?? []) as { name?: string }[];
-    return !ings.some((ing) => ing?.name && dislikes.some((d) => ing.name!.toLowerCase().includes(d)));
-  });
-
-  // Hard filter: skill cap (mirrors fetchScoredDeck) — don't plan recipes above the user's level.
-  const skillLevel = profile?.skill_level;
-  if (skillLevel) {
-    pool = pool.filter((r) => {
-      const recipeSkill = (r as any).skill_level as string | null | undefined;
-      if (recipeSkill === 'confident_chef' && skillLevel !== 'confident_chef') return false;
-      if (recipeSkill === 'home_cook' && skillLevel === 'beginner') return false;
-      if (!recipeSkill) {
-        const totalTime = (r.prep_time_mins ?? 0) + (r.cook_time_mins ?? 0);
-        const beginnerCap = profile?.cooking_frequency === 'just_starting' ? 45 : 60;
-        if (skillLevel === 'beginner' && totalTime > 0 && totalTime > beginnerCap) return false;
-        if (skillLevel === 'home_cook' && totalTime > 0 && totalTime > 120) return false;
-      }
-      return true;
-    });
-  }
-
-  // Only plan recipes we can persist + hydrate. A slot's recipe_id must be a real
-  // recipes.id (supabase_id); a recipe without one can't round-trip through meal_plans
-  // and would be silently dropped on accept — so exclude it from the pool entirely,
-  // keeping the displayed plan identical to the persistable plan (and the optimizer's
-  // no-repeat key consistent with the swap/persist key).
-  pool = pool.filter((r) => !!r.supabase_id);
-
-  // Exclude user-locked recipes from the pool so the optimizer can't auto-pick them on a
-  // DIFFERENT day (they're overlaid back onto their own day by mergeLockedSlots below).
-  const lockedIds = new Set((opts.lockedSlots ?? []).map((ls) => ls.recipe.supabase_id).filter(Boolean));
-  if (lockedIds.size > 0) pool = pool.filter((r) => !lockedIds.has(r.supabase_id));
-
-  const scoreFn = (recipe: Recipe): number =>
-    scoreRecipe(recipe, profile, swipeMap, savedExternalIds, affinityMap, interactionMap, pantrySet, leftoversSet, ratingMap, savedAtMap, flavourDna, true);
-
-  const result = autoPlanWeek({
-    catalog: pool,
+  // All ranking + optimization (dislike/skill/persistable filters, scoreFn binding,
+  // autoPlanWeek, mergeLockedSlots) lives in the RN-free lib/weekPlanCore.ts so the
+  // Sunday Drop cron shares it. flavourDna is derived from profile inside planWeekFromInputs.
+  return planWeekFromInputs({
+    catalog,
+    profile,
+    swipeMap,
     savedExternalIds,
-    scoreFn,
-    mealTypes: opts.mealTypes ?? ['dinner'],
-    days: opts.days ?? 7,
-    startDay: opts.startDay ?? 0,
-    weeklyBudgetUsd: opts.weeklyBudgetUsd ?? null,
+    affinityMap,
+    interactionMap,
+    pantrySet,
     leftoversSet,
+    ratingMap,
+    savedAtMap,
+    weeklyBudgetUsd: opts.weeklyBudgetUsd,
+    mealTypes: opts.mealTypes,
+    days: opts.days,
+    startDay: opts.startDay,
     tunings: opts.tunings,
-    // Respect an explicit "Variety is everything" eating style — those users get proteins spread out
-    // rather than the default similar-proteins clustering (bulk-buy). Everyone else clusters.
-    proteinMode: profile?.eating_style === 'variety' ? 'variety' : 'cohesion',
-    random: Math.random,
+    lockedSlots: opts.lockedSlots,
+    recentHistory,
   });
-  // Keep the user's manually-placed meals on their own days ("You added this").
-  return mergeLockedSlots(result, opts.lockedSlots ?? [], opts.weeklyBudgetUsd ?? null);
 }
 
 /**
@@ -1115,7 +804,7 @@ export async function fetchScoredDeck(
   // Load persisted left-swipes from previous sessions into the session Set
   await loadPersistedLeftSwipes();
 
-  const [deck, swipes, affinityMap, interactionMap, pantryItems, trendingIds, leftoversSet, ratingMap, savedAtMap] = await Promise.all([
+  const [deck, swipes, affinityMap, interactionMap, pantryItems, trendingIds, leftoversSet, ratingMap, savedAtMap, recentHistory] = await Promise.all([
     fetchDiscoverRecipes(dietaryGoals),
     userId ? getRecentSwipes(userId) : Promise.resolve([]),
     userId
@@ -1127,6 +816,9 @@ export async function fetchScoredDeck(
     userId ? fetchLeftoverNames(userId) : Promise.resolve(new Set<string>()),
     userId ? getUserRatings(userId) : Promise.resolve(new Map<string, number>()),
     userId ? getSavedAtMap(userId) : Promise.resolve(new Map<string, string>()),
+    // Cross-week plan memory relative to the CURRENT week — recently planned recipes rank
+    // lower while browsing too (no anchor waiver here: the deck is discovery, not planning).
+    userId ? getRecentPlanHistory(userId, getWeekStart()) : Promise.resolve(new Map() as RecentPlanHistory),
   ]);
 
   const pantrySet = new Set(pantryItems.filter((p) => p.ingredient_name).map((p) => p.ingredient_name.toLowerCase()));
@@ -1195,7 +887,7 @@ export async function fetchScoredDeck(
 
   let scored = filtered.map((r) => ({
     recipe: r,
-    score: scoreRecipe(r, profile, swipeMap, savedExternalIds, affinityMap, interactionMap, pantrySet, leftoversSet, ratingMap, savedAtMap, flavourDna),
+    score: scoreRecipe(r, profile, swipeMap, savedExternalIds, affinityMap, interactionMap, pantrySet, leftoversSet, ratingMap, savedAtMap, flavourDna, false, undefined, recentHistory),
   }));
 
   // Phase 2.5 — Meal Prep mode: only show explicitly flagged recipes
@@ -1244,7 +936,7 @@ export async function fetchScoredDeck(
     console.warn(`[fetchScoredDeck] skill filter too aggressive — relaxing`);
     const rescored = applyModeFilter(afterSaved.map((r) => ({
       recipe: r,
-      score: scoreRecipe(r, profile, swipeMap, savedExternalIds, affinityMap, interactionMap, pantrySet, leftoversSet, ratingMap, savedAtMap, flavourDna),
+      score: scoreRecipe(r, profile, swipeMap, savedExternalIds, affinityMap, interactionMap, pantrySet, leftoversSet, ratingMap, savedAtMap, flavourDna, false, undefined, recentHistory),
     })));
     rescored.sort((a, b) => b.score - a.score);
     finalDeck = rescored;
@@ -1254,7 +946,7 @@ export async function fetchScoredDeck(
     console.warn(`[fetchScoredDeck] very few unsaved recipes — re-including saved as last resort`);
     const rescored = applyModeFilter(afterDislikes.map((r) => ({
       recipe: r,
-      score: scoreRecipe(r, profile, swipeMap, savedExternalIds, affinityMap, interactionMap, pantrySet, leftoversSet, ratingMap, savedAtMap, flavourDna),
+      score: scoreRecipe(r, profile, swipeMap, savedExternalIds, affinityMap, interactionMap, pantrySet, leftoversSet, ratingMap, savedAtMap, flavourDna, false, undefined, recentHistory),
     })));
     rescored.sort((a, b) => b.score - a.score);
     finalDeck = rescored;
@@ -1272,7 +964,7 @@ export async function fetchScoredDeck(
     console.warn(`[fetchScoredDeck] meal_prep pool exhausted (${finalDeck.length}) — soft-failing to all recipes with banner`);
     const rescored = afterDislikes.map((r) => ({
       recipe: r,
-      score: scoreRecipe(r, profile, swipeMap, savedExternalIds, affinityMap, interactionMap, pantrySet, leftoversSet, ratingMap, savedAtMap, flavourDna),
+      score: scoreRecipe(r, profile, swipeMap, savedExternalIds, affinityMap, interactionMap, pantrySet, leftoversSet, ratingMap, savedAtMap, flavourDna, false, undefined, recentHistory),
     }));
     rescored.sort((a, b) => b.score - a.score);
     finalDeck = rescored;
@@ -2081,6 +1773,127 @@ export async function getMealPlanForWeek(userId: string, weekStart: string): Pro
   return data;
 }
 
+// Marks a Sunday Drop as opened (open-rate metric) when the user views the week it populated.
+// The drop's sunday_drops.week_start is the Sunday BEFORE the plan's Monday week_start_date.
+// Fire-and-forget + idempotent (only sets when opened_at is still null). RLS allows the owner
+// to update opened_at (the protect_sunday_drop_columns trigger blocks the cron-owned columns).
+export async function markSundayDropOpened(userId: string, planMonday: string): Promise<void> {
+  try {
+    const [y, m, d] = planMonday.split('-').map(Number);
+    if (!y || !m || !d) return;
+    const sunday = new Date(Date.UTC(y, m - 1, d) - 86_400_000); // Monday − 1 day = drop's Sunday
+    const ws = `${sunday.getUTCFullYear()}-${String(sunday.getUTCMonth() + 1).padStart(2, '0')}-${String(sunday.getUTCDate()).padStart(2, '0')}`;
+    await supabase
+      .from('sunday_drops')
+      .update({ opened_at: new Date().toISOString() })
+      .eq('user_id', userId)
+      .eq('week_start', ws)
+      .is('opened_at', null);
+  } catch {
+    // non-critical analytics write
+  }
+}
+
+// ─── Sunday Drop proposal (review → accept) ─────────────────────────────────────
+// The cron stores a PROPOSAL (it no longer auto-writes meal_plans). The Plan tab fetches the
+// pending proposal, hydrates it into an AutoPlanResult for the Build-my-week review sheet, and
+// on accept writes it to the week + marks accepted_at.
+
+// The drop's sunday_drops.week_start is the Sunday BEFORE the plan's Monday week_start_date.
+function dropSundayForPlanMonday(planMonday: string): string | null {
+  const [y, m, d] = planMonday.split('-').map(Number);
+  if (!y || !m || !d) return null;
+  const sunday = new Date(Date.UTC(y, m - 1, d) - 86_400_000);
+  return `${sunday.getUTCFullYear()}-${String(sunday.getUTCMonth() + 1).padStart(2, '0')}-${String(sunday.getUTCDate()).padStart(2, '0')}`;
+}
+
+export interface PendingSundayDrop {
+  weekStart: string;         // the drop's Sunday (sunday_drops.week_start) — for accept/dismiss
+  proposedPlan: ProposedPlan;
+}
+
+// The un-accepted, un-dismissed Sunday Drop proposal that populates `planMonday` (a Monday
+// week_start_date), or null if none. Drives the Plan-tab review card.
+export async function getPendingSundayDrop(userId: string, planMonday: string): Promise<PendingSundayDrop | null> {
+  const ws = dropSundayForPlanMonday(planMonday);
+  if (!ws) return null;
+  const { data } = await supabase
+    .from('sunday_drops')
+    .select('week_start, proposed_plan, accepted_at, dismissed_at')
+    .eq('user_id', userId)
+    .eq('week_start', ws)
+    .maybeSingle();
+  if (!data || !data.proposed_plan || data.accepted_at || data.dismissed_at) return null;
+  return { weekStart: data.week_start as string, proposedPlan: data.proposed_plan as ProposedPlan };
+}
+
+// Hydrate a stored proposal into an AutoPlanResult for the review sheet (recipe ids → Recipe
+// objects, fetched fresh so the proposal never goes stale). When `currentPrefs` is passed,
+// every slot + alternate is re-validated against the user's CURRENT dietary goals + ingredient
+// dislikes — prefs may have changed since the cron generated the proposal on Sunday, and a
+// now-violating pick must never be shown or written (violating slots hydrate as recipe: null,
+// which the sheet renders as an empty night to fill).
+export async function hydrateSundayDropProposal(
+  proposed: ProposedPlan,
+  currentPrefs?: { dietaryGoals?: string[]; ingredientDislikes?: string[] },
+): Promise<AutoPlanResult> {
+  const ids = new Set<string>();
+  for (const s of proposed.slots) {
+    if (s.recipeId) ids.add(s.recipeId);
+    for (const a of s.alternateIds ?? []) ids.add(a);
+  }
+  const recipes = await getRecipesBySupabaseIds([...ids]);
+  const byId = new Map(recipes.map((r) => [r.supabase_id as string, r]));
+  const violates = (r: Recipe | null | undefined): boolean =>
+    !!r && !!currentPrefs && violatesCurrentPrefs(r, currentPrefs.dietaryGoals, currentPrefs.ingredientDislikes);
+  const slots = proposed.slots.map((s) => {
+    const recipe = byId.get(s.recipeId) ?? null;
+    return {
+      day: s.day,
+      mealType: s.mealType,
+      recipe: violates(recipe) ? null : recipe,
+      provenance: s.provenance,
+      explanation: s.explanation ?? '',
+      servingsMultiplier: s.servingsMultiplier,
+      alternates: (s.alternateIds ?? []).map((a) => byId.get(a)).filter((x): x is Recipe => !!x && !violates(x)),
+    };
+  });
+  return {
+    slots,
+    generateNeeded: proposed.generateNeeded ?? 0,
+    totalCost: proposed.totalCost ?? 0,
+    overBudget: proposed.overBudget ?? false,
+    explanation: proposed.explanation ?? '',
+  };
+}
+
+// User accepted the drop (the week was just written to meal_plans). Idempotent fire-and-forget.
+export async function acceptSundayDrop(userId: string, weekStart: string): Promise<void> {
+  try {
+    await supabase
+      .from('sunday_drops')
+      .update({ accepted_at: new Date().toISOString() })
+      .eq('user_id', userId)
+      .eq('week_start', weekStart)
+      .is('accepted_at', null);
+  } catch {
+    // non-critical
+  }
+}
+
+// User declined this week's drop — hides the review card. Fire-and-forget.
+export async function dismissSundayDrop(userId: string, weekStart: string): Promise<void> {
+  try {
+    await supabase
+      .from('sunday_drops')
+      .update({ dismissed_at: new Date().toISOString() })
+      .eq('user_id', userId)
+      .eq('week_start', weekStart);
+  } catch {
+    // non-critical
+  }
+}
+
 // Past weeks (before `beforeWeekStart`) that actually have meals — most recent first.
 // Powers "Copy a previous week". Over-fetches then filters empty weeks client-side.
 export async function getRecentMealPlanWeeks(
@@ -2100,6 +1913,37 @@ export async function getRecentMealPlanWeeks(
     .filter((r: any) => Array.isArray(r.slots) && r.slots.length > 0)
     .slice(0, limit)
     .map((r: any) => ({ week_start_date: r.week_start_date as string, slots: (r.slots ?? []) as MealSlot[] }));
+}
+
+/**
+ * Cross-week plan memory for the scorer (lib/planHistory.ts): the last HISTORY_WEEKS of this
+ * user's meal_plans + sunday_drops proposals before `targetWeekStart` (a Monday). Mirrors the
+ * cron's fetchRecentPlanHistory (api/cron/_sundayDropData.ts) so Sunday Drop and the manual
+ * "Build my week" rotate identically. Errors degrade to an empty map — variety is a
+ * nice-to-have, never a reason to fail a plan or a deck load.
+ */
+export async function getRecentPlanHistory(
+  userId: string,
+  targetWeekStart: string,
+): Promise<RecentPlanHistory> {
+  try {
+    const mealFrom = addDaysUtc(targetWeekStart, -7 * HISTORY_WEEKS);
+    // sunday_drops.week_start is the SUNDAY before the Monday its drop populates — 1 day earlier.
+    const dropFrom = addDaysUtc(targetWeekStart, -(7 * HISTORY_WEEKS + 1));
+    const [mealRes, dropRes] = await Promise.all([
+      supabase.from('meal_plans').select('week_start_date, slots')
+        .eq('user_id', userId).gte('week_start_date', mealFrom).lt('week_start_date', targetWeekStart),
+      supabase.from('sunday_drops').select('week_start, recipe_ids')
+        .eq('user_id', userId).gte('week_start', dropFrom).lt('week_start', targetWeekStart),
+    ]);
+    return buildRecentPlanHistory({
+      targetWeekStart,
+      mealPlanRows: (mealRes.data ?? []) as { week_start_date: string; slots: MealSlot[] | null }[],
+      dropRows: (dropRes.data ?? []) as { week_start: string; recipe_ids: string[] | null }[],
+    });
+  } catch {
+    return new Map();
+  }
 }
 
 export async function saveMealPlan(
@@ -2497,6 +2341,79 @@ export async function insertCommunityRecipe(input: CommunityRecipeInput): Promis
     .single();
   if (error) throw error;
   return data.id;
+}
+
+// ─── "Cook with what I have" — premium constrained generation (M8 stage 3) ─────
+// Calls /api/generate-from-pantry (JWT; free tier 1/month then 402 = the paywall
+// trigger; premium unlimited). Returns ephemeral Recipe objects (no supabase_id —
+// the sheet's save path inserts them as PRIVATE rows via insertCommunityRecipe).
+
+export interface PantryGenResult {
+  recipes: Recipe[];
+  budgetExhausted: boolean;
+  rateLimited: boolean;
+  failed: boolean;
+}
+
+export async function generateFromPantry(
+  ingredients: string[],
+  opts?: { dietaryGoals?: string[]; avoidIngredients?: string[]; maxMins?: number; count?: number },
+): Promise<PantryGenResult> {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) return { recipes: [], budgetExhausted: false, rateLimited: false, failed: true };
+
+    const res = await fetch(`${getApiBaseUrl()}/api/generate-from-pantry`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        // Schema caps at 60 items — send the first 60 rather than 400-ing a
+        // well-stocked kitchen (order preserved: leftovers/pantry come first).
+        ingredients: ingredients.slice(0, 60),
+        dietaryGoals: opts?.dietaryGoals ?? [],
+        avoidIngredients: opts?.avoidIngredients ?? [],
+        ...(opts?.maxMins ? { maxMins: opts.maxMins } : {}),
+        count: opts?.count ?? 3,
+      }),
+    });
+
+    if (res.status === 402) return { recipes: [], budgetExhausted: true, rateLimited: false, failed: false };
+    // 429 must surface distinctly — "try again tomorrow" is honest; "something
+    // went wrong" is not (and would strand a just-subscribed user in webhook lag).
+    if (res.status === 429) return { recipes: [], budgetExhausted: false, rateLimited: true, failed: false };
+    if (!res.ok) return { recipes: [], budgetExhausted: false, rateLimited: false, failed: true };
+
+    const data = await res.json();
+    const rows: any[] = Array.isArray(data.recipes) ? data.recipes : [];
+    const recipes: Recipe[] = rows.map((r, i) => ({
+      id: `pantry-gen-${Date.now()}-${i}`,
+      supabase_id: undefined,
+      title: r.title,
+      description: r.description ?? '',
+      cuisine: r.cuisine ?? '',
+      source_type: 'community',
+      ingredients: r.ingredients ?? [],
+      steps: r.steps ?? [],
+      prep_time_mins: r.prep_time_mins ?? null,
+      cook_time_mins: r.cook_time_mins ?? null,
+      servings: r.servings ?? 2,
+      cost_per_serving: null,
+      dietary_tags: r.dietary_tags ?? [],
+      macros: r.estimated_macros ? { ...r.estimated_macros, isEstimated: true } : null,
+      badge: 'none',
+      avg_rating: 0,
+      save_count: 0,
+      image_url: null,
+      external_id: null,
+      meal_prep_friendly: r.meal_prep_friendly ?? false,
+      skill_level: 'home_cook',
+      is_public: false,
+    } as unknown as Recipe));
+    return { recipes, budgetExhausted: false, rateLimited: false, failed: false };
+  } catch {
+    return { recipes: [], budgetExhausted: false, rateLimited: false, failed: true };
+  }
 }
 
 // ─── Community recipe enrichment (DEPRECATED 2026-05-12) ──────────────────────
