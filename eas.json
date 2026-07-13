@@ -31,7 +31,7 @@
       "channel": "production",
       "env": {
         "EXPO_PUBLIC_API_URL": "https://getmori.app",
-        "EXPO_PUBLIC_MORI_PLUS_ENABLED": "false",
+        "EXPO_PUBLIC_MORI_PLUS_ENABLED": "true",
         "EXPO_PUBLIC_REVENUECAT_IOS_KEY": "appl_HiVeWnNsCRZKNuWGSgMBsiMKVJm",
         "EXPO_PUBLIC_SUPABASE_URL": "https://gsqvhepgjzjwbezivfid.supabase.co",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdzcXZoZXBnanpqd2Jleml2ZmlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4MzA2NDIsImV4cCI6MjA4ODQwNjY0Mn0.m0TsiNsRrKro6MYx9RE3GsttehF84ShdCSPZVs7wqp4",

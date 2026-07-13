@@ -192,7 +192,7 @@ export function isPremium(info: CustomerInfo | null | undefined): boolean {
 }
 
 /**
- * Fetch the current Offering (3 packages: monthly, annual, lifetime).
+ * Fetch the current Offering (2 packages: monthly, annual — lifetime SKU cut 2026-06-10).
  * Returns null if RC is unavailable.
  */
 export async function getOfferings(): Promise<PurchasesOffering | null> {
