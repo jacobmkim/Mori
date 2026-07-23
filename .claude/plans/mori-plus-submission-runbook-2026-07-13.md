@@ -19,7 +19,7 @@
 
 ## Phase 1 — Deploy server (one command, needs your explicit go)
 
-1. 👤→🤖 **Prod deploy:** say "deploy to production" and I run `vercel deploy --prod` + immediately smoke-test:
+1. ✅ **DONE 2026-07-22 — deployed + smoke-tested.** All new endpoints live and locked (generate-from-pantry/sunday-drop cron/rc-webhook/taste-profile all 401 unauth, none 404), terms/privacy/landing 200 with the redesign served, macros unharmed. Original checklist for reference:
    - `POST /api/generate-from-pantry` → expect **401** (JWT required), not 404
    - `GET /api/cron/sunday-drop` → expect **401** (cron secret), not 404
    - `POST /api/rc-webhook` → expect **401**
@@ -35,8 +35,8 @@
 
 ## Phase 3 — On-device debug pass (the kimmy_eatz checklist)
 
-6. 🤖 **Generate a fresh Sunday Drop proposal** for the upcoming week (the pending one is for week 2026-07-05 — past, so the review card's past-week gate hides it). I run `scripts/run-sunday-drop.mts` for kimmy_eatz on your word, after Phase 1.
-   - Gotcha (now sharper with the webhook live): **any RC event for a user resets manual `is_premium` comps** — re-comp kimmy_eatz in Studio right before generating if it flipped.
+6. ✅ **DONE 2026-07-22 — fresh drop generated + pushed.** kimmy_eatz drop for week 2026-07-19 (→ current plan week Mon 07-20): 7 slots, push sent, undecided. Stale 07-05 proposal dismissed. **Variety fix validated in prod: only 1/7 overlap with the previous drop (≤2 anchor budget).** Account pre-verified: is_premium intact, push_token present, opt-in on, tz America/Chicago.
+   - Gotcha (now sharper with the webhook live): **any RC event for a user resets manual `is_premium` comps** — re-comp kimmy_eatz in Studio before any cron re-run if a sandbox purchase fires first.
 7. 👤 **On-device (dev client + `npx expo start`; no new native build needed — RC SDK unchanged since the last dev build):**
    - Push arrives → tap → lands on the right Plan week (`mori://plan?week=`) — including from cold start
    - Review card renders → "Review & accept" opens the sheet with 7 dinners → Shuffle respects locked slots → accept writes the week + confirmation state
