@@ -29,10 +29,7 @@
 
 ## Phase 2 — RevenueCat dashboard (👤 ~10 min, I supply exact strings)
 
-3. 👤 **Register the webhook:** RC dashboard → Project → Integrations → Webhooks:
-   - URL: `https://getmori.app/api/rc-webhook`
-   - Authorization header value: `Bearer <RC_WEBHOOK_SECRET value>` — **must include the literal `Bearer ` prefix** (our code compares the full string; pasting the raw secret alone will 401 every event). Get the value: Vercel dashboard → project-x → Settings → Environment Variables → RC_WEBHOOK_SECRET → reveal (or `vercel env pull --environment=production`).
-   - Send a test event → expect 200 in RC's delivery log.
+3. ✅ **Webhook registration — ALREADY DONE + VERIFIED WORKING (2026-07-13 check):** `rc_webhook_events` holds **77 processed events** including a full sandbox lifecycle (RENEWAL ×3 → CANCELLATION → EXPIRATION on 2026-06-30), and 1 profile carries a `revenuecat_user_id`. Registration, `Bearer` auth, and end-to-end processing are all confirmed — no action needed.
 4. 👤 **Paywall footer links** (RC Paywalls v2 editor): Terms of Use → `https://getmori.app/terms` · Privacy → `https://getmori.app/privacy`. Confirm the paywall + `default` offering (monthly + annual only) is **published**.
 5. 👤 Confirm Customer Center is enabled (manage/cancel/restore) — code already calls it.
 
