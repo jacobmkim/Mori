@@ -108,6 +108,15 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
   const { appearanceMode, setAppearanceMode, unitSystem, setUnitSystem } = useDiscoverStore();
   const [editVisible, setEditVisible] = useState(false);
   const [pantryVisible, setPantryVisible] = useState(false);
+  // Native screen (RC Customer Center / paywall) to present after this sheet's
+  // modal fully dismisses — presenting over the open modal is a silent iOS no-op
+  // (RC #1201: presentation goes from the root VC). NB onDismiss is iOS-only.
+  const afterCloseAction = useRef<null | (() => void)>(null);
+  useEffect(() => {
+    // Re-opening the sheet disarms any action that never got to fire, so a
+    // stale paywall can't replay on a later, unrelated dismissal.
+    if (visible) afterCloseAction.current = null;
+  }, [visible]);
   const [adventureCards, setAdventureCards] = useState(true);
   const savedTasteProfile = (profile?.taste_profile as any);
   const [tasteProfile, setTasteProfile] = useState<string | null>(savedTasteProfile?.text ?? null);
@@ -319,6 +328,14 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
         animationType="slide"
         presentationStyle="pageSheet"
         onRequestClose={onClose}
+        onDismiss={() => {
+          // Run any native-screen presentation AFTER this sheet's modal is fully
+          // gone — iOS refuses (silently) to present the RC Customer Center or
+          // paywall over an already-presented modal (TestFlight dead-tap bug).
+          const fn = afterCloseAction.current;
+          afterCloseAction.current = null;
+          fn?.();
+        }}
       >
         <View style={{ flex: 1, backgroundColor: colors.background }}>
           {/* Handle + close */}
@@ -597,8 +614,11 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
                     icon={mpEntry.icon}
                     label={mpEntry.label}
                     onPress={() => {
-                      if (mpEntry.mode === 'manage') presentManageSubscription();
-                      else presentMoriPlusPaywall();
+                      // Close the sheet first, present after onDismiss — see Modal
+                      // onDismiss above (present-over-modal is a silent iOS refusal).
+                      afterCloseAction.current =
+                        mpEntry.mode === 'manage' ? presentManageSubscription : presentMoriPlusPaywall;
+                      onClose();
                     }}
                   />
                   {/* Restore Purchases — Apple requires it in Settings (2nd location; the paywall has the 1st). */}

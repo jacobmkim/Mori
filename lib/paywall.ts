@@ -101,7 +101,12 @@ export async function gateMoriPlus(): Promise<boolean> {
 export async function presentManageSubscription(): Promise<void> {
   if (!flags.moriPlusEnabled) return;
   const ui = getPaywallUI();
-  if (!ui?.presentCustomerCenter) return;
+  if (!ui?.presentCustomerCenter) {
+    // Never a dead tap: the native UI module being absent is invisible state the
+    // user can't diagnose — fall back to Apple's own subscription management.
+    openSubscriptionSettingsFallback();
+    return;
+  }
   try {
     await ui.presentCustomerCenter();
     // Reconcile after dismiss — a synchronous cancel/refund inside the Customer
@@ -109,6 +114,22 @@ export async function presentManageSubscription(): Promise<void> {
     await refreshCustomerInfo();
   } catch (err) {
     reportError(err, 'customer-center');
+    openSubscriptionSettingsFallback();
+  }
+}
+
+/**
+ * Last-resort manage path: deep-link to iOS's subscription settings. Used when
+ * the Customer Center can't present (module absent / native refusal) so the
+ * "manage subscription" row is never a silent no-op (Apple checks this flow).
+ */
+function openSubscriptionSettingsFallback(): void {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { Linking } = require('react-native');
+    Linking.openURL('https://apps.apple.com/account/subscriptions').catch(() => {});
+  } catch {
+    /* never crash the host path */
   }
 }
 

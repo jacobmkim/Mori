@@ -73,3 +73,23 @@ describe('present* guards — safe no-op when native module is absent (Expo Go)'
     await expect(presentManageSubscription()).resolves.toBeUndefined();
   });
 });
+
+describe('presentManageSubscription — App Store fallback (never a dead tap)', () => {
+  it('module absent: flag ON opens Apple subscription management; flag OFF is a full no-op', async () => {
+    const { Linking } = require('react-native');
+    const spy = jest.spyOn(Linking, 'openURL').mockResolvedValue(true as any);
+    try {
+      (flags as any).moriPlusEnabled = true;
+      await presentManageSubscription();
+      expect(spy).toHaveBeenCalledWith('https://apps.apple.com/account/subscriptions');
+
+      const callsWhenOn = spy.mock.calls.length;
+      (flags as any).moriPlusEnabled = false;
+      await presentManageSubscription();
+      expect(spy.mock.calls.length).toBe(callsWhenOn); // dark = no fallback fired
+    } finally {
+      (flags as any).moriPlusEnabled = true; // restore for other suites
+      spy.mockRestore();
+    }
+  });
+});
