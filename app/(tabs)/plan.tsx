@@ -274,7 +274,9 @@ export default function Plan() {
     let cancelled = false;
     // Never offer a proposal for a week that's already over — accepting would rewrite history
     // (an un-actioned old drop row otherwise resurfaces when the user browses back).
-    if (!userId || weekOffset < 0) { setPendingDrop(null); return; }
+    // Kill switch also suppresses the review card — otherwise pulling the flag would
+    // hide "Build my week" while a pending drop still handed out a full Auto Plan.
+    if (!userId || weekOffset < 0 || !flags.moriPlusEnabled) { setPendingDrop(null); return; }
     getPendingSundayDrop(userId, weekStart)
       .then((drop) => {
         if (cancelled) return;

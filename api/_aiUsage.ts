@@ -21,7 +21,10 @@ function getSupabase() {
 export const FREE_AI_LIMITS: Record<string, number> = {
   'generate-recipe': 3,
   'generate-from-pantry': 1,
-  'taste-profile': 1,
+  // 3, not 1: manual taste-profile refresh was uncapped in the shipped free app,
+  // so a low cap would put an upsell on a button users already had. At Haiku
+  // prices the headroom is ~free; the cron still refreshes everyone at 30 days.
+  'taste-profile': 3,
   'substitutions': 5,
 };
 export const DEFAULT_FREE_AI_LIMIT = 3;

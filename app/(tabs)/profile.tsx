@@ -655,7 +655,7 @@ export default function Profile() {
       } else if (res.ok && json.reason === 'not_enough_data') {
         setTasteError('Swipe more recipes first — need at least 5 to build your profile.');
       } else if (res.status === 402) {
-        if (!auto) setTasteError('You’ve used this month’s free refresh — it’s back on the 1st. Mori+ refreshes anytime.');
+        if (!auto) setTasteError('You’ve used this month’s free refreshes — they’re back on the 1st. Mori+ refreshes anytime.');
       } else {
         // Auto refreshes fail silently on ANY error — the user didn't ask for them and
         // the existing profile is still fine to show.

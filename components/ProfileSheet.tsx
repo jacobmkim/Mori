@@ -206,7 +206,7 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
         // Placeholder guidance, not an error — only reachable when no real profile exists.
         setTasteProfile('Swipe on a few more recipes — we need at least 5 swipes to build your profile.');
       } else if (res.status === 402) {
-        if (!auto) Alert.alert('Free refresh used', 'You’ve used this month’s free refresh — it’s back on the 1st. Mori+ refreshes anytime.');
+        if (!auto) Alert.alert('Free refreshes used', 'You’ve used this month’s free refreshes — they’re back on the 1st. Mori+ refreshes anytime.');
       } else if (res.status === 429) {
         if (!auto) Alert.alert('Couldn’t refresh', 'Rate limit reached — try again tomorrow.');
       } else {
