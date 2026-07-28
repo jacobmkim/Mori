@@ -85,9 +85,29 @@ export async function gateMoriPlus(): Promise<boolean> {
     const outcome = mapPaywallResult(
       await ui.presentPaywallIfNeeded({ requiredEntitlementIdentifier: ENTITLEMENT_ID }),
     );
+    // NOT_PRESENTED is RC saying "no paywall shown" — usually "already entitled", but it also
+    // covers an unfetchable/unpublished offering. Auto Plan runs entirely client-side, so this
+    // boolean is the ONLY gate on the flagship; confirm against the entitlement itself rather
+    // than inferring access from RC declining to present.
+    if (outcome === 'not_presented') return await verifyEntitlement();
     return grantsAccess(outcome);
   } catch (err) {
     reportError(err, 'paywall-gate');
+    return false;
+  }
+}
+
+/** Read the live entitlement. Fails closed — a lookup error must not grant access. */
+async function verifyEntitlement(): Promise<boolean> {
+  try {
+    // refreshCustomerInfo() pulls fresh CustomerInfo from RC and pushes the entitlement
+    // through the same listener that owns isPremium; read that rather than a second source.
+    await refreshCustomerInfo();
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { useUserStore } = require('../stores/userStore');
+    return !!useUserStore.getState().isPremium;
+  } catch (err) {
+    reportError(err, 'paywall-verify');
     return false;
   }
 }

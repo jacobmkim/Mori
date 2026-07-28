@@ -1061,6 +1061,7 @@ function DeleteAccountModal({
   visible, onClose, onDeleted,
 }: { visible: boolean; onClose: () => void; onDeleted: () => void }) {
   const colors = useTheme();
+  const isPremium = useUserStore((s) => s.isPremium);
   const [step, setStep] = useState<'warn' | 'confirm'>('warn');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -1139,6 +1140,11 @@ function DeleteAccountModal({
                   'Your meal plans, pantry, and grocery lists',
                   'Your notes, reviews, and badges',
                   'Recipes you submitted to the community (de-attributed and retired)',
+                  // Apple 5.1.1(v): deleting the account does NOT cancel an App Store
+                  // subscription — say so at the point of deletion, not just in the Terms.
+                  ...(isPremium
+                    ? ['Note: this does NOT cancel your Mori+ subscription — cancel it in Settings › Apple Account › Subscriptions, or you will continue to be billed']
+                    : []),
                 ].map((item, i) => (
                   <View key={i} style={{ flexDirection: 'row', gap: 8 }}>
                     <Text style={{ color: colors.textMuted }}>•</Text>

@@ -39,13 +39,18 @@ jest.mock('@supabase/supabase-js', () => ({
       if (table === 'profiles') {
         return {
           select: () => ({
-            eq: () => ({
-              not: () => {
-                const p: any = Promise.resolve(mockUsers); // `await q`
-                p.eq = () => Promise.resolve(mockUsers);     // optional `.eq('id', onlyUserId)`
-                return p;
-              },
-            }),
+            // The push_token pre-filter was REMOVED from the query (generation must not depend
+            // on notifications); `.not()` stays supported so this mock tolerates either shape.
+            eq: () => {
+              const p: any = Promise.resolve(mockUsers); // `await q`
+              p.eq = () => Promise.resolve(mockUsers);    // optional `.eq('id', onlyUserId)`
+              p.not = () => {
+                const q: any = Promise.resolve(mockUsers);
+                q.eq = () => Promise.resolve(mockUsers);
+                return q;
+              };
+              return p;
+            },
           }),
           update: (patch: any) => ({
             eq: async (_c: string, id: string) => { profileUpdates.push({ patch, id }); return { error: null }; },
@@ -183,16 +188,25 @@ describe('sunday-drop — eligibility', () => {
     expect(mockSendExpoPush).toHaveBeenCalledTimes(1);
   });
 
-  it('skips an opted-out user (notify_sunday_drop === false)', async () => {
+  // Notification prefs gate DELIVERY ONLY. The proposal must still be generated and stored so
+  // the in-app review card appears — gating generation silently denied the flagship to every
+  // subscriber who declined iOS notifications.
+  it('opted-out user (notify_sunday_drop === false): still generates, does NOT push', async () => {
     mockUsers = { data: [premiumUser({ notify_sunday_drop: false })], error: null };
-    await handler(makeReq({ force: '1' }) as any, makeRes() as any);
+    const res = makeRes();
+    await handler(makeReq({ force: '1' }) as any, res as any);
     expect(mockSendExpoPush).not.toHaveBeenCalled();
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ generated: 1, pushed: 0 }));
+    expect(sundayDropUpdates.some((u) => u.proposed_plan)).toBe(true);
   });
 
-  it('skips a user without a push_token', async () => {
+  it('user without a push_token: still generates, does NOT push', async () => {
     mockUsers = { data: [premiumUser({ push_token: null })], error: null };
-    await handler(makeReq({ force: '1' }) as any, makeRes() as any);
+    const res = makeRes();
+    await handler(makeReq({ force: '1' }) as any, res as any);
     expect(mockSendExpoPush).not.toHaveBeenCalled();
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ generated: 1, pushed: 0 }));
+    expect(sundayDropUpdates.some((u) => u.proposed_plan)).toBe(true);
   });
 });
 

@@ -245,6 +245,8 @@ describe('rc-webhook handler — apply-then-mark idempotency', () => {
   let order: string[];
   let inserted: any[];
   let updatedWith: any[];
+  let updateMatchedRows: any[];
+  let currentExpiry: string | null;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -256,14 +258,25 @@ describe('rc-webhook handler — apply-then-mark idempotency', () => {
     order = [];
     inserted = [];
     updatedWith = [];
+    updateMatchedRows = [{ id: 'u1' }]; // rows the profiles UPDATE reports touching
+    currentExpiry = null;               // profiles.premium_expires_at seen by the stale-event guard
     mockFrom.mockImplementation((table: string) => ({
       update: (payload: any) => {
         updatedWith.push({ table, payload });
         return {
-          eq: () => { order.push(`update:${table}`); return Promise.resolve({ error: profileUpdateError }); },
+          eq: () => {
+            order.push(`update:${table}`);
+            const result = { data: updateMatchedRows, error: profileUpdateError };
+            // Thenable AND chainable: prod awaits `.eq(...).select('id')`.
+            return Object.assign(Promise.resolve(result), { select: () => Promise.resolve(result) });
+          },
           in: () => { order.push(`update-in:${table}`); return Promise.resolve({ error: profileUpdateError }); },
         };
       },
+      // Read path used by the stale-revoke ordering guard.
+      select: () => ({
+        eq: () => ({ maybeSingle: () => Promise.resolve({ data: currentExpiry ? { premium_expires_at: currentExpiry } : null, error: null }) }),
+      }),
       insert: (payload: any) => {
         order.push(`insert:${table}`);
         inserted.push({ table, payload });
@@ -334,6 +347,52 @@ describe('rc-webhook handler — apply-then-mark idempotency', () => {
     const grant = updatedWith.find((u) => u.payload.is_premium === true);
     expect(revoke).toBeTruthy();
     expect(grant).toBeTruthy();
+  });
+
+  // Regression: an EXPIRED receipt restored onto a fresh account granted premium FOREVER —
+  // the grant never wrote premium_expires_at, and isPremiumActive reads NULL as "never expires".
+  // Repeatable per new account = unlimited free Mori+.
+  it('TRANSFER always writes an expiry (no permanent free-premium grant)', async () => {
+    const TO = '99999999-0000-0000-0000-000000000002';
+    await handler(post({ id: 'evt-xfer-noexp', type: 'TRANSFER', transferred_to: [TO] }), makeRes());
+    const grant = updatedWith.find((u) => u.payload.premium_expires_at !== undefined && u.payload.is_premium === true);
+    expect(grant).toBeTruthy();
+    expect(grant.payload.premium_expires_at).toEqual(expect.any(String));
+    expect(Date.parse(grant.payload.premium_expires_at)).toBeGreaterThan(Date.now());
+  });
+
+  it('TRANSFER of an already-expired entitlement does NOT grant premium', async () => {
+    const TO = '99999999-0000-0000-0000-000000000002';
+    const past = Date.now() - 86_400_000;
+    await handler(post({ id: 'evt-xfer-expired', type: 'TRANSFER', transferred_to: [TO], expiration_at_ms: past }), makeRes());
+    const grant = updatedWith.find((u) => u.payload.premium_expires_at !== undefined);
+    expect(grant.payload.is_premium).toBe(false);
+  });
+
+  // Regression: RC retry jitter can deliver a stale EXPIRATION after a newer RENEWAL. Applying
+  // it revoked a live subscriber AND rewound premium_expires_at — no self-service recovery.
+  it('ignores a stale EXPIRATION when the stored expiry is still in the future', async () => {
+    currentExpiry = new Date(Date.now() + 20 * 86_400_000).toISOString(); // renewal already applied
+    const res = makeRes();
+    await handler(post(ev({ id: 'evt-stale-exp', type: 'EXPIRATION', expiration_at_ms: Date.now() - 86_400_000 })), res);
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(updatedWith.find((u) => u.payload.is_premium === false)).toBeUndefined(); // no revoke applied
+  });
+
+  it('applies a genuine EXPIRATION that is newer than the stored expiry', async () => {
+    currentExpiry = new Date(Date.now() - 10 * 86_400_000).toISOString();
+    await handler(post(ev({ id: 'evt-real-exp', type: 'EXPIRATION', expiration_at_ms: Date.now() - 1000 })), makeRes());
+    expect(updatedWith.find((u) => u.payload.is_premium === false)).toBeTruthy();
+  });
+
+  // Regression: PostgREST reports success when the WHERE matches nothing, so a purchase landing
+  // before the profile row existed was marked delivered and never retried — user paid, no premium.
+  it('a 0-row profile update fails loudly (500, no marker) so RC retries', async () => {
+    updateMatchedRows = [];
+    const res = makeRes();
+    await handler(post(ev({ id: 'evt-norow', type: 'INITIAL_PURCHASE' })), res);
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(inserted.find((i) => i.table === 'rc_webhook_events')).toBeUndefined();
   });
 
   it('always flushes Sentry (finally)', async () => {

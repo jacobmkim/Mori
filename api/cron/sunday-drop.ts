@@ -67,9 +67,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const sb = getSupabase();
   const now = new Date();
 
-  // Premium candidates with a push token. is_premium is a coarse pre-filter; isPremiumActive
-  // (grace + expiry) is re-checked per user below.
-  let q = sb.from('profiles').select(PROFILE_COLUMNS).eq('is_premium', true).not('push_token', 'is', null);
+  // Premium candidates. is_premium is a coarse pre-filter; isPremiumActive (grace + expiry) is
+  // re-checked per user below. Deliberately NOT filtered on push_token: the proposal drives the
+  // in-app review card, so gating GENERATION on a push token silently denied the flagship to any
+  // subscriber who declined iOS notifications. Push delivery is gated separately, at the send.
+  let q = sb.from('profiles').select(PROFILE_COLUMNS).eq('is_premium', true);
   if (onlyUserId) q = q.eq('id', onlyUserId);
   const { data: users, error: usersErr } = await q;
   if (usersErr) return res.status(500).json({ error: 'Failed to fetch users' });
@@ -90,10 +92,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   for (const user of users as any[]) {
     checked++;
 
-    // ── Eligibility (premium re-check + opt-in + token + local Sunday-morning window) ──
+    // ── Eligibility for GENERATION (premium re-check + local Sunday-morning window) ──
+    // Notification prefs/token are checked at the push call, not here — a subscriber with
+    // notifications off still gets the proposal waiting in the Plan tab.
     if (!isPremiumActive(user, now.getTime())) continue;
-    if (user.notify_sunday_drop === false) continue;
-    if (!user.push_token) continue;
     if (!force && !isSundayDropTime(user.timezone, now)) continue;
 
     const weekStart = localSundayFor(user.timezone ?? 'UTC', now); // this local week's Sunday
@@ -205,6 +207,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     generated++;
 
     // ── Push (notified_at only on success; clear dead tokens) ──
+    // Delivery-only gates: no token, or the user muted the Sunday Drop notification. The
+    // proposal above is already stored either way, so the in-app review card still appears.
+    if (!user.push_token || user.notify_sunday_drop === false) {
+      await new Promise((r) => setTimeout(r, 50));
+      continue;
+    }
     const push = await sendExpoPush({
       to: user.push_token,
       title: 'Your week is ready 🌲',

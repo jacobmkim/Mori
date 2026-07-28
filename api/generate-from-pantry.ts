@@ -6,6 +6,14 @@ import { requireAuth } from './_apiAuth';
 import { isPremiumUserId } from './_requirePremium';
 import { checkAiBudget, incrementAiUsage } from './_aiUsage';
 import { captureException, flushSentry } from './_sentry';
+import { DECK_LAND_MEAT, DECK_SEAFOOD } from '../lib/deckFilter';
+
+// ONE source of truth with the catalog filter. The inline regexes this replaces missed
+// prosciutto/pancetta/steak/brisket/pepperoni/venison and oyster/mussel/clam/scallop/sardine —
+// so a vegan with e.g. oyster sauce on hand could be handed a recipe built around it, tagged
+// vegan (the sanitizer shared the same short list). Word-boundary match on the ingredient text.
+const MEAT_RE = new RegExp(`\\b(${DECK_LAND_MEAT.join('|')}|prosciutto|pancetta)`, 'i');
+const SEAFOOD_RE = new RegExp(`\\b(${DECK_SEAFOOD.join('|')}|scallop|anchov)`, 'i');
 
 // POST /api/generate-from-pantry  (Mori+ — "Cook with what I have", M8 stage 3)
 // Generates up to 3 recipes constrained to EXACTLY the user's on-hand ingredients
@@ -177,8 +185,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // recipes that legitimately pass).
       .filter((r) => {
         const ingText = r.ingredients.map((i) => i?.name?.toLowerCase() ?? '').join(' ');
-        const hasMeat = /\b(chicken|beef|pork|lamb|turkey|duck|bacon|sausage|ham|veal|chorizo|salami)\b/.test(ingText);
-        const hasSeafood = /\b(fish|salmon|tuna|shrimp|prawn|crab|lobster|anchov|cod|tilapia|squid)\b/.test(ingText);
+        const hasMeat = MEAT_RE.test(ingText);
+        const hasSeafood = SEAFOOD_RE.test(ingText);
         const hasDairy = /\b(milk|cream|butter|cheese|yogurt|yoghurt|parmesan|mozzarella|feta|ghee)\b/.test(ingText);
         const hasEgg = /\begg(s)?\b/.test(ingText);
         const hasGluten = /\b(flour|bread|pasta|noodle|wheat|barley|rye|breadcrumb|panko|soy sauce|tortilla|couscous)\b/.test(ingText);
@@ -192,8 +200,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .map((r) => {
         const tags = (r.dietary_tags ?? []).filter((t) => VALID_TAGS.has(t));
         const ingText = r.ingredients.map((i) => i?.name?.toLowerCase() ?? '').join(' ');
-        const hasMeat = /\b(chicken|beef|pork|lamb|turkey|duck|bacon|sausage|ham|veal|chorizo|salami)\b/.test(ingText);
-        const hasSeafood = /\b(fish|salmon|tuna|shrimp|prawn|crab|lobster|anchov|cod|tilapia|squid)\b/.test(ingText);
+        const hasMeat = MEAT_RE.test(ingText);
+        const hasSeafood = SEAFOOD_RE.test(ingText);
         const hasDairy = /\b(milk|cream|butter|cheese|yogurt|yoghurt|parmesan|mozzarella|feta|ghee)\b/.test(ingText);
         const hasGluten = /\b(flour|bread|pasta|noodle|wheat|barley|rye|breadcrumb|panko|soy sauce|tortilla|couscous)\b/.test(ingText);
         let cleaned = tags;

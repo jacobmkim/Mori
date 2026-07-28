@@ -49,6 +49,11 @@ export function verifyWebhookAuth(req: VercelRequest): boolean {
 }
 
 const ENTITLEMENT_ID = 'mori_plus';
+
+// How long a TRANSFER grant is trusted when the event carries no expiry — long enough that a
+// legitimate device restore isn't interrupted, short enough that an expired receipt can't buy
+// free premium. The next lifecycle event overwrites it with the real date.
+const TRANSFER_RECONCILE_MS = 48 * 60 * 60 * 1000;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Only EXPIRATION immediately revokes access (RC's explicit rule). CANCELLATION
@@ -141,6 +146,11 @@ export function computePremiumUpdate(event: RcEvent, now: number): Record<string
  * lifecycle event (RENEWAL/EXPIRATION) for the new id reconciles the real dates.
  */
 async function applyTransfer(sb: SupabaseClient, event: RcEvent): Promise<void> {
+  // Scope to our entitlement, like computePremiumUpdate — a transfer of some future
+  // second product must not move mori_plus.
+  const entIds = event.entitlement_ids ?? (event.entitlement_id ? [event.entitlement_id] : []);
+  if (entIds.length > 0 && !entIds.includes(ENTITLEMENT_ID)) return;
+
   const from = uuidList(event.transferred_from);
   const to = uuidList(event.transferred_to);
   if (from.length) {
@@ -151,9 +161,21 @@ async function applyTransfer(sb: SupabaseClient, event: RcEvent): Promise<void> 
     if (error) throw new Error(`transfer revoke failed: ${error.code ?? 'unknown'}`);
   }
   if (to.length) {
+    // ALWAYS write an expiry. Leaving it untouched was a free-premium hole: a fresh profile's
+    // premium_expires_at is NULL and isPremiumActive reads NULL as "never expires", so restoring
+    // an EXPIRED receipt onto a new account granted premium permanently — repeatable per account.
+    // Use the event's expiry when present; otherwise a short reconciliation window that the next
+    // lifecycle event replaces with the real date (also fixes the mirror case, where a stale PAST
+    // expiry on the receiving profile would have denied a legitimate transferred payer).
+    const expMs = asMs(event.expiration_at_ms);
+    const expiresAt = asIso(expMs) ?? new Date(Date.now() + TRANSFER_RECONCILE_MS).toISOString();
     const { error } = await sb
       .from('profiles')
-      .update({ is_premium: true, premium_in_grace_period: false })
+      .update({
+        is_premium: expMs == null || expMs > Date.now(),
+        premium_expires_at: expiresAt,
+        premium_in_grace_period: false,
+      })
       .in('id', to);
     if (error) throw new Error(`transfer grant failed: ${error.code ?? 'unknown'}`);
   }
@@ -176,8 +198,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     } else {
       const update = computePremiumUpdate(event, Date.now());
       if (update) {
-        const { error: upErr } = await sb.from('profiles').update(update).eq('id', update.revenuecat_user_id);
+        const targetId = update.revenuecat_user_id as string;
+        // Ordering guard. RC retries/cold-start jitter can deliver a STALE revoke after a newer
+        // grant; applying it would both drop is_premium and rewind premium_expires_at, locking a
+        // live subscriber out with no self-service fix. Never let an older expiry revoke a
+        // currently-valid one (grants are unaffected — a later real expiry still applies).
+        if (update.is_premium === false) {
+          const { data: cur } = await sb
+            .from('profiles').select('premium_expires_at').eq('id', targetId).maybeSingle();
+          const curMs = cur?.premium_expires_at ? Date.parse(cur.premium_expires_at) : NaN;
+          const evtMs = asMs(event.expiration_at_ms);
+          if (Number.isFinite(curMs) && curMs > Date.now() && (evtMs == null || evtMs < curMs)) {
+            captureException(new Error(`rc-webhook: ignored stale ${event.type} for ${event.id}`));
+            return res.status(200).json({ received: true, ignored: 'stale' });
+          }
+        }
+        // .select() so a 0-row match is detectable: PostgREST reports success when the WHERE
+        // matches nothing, which silently swallowed "user paid but their profile row didn't
+        // exist yet" — RC would mark it delivered and never retry. 500 makes RC retry instead.
+        const { data: rows, error: upErr } = await sb
+          .from('profiles').update(update).eq('id', targetId).select('id');
         if (upErr) throw new Error(`profiles premium update failed: ${upErr.code ?? 'unknown'}`);
+        if (!rows?.length) throw new Error(`profiles premium update matched no row for ${targetId}`);
       }
     }
 

@@ -567,7 +567,7 @@ export default function Plan() {
         }
       : {};
     // Building only PROPOSES a plan (no confirm needed — nothing is saved until "Use this plan").
-    lockedSlotsRef.current = currentLockedDinners(planStartDay());
+    lockedSlotsRef.current = await currentLockedDinners(planStartDay());
     setTunings(initialTunings);
     setAutoPlanResult(null);
     setSwappedInIds(new Set());
@@ -775,23 +775,39 @@ export default function Plan() {
     return weekOffset === 0 ? todayDayIndex() : 0;
   }
 
-  // The dinners the user placed themselves (anything not auto-planned) from `start` onward.
-  // Locked into any proposal — Build or Sunday Drop review — so Mori never clobbers a user pick.
-  function currentLockedDinners(start: number): { day: number; recipe: Recipe }[] {
-    const locked: { day: number; recipe: Recipe }[] = [];
-    for (const s of slots) {
-      if (s.meal_type !== 'dinner' || s.day < start) continue;
-      if (s.provenance === 'auto_plan') continue; // Mori's pick — fair game to re-plan
-      const r = slotRecipes[s.recipe_id];
-      if (r?.supabase_id) locked.push({ day: s.day, recipe: r });
+  // The dinners Mori must NOT re-plan, from `start` onward:
+  //   • the user's own picks (anything Mori didn't place), and
+  //   • ANY already-cooked night, whoever placed it — that's history, not a suggestion.
+  // Mori's own un-cooked picks ('auto_plan' AND 'sunday_drop') stay fair game, matching the
+  // cron's existingManualDinnerSlots(); treating an accepted drop as locked made a rebuild
+  // return the identical week with every night mislabelled "You added this".
+  // Async because an unhydrated slot must be fetched, never skipped: dropping it would hand
+  // the optimizer an empty lock set and silently overwrite the user's manual dinners.
+  async function currentLockedDinners(start: number): Promise<{ day: number; recipe: Recipe }[]> {
+    const held = slots.filter(
+      (s) => s.meal_type === 'dinner' && s.day >= start && s.recipe_id &&
+        (s.cooked_at ? true : s.provenance !== 'auto_plan' && s.provenance !== 'sunday_drop'),
+    );
+    if (held.length === 0) return [];
+    let byId = slotRecipes;
+    const missing = [...new Set(held.map((s) => s.recipe_id).filter((id) => !byId[id]))];
+    if (missing.length > 0) {
+      try {
+        const fetched = await getRecipesBySupabaseIds(missing);
+        byId = { ...byId };
+        fetched.forEach((r) => { if (r.supabase_id) byId[r.supabase_id] = r; });
+        setSlotRecipes(byId);
+      } catch { /* fall through — a lock we can't resolve is dropped below, as before */ }
     }
-    return locked;
+    return held
+      .map((s) => ({ day: s.day, recipe: byId[s.recipe_id] }))
+      .filter((x): x is { day: number; recipe: Recipe } => !!x.recipe?.supabase_id);
   }
 
   // Save the proposed plan to the week (called ONLY on "Use this plan"). Replaces just the dinner
   // slots from planStartDay onward — past days and any breakfast/lunch slots are kept untouched.
   // Returns false if nothing fillable.
-  function applyPlanToWeek(result: AutoPlanResult): boolean {
+  async function applyPlanToWeek(result: AutoPlanResult): Promise<boolean> {
     if (!userId) return false;
     const start = planStartDay();
     // Never write a night that already passed. A manual Build generates from `start` so this is
@@ -813,8 +829,9 @@ export default function Plan() {
       const prev = slots.find((p) => p.day === s.day && p.meal_type === s.meal_type && p.recipe_id === s.recipe_id);
       addSlot(prev ? { ...s, cooked_at: prev.cooked_at ?? s.cooked_at, servings_multiplier: prev.servings_multiplier ?? s.servings_multiplier } : s);
     });
-    savePlan(userId, weekStart);
-    return true;
+    // AWAIT the write: the caller consumes a one-shot Sunday Drop proposal on success, and
+    // marking it accepted after a failed save would destroy the week with nothing to restore.
+    return await savePlan(userId, weekStart);
   }
 
   // Open the Build-my-week review sheet preloaded with the pending Sunday Drop proposal. Nothing
@@ -840,7 +857,7 @@ export default function Plan() {
       // for Shuffle/tuning — the user's own picks always win over the drop's (the cron only saw
       // Sunday-morning state; without this, a Shuffle regenerates with an empty lock set and a
       // later accept overwrites the user's additions).
-      const locked = currentLockedDinners(start);
+      const locked = await currentLockedDinners(start);
       lockedSlotsRef.current = locked;
       if (locked.length > 0) {
         const byDay = new Map(locked.map((l) => [l.day, l]));
@@ -893,10 +910,15 @@ export default function Plan() {
 
   // "Use this plan" — the ONLY action that saves. Commits the proposal to the week, logs the
   // learn-from-swaps signals + tuning prefs, then closes.
-  function handleAcceptAutoPlan() {
+  async function handleAcceptAutoPlan() {
     if (!userId || !autoPlanResult) return;
-    if (!applyPlanToWeek(autoPlanResult)) {
-      Alert.alert("Couldn't save this plan", "Mori couldn't find dinners that fit your filters. Try fewer tuning toggles or save a few more recipes.");
+    if (!(await applyPlanToWeek(autoPlanResult))) {
+      // Either nothing fillable, or the save failed. In BOTH cases the drop stays pending
+      // (never marked accepted below), so the review card comes back and the week isn't lost.
+      Alert.alert(
+        "Couldn't save this plan",
+        "Mori couldn't save your week — check your connection and try again. If it keeps failing, try fewer tuning toggles or save a few more recipes.",
+      );
       return;
     }
     if (swappedInIds.size > 0) {

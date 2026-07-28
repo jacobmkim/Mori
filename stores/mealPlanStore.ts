@@ -23,7 +23,9 @@ interface MealPlanStore {
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   loadPlan: (userId: string, weekStart: string) => Promise<void>;
-  savePlan: (userId: string, weekStart: string) => Promise<void>;
+  /** Resolves true when the week reached the DB. Callers that consume a one-shot
+   *  proposal (Sunday Drop accept) MUST await this before marking it consumed. */
+  savePlan: (userId: string, weekStart: string) => Promise<boolean>;
 }
 
 export const useMealPlanStore = create<MealPlanStore>((set, get) => ({
@@ -94,8 +96,10 @@ export const useMealPlanStore = create<MealPlanStore>((set, get) => ({
       // must not overwrite the newer plan already in memory. The DB upsert is idempotent on
       // (user_id, week_start_date), so dropping the stale set() is safe.
       if (mySeq === saveSeq) set({ plan: saved, error: null });
+      return true; // the write landed, even if a newer save owns the store state
     } catch {
       if (mySeq === saveSeq) set({ error: 'Failed to save meal plan' });
+      return false;
     }
   },
 }));
