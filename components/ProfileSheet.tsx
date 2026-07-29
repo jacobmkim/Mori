@@ -299,6 +299,10 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
           useLeftoversStore.getState().reset();
           useGroceryStore.getState().clearAll();
           useSavedStore.getState().reset(); // persisted — must be wiped or it leaks to the next account
+          // Declare the session over for RevenueCat too. onAuthStateChange covers a normal
+          // sign-out, but delete-account (and a sign-out whose network call fails) may not fire
+          // it — leaving RC identified as the previous user on a shared device.
+          useUserStore.getState().setAuthUserId(null);
           useActiveCookStore.getState().reset();
           router.replace('/onboarding/welcome');
         },
@@ -1009,6 +1013,10 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
           useLeftoversStore.getState().reset();
           useGroceryStore.getState().clearAll();
           useSavedStore.getState().reset(); // persisted — must be wiped or it leaks to the next account
+          // Declare the session over for RevenueCat too. onAuthStateChange covers a normal
+          // sign-out, but delete-account (and a sign-out whose network call fails) may not fire
+          // it — leaving RC identified as the previous user on a shared device.
+          useUserStore.getState().setAuthUserId(null);
           useActiveCookStore.getState().reset();
           onClose();
           router.replace('/onboarding/welcome');

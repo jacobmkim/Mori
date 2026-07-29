@@ -13,7 +13,7 @@ import { getRecipesBySupabaseIds, fetchDiscoverRecipes, getRecentMealPlanWeeks, 
 import { autoSlotsToStoreSlots, nextSlotAlternate, applySlotChoice, setRecipeOnDays, swappedInRecipesToLearn } from '@/lib/autoPlan';
 import { addDaysUtc, HISTORY_WEEKS } from '@/lib/planHistory';
 import { flags } from '@/lib/featureFlags';
-import { matchesDislike, recipeMatchText } from '@/lib/dietaryRules';
+import { matchesDislike, recipeMatchText, violatesDietary } from '@/lib/dietaryRules';
 import { gateMoriPlus } from '@/lib/paywall';
 import { AutoPlanSheet } from '@/components/AutoPlanSheet';
 import { PlanActionSheet, RepeatDaysSheet, type RepeatDayOption } from '@/components/PlanActionSheets';
@@ -239,7 +239,16 @@ export default function Plan() {
   const pickerCarousels = useMemo(() => {
     const cat = catalogRecipes ?? [];
     const sections: { title: string; recipes: Recipe[] }[] = [];
-    if (savedRecipes.length) sections.push({ title: 'Saved', recipes: savedRecipes.slice(0, 12) });
+    // Saved recipes are gated too: they can predate a newly declared allergy, and this default
+    // carousel view is what the picker shows BEFORE any search/filter — it bypassed the gate
+    // that pickerSections applies, so the user's own saved list leaked past their restrictions.
+    const savedGated = (profile?.ingredient_dislikes?.length || dietaryGoals.length)
+      ? savedRecipes.filter((r) => {
+          const text = recipeMatchText(r as any);
+          return !violatesDietary(text, dietaryGoals) && !matchesDislike(text, profile?.ingredient_dislikes ?? []);
+        })
+      : savedRecipes;
+    if (savedGated.length) sections.push({ title: 'Saved', recipes: savedGated.slice(0, 12) });
     const mealPrep = cat.filter((r) => r.meal_prep_friendly === true).slice(0, 12);
     if (mealPrep.length) sections.push({ title: 'Meal-prep friendly', recipes: mealPrep });
     const quick = cat.filter((r) => ((r.prep_time_mins ?? 99) + (r.cook_time_mins ?? 99)) <= 30).slice(0, 12);

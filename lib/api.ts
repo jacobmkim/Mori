@@ -366,6 +366,7 @@ async function fetchAdventureRecipe(
   cuisine: string,
   existingSupabaseIds: Set<string>,
   dietaryGoals: string[] = [],
+  ingredientDislikes: string[] = [],
 ): Promise<Recipe | null> {
   const { data } = await supabase
     .from('recipes')
@@ -374,13 +375,17 @@ async function fetchAdventureRecipe(
     .not('external_id', 'is', null)
     .is('deleted_at', null)
     .limit(10);
+  const adventureDislikes = ingredientDislikes ?? [];
   const eligible = (data ?? []).filter((r: any) => {
     if (existingSupabaseIds.has(r.id)) return false;
     // Adventure cards go through the same shared gate as the deck — a separate copy of the
     // rules here is exactly how a vegan ends up served meat on one surface but not another.
-    if (!hasRestriction(dietaryGoals)) return true;
+    // Dislikes included: the adventure card is spliced straight into the deck AFTER the deck's
+    // own dislike pass, so without this an allergen could ride in on the one card that skips it.
+    if (!hasRestriction(dietaryGoals) && adventureDislikes.length === 0) return true;
     if (hasNoIngredientData(r)) return false; // fail closed under a restriction
-    return !violatesDietary(recipeMatchText(r), dietaryGoals);
+    const text = recipeMatchText(r);
+    return !violatesDietary(text, dietaryGoals) && !matchesDislike(text, adventureDislikes);
   });
   if (eligible.length === 0) return null;
   const r = eligible[Math.floor(Math.random() * eligible.length)] as any;
@@ -1027,7 +1032,7 @@ export async function fetchScoredDeck(
     const existingIds = new Set(result.map((r) => r.supabase_id ?? '').filter(Boolean));
     const adventureCuisine = pickAdventureCuisine(profile, existingCuisines);
     if (adventureCuisine) {
-      const adventureRecipe = await fetchAdventureRecipe(adventureCuisine, existingIds, dietaryGoals);
+      const adventureRecipe = await fetchAdventureRecipe(adventureCuisine, existingIds, dietaryGoals, dislikes);
       if (adventureRecipe) {
         result.splice(5, 0, { ...adventureRecipe, isTrending: adventureRecipe.isTrending ?? false });
         console.log(`[fetchScoredDeck] adventure card injected: "${adventureRecipe.title}" (${adventureCuisine})`);
@@ -1966,6 +1971,10 @@ export async function saveMealPlan(
       .maybeSingle();
     if (error) throw error;
     if (data) return data;
+    // 0 rows = the caller's plan id does not belong to this week: the client and DB are out of
+    // sync. Do NOT fall through to the upsert — the slots in hand belong to the OTHER week, and
+    // writing them here would corrupt this one. Fail so the caller reloads.
+    throw new Error('meal plan desync: plan id does not belong to this week');
   }
   // Upsert on (user_id, week_start_date): a save for a week that already has a row —
   // e.g. a rapid double-accept before the inserted id latches into the store — updates

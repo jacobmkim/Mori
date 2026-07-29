@@ -68,6 +68,12 @@ export const LAND_MEAT = [
   'coppa', 'capicola', 'soppressata', 'nduja', 'lardon', 'lard', 'tallow', 'suet',
   'venison', 'rabbit', 'hare', 'boar', 'bison', 'elk', 'quail', 'pheasant', 'partridge',
   'squab', 'poultry', 'brisket', 'ribeye', 'sirloin', 'tenderloin', 'pastrami',
+  // Named cuts. Dropping bare 'steak' (design rule 3) silently un-blocked these — live catalog
+  // check found flank/skirt steak reaching vegans. Enumerate rather than reinstate the bare word.
+  'flank steak', 'skirt steak', 'flat iron steak', 'hanger steak', 'chuck steak', 'chuck roast',
+  'round steak', 'strip steak', 'rump steak', 'porterhouse', 't-bone', 'filet mignon',
+  'fillet of steak', 'steak fajita', 'minute steak', 'cube steak', 'beef steak', 'steak strips',
+  'spam', 'doner', 'doner meat', 'gammon', 'pate de campagne',
   'corned beef', 'hot dog', 'frankfurter', 'wiener', 'bratwurst', 'kielbasa', 'andouille',
   'linguica', 'bologna', 'carnitas', 'barbacoa', 'al pastor', 'gyro', 'shawarma', 'kebab',
   'keema', 'katsu', 'schnitzel', 'meatza', 'goat meat', 'goat curry', 'goat shoulder',
@@ -94,7 +100,11 @@ export const SHELLFISH = [
 
 export const FIN_FISH = [
   'fish', 'salmon', 'tuna', 'anchovy', 'cod', 'haddock', 'sardine', 'mackerel', 'halibut',
-  'tilapia', 'seabass', 'trout', 'catfish', 'snapper', 'grouper', 'mahi', 'swordfish',
+  'tilapia', 'trout', 'catfish', 'snapper', 'grouper', 'mahi', 'swordfish',
+  // 'seabass' as one word never matched the catalog's "sea bass"; bare 'bass' was dropped with
+  // the old list. Spell both, and cover the names the catalog actually uses.
+  'sea bass', 'seabass', 'sea bream', 'seabream', 'branzino', 'dorada', 'barramundi',
+  'monkfish', 'hake', 'pilchard', 'turbot', 'plaice', 'whitebait', 'kipper', 'lox', 'gravlax',
   'herring', 'pollock', 'flounder', 'caviar', 'bonito', 'katsuobushi', 'dashi', 'bottarga',
   'fish sauce', 'nam pla', 'colatura', 'worcestershire', 'seafood', 'surimi', 'anchovy paste',
 ];
@@ -294,6 +304,21 @@ const DISLIKE_CATEGORIES: Record<string, string[]> = Object.assign(Object.create
 
 const MAX_DISLIKE_LEN = 80; // free text; bounds regex size
 
+/**
+ * Per-term exemptions for DISLIKES — the same idea as EXEMPT for categories. Without this the
+ * "Olives" chip matched \bolive\b inside "olive oil" and removed ~840 recipes (36% of the
+ * catalog) from 13 live users' decks and plans, silently. Someone who dislikes olives still
+ * cooks with olive oil.
+ */
+const DISLIKE_EXEMPT: Record<string, string[]> = Object.assign(Object.create(null), {
+  olive: ['olive oil', 'olive-oil'],
+  olives: ['olive oil', 'olive-oil'],
+  coconut: ['coconut oil'],
+  fennel: ['fennel seed', 'fennel pollen'],
+  mushroom: ['mushroom soy sauce'],
+  mushrooms: ['mushroom soy sauce'],
+});
+
 /** The keyword list a dislike term should match — expanded when it names a category. */
 export function expandDislike(term: unknown): string[] {
   const t = String(term ?? '').trim().slice(0, MAX_DISLIKE_LEN).toLowerCase();
@@ -326,10 +351,16 @@ function dislikeRe(terms: string[]): RegExp {
  */
 export function matchesDislike(text: string, dislikes: unknown[] = []): boolean {
   if (!dislikes?.length) return false;
-  const t = foldText(text);
+  const base = foldText(text);
   for (const d of dislikes) {
+    const key = String(d ?? '').trim().toLowerCase();
     const list = expandDislike(d);
     if (!list.length) continue;
+    // Strip this term's exemptions only — same per-term discipline as hasCategory, so an
+    // exemption for one dislike can never soften a different one.
+    const ex = Object.prototype.hasOwnProperty.call(DISLIKE_EXEMPT, key) ? DISLIKE_EXEMPT[key] : null;
+    let t = base;
+    if (Array.isArray(ex)) for (const phrase of ex) if (t.includes(phrase)) t = t.split(phrase).join(' ');
     if (dislikeRe(list).test(t)) return true;
   }
   return false;

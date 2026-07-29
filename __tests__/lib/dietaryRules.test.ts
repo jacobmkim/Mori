@@ -176,3 +176,47 @@ describe('robustness', () => {
       .toContain('beef');
   });
 });
+
+
+describe('named cuts + catalog spellings (regression: dropping bare "steak"/"bass" un-blocked real meat)', () => {
+  it.each([
+    ['vegan', 'Steak Fajita Rice Bowl flank steak or skirt steak'],
+    ['vegetarian', 'Sheet Pan Fajita Steak flank steak or skirt steak'],
+    ['pescatarian', 'Marinated Flank Steak with Peppers flank steak'],
+    ['pescatarian', 'Steak and Vietnamese noodle salad fillet of steak'],
+    ['vegetarian', 'Hawaiian Spam Musubi Spam'],
+    ['vegetarian', 'Kapsalon doner meat'],
+    ['vegan', 'Sea bass with sizzled ginger sea bass fillets'],
+    ['vegetarian', 'Grilled Whole Branzino whole branzino'],
+    ['vegetarian', 'Sea Bream Baked in Salt Crust sea bream'],
+    ['vegetarian', 'Pilchard puttanesca pilchards'],
+  ])('%s blocks "%s"', (goal, text) => {
+    expect(violatesDietary(text, [goal])).toBe(true);
+  });
+
+  it('still allows the vegetable impostors the exemptions exist for', () => {
+    expect(violatesDietary('cauliflower steak with herbs', ['vegan'])).toBe(false);
+    expect(violatesDietary('mushroom steak', ['vegan'])).toBe(false);
+  });
+
+  it('pescatarians keep fish steaks', () => {
+    expect(violatesDietary('grilled salmon steak', ['pescatarian'])).toBe(false);
+    expect(violatesDietary('swordfish steaks', ['pescatarian'])).toBe(false);
+  });
+});
+
+describe('dislike exemptions (regression: "Olives" chip blocked 840 recipes via olive oil)', () => {
+  it('Olives chip ignores olive oil', () => {
+    expect(matchesDislike('Baked Garlic Parmesan Chicken with olive oil', ['Olives'])).toBe(false);
+    expect(matchesDislike('sheet pan vegetables, extra virgin olive oil', ['Olives'])).toBe(false);
+  });
+  it('Olives chip still catches actual olives', () => {
+    expect(matchesDislike('Greek salad with kalamata olives', ['Olives'])).toBe(true);
+    expect(matchesDislike('olive tapenade crostini', ['Olives'])).toBe(true);
+    expect(matchesDislike('pasta with black olives', ['Olives'])).toBe(true);
+  });
+  it('an exemption for one dislike never softens another', () => {
+    // 'olive oil' is exempt for Olives, but must not hide anything from a different term.
+    expect(matchesDislike('chicken thighs in olive oil', ['Chicken'])).toBe(true);
+  });
+});

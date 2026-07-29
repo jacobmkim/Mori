@@ -28,7 +28,8 @@ beforeEach(() => {
 
 describe('mealPlanStore — savePlan', () => {
   it('clears error on successful save', async () => {
-    useMealPlanStore.setState({ error: 'Failed to save meal plan' });
+    // loadedWeek must match — savePlan refuses to write a week it never read.
+    useMealPlanStore.setState({ error: 'Failed to save meal plan', loadedWeek: '2026-04-07' });
     mockSaveMealPlan.mockResolvedValueOnce(MOCK_PLAN);
 
     await useMealPlanStore.getState().savePlan('user-1', '2026-04-07');
@@ -38,12 +39,35 @@ describe('mealPlanStore — savePlan', () => {
   });
 
   it('sets error on failed save', async () => {
-    useMealPlanStore.setState({ plan: MOCK_PLAN });
+    useMealPlanStore.setState({ plan: MOCK_PLAN, loadedWeek: '2026-04-07' });
     mockSaveMealPlan.mockRejectedValueOnce(new Error('network error'));
 
     await useMealPlanStore.getState().savePlan('user-1', '2026-04-07');
 
     expect(useMealPlanStore.getState().error).toBe('Failed to save meal plan');
+  });
+
+  // Regression: a FAILED load left plan:null, the UI rendered a real week as empty, and the
+  // next edit persisted that empty week over the user's actual meals.
+  it('REFUSES to save a week whose load failed (never overwrites an unread week)', async () => {
+    useMealPlanStore.setState({ plan: null, loadedWeek: null });
+    const ok = await useMealPlanStore.getState().savePlan('user-1', '2026-04-07');
+    expect(ok).toBe(false);
+    expect(mockSaveMealPlan).not.toHaveBeenCalled();
+  });
+
+  it('REFUSES to save when the store holds a DIFFERENT week', async () => {
+    useMealPlanStore.setState({ plan: MOCK_PLAN, loadedWeek: '2026-03-31' });
+    const ok = await useMealPlanStore.getState().savePlan('user-1', '2026-04-07');
+    expect(ok).toBe(false);
+    expect(mockSaveMealPlan).not.toHaveBeenCalled();
+  });
+
+  it('a failed load marks the week unknown', async () => {
+    mockGetMealPlan.mockRejectedValueOnce(new Error('network'));
+    await useMealPlanStore.getState().loadPlan('user-1', '2026-04-07');
+    expect(useMealPlanStore.getState().plan).toBeNull();
+    expect(useMealPlanStore.getState().loadedWeek).toBeNull();
   });
 });
 

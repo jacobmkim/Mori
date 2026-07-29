@@ -26,10 +26,16 @@ interface MealPlanStore {
   /** Resolves true when the week reached the DB. Callers that consume a one-shot
    *  proposal (Sunday Drop accept) MUST await this before marking it consumed. */
   savePlan: (userId: string, weekStart: string) => Promise<boolean>;
+  /** The week whose data is actually in `plan`, or null when the last load FAILED.
+   *  `plan: null` alone is ambiguous — it means both "this week is genuinely empty" and
+   *  "we don't know what's in this week". Saving under the second meaning overwrites a real
+   *  week with an empty one, so savePlan refuses unless this matches the week being saved. */
+  loadedWeek: string | null;
 }
 
 export const useMealPlanStore = create<MealPlanStore>((set, get) => ({
   plan: null,
+  loadedWeek: null,
   isLoading: false,
   error: null,
 
@@ -81,16 +87,23 @@ export const useMealPlanStore = create<MealPlanStore>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const plan = await getMealPlanForWeek(userId, weekStart);
-      set({ plan, isLoading: false });
+      set({ plan, loadedWeek: weekStart, isLoading: false });
     } catch {
-      // Clear the plan: leaving the PREVIOUS week's object in the store made the UI show
-      // another week's meals, and the next edit saved into that week's row.
-      set({ plan: null, error: 'Failed to load meal plan', isLoading: false });
+      // Clear the plan AND mark the week unknown. Clearing alone was worse than the bug it
+      // replaced: the UI rendered a real week as empty, and the next edit persisted that
+      // empty week over the user's actual meals.
+      set({ plan: null, loadedWeek: null, error: 'Failed to load meal plan', isLoading: false });
     }
   },
 
   savePlan: async (userId: string, weekStart: string) => {
-    const { plan } = get();
+    const { plan, loadedWeek } = get();
+    // Refuse to write a week we never successfully read — `plan` would be an empty shell (or
+    // another week's data) and the upsert would overwrite whatever is really stored.
+    if (loadedWeek !== weekStart) {
+      set({ error: 'Failed to save meal plan' });
+      return false;
+    }
     const mySeq = ++saveSeq;
     try {
       const saved = await saveMealPlanApi(userId, weekStart, plan?.slots ?? [], plan?.id);
