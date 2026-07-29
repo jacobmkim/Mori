@@ -247,6 +247,7 @@ describe('rc-webhook handler — apply-then-mark idempotency', () => {
   let updatedWith: any[];
   let updateMatchedRows: any[];
   let currentExpiry: string | null;
+  let fromProfiles: any[];
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -260,6 +261,7 @@ describe('rc-webhook handler — apply-then-mark idempotency', () => {
     updatedWith = [];
     updateMatchedRows = [{ id: 'u1' }]; // rows the profiles UPDATE reports touching
     currentExpiry = null;               // profiles.premium_expires_at seen by the stale-event guard
+    fromProfiles = [];                  // losing accounts read by the TRANSFER carried-expiry lookup
     mockFrom.mockImplementation((table: string) => ({
       update: (payload: any) => {
         updatedWith.push({ table, payload });
@@ -273,9 +275,11 @@ describe('rc-webhook handler — apply-then-mark idempotency', () => {
           in: () => { order.push(`update-in:${table}`); return Promise.resolve({ error: profileUpdateError }); },
         };
       },
-      // Read path used by the stale-revoke ordering guard.
+      // Read paths: the stale-revoke ordering guard (.eq/.maybeSingle) and the TRANSFER
+      // carried-expiry lookup on the losing accounts (.in).
       select: () => ({
         eq: () => ({ maybeSingle: () => Promise.resolve({ data: currentExpiry ? { premium_expires_at: currentExpiry } : null, error: null }) }),
+        in: () => Promise.resolve({ data: fromProfiles, error: null }),
       }),
       insert: (payload: any) => {
         order.push(`insert:${table}`);
@@ -336,6 +340,8 @@ describe('rc-webhook handler — apply-then-mark idempotency', () => {
   it('TRANSFER revokes transferred_from and grants transferred_to (C1 fix)', async () => {
     const FROM = '99999999-0000-0000-0000-000000000001';
     const TO = '99999999-0000-0000-0000-000000000002';
+    // The losing account carries the real subscription window; TRANSFER itself has no expiry.
+    fromProfiles = [{ premium_expires_at: new Date(Date.now() + 300 * 86_400_000).toISOString(), premium_product_id: 'mori_plus_annual', premium_will_renew: true }];
     const res = makeRes();
     await handler(post({
       id: 'evt-xfer', type: 'TRANSFER',
@@ -352,21 +358,36 @@ describe('rc-webhook handler — apply-then-mark idempotency', () => {
   // Regression: an EXPIRED receipt restored onto a fresh account granted premium FOREVER —
   // the grant never wrote premium_expires_at, and isPremiumActive reads NULL as "never expires".
   // Repeatable per new account = unlimited free Mori+.
-  it('TRANSFER always writes an expiry (no permanent free-premium grant)', async () => {
+  // Regression: granting with NO expiry was a permanent-free-premium hole (isPremiumActive reads
+  // a NULL expiry as "never expires"). The real window is carried over from the losing account,
+  // because a TRANSFER event itself never includes one.
+  it('TRANSFER carries the real expiry over from the losing account', async () => {
+    const FROM = '99999999-0000-0000-0000-000000000001';
     const TO = '99999999-0000-0000-0000-000000000002';
-    await handler(post({ id: 'evt-xfer-noexp', type: 'TRANSFER', transferred_to: [TO] }), makeRes());
-    const grant = updatedWith.find((u) => u.payload.premium_expires_at !== undefined && u.payload.is_premium === true);
+    const realExpiry = new Date(Date.now() + 300 * 86_400_000).toISOString();
+    fromProfiles = [{ premium_expires_at: realExpiry, premium_product_id: 'mori_plus_annual', premium_will_renew: true }];
+    await handler(post({ id: 'evt-xfer-carry', type: 'TRANSFER', transferred_from: [FROM], transferred_to: [TO] }), makeRes());
+    const grant = updatedWith.find((u) => u.payload.is_premium === true);
     expect(grant).toBeTruthy();
-    expect(grant.payload.premium_expires_at).toEqual(expect.any(String));
-    expect(Date.parse(grant.payload.premium_expires_at)).toBeGreaterThan(Date.now());
+    expect(grant.payload.premium_expires_at).toBe(realExpiry); // NOT a short 48h stub
+    expect(grant.payload.premium_product_id).toBe('mori_plus_annual');
   });
 
-  it('TRANSFER of an already-expired entitlement does NOT grant premium', async () => {
+  it('TRANSFER of an EXPIRED receipt does not grant premium (abuse loop closed)', async () => {
+    const FROM = '99999999-0000-0000-0000-000000000001';
     const TO = '99999999-0000-0000-0000-000000000002';
-    const past = Date.now() - 86_400_000;
-    await handler(post({ id: 'evt-xfer-expired', type: 'TRANSFER', transferred_to: [TO], expiration_at_ms: past }), makeRes());
-    const grant = updatedWith.find((u) => u.payload.premium_expires_at !== undefined);
-    expect(grant.payload.is_premium).toBe(false);
+    fromProfiles = [{ premium_expires_at: new Date(Date.now() - 86_400_000).toISOString(), premium_product_id: 'mori_plus_annual', premium_will_renew: false }];
+    await handler(post({ id: 'evt-xfer-expired', type: 'TRANSFER', transferred_from: [FROM], transferred_to: [TO] }), makeRes());
+    const grant = updatedWith.find((u) => u.payload.premium_expires_at !== undefined && u.payload.is_premium === true);
+    expect(grant).toBeUndefined();
+  });
+
+  it('TRANSFER with no resolvable expiry leaves server state untouched (never a blind grant)', async () => {
+    const TO = '99999999-0000-0000-0000-000000000002';
+    fromProfiles = [];
+    await handler(post({ id: 'evt-xfer-unknown', type: 'TRANSFER', transferred_to: [TO] }), makeRes());
+    expect(updatedWith.find((u) => u.payload.is_premium === true)).toBeUndefined();
+    expect(mockCaptureException).toHaveBeenCalled();
   });
 
   // Regression: RC retry jitter can deliver a stale EXPIRATION after a newer RENEWAL. Applying

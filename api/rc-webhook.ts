@@ -75,6 +75,10 @@ type RcEvent = {
   transferred_from?: unknown;
   transferred_to?: unknown;
   environment?: unknown;
+  // Why the term ended. CUSTOMER_SUPPORT (refund) / DEVELOPER_INITIATED (revoke) must bypass
+  // the stale-event ordering guard — they legitimately end access before the stored expiry.
+  expiration_reason?: unknown;
+  cancel_reason?: unknown;
 };
 
 // Max representable JS Date is ±8.64e15 ms. Bound here so a finite-but-absurd
@@ -153,27 +157,53 @@ async function applyTransfer(sb: SupabaseClient, event: RcEvent): Promise<void> 
 
   const from = uuidList(event.transferred_from);
   const to = uuidList(event.transferred_to);
+
+  // Read the OLD owner's real entitlement dates BEFORE revoking. TRANSFER itself carries no
+  // expiry, so this is the only trustworthy source of the subscription's true end date without
+  // a REST round-trip: whatever the losing account had is exactly what the receipt is worth.
+  let carriedExpiry: string | null = null;
+  let carriedProduct: string | null = null;
+  let carriedWillRenew = false;
   if (from.length) {
+    const { data: prev } = await sb
+      .from('profiles')
+      .select('premium_expires_at, premium_product_id, premium_will_renew')
+      .in('id', from);
+    for (const p of prev ?? []) {
+      const ms = p?.premium_expires_at ? Date.parse(p.premium_expires_at) : NaN;
+      if (!Number.isFinite(ms)) continue;
+      if (carriedExpiry == null || ms > Date.parse(carriedExpiry)) {
+        carriedExpiry = p.premium_expires_at;
+        carriedProduct = p.premium_product_id ?? null;
+        carriedWillRenew = !!p.premium_will_renew;
+      }
+    }
     const { error } = await sb
       .from('profiles')
       .update({ is_premium: false, premium_will_renew: false, premium_in_grace_period: false })
       .in('id', from);
     if (error) throw new Error(`transfer revoke failed: ${error.code ?? 'unknown'}`);
   }
+
   if (to.length) {
-    // ALWAYS write an expiry. Leaving it untouched was a free-premium hole: a fresh profile's
-    // premium_expires_at is NULL and isPremiumActive reads NULL as "never expires", so restoring
-    // an EXPIRED receipt onto a new account granted premium permanently — repeatable per account.
-    // Use the event's expiry when present; otherwise a short reconciliation window that the next
-    // lifecycle event replaces with the real date (also fixes the mirror case, where a stale PAST
-    // expiry on the receiving profile would have denied a legitimate transferred payer).
-    const expMs = asMs(event.expiration_at_ms);
-    const expiresAt = asIso(expMs) ?? new Date(Date.now() + TRANSFER_RECONCILE_MS).toISOString();
+    // Prefer the event's own expiry, else the date carried from the losing account.
+    const expMs = asMs(event.expiration_at_ms) ?? (carriedExpiry ? Date.parse(carriedExpiry) : null);
+    if (expMs == null || !Number.isFinite(expMs)) {
+      // Unknown entitlement window. Do NOT write anything: granting with no expiry was the
+      // permanent-free-premium hole, and granting a short window would cut a legitimate annual
+      // restore off mid-term. Leave the row untouched — the client's own SDK still reflects the
+      // truth immediately, and the next lifecycle event writes the real dates server-side.
+      captureException(new Error(`rc-webhook: TRANSFER ${event.id} had no resolvable expiry; left server state unchanged`));
+      return;
+    }
+    const active = expMs > Date.now();
     const { error } = await sb
       .from('profiles')
       .update({
-        is_premium: expMs == null || expMs > Date.now(),
-        premium_expires_at: expiresAt,
+        is_premium: active,                       // an expired receipt transfers as EXPIRED
+        premium_expires_at: new Date(expMs).toISOString(),
+        premium_product_id: carriedProduct,
+        premium_will_renew: active && carriedWillRenew,
         premium_in_grace_period: false,
       })
       .in('id', to);
@@ -203,13 +233,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // grant; applying it would both drop is_premium and rewind premium_expires_at, locking a
         // live subscriber out with no self-service fix. Never let an older expiry revoke a
         // currently-valid one (grants are unaffected — a later real expiry still applies).
-        if (update.is_premium === false) {
+        // A refund/revocation legitimately ends access EARLY, so it always looks "stale" next to
+        // the stored expiry. Never let the ordering guard swallow one — that would hand refunded
+        // users free access for the rest of the term.
+        const reason = String(event.expiration_reason ?? event.cancel_reason ?? '').toUpperCase();
+        const isRevocation = reason === 'CUSTOMER_SUPPORT' || reason === 'DEVELOPER_INITIATED'
+          || event.type === 'REFUND' || event.type === 'SUBSCRIPTION_REVOKED';
+        if (update.is_premium === false && !isRevocation) {
           const { data: cur } = await sb
             .from('profiles').select('premium_expires_at').eq('id', targetId).maybeSingle();
           const curMs = cur?.premium_expires_at ? Date.parse(cur.premium_expires_at) : NaN;
           const evtMs = asMs(event.expiration_at_ms);
           if (Number.isFinite(curMs) && curMs > Date.now() && (evtMs == null || evtMs < curMs)) {
             captureException(new Error(`rc-webhook: ignored stale ${event.type} for ${event.id}`));
+            // Still record the marker so RC stops redelivering an event we deliberately dropped.
+            await sb.from('rc_webhook_events')
+              .insert({ event_id: event.id, event_type: event.type, user_id: targetId });
             return res.status(200).json({ received: true, ignored: 'stale' });
           }
         }

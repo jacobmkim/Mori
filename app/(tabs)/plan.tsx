@@ -831,7 +831,14 @@ export default function Plan() {
     });
     // AWAIT the write: the caller consumes a one-shot Sunday Drop proposal on success, and
     // marking it accepted after a failed save would destroy the week with nothing to restore.
-    return await savePlan(userId, weekStart);
+    const saved = await savePlan(userId, weekStart);
+    if (!saved) {
+      // ROLL BACK the optimistic mutation. Without this the user is left staring at a week that
+      // was never persisted — and the next unrelated edit would quietly save the phantom week.
+      clearSlots();
+      slots.forEach((s) => addSlot(s));
+    }
+    return saved;
   }
 
   // Open the Build-my-week review sheet preloaded with the pending Sunday Drop proposal. Nothing
