@@ -81,6 +81,7 @@ export const LAND_MEAT = [
   'gelatin', 'gelatine', 'ground beef', 'ground pork', 'ground lamb', 'ground turkey',
   'ground chicken', 'minced beef', 'minced pork', 'minced lamb', 'minced chicken',
   'pork belly', 'pork rind', 'spare rib', 'baby back rib', 'short rib', 'rib eye',
+  'ostrich', 'emu', 'kangaroo',
 ];
 
 export const OFFAL = [
@@ -103,8 +104,11 @@ export const FIN_FISH = [
   'tilapia', 'trout', 'catfish', 'snapper', 'grouper', 'mahi', 'swordfish',
   // 'seabass' as one word never matched the catalog's "sea bass"; bare 'bass' was dropped with
   // the old list. Spell both, and cover the names the catalog actually uses.
-  'sea bass', 'seabass', 'sea bream', 'seabream', 'branzino', 'dorada', 'barramundi',
+  'sea bass', 'seabass', 'sea bream', 'seabream', 'branzino', 'barramundi',
   'monkfish', 'hake', 'pilchard', 'turbot', 'plaice', 'whitebait', 'kipper', 'lox', 'gravlax',
+  // Bare 'sole'/'skate'/'perch' are common English words — use the food forms only.
+  'dover sole', 'lemon sole', 'sole fillet', 'skate wing', 'perch fillet', 'lake perch',
+  'eel', 'carp', 'abalone', 'pollack', 'coley', 'whiting', 'john dory',
   'herring', 'pollock', 'flounder', 'caviar', 'bonito', 'katsuobushi', 'dashi', 'bottarga',
   'fish sauce', 'nam pla', 'colatura', 'worcestershire', 'seafood', 'surimi', 'anchovy paste',
 ];
@@ -119,6 +123,7 @@ export const DAIRY = [
   'roquefort', 'gorgonzola', 'quark', 'kefir', 'clotted cream', 'sour cream', 'whey',
   'casein', 'condensed milk', 'evaporated milk', 'ice cream', 'queso', 'labneh', 'skyr',
   'burrata', 'creme anglaise', 'milk powder', 'milk solids', 'butterfat', 'curd',
+  'ranch dressing', 'ranch seasoning', 'fromage frais', 'fromage blanc', 'creme caramel',
 ];
 
 export const EGG = ['egg', 'egg white', 'egg yolk', 'mayonnaise', 'mayo', 'meringue', 'albumen', 'aioli', 'hollandaise'];
@@ -130,6 +135,9 @@ export const TREE_NUTS = [
   'brazil nut', 'pine nut', 'pignoli', 'praline', 'marzipan', 'nutella', 'frangipane',
   'amaretto', 'amaretti', 'gianduja', 'nougat', 'pesto', 'nut butter', 'nut milk',
   'nut flour', 'almond flour', 'almond meal', 'macaroon', 'baklava', 'marcona',
+  // 'chestnut' was missing while 'water chestnut' sat in the exempt list — so the exemption
+  // guarded a keyword that didn't exist, and 4 real-chestnut recipes reached nut_free users.
+  'chestnut', 'chestnut flour', 'marron', 'marrons glaces',
 ];
 
 /** Peanut is a legume but is what users mean by "nut free". */
@@ -146,6 +154,11 @@ export const GLUTEN = [
   'filo', 'puff pastry', 'soy sauce', 'seitan', 'malt', 'beer', 'brioche', 'wonton',
   'dumpling', 'gyoza', 'crouton', 'matzo', 'matzah', 'graham', 'pretzel', 'oats', 'oat',
   'miso', 'hoisin', 'teriyaki', 'bun', 'biscuit', 'muffin', 'pancake', 'waffle',
+  // Live-catalog audit: 16 wheat-bearing recipes reached celiac users because the carrier word
+  // was never enumerated. 'dough' is the big one (pizza/crescent/pastry dough).
+  'bagel', 'dough', 'pizza dough', 'crescent roll', 'ciabatta', 'focaccia', 'freekeh',
+  'roux', 'curry roux', 'challah', 'strudel', 'scone', 'crumpet', 'doughnut', 'donut',
+  'pie crust', 'tart shell', 'puff pastry sheet', 'wrap', 'baguette', 'sourdough',
 ];
 
 // ── Per-category exemptions (rule 1) ─────────────────────────────────────────
@@ -168,7 +181,7 @@ const EXEMPT: Record<Cat, string[]> = {
   ],
   OFFAL: ['kidney bean', 'artichoke heart', 'hearts of palm', 'heart of palm', 'heart of romaine', 'liverwort'],
   SHELLFISH: ['oyster mushroom', 'clam shell', 'crab apple', 'crabapple'],
-  FIN_FISH: ['fish-free', 'fishless', 'fish pepper', 'swordfish plant'],
+  FIN_FISH: ['fish-free', 'fishless', 'fish pepper', 'swordfish plant', 'carrot lox', 'vegan lox'],
   DAIRY: [
     'coconut milk', 'coconut cream', 'coconut butter', 'coconut yogurt', 'almond milk',
     'almond butter', 'almond yogurt', 'soy milk', 'soya milk', 'soy yogurt', 'oat milk',
@@ -182,13 +195,21 @@ const EXEMPT: Record<Cat, string[]> = {
   EGG: ['eggplant', 'egg plant', 'vegan mayo', 'vegan mayonnaise', 'eggless'],
   HONEY: ['honeydew', 'honeycomb toffee', 'honey mushroom'],
   // Rule 2: allergen — exemptions must be provably-not-a-nut items only.
-  NUTS: ['water chestnut', 'nutmeg', 'butternut', 'nutritional yeast', 'coconut', 'nut-free', 'peanut-free'],
+  // Rule 2 (allergens fail safe) means this list stays TINY and every entry must be provably
+  // not-a-nut. 'chestnut mushroom' is a fungus; 'water chestnut' is an aquatic tuber.
+  // NB coconut: kept exempt because tree-nut-allergic people are almost always fine with it
+  // (allergists treat them separately, despite FDA labelling). A user who specifically dislikes
+  // coconut is still protected via the dislike path.
+  NUTS: ['water chestnut', 'chestnut mushroom', 'nutmeg', 'butternut', 'nutritional yeast', 'coconut', 'nut-free', 'peanut-free'],
   GLUTEN: [
     'rice noodle', 'glass noodle', 'bean thread noodle', 'shirataki', 'zucchini noodle',
     'rice flour', 'corn flour', 'masa harina', 'almond flour', 'coconut flour',
     'chickpea flour', 'tapioca flour', 'buckwheat flour', 'cassava flour', 'oat flour',
     'corn tortilla', 'rice paper', 'gluten-free', 'gluten free', 'certified gf',
     'cornbread', 'corn starch', 'rice cracker', 'almond cracker',
+    'bagel seasoning', 'everything bagel seasoning', 'everything seasoning',
+    'gluten-free dough', 'gluten free dough', 'cauliflower dough', 'almond flour dough',
+    'gluten-free wrap', 'lettuce wrap', 'collard wrap', 'rice paper wrap',
   ],
 };
 
@@ -321,11 +342,23 @@ const DISLIKE_EXEMPT: Record<string, string[]> = Object.assign(Object.create(nul
 
 /** The keyword list a dislike term should match — expanded when it names a category. */
 export function expandDislike(term: unknown): string[] {
-  const t = String(term ?? '').trim().slice(0, MAX_DISLIKE_LEN).toLowerCase();
-  if (!t) return [];
+  const raw = String(term ?? '').trim().slice(0, MAX_DISLIKE_LEN).toLowerCase();
+  if (!raw) return [];
   // Reject punctuation-only input — an empty/degenerate regex would block the whole catalog.
-  if (!/[a-z0-9]/i.test(t)) return [];
-  const hit = Object.prototype.hasOwnProperty.call(DISLIKE_CATEGORIES, t) ? DISLIKE_CATEGORIES[t] : null;
+  if (!/[a-z0-9]/i.test(raw)) return [];
+  // Normalize what users actually type: "Peanuts!", "no peanuts", "peanut allergy" must all
+  // resolve to the peanut category. Unnormalized, any punctuation made the filter dead — the
+  // literal regex for 'peanuts!' can never match an ingredient, so it protected nothing.
+  const t = raw
+    .replace(/[^a-z0-9\s-]/g, ' ')
+    .replace(/^(no|without|avoid)\s+/, '')
+    .replace(/\s+(allergy|allergies|free)$/, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!t) return [];
+  const lookup = (k: string) =>
+    (Object.prototype.hasOwnProperty.call(DISLIKE_CATEGORIES, k) ? DISLIKE_CATEGORIES[k] : null);
+  const hit = lookup(t) ?? lookup(raw);
   return Array.isArray(hit) && hit.length ? hit : [t];
 }
 
@@ -334,7 +367,10 @@ const dislikeCache = new Map<string, RegExp>();
 const DISLIKE_CACHE_MAX = 500;
 
 function dislikeRe(terms: string[]): RegExp {
-  const key = terms.join(''); // NUL-joined: a user term containing '|' can't merge keys
+  // Join with a character no ingredient term contains. join('') let distinct lists collide
+  // (['pea','nuts'] vs ['peanuts']), so one free-text dislike could serve another term's cached
+  // regex — demonstrated silently disabling the Peanuts chip for a whole session.
+  const key = JSON.stringify(terms);
   let re = dislikeCache.get(key);
   if (!re) {
     re = buildRe(terms);

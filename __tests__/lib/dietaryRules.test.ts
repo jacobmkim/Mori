@@ -220,3 +220,56 @@ describe('dislike exemptions (regression: "Olives" chip blocked 840 recipes via 
     expect(matchesDislike('chicken thighs in olive oil', ['Chicken'])).toBe(true);
   });
 });
+
+describe('round-5 catalog audit: allergen carriers that were missing', () => {
+  it.each([
+    ['gluten_free', 'Smoked Salmon Bagel with Capers bagels cream cheese'],
+    ['gluten_free', 'Buffalo Chicken Pizza store-bought pizza dough'],
+    ['gluten_free', 'Pigs in a Blanket crescent roll dough'],
+    ['gluten_free', 'Caprese Wrap with Pesto ciabatta'],
+    ['gluten_free', 'Freekeh Pilaf freekeh'],
+    ['gluten_free', 'Japanese Curry Rice japanese curry roux blocks'],
+    ['nut_free', 'Chestnut and Mushroom Soup chestnuts'],
+    ['dairy_free', 'Loaded Potato Skins ranch dressing'],
+    ['dairy_free', 'Berry Fool fromage frais'],
+    ['vegetarian', 'Roast Ostrich Fillet ostrich'],
+    ['vegetarian', 'Jellied Eel eel'],
+    ['vegan', 'Dover Sole Meuniere dover sole'],
+  ])('%s blocks "%s"', (goal, text) => {
+    expect(violatesDietary(text, [goal])).toBe(true);
+  });
+
+  it.each([
+    ['gluten_free', 'Cottage Cheese Chips with everything bagel seasoning'],
+    ['nut_free', 'Coq au vin with chestnut mushrooms'],
+    ['nut_free', 'Beef Bourguignon chestnut mushroom'],
+    ['vegan', 'carrot lox on rye'],
+  ])('%s still allows "%s"', (goal, text) => {
+    expect(violatesDietary(text, [goal])).toBe(false);
+  });
+});
+
+describe('round-5: dislike matching mechanism', () => {
+  it('a colliding free-text dislike cannot disable an allergen chip (cache-key collision)', () => {
+    // Two different terms must never share a compiled regex.
+    expect(matchesDislike('pea and mint soup', ['pea', 'nuts'])).toBe(true);   // warms the cache
+    expect(matchesDislike('peanut satay noodles', ['Peanuts'])).toBe(true);    // must still fire
+  });
+
+  it('punctuation and phrasing no longer kill a free-text allergy', () => {
+    for (const term of ['Peanuts!', 'no peanuts', 'peanut allergy', ' PEANUTS ']) {
+      expect(matchesDislike('Thai satay with peanuts', [term])).toBe(true);
+    }
+  });
+
+  it('the Olives exemption fires for every realistic chip form', () => {
+    for (const term of ['Olives', 'olives', 'Olive', 'olive', ' Olives ', 'OLIVES']) {
+      expect(matchesDislike('roasted vegetables in olive oil', [term])).toBe(false);
+      expect(matchesDislike('greek salad with kalamata olives', [term])).toBe(true);
+    }
+  });
+
+  it('a user can still dislike olive oil itself', () => {
+    expect(matchesDislike('roasted vegetables in olive oil', ['olive oil'])).toBe(true);
+  });
+});
