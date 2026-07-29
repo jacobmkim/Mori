@@ -26,11 +26,21 @@ import { HorizontalCard, GridCard, SectionHeader } from '@/components/RecipeCard
 const LIST_COLS =
   'id, external_id, title, cuisine, source_type, image_url, ' +
   'prep_time_mins, cook_time_mins, meal_prep_friendly, ' +
-  'dietary_tags, macros, badge, save_count, avg_rating, rating_count, created_at';
+  'dietary_tags, macros, badge, save_count, avg_rating, rating_count, created_at, ' +
+  // `ingredients` costs ~0.54 KB/row (~32 KB per Explore load, vs ~1.8 MB of images on the same
+  // screen) and is REQUIRED: dietary_tags cannot gate this surface — 0 recipes carry a
+  // 'nut_free' tag and pescatarian tags cover 331 where the real gate finds 967.
+  'ingredients';
 import { useUserStore } from '@/stores/userStore';
 import { useSavedStore } from '@/stores/savedStore';
 import { useGroceryStore } from '@/stores/groceryStore';
 import { supabase } from '@/lib/supabase';
+import {
+  violatesDietary, matchesDislike, recipeMatchText, hasNoIngredientData, hasRestriction,
+} from '@/lib/dietaryRules';
+import {
+  filterByMethods, COOKING_METHOD_ORDER, COOKING_METHOD_LABELS,
+} from '@/lib/cookingMethods';
 import { AvatarButton } from '@/components/AvatarButton';
 import { RecipeDetailModal } from '@/components/RecipeDetailModal';
 import { BadgeAchievementModal } from '@/components/badges/BadgeAchievementModal';
@@ -38,7 +48,17 @@ import { getNewlyEarned, type Badge, type BadgeStats } from '@/lib/badges';
 import type { Recipe } from '@/types';
 import { CUISINES } from '@/constants/cuisines';
 
-const FILTER_CHIPS = ['All', 'Quick', 'High Protein', 'Meal Prep', 'Vegetarian', 'Vegan'];
+// Cooking-method chips are appended from COOKING_METHOD_ORDER so the list can't drift from
+// lib/cookingMethods.ts. Explore does not fetch `steps` (it would more than double the payload —
+// 69 KB -> 155 KB per load), so matching here is title-only. That is deliberate: measured against
+// the catalog it still yields 79 air-fryer / 60 slow-cooker / 72 one-pot / 75 grill recipes, and
+// cookingMethods() degrades to title matching on its own when steps are absent.
+const BASE_FILTER_CHIPS = ['All', 'Quick', 'High Protein', 'Meal Prep', 'Vegetarian', 'Vegan'];
+const METHOD_CHIPS = COOKING_METHOD_ORDER.map((m) => COOKING_METHOD_LABELS[m]);
+const FILTER_CHIPS = [...BASE_FILTER_CHIPS, ...METHOD_CHIPS];
+const LABEL_TO_METHOD = new Map(
+  COOKING_METHOD_ORDER.map((m) => [COOKING_METHOD_LABELS[m], m] as const),
+);
 
 function toRecipe(row: any): Recipe {
   return {
@@ -73,6 +93,8 @@ export default function Explore() {
   const colors = useTheme();
   const userId = useUserStore((s) => s.profile?.id);
   const dietaryGoals = useUserStore((s) => s.profile?.dietary_goals) ?? [];
+  const ingredientDislikes = useUserStore((s) => s.profile?.ingredient_dislikes) ?? [];
+  const dietaryGated = hasRestriction(dietaryGoals) || ingredientDislikes.length > 0;
   const { savedRecipes, addRecipe, removeRecipe } = useSavedStore();
   const { addFromDetail, selectedRecipes, removeRecipeFromList } = useGroceryStore();
 
@@ -167,14 +189,30 @@ export default function Explore() {
     }
   }
 
+  // ── Dietary / allergen gate ───────────────────────────────────────────────
+  // Explore previously applied NO dietary or dislike filter: a vegan browsing the editorial
+  // feed was shown chicken, and someone who declared a shellfish allergy was shown shellfish.
+  // Same single gate as every other surface (lib/dietaryRules.ts).
+  const gateRecipes = useCallback((recipes: Recipe[]): Recipe[] => {
+    if (!dietaryGated) return recipes;
+    return recipes.filter((r) => {
+      if (hasNoIngredientData(r as any)) return false; // fail closed under a restriction
+      const text = recipeMatchText(r as any);
+      return !violatesDietary(text, dietaryGoals) && !matchesDislike(text, ingredientDislikes);
+    });
+  }, [dietaryGated, dietaryGoals, ingredientDislikes]);
+
   // ── Filter recipes by active chip ─────────────────────────────────────────
   function applyFilter(recipes: Recipe[]): Recipe[] {
+    recipes = gateRecipes(recipes);
     if (activeFilter === 'All') return recipes;
     if (activeFilter === 'Quick') return recipes.filter((r) => ((r.prep_time_mins ?? 99) + (r.cook_time_mins ?? 99)) <= 30);
     if (activeFilter === 'High Protein') return recipes.filter((r) => r.dietary_tags?.includes('high_protein') || (r.macros as any)?.protein >= 25);
     if (activeFilter === 'Meal Prep') return recipes.filter((r) => r.meal_prep_friendly);
     if (activeFilter === 'Vegetarian') return recipes.filter((r) => r.dietary_tags?.includes('vegetarian'));
     if (activeFilter === 'Vegan') return recipes.filter((r) => r.dietary_tags?.includes('vegan'));
+    const method = LABEL_TO_METHOD.get(activeFilter);
+    if (method) return filterByMethods(recipes, [method]);
     return recipes;
   }
 
@@ -191,11 +229,11 @@ export default function Explore() {
           .or('source_type.neq.community,and(source_type.eq.community,is_public.eq.true)')
           .is('deleted_at', null)
           .limit(40);
-        setSearchResults((data ?? []).map(toRecipe));
+        setSearchResults(gateRecipes((data ?? []).map(toRecipe)));
       } catch { } finally { setSearchLoading(false); }
     }, 300);
     return () => clearTimeout(timer);
-  }, [searchQuery]);
+  }, [searchQuery, gateRecipes]);
 
   function openRecipe(recipe: Recipe) {
     setSelectedRecipe(recipe);
