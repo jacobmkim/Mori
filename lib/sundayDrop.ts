@@ -5,7 +5,9 @@
 
 import type { AutoPlanResult, AutoPlanSlot, MealSlot } from '@/types';
 import { localDayOfWeekFor, localHourFor } from './timezone';
-import { DECK_ALL_MEAT, DECK_LAND_MEAT, buildIngredientText } from './deckFilter';
+import {
+  violatesDietary, matchesDislike, recipeMatchText, hasNoIngredientData, hasRestriction,
+} from './dietaryRules';
 
 // Sunday Drop fires in a 2-hour local window so the hourly cron catches every IANA zone's
 // local Sunday morning, and DST spring-forward (which jumps ~02:00, never 09:00) can't skip it.
@@ -93,27 +95,13 @@ export function violatesCurrentPrefs(
   dietaryGoals: string[] | null | undefined,
   ingredientDislikes: string[] | null | undefined,
 ): boolean {
-  const dislikes = (ingredientDislikes ?? []).map((d) => d.toLowerCase()).filter(Boolean);
-  if (dislikes.length > 0) {
-    const ings = (recipe.ingredients ?? []) as { name?: string }[];
-    if (ings.some((ing) => ing?.name && dislikes.some((d) => ing.name!.toLowerCase().includes(d)))) {
-      return true;
-    }
-  }
   const goals = dietaryGoals ?? [];
-  if (goals.length > 0) {
-    const title = (recipe.title ?? '').toLowerCase();
-    if (goals.includes('vegan') || goals.includes('vegetarian')) {
-      if (DECK_ALL_MEAT.some((w) => title.includes(w))) return true;
-      const ingText = buildIngredientText((recipe.ingredients ?? []) as any[]);
-      if (DECK_ALL_MEAT.some((w) => ingText.includes(w))) return true;
-    } else if (goals.includes('pescatarian')) {
-      if (DECK_LAND_MEAT.some((w) => title.includes(w))) return true;
-      const ingText = buildIngredientText((recipe.ingredients ?? []) as any[]);
-      if (DECK_LAND_MEAT.some((w) => ingText.includes(w))) return true;
-    }
-  }
-  return false;
+  const dislikes = (ingredientDislikes ?? []).filter(Boolean);
+  if (!hasRestriction(goals) && dislikes.length === 0) return false;
+  // Fail closed: a proposal slot we can't evaluate must not be served under a restriction.
+  if (hasNoIngredientData(recipe as any)) return true;
+  const text = recipeMatchText(recipe as any);
+  return violatesDietary(text, goals) || matchesDislike(text, dislikes);
 }
 
 /**

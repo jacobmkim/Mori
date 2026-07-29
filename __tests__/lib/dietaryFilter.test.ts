@@ -46,7 +46,10 @@ function makeRow(overrides: Partial<{
     servings: 2,
     cost_per_serving: null,
     macros: null,
-    ingredients: overrides.ingredients ?? [],
+    // Non-empty by default: with a restriction declared, filterAndMapDeckRecipes fails CLOSED
+    // on a recipe carrying no ingredient list (it can only be judged by title). 0 of 2,618 live
+    // recipes have empty ingredients, so this mirrors production.
+    ingredients: overrides.ingredients ?? [{ name: 'salt', quantity: '1', unit: 'tsp' }],
     steps: [],
     meal_prep_friendly: null,
     skill_level: null,

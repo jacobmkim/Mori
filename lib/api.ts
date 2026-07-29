@@ -20,11 +20,13 @@ export { scoreRecipe };
 // lib/deckFilter.ts so the Sunday Drop cron builds the SAME catalog as the client deck.
 import {
   buildIngredientText,
-  DECK_ALL_MEAT,
-  DECK_LAND_MEAT,
   filterAndMapDeckRecipes,
   fetchAllCatalogRows,
 } from './deckFilter';
+// The dietary/allergen gate — one source of truth for every surface (see lib/dietaryRules.ts).
+import {
+  violatesDietary, matchesDislike, recipeMatchText, hasNoIngredientData, hasRestriction,
+} from './dietaryRules';
 // Re-validates stored Sunday Drop proposals against the user's CURRENT prefs at hydration.
 import { violatesCurrentPrefs } from './sundayDrop';
 // Cross-week plan memory — the "same recipes every week" fix. Shared with the cron.
@@ -160,9 +162,10 @@ export async function getRecipeById(id: string): Promise<Recipe | null> {
 
 // ─── Discover Deck ────────────────────────────────────────────────────────────
 
-// buildIngredientText + DECK_EXCLUDE / DECK_LAND_MEAT / DECK_SEAFOOD / DECK_ALL_MEAT +
-// filterAndMapDeckRecipes now live in lib/deckFilter.ts (RN-free, shared with the Sunday
-// Drop cron). Imported at the top of this file.
+// buildIngredientText + DECK_EXCLUDE + filterAndMapDeckRecipes live in lib/deckFilter.ts
+// (RN-free, shared with the Sunday Drop cron). The dietary/allergen keyword lists and the
+// hard-filter predicates live in lib/dietaryRules.ts — the ONE gate every surface calls.
+// Both imported at the top of this file.
 
 // Hard-excluded from Meal Prep mode
 const MEAL_PREP_SHELLFISH = [
@@ -373,14 +376,11 @@ async function fetchAdventureRecipe(
     .limit(10);
   const eligible = (data ?? []).filter((r: any) => {
     if (existingSupabaseIds.has(r.id)) return false;
-    const t = (r.title ?? '').toLowerCase();
-    const ingText = buildIngredientText(r.ingredients ?? []);
-    if (dietaryGoals.includes('vegan') || dietaryGoals.includes('vegetarian')) {
-      if (DECK_ALL_MEAT.some((w) => t.includes(w) || ingText.includes(w))) return false;
-    } else if (dietaryGoals.includes('pescatarian')) {
-      if (DECK_LAND_MEAT.some((w) => t.includes(w) || ingText.includes(w))) return false;
-    }
-    return true;
+    // Adventure cards go through the same shared gate as the deck — a separate copy of the
+    // rules here is exactly how a vegan ends up served meat on one surface but not another.
+    if (!hasRestriction(dietaryGoals)) return true;
+    if (hasNoIngredientData(r)) return false; // fail closed under a restriction
+    return !violatesDietary(recipeMatchText(r), dietaryGoals);
   });
   if (eligible.length === 0) return null;
   const r = eligible[Math.floor(Math.random() * eligible.length)] as any;
@@ -823,14 +823,13 @@ export async function fetchScoredDeck(
 
   const pantrySet = new Set(pantryItems.filter((p) => p.ingredient_name).map((p) => p.ingredient_name.toLowerCase()));
 
-  // Bug 1 fix — ingredient dislike hard filter (never soft-deprioritise, never relaxed)
-  const dislikes = (profile?.ingredient_dislikes ?? []).map((d) => d.toLowerCase());
-  const afterDislikes = dislikes.length === 0 ? deck : deck.filter((r) => {
-    const ingredients = (r.ingredients ?? []) as { name: string }[];
-    return !ingredients.some((ing) =>
-      ing?.name && dislikes.some((dislike) => ing.name.toLowerCase().includes(dislike))
-    );
-  });
+  // Ingredient dislike hard filter (never soft-deprioritise, never relaxed). Goes through the
+  // shared rules so category chips expand — "Shellfish" used to match 0 of 187 shellfish
+  // recipes, and this is where users enter allergies.
+  const dislikes = (profile?.ingredient_dislikes ?? []) as string[];
+  const afterDislikes = dislikes.length === 0
+    ? deck
+    : deck.filter((r) => !matchesDislike(recipeMatchText(r), dislikes));
 
   // Exclude saved recipes — user already has them in their library.
   // favourites_rotation: saved recipes stay in the pool so the scorer can rank them;

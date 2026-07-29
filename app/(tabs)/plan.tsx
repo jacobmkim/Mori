@@ -13,6 +13,7 @@ import { getRecipesBySupabaseIds, fetchDiscoverRecipes, getRecentMealPlanWeeks, 
 import { autoSlotsToStoreSlots, nextSlotAlternate, applySlotChoice, setRecipeOnDays, swappedInRecipesToLearn } from '@/lib/autoPlan';
 import { addDaysUtc, HISTORY_WEEKS } from '@/lib/planHistory';
 import { flags } from '@/lib/featureFlags';
+import { matchesDislike, recipeMatchText } from '@/lib/dietaryRules';
 import { gateMoriPlus } from '@/lib/paywall';
 import { AutoPlanSheet } from '@/components/AutoPlanSheet';
 import { PlanActionSheet, RepeatDaysSheet, type RepeatDayOption } from '@/components/PlanActionSheets';
@@ -336,7 +337,15 @@ export default function Plan() {
     if (catalogRecipes !== null) return;
     setCatalogLoading(true);
     fetchDiscoverRecipes(dietaryGoals)
-      .then((rs) => setCatalogRecipes(rs))
+      // fetchDiscoverRecipes applies the dietary gate but not the user's dislikes, and this
+      // catalog also feeds "Hot meals" + the browse carousels — filter once, here, so every
+      // consumer of catalogRecipes is covered.
+      .then((rs) => {
+        const dislikes = profile?.ingredient_dislikes ?? [];
+        setCatalogRecipes(
+          dislikes.length === 0 ? rs : rs.filter((r) => !matchesDislike(recipeMatchText(r as any), dislikes)),
+        );
+      })
       .catch(() => setCatalogRecipes([]))
       .finally(() => setCatalogLoading(false));
   }, [userId]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -1005,6 +1014,10 @@ export default function Plan() {
       cuisines: pickerCuisines,
       timeBucket: pickerTimeBucket,
       skill: pickerSkill,
+      // The picker had no dietary/dislike gate at all — saved recipes in particular can predate
+      // a newly-declared allergy, so they are re-checked here rather than trusted.
+      dietaryGoals,
+      ingredientDislikes: profile?.ingredient_dislikes ?? [],
     };
     const saved = filterPickerRecipes(savedRecipes, opts);
     const savedIds = new Set(saved.map((r) => r.id));

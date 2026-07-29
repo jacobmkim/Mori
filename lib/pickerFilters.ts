@@ -1,4 +1,7 @@
 import type { Recipe, SkillLevel } from '@/types';
+import {
+  violatesDietary, matchesDislike, recipeMatchText, hasNoIngredientData, hasRestriction,
+} from './dietaryRules';
 
 export type PickerChip = 'meal_prep' | 'quick' | 'high_protein' | 'vegetarian' | 'vegan';
 
@@ -8,6 +11,9 @@ export interface PickerFilterOpts {
   cuisines: string[];
   timeBucket: number | null;
   skill: SkillLevel | null;
+  /** The user's own restrictions. Omitted = no gate (callers that show only saved recipes). */
+  dietaryGoals?: string[];
+  ingredientDislikes?: string[];
 }
 
 export function filterPickerRecipes(
@@ -16,8 +22,18 @@ export function filterPickerRecipes(
 ): Recipe[] {
   const q = opts.search.toLowerCase().trim();
   const cuisinesLower = opts.cuisines.map((c) => c.toLowerCase());
+  // The picker used to apply NO dietary/dislike filter at all — a vegan browsing "add a meal"
+  // was offered meat, and disliked/allergen ingredients showed up freely.
+  const goals = opts.dietaryGoals ?? [];
+  const dislikes = opts.ingredientDislikes ?? [];
+  const gated = hasRestriction(goals) || dislikes.length > 0;
 
   return recipes.filter((r) => {
+    if (gated) {
+      if (hasNoIngredientData(r as any)) return false; // fail closed under a restriction
+      const text = recipeMatchText(r as any);
+      if (violatesDietary(text, goals) || matchesDislike(text, dislikes)) return false;
+    }
     if (q) {
       const hit =
         r.title.toLowerCase().includes(q) ||

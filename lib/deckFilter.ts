@@ -7,6 +7,9 @@
 // two copies drifting — a drift here would silently serve a vegan a meat dinner.
 
 import type { Recipe } from '@/types';
+import {
+  violatesDietary, matchesDislike, recipeMatchText, hasNoIngredientData, hasRestriction,
+} from './dietaryRules';
 
 // Builds a single lowercase string from all ingredient names for keyword scanning.
 // Handles both string[] and {name:string}[] shapes that may exist in DB rows.
@@ -51,24 +54,24 @@ export const DECK_ALL_MEAT = [...DECK_LAND_MEAT, ...DECK_SEAFOOD];
  * client deck and the Sunday Drop cron. The CALLER runs the query (RN supabase client on device,
  * service-role client in the cron); this stays pure so the dietary safety filter can't drift.
  */
-export function filterAndMapDeckRecipes(rows: any[], dietaryGoals: string[] = []): Recipe[] {
+export function filterAndMapDeckRecipes(
+  rows: any[],
+  dietaryGoals: string[] = [],
+  ingredientDislikes: string[] = [],
+): Recipe[] {
+  const restricted = hasRestriction(dietaryGoals) || (ingredientDislikes?.length ?? 0) > 0;
   return (rows ?? [])
     .filter((r) => {
       const t = (r.title ?? '').toLowerCase();
       if (DECK_EXCLUDE.some((w) => t.includes(w))) return false;
       if ((r.dietary_tags ?? []).includes('dessert')) return false;
-      if (dietaryGoals.includes('vegan') || dietaryGoals.includes('vegetarian')) {
-        if (DECK_ALL_MEAT.some((w) => t.includes(w))) return false;
-        const ingText = buildIngredientText(r.ingredients ?? []);
-        if (DECK_ALL_MEAT.some((w) => ingText.includes(w))) return false;
-        return true;
-      }
-      if (dietaryGoals.includes('pescatarian')) {
-        if (DECK_LAND_MEAT.some((w) => t.includes(w))) return false;
-        const ingText = buildIngredientText(r.ingredients ?? []);
-        if (DECK_LAND_MEAT.some((w) => ingText.includes(w))) return false;
-        return true;
-      }
+      if (!restricted) return true;
+      // Fail CLOSED: with a restriction declared, a recipe carrying no ingredient list can't be
+      // judged (only its title), so it must not be shown rather than trusted.
+      if (hasNoIngredientData(r)) return false;
+      const text = recipeMatchText(r);
+      if (violatesDietary(text, dietaryGoals)) return false;
+      if (matchesDislike(text, ingredientDislikes)) return false;
       return true;
     })
     .map(

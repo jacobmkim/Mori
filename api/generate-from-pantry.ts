@@ -6,14 +6,8 @@ import { requireAuth } from './_apiAuth';
 import { isPremiumUserId } from './_requirePremium';
 import { checkAiBudget, incrementAiUsage } from './_aiUsage';
 import { captureException, flushSentry } from './_sentry';
-import { DECK_LAND_MEAT, DECK_SEAFOOD } from '../lib/deckFilter';
-
-// ONE source of truth with the catalog filter. The inline regexes this replaces missed
-// prosciutto/pancetta/steak/brisket/pepperoni/venison and oyster/mussel/clam/scallop/sardine —
-// so a vegan with e.g. oyster sauce on hand could be handed a recipe built around it, tagged
-// vegan (the sanitizer shared the same short list). Word-boundary match on the ingredient text.
-const MEAT_RE = new RegExp(`\\b(${DECK_LAND_MEAT.join('|')}|prosciutto|pancetta)`, 'i');
-const SEAFOOD_RE = new RegExp(`\\b(${DECK_SEAFOOD.join('|')}|scallop|anchov)`, 'i');
+// ONE source of truth with every other surface — see lib/dietaryRules.ts.
+import { violatesDietary, matchesDislike, recipeMatchText } from '../lib/dietaryRules';
 
 // POST /api/generate-from-pantry  (Mori+ — "Cook with what I have", M8 stage 3)
 // Generates up to 3 recipes constrained to EXACTLY the user's on-hand ingredients
@@ -183,32 +177,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // recipe that violates the user's diet is dropped, never handed over with
       // its tags quietly cleaned (the tag sanitizer below is for honesty on the
       // recipes that legitimately pass).
+      // AI output is the least trustworthy source in the product, so it gets the SAME gate as
+      // the catalog — one source of truth (lib/dietaryRules.ts), including the user's dislikes,
+      // which this endpoint previously ignored entirely at delivery time.
       .filter((r) => {
-        const ingText = r.ingredients.map((i) => i?.name?.toLowerCase() ?? '').join(' ');
-        const hasMeat = MEAT_RE.test(ingText);
-        const hasSeafood = SEAFOOD_RE.test(ingText);
-        const hasDairy = /\b(milk|cream|butter|cheese|yogurt|yoghurt|parmesan|mozzarella|feta|ghee)\b/.test(ingText);
-        const hasEgg = /\begg(s)?\b/.test(ingText);
-        const hasGluten = /\b(flour|bread|pasta|noodle|wheat|barley|rye|breadcrumb|panko|soy sauce|tortilla|couscous)\b/.test(ingText);
-        if ((dietaryGoals.includes('vegan') || dietaryGoals.includes('vegetarian')) && (hasMeat || hasSeafood)) return false;
-        if (dietaryGoals.includes('vegan') && (hasDairy || hasEgg)) return false;
-        if (dietaryGoals.includes('pescatarian') && hasMeat) return false;
-        if (dietaryGoals.includes('dairy_free') && hasDairy) return false;
-        if (dietaryGoals.includes('gluten_free') && hasGluten) return false;
+        const text = recipeMatchText(r as any);
+        if (violatesDietary(text, dietaryGoals)) return false;
+        if (matchesDislike(text, avoidIngredients)) return false;
         return true;
       })
       .map((r) => {
         const tags = (r.dietary_tags ?? []).filter((t) => VALID_TAGS.has(t));
-        const ingText = r.ingredients.map((i) => i?.name?.toLowerCase() ?? '').join(' ');
-        const hasMeat = MEAT_RE.test(ingText);
-        const hasSeafood = SEAFOOD_RE.test(ingText);
-        const hasDairy = /\b(milk|cream|butter|cheese|yogurt|yoghurt|parmesan|mozzarella|feta|ghee)\b/.test(ingText);
-        const hasGluten = /\b(flour|bread|pasta|noodle|wheat|barley|rye|breadcrumb|panko|soy sauce|tortilla|couscous)\b/.test(ingText);
-        let cleaned = tags;
-        if (hasMeat || hasSeafood) cleaned = cleaned.filter((t) => t !== 'vegan' && t !== 'vegetarian');
-        if (hasMeat) cleaned = cleaned.filter((t) => t !== 'pescatarian');
-        if (hasDairy) cleaned = cleaned.filter((t) => t !== 'vegan' && t !== 'dairy_free');
-        if (hasGluten) cleaned = cleaned.filter((t) => t !== 'gluten_free');
+        // Strip any tag the ingredients contradict — a generated recipe must never carry a
+        // claim we can disprove, even for a user who didn't declare that restriction.
+        const text = recipeMatchText(r as any);
+        const cleaned = tags.filter((t) => !violatesDietary(text, [t]));
         return { ...r, dietary_tags: cleaned };
       })
       .slice(0, count);

@@ -244,6 +244,17 @@ export function violatesDietary(text: string, goals: unknown[] = []): boolean {
   return false;
 }
 
+/** Goals that actually FILTER. The rest (balanced/high_protein/keto/paleo…) only rank. */
+const RESTRICTION_GOALS = new Set([
+  'vegan', 'vegetarian', 'pescatarian',
+  'dairy_free', 'gluten_free', 'nut_free', 'shellfish_free', 'egg_free',
+]);
+
+/** True when any goal imposes a hard filter — lets callers skip the work (and fail closed). */
+export function hasRestriction(goals: unknown[] = []): boolean {
+  return (goals ?? []).some((g) => RESTRICTION_GOALS.has(normGoal(g)));
+}
+
 /**
  * Category expansion for dislike terms. The preset chips are CATEGORIES or plurals — matching
  * them literally found nothing ("Shellfish" matched 0 of 187 shellfish recipes; the "Anchovies"

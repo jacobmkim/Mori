@@ -16,6 +16,9 @@
 import type { Recipe, Profile, MealType, PlanTunings, AutoPlanResult } from '@/types';
 import { autoPlanWeek, mergeLockedSlots, WEEKLY_SHUFFLE_POOL } from './autoPlan';
 import { recentPlanPenalty, type RecentPlanHistory } from './planHistory';
+import {
+  violatesDietary, matchesDislike, recipeMatchText, hasNoIngredientData, hasRestriction,
+} from './dietaryRules';
 
 // ─── Session-level swipe tracking (shared with lib/api.ts swipe-loggers) ─────────
 export const sessionLeftSwipes = new Set<string>(); // supabase_ids left-swiped this session
@@ -350,11 +353,17 @@ export function planWeekFromInputs(inp: WeekPlanInputs): AutoPlanResult {
 
   const flavourDna = (profile?.taste_profile as any)?.flavourDna ?? null;
 
-  // Hard filter: ingredient dislikes (commandment — never soft-deprioritise, never relax).
-  const dislikes = (profile?.ingredient_dislikes ?? []).map((d) => d.toLowerCase());
-  let pool = dislikes.length === 0 ? catalog : catalog.filter((r) => {
-    const ings = (r.ingredients ?? []) as { name?: string }[];
-    return !ings.some((ing) => ing?.name && dislikes.some((d) => ing.name!.toLowerCase().includes(d)));
+  // Hard filter: dietary goals + ingredient dislikes (commandment — never soft-deprioritise,
+  // never relax). Both go through the shared rules module so the planner can't drift from the
+  // deck: the catalog handed in here is already filtered, but Auto Plan is also fed saved
+  // recipes and pantry results, so it re-applies the gate rather than trusting its input.
+  const dislikes = (profile?.ingredient_dislikes ?? []) as string[];
+  const goals = (profile?.dietary_goals ?? []) as string[];
+  const gated = hasRestriction(goals) || dislikes.length > 0;
+  let pool = !gated ? catalog : catalog.filter((r) => {
+    if (hasNoIngredientData(r as any)) return false; // fail closed under a restriction
+    const text = recipeMatchText(r as any);
+    return !violatesDietary(text, goals) && !matchesDislike(text, dislikes);
   });
 
   // Hard filter: skill cap (mirrors fetchScoredDeck) — don't plan recipes above the user's level.
