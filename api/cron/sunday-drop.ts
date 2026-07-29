@@ -24,7 +24,7 @@
  *     _auth.ts — verifyCronAuth runs first and unconditionally.
  */
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { Profile, MealSlot, Recipe, ProposedPlan } from '../../types';
 import { sendExpoPush } from '../_pushUtils';
 import { verifyCronAuth } from './_auth';
@@ -55,6 +55,24 @@ const PROFILE_COLUMNS =
   'id, timezone, push_token, is_premium, premium_in_grace_period, premium_expires_at, ' +
   'notify_sunday_drop, dietary_goals, ingredient_dislikes, skill_level, cooking_frequency, ' +
   'eating_style, cuisine_preferences, taste_profile, weekly_budget';
+
+/**
+ * Undo the idempotency claim after a TRANSIENT failure so the next hourly run can retry.
+ * Guarded: only deletes a row that is still an empty, unproposed claim — it can never remove
+ * a real proposal, nor one the user has already accepted or dismissed.
+ */
+async function releaseClaim(sb: SupabaseClient, userId: string, weekStart: string): Promise<void> {
+  try {
+    await sb.from('sunday_drops').delete()
+      .eq('user_id', userId).eq('week_start', weekStart)
+      .is('proposed_plan', null)
+      .is('notified_at', null)
+      .is('accepted_at', null)
+      .is('dismissed_at', null);
+  } catch {
+    /* best-effort — a failed release just means no retry this week, the old behaviour */
+  }
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET' && req.method !== 'POST') return res.status(405).end();
@@ -195,7 +213,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       };
       body = summarizeDrop(result);
     } catch {
-      continue; // generation failed for this user — claim row stays (no retry-storm), no push
+      // TRANSIENT failure (signal query, optimizer throw). Release the claim so the next
+      // hourly run inside the window retries — keeping it meant one blip silently cost this
+      // subscriber the entire week's drop, with no retry and no telemetry.
+      await releaseClaim(sb, user.id, weekStart);
+      continue;
     }
 
     // ── Store the proposal (NOT meal_plans — the user accepts it in the app) ──
@@ -203,7 +225,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .from('sunday_drops')
       .update({ proposed_plan: proposedPlan, recipe_ids: recipeIds, generated_at: now.toISOString() })
       .eq('user_id', user.id).eq('week_start', weekStart);
-    if (dropErr) continue; // don't push a proposal we failed to store
+    if (dropErr) {
+      await releaseClaim(sb, user.id, weekStart); // transient write failure — allow a retry
+      continue;
+    }
     generated++;
 
     // ── Push (notified_at only on success; clear dead tokens) ──

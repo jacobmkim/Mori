@@ -16,6 +16,12 @@ interface UserStore {
   // for client-side UI gating; server-side gating reads profiles.is_premium.
   isPremium: boolean;
 
+  /** The signed-in Supabase user id, tracked independently of `profile`. A profile fetch can
+   *  fail at boot (network blip) and the app continues in degraded mode — keying RevenueCat
+   *  off `profile.id` in that case never configured it, stranding a PAYING subscriber on the
+   *  free tier for the whole session. */
+  authUserId: string | null;
+  setAuthUserId: (id: string | null) => void;
   setProfile: (profile: Profile | null) => void;
   setSessionNumber: (n: number) => void;
   setAuthResolved: (resolved: boolean) => void;
@@ -41,6 +47,7 @@ const defaultOnboarding: OnboardingState = {
 
 export const useUserStore = create<UserStore>((set) => ({
   profile: null,
+  authUserId: null,
   sessionNumber: 0,
   authResolved: false,
   onboarding: defaultOnboarding,
@@ -49,6 +56,7 @@ export const useUserStore = create<UserStore>((set) => ({
   profileSheetOpen: false,
   isPremium: false,
 
+  setAuthUserId: (authUserId) => set({ authUserId }),
   setProfile: (profile) => set({ profile }),
   setSessionNumber: (sessionNumber) => set({ sessionNumber }),
   setAuthResolved: (authResolved) => set({ authResolved }),

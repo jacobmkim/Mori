@@ -13,6 +13,7 @@ import { useUserStore } from '@/stores/userStore';
 import { registerForPushNotifications } from '@/lib/notifications';
 import { updatePushToken, touchLastActive, updateProfileTimezone } from '@/lib/api';
 import { isResetPasswordUrl, isVerifyEmailUrl, isRecipeUrl, extractRecipeId, isPlanUrl, extractPlanWeek } from '@/lib/deepLink';
+import { supabase } from '@/lib/supabase';
 import { syncRevenueCatIdentity } from '@/lib/revenueCat';
 import { applyDevPremiumOverride } from '@/lib/devPremium';
 import { ResumeCookHandler } from '@/components/ResumeCookHandler';
@@ -62,6 +63,7 @@ async function emitBootHeartbeatOnce() {
 
 function RootLayout() {
   const profile = useUserStore((s) => s.profile);
+  const authUserId = useUserStore((s) => s.authUserId);
   const authResolved = useUserStore((s) => s.authResolved);
   const registeredFor = useRef<string | null>(null);
   const rcInitedFor = useRef<string | null>(null);
@@ -120,8 +122,20 @@ function RootLayout() {
   // Mori+ — configure RevenueCat once we know who the user is. The wrapper is
   // a no-op when the kill switch is off OR the API key is missing, so this is
   // safe to leave wired before launch day.
+  // Track the signed-in user independently of the profile fetch. Supabase fires this for
+  // sign-in, sign-out and token refresh, so RevenueCat identity stays correct even when
+  // getProfile() fails at boot (which used to leave a paying subscriber on the free tier).
   useEffect(() => {
-    const uid = profile?.id ?? null;
+    const { data: sub } = supabase.auth.onAuthStateChange((_evt, session) => {
+      useUserStore.getState().setAuthUserId(session?.user?.id ?? null);
+    });
+    return () => sub?.subscription?.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    // Prefer the auth id; fall back to the profile id so behaviour is unchanged when the
+    // listener hasn't fired yet. Sign-out nulls BOTH, so the logout/identity-clear path holds.
+    const uid = authUserId ?? profile?.id ?? null;
     if (rcInitedFor.current === uid) return;
     const prev = rcInitedFor.current;
     rcInitedFor.current = uid;
@@ -139,7 +153,7 @@ function RootLayout() {
       const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
       if (tz) updateProfileTimezone(uid, tz).catch(() => {});
     }
-  }, [profile?.id]);
+  }, [authUserId, profile?.id]);
 
   useEffect(() => {
     emitBootHeartbeatOnce();

@@ -298,6 +298,7 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
           setProfile(null);
           useLeftoversStore.getState().reset();
           useGroceryStore.getState().clearAll();
+          useSavedStore.getState().reset(); // persisted — must be wiped or it leaks to the next account
           useActiveCookStore.getState().reset();
           router.replace('/onboarding/welcome');
         },
@@ -1007,6 +1008,7 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
           setProfile(null);
           useLeftoversStore.getState().reset();
           useGroceryStore.getState().clearAll();
+          useSavedStore.getState().reset(); // persisted — must be wiped or it leaks to the next account
           useActiveCookStore.getState().reset();
           onClose();
           router.replace('/onboarding/welcome');

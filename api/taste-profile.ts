@@ -75,7 +75,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const sb = getSupabase();
 
     // Fetch signal data in parallel
-    const [profileRes, swipesRes, interactionsRes] = await Promise.all([
+    const [profileRes, swipesRes, interactionsRes, savedRes] = await Promise.all([
       sb.from('profiles').select('dietary_goals, cuisine_preferences, eating_style, skill_level').eq('id', userId).single(),
       sb.from('swipe_events')
         .select('recipe_id, direction')
@@ -85,11 +85,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       sb.from('recipe_interactions')
         .select('recipe_id, interaction_type')
         .eq('user_id', userId),
+      // Saves live in saved_recipes — there is no 'save' interaction_type (the CHECK allows
+      // only view/grocery_add/cooked/unsave), so filtering interactions for it always returned
+      // an empty list and EVERY user's follow-through read "0 of 0 saved recipes / 0%".
+      sb.from('saved_recipes').select('recipe_id').eq('user_id', userId),
     ]);
 
     const profile = profileRes.data;
     const swipes = swipesRes.data ?? [];
     const interactions = interactionsRes.data ?? [];
+    const savedRows = savedRes.data ?? [];
 
     if (swipes.length < 5) {
       return res.status(200).json({ tasteProfile: null, reason: 'not_enough_data' });
@@ -100,7 +105,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const leftSwipeIds = swipes.filter((s) => s.direction === 'left').map((s) => s.recipe_id);
     const cookedIds = interactions.filter((i) => i.interaction_type === 'cooked').map((i) => i.recipe_id);
     const groceryIds = interactions.filter((i) => i.interaction_type === 'grocery_add').map((i) => i.recipe_id);
-    const savedIds = interactions.filter((i) => i.interaction_type === 'save').map((i) => i.recipe_id);
+    const savedIds = savedRows.map((r: any) => r.recipe_id).filter(Boolean);
 
     const allSignalIds = [...new Set([
       ...rightSwipeIds.slice(0, 20),

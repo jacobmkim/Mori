@@ -17,6 +17,10 @@ interface SavedStore {
   isSaved: (id: string) => boolean;
   loadSavedRecipes: (userId: string) => Promise<void>;
   addMealPrepId: (id: string) => void;
+  /** Wipe on sign-out / account deletion. This store is PERSISTED, so without an explicit
+   *  reset the previous account's saved library survives into the next user's session on the
+   *  same device — they see someone else's recipes and isSaved() blocks them from saving. */
+  reset: () => void;
 }
 
 export const useSavedStore = create<SavedStore>()(
@@ -97,6 +101,8 @@ export const useSavedStore = create<SavedStore>()(
       addMealPrepId: (id) => set((s) => ({
         mealPrepIds: s.mealPrepIds.includes(id) ? s.mealPrepIds : [...s.mealPrepIds, id],
       })),
+
+      reset: () => set({ savedRecipes: [], mealPrepIds: [], _removedPositions: {} }),
     }),
     {
       name: 'mori-saved-store',

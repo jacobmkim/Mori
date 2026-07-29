@@ -29,7 +29,7 @@ async function buildTasteProfileText(
   sb: SupabaseClient,
   anthropic: Anthropic,
 ): Promise<TasteProfileResult | null> {
-  const [profileRes, swipesRes, interactionsRes] = await Promise.all([
+  const [profileRes, swipesRes, interactionsRes, savedRes] = await Promise.all([
     sb.from('profiles')
       .select('dietary_goals, cuisine_preferences, eating_style, skill_level')
       .eq('id', userId).single(),
@@ -41,18 +41,22 @@ async function buildTasteProfileText(
     sb.from('recipe_interactions')
       .select('recipe_id, interaction_type')
       .eq('user_id', userId),
+    // Saves live in saved_recipes; 'save' is not a valid interaction_type, so the old filter
+    // always produced 0 and every user's follow-through read 0%.
+    sb.from('saved_recipes').select('recipe_id').eq('user_id', userId),
   ]);
 
   const profile = profileRes.data;
   const swipes = swipesRes.data ?? [];
   const interactions = interactionsRes.data ?? [];
+  const savedRows = savedRes.data ?? [];
 
   if (swipes.length < 5) return null;
 
   const rightSwipeIds = swipes.filter((s) => s.direction === 'right').map((s) => s.recipe_id);
   const cookedIds = interactions.filter((i) => i.interaction_type === 'cooked').map((i) => i.recipe_id);
   const groceryIds = interactions.filter((i) => i.interaction_type === 'grocery_add').map((i) => i.recipe_id);
-  const savedIds = interactions.filter((i) => i.interaction_type === 'save').map((i) => i.recipe_id);
+  const savedIds = savedRows.map((r: any) => r.recipe_id).filter(Boolean);
   const allSignalIds = [...new Set([...rightSwipeIds.slice(0, 20), ...cookedIds, ...groceryIds])];
 
   const { data: signalRecipes } = await sb

@@ -83,7 +83,9 @@ export const useMealPlanStore = create<MealPlanStore>((set, get) => ({
       const plan = await getMealPlanForWeek(userId, weekStart);
       set({ plan, isLoading: false });
     } catch {
-      set({ error: 'Failed to load meal plan', isLoading: false });
+      // Clear the plan: leaving the PREVIOUS week's object in the store made the UI show
+      // another week's meals, and the next edit saved into that week's row.
+      set({ plan: null, error: 'Failed to load meal plan', isLoading: false });
     }
   },
 

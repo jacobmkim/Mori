@@ -193,6 +193,8 @@ describe('taste-profile budget gate', () => {
     mockFrom.mockImplementation((table: string) => {
       if (table === 'swipe_events') return chain({ data: SWIPES, error: null });
       if (table === 'recipe_interactions') return chain({ data: [], error: null });
+      // Saves come from saved_recipes now ('save' was never a valid interaction_type).
+      if (table === 'saved_recipes') return chain({ data: [], error: null });
       if (table === 'recipes') return chain({ data: [], error: null });
       return chain({ data: { dietary_goals: [], cuisine_preferences: [], eating_style: null, skill_level: null }, error: null });
     });
@@ -232,6 +234,8 @@ describe('taste-profile budget gate', () => {
     mockFrom.mockImplementation((table: string) => {
       if (table === 'swipe_events') return chain({ data: SWIPES, error: null });
       if (table === 'recipe_interactions') return chain({ data: [], error: null });
+      // Saves come from saved_recipes now ('save' was never a valid interaction_type).
+      if (table === 'saved_recipes') return chain({ data: [], error: null });
       if (table === 'recipes') return chain({ data: [], error: null });
       const profiles = chain({ data: { dietary_goals: [], cuisine_preferences: [], eating_style: null, skill_level: null }, error: null });
       (profiles as any).update = jest.fn(() => failingUpdate);
@@ -249,6 +253,8 @@ describe('taste-profile budget gate', () => {
     mockFrom.mockImplementation((table: string) => {
       if (table === 'swipe_events') return chain({ data: [{ recipe_id: 'r1', direction: 'right' }], error: null });
       if (table === 'recipe_interactions') return chain({ data: [], error: null });
+      // Saves come from saved_recipes now ('save' was never a valid interaction_type).
+      if (table === 'saved_recipes') return chain({ data: [], error: null });
       return chain({ data: {}, error: null });
     });
     const res = makeRes();

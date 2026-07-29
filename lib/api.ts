@@ -1957,10 +1957,15 @@ export async function saveMealPlan(
       .update({ slots })
       .eq('id', existingId)
       .eq('user_id', userId) // defense-in-depth; RLS already scopes writes to auth.uid()
+      // CRITICAL: scope by week too. This id comes from the client store, which can hold a
+      // DIFFERENT week's plan (a failed week-switch used to leave the old plan in place) —
+      // without this, the edit overwrote that other week and destroyed it. A mismatch now
+      // matches 0 rows and falls through to the week-keyed upsert below, which is correct.
+      .eq('week_start_date', weekStart)
       .select()
-      .single();
+      .maybeSingle();
     if (error) throw error;
-    return data;
+    if (data) return data;
   }
   // Upsert on (user_id, week_start_date): a save for a week that already has a row —
   // e.g. a rapid double-accept before the inserted id latches into the store — updates
