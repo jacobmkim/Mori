@@ -236,3 +236,65 @@ describe('mealPlanStore — clearSlots', () => {
     expect(useMealPlanStore.getState().plan).toBeNull();
   });
 });
+
+// ─── Load ordering + save-refusal (2026-07-29 verification review) ────────────
+
+describe('mealPlanStore — concurrent loads', () => {
+  it('a slow LOSER load cannot overwrite the winner (Sunday Drop deep-link race)', async () => {
+    // The Plan tab mounts on the current week, then `mori://plan?week=` switches it — two loads
+    // are in flight. Without a sequence token the slow first one lands last, leaving loadedWeek
+    // on the wrong week, and savePlan then refuses forever on a perfect connection.
+    let resolveSlow: (v: any) => void = () => {};
+    mockGetMealPlan
+      .mockImplementationOnce(() => new Promise((r) => { resolveSlow = r; }))   // current week (slow)
+      .mockResolvedValueOnce({ ...MOCK_PLAN, week_start_date: '2026-08-03' });  // dropped week (fast)
+
+    const p1 = useMealPlanStore.getState().loadPlan('user-1', '2026-07-27');
+    const p2 = useMealPlanStore.getState().loadPlan('user-1', '2026-08-03');
+    await p2;
+    resolveSlow({ ...MOCK_PLAN, week_start_date: '2026-07-27' });
+    await p1;
+
+    expect(useMealPlanStore.getState().loadedWeek).toBe('2026-08-03');
+  });
+
+  it('a superseded FAILING load cannot clear the winner', async () => {
+    let rejectSlow: (e: any) => void = () => {};
+    mockGetMealPlan
+      .mockImplementationOnce(() => new Promise((_r, rej) => { rejectSlow = rej; }))
+      .mockResolvedValueOnce({ ...MOCK_PLAN, week_start_date: '2026-08-03' });
+
+    const p1 = useMealPlanStore.getState().loadPlan('user-1', '2026-07-27');
+    const p2 = useMealPlanStore.getState().loadPlan('user-1', '2026-08-03');
+    await p2;
+    rejectSlow(new Error('network'));
+    await p1;
+
+    expect(useMealPlanStore.getState().loadedWeek).toBe('2026-08-03');
+    expect(useMealPlanStore.getState().plan).not.toBeNull();
+  });
+});
+
+describe('mealPlanStore — savePlan refuses an unknown week', () => {
+  it('returns false and writes NOTHING when the week was never loaded', async () => {
+    useMealPlanStore.setState({ loadedWeek: null });
+    const ok = await useMealPlanStore.getState().savePlan('user-1', '2026-04-07');
+    expect(ok).toBe(false);
+    expect(mockSaveMealPlan).not.toHaveBeenCalled();
+  });
+
+  it('returns false when the loaded week is a DIFFERENT week (no cross-week write)', async () => {
+    useMealPlanStore.setState({ loadedWeek: '2026-04-07' });
+    const ok = await useMealPlanStore.getState().savePlan('user-1', '2026-04-14');
+    expect(ok).toBe(false);
+    expect(mockSaveMealPlan).not.toHaveBeenCalled();
+  });
+
+  it('a genuinely empty week still saves (loadedWeek set, plan null)', async () => {
+    useMealPlanStore.setState({ plan: null, loadedWeek: '2026-04-07' });
+    mockSaveMealPlan.mockResolvedValueOnce(MOCK_PLAN);
+    const ok = await useMealPlanStore.getState().savePlan('user-1', '2026-04-07');
+    expect(ok).toBe(true);
+    expect(mockSaveMealPlan).toHaveBeenCalledWith('user-1', '2026-04-07', [], undefined);
+  });
+});

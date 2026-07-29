@@ -17,6 +17,7 @@ import { router } from 'expo-router';
 import { useTheme } from '@/hooks/useTheme';
 import { useUserStore } from '@/stores/userStore';
 import { useSavedStore } from '@/stores/savedStore';
+import { useMealPlanStore } from '@/stores/mealPlanStore';
 import { useLeftoversStore } from '@/stores/leftoversStore';
 import { useGroceryStore } from '@/stores/groceryStore';
 import { useActiveCookStore } from '@/stores/activeCookStore';
@@ -299,6 +300,7 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
           useLeftoversStore.getState().reset();
           useGroceryStore.getState().clearAll();
           useSavedStore.getState().reset(); // persisted — must be wiped or it leaks to the next account
+          useMealPlanStore.getState().reset();
           // Declare the session over for RevenueCat too. onAuthStateChange covers a normal
           // sign-out, but delete-account (and a sign-out whose network call fails) may not fire
           // it — leaving RC identified as the previous user on a shared device.
@@ -1013,6 +1015,7 @@ export function ProfileSheet({ visible, onClose }: { visible: boolean; onClose: 
           useLeftoversStore.getState().reset();
           useGroceryStore.getState().clearAll();
           useSavedStore.getState().reset(); // persisted — must be wiped or it leaks to the next account
+          useMealPlanStore.getState().reset();
           // Declare the session over for RevenueCat too. onAuthStateChange covers a normal
           // sign-out, but delete-account (and a sign-out whose network call fails) may not fire
           // it — leaving RC identified as the previous user on a shared device.

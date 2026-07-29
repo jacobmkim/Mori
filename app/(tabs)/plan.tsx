@@ -390,7 +390,7 @@ export default function Plan() {
     const multiplier = servings && servings > 0 ? Math.min(10, Math.max(0.1, servings / base)) : 1;
     addSlot({ day, meal_type: mealType, recipe_id: recipeId, servings_multiplier: multiplier });
     setSlotRecipes((prev) => ({ ...prev, [recipeId]: recipe }));
-    savePlan(userId, weekStart);
+    persistWeek();
   }
 
   // Picker row/card tap. In Build-my-week mode, assign DIRECTLY to the proposal — fewer taps and it
@@ -431,19 +431,19 @@ export default function Plan() {
     setSlotCooked(day, mealType, now);
     const others = otherUncookedSlotsWithRecipe(slots, recipeId, { day, meal_type: mealType });
     if (others.length === 0) {
-      if (userId) savePlan(userId, weekStart);
+      persistWeek();
       return;
     }
     Alert.alert(
       'Cooked a batch?',
       `You have ${recipeTitle} in ${others.length} other meal${others.length > 1 ? 's' : ''} this week. Mark ${others.length > 1 ? 'them' : 'it'} cooked too?`,
       [
-        { text: 'Just this one', style: 'cancel', onPress: () => { if (userId) savePlan(userId, weekStart); } },
+        { text: 'Just this one', style: 'cancel', onPress: () => { persistWeek(); } },
         {
           text: `Mark all ${others.length}`,
           onPress: () => {
             others.forEach((o) => setSlotCooked(o.day, o.meal_type, now));
-            if (userId) savePlan(userId, weekStart);
+            persistWeek();
           },
         },
       ],
@@ -455,7 +455,7 @@ export default function Plan() {
     if (!slot) return;
     if (slot.cooked_at) {
       setSlotCooked(day, mealType, null);
-      if (userId) savePlan(userId, weekStart);
+      persistWeek();
     } else {
       const recipe = slotRecipes[slot.recipe_id];
       markSlotCooked(day, mealType, slot.recipe_id, recipe?.title ?? 'this recipe');
@@ -489,7 +489,7 @@ export default function Plan() {
   function handleRemove(day: number, mealType: MealType) {
     if (!userId) return;
     removeSlot(day, mealType);
-    savePlan(userId, weekStart);
+    persistWeek();
   }
 
   // Copy a chosen past week's meals into this week. Copying is a fresh MANUAL action: drop the
@@ -500,7 +500,7 @@ export default function Plan() {
     const apply = () => {
       clearSlots();
       sourceSlots.forEach((s) => addSlot({ ...s, cooked_at: null, provenance: 'manual', auto_explanation: null }));
-      savePlan(userId, weekStart);
+      persistWeek();
     };
     if (slots.length === 0) { apply(); return; }
     Alert.alert(
@@ -528,7 +528,7 @@ export default function Plan() {
           style: 'destructive',
           onPress: () => {
             clearSlots();
-            savePlan(userId, weekStart);
+            persistWeek();
           },
         },
       ]
@@ -733,7 +733,7 @@ export default function Plan() {
         addSlot({ day, meal_type: r.mealType, recipe_id: rid, servings_multiplier: 1, provenance: 'manual' });
       });
       setSlotRecipes((prev) => ({ ...prev, [rid]: r.recipe }));
-      savePlan(userId, weekStart);
+      persistWeek();
     }
   }
 
@@ -784,6 +784,25 @@ export default function Plan() {
       time_of_day: getTimeOfDay(),
       day_of_week: new Date().getDay(),
       session_number: null,
+    }).catch(() => {});
+  }
+
+  /**
+   * Persist the week and SURFACE failures. savePlan can legitimately refuse (the week was never
+   * successfully loaded, so writing would overwrite unknown data) and every slot mutation here is
+   * optimistic — silently dropping the write meant the user watched a meal appear on screen and
+   * found it gone at next launch, with "Clear week" the worst case. On failure we tell them and
+   * re-sync from the DB so the screen stops lying.
+   */
+  function persistWeek() {
+    if (!userId) return;
+    savePlan(userId, weekStart).then((ok) => {
+      if (ok) return;
+      Alert.alert(
+        "Couldn't save your plan",
+        "That change wasn't saved. Check your connection — your week has been refreshed from the last saved version.",
+      );
+      loadPlan(userId, weekStart).catch(() => {});
     }).catch(() => {});
   }
 

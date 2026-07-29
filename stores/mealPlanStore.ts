@@ -10,6 +10,13 @@ const EMPTY_PLAN: MealPlan = {
 // upserts at once) can't reinstate a stale plan over a newer one in the store.
 let saveSeq = 0;
 
+// Same discipline for LOADS. Several loads can be in flight at once — the Plan tab mounts on the
+// current week and a `mori://plan?week=` deep link immediately switches it, and Discover also
+// loads the current week — so without a token a slow loser can land last and leave `loadedWeek`
+// pointing at the wrong week. With the savePlan guard in place that presents as "Couldn't save
+// this plan" on a perfect connection, on the flagship Sunday Drop path.
+let loadSeq = 0;
+
 interface MealPlanStore {
   plan: MealPlan | null;
   isLoading: boolean;
@@ -31,6 +38,10 @@ interface MealPlanStore {
    *  "we don't know what's in this week". Saving under the second meaning overwrites a real
    *  week with an empty one, so savePlan refuses unless this matches the week being saved. */
   loadedWeek: string | null;
+  /** Wipe on sign-out / account deletion. Memory-only (not persisted), but the next user on a
+   *  shared device would otherwise see the previous account's week until their own load lands —
+   *  and with the loadedWeek guard, a failed load could leave them staring at it. */
+  reset: () => void;
 }
 
 export const useMealPlanStore = create<MealPlanStore>((set, get) => ({
@@ -84,17 +95,22 @@ export const useMealPlanStore = create<MealPlanStore>((set, get) => ({
   setError: (error) => set({ error }),
 
   loadPlan: async (userId: string, weekStart: string) => {
+    const mySeq = ++loadSeq;
     set({ isLoading: true, error: null });
     try {
       const plan = await getMealPlanForWeek(userId, weekStart);
+      if (mySeq !== loadSeq) return; // superseded by a newer load — its result owns the store
       set({ plan, loadedWeek: weekStart, isLoading: false });
     } catch {
+      if (mySeq !== loadSeq) return;
       // Clear the plan AND mark the week unknown. Clearing alone was worse than the bug it
       // replaced: the UI rendered a real week as empty, and the next edit persisted that
       // empty week over the user's actual meals.
       set({ plan: null, loadedWeek: null, error: 'Failed to load meal plan', isLoading: false });
     }
   },
+
+  reset: () => set({ plan: null, loadedWeek: null, isLoading: false, error: null }),
 
   savePlan: async (userId: string, weekStart: string) => {
     const { plan, loadedWeek } = get();
